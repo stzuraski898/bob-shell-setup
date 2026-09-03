@@ -1,0 +1,7 @@
+# Generated tracker report output
+ceph-tracker/*.html
+ceph-tracker/.last_run_ts
+
+# Never commit credentials
+.env
+*.env
