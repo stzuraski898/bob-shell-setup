@@ -2,6 +2,8 @@
 
 Personal tooling for running **IBM Bob Shell** agents against the [Ceph](https://github.com/ceph/ceph) source tree, plus a helper script for tracking open issues on [tracker.ceph.com](https://tracker.ceph.com).
 
+The goal of this repo is to make parallel, AI-assisted development on a large open-source codebase practical from a single laptop. Rather than working on one issue at a time, `launch-bob-agents.sh` spins up five Bob Shell agents simultaneously — each isolated in its own git worktree with its own branch — so multiple tracker issues can be researched, implemented, and committed concurrently without conflicts. The companion `ceph-tracker-issues.sh` script keeps that workflow grounded by giving a fast, at-a-glance view of every open issue assigned to you, enriched with the latest activity from both Redmine and GitHub PRs, so you always know what needs attention before dispatching agents. Together, the tools are meant to compress the feedback loop between "issue is open" and "patch is ready for review."
+
 ---
 
 ## Repository layout
