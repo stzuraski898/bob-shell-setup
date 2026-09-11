@@ -5,3 +5,9 @@ ceph-tracker/.last_run_ts
 # Never commit credentials
 .env
 *.env
+
+# Object history — raw corpus and intent artefacts (large, machine-generated)
+Object-History-v3/
+Object-History-intent/
+Object-History-raw/
+Inputs/Object\ History/raw/
