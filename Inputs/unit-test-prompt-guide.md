@@ -201,7 +201,6 @@ of the work. "More tests" is not a logical commit — it is noise in the history
 
    ```
    Fixes: https://tracker.ceph.com/issues/<ID>
-   Signed-off-by: Steven Zuraski <steven.zuraski@ibm.com>
    Assisted-by: IBM Bob
    ```
 
@@ -381,7 +380,111 @@ per-dimension inventories. Every commit must end with this footer (no blank line
 between the three lines):
 
 Fixes: https://tracker.ceph.com/issues/<ID>
-Signed-off-by: Steven Zuraski <steven.zuraski@ibm.com>
+Assisted-by: IBM Bob
+
+When all work is committed, run: git checkout agent/<N>
+```
+
+---
+
+## 12. Use the intent artefact when available
+
+When a `<ClassName>-intent.md` file exists at
+`/home/szuraski/BobOutput/Object History/<ClassName>-intent.md`, the test-writing
+agent should read it **before** reading the current source. This file was produced
+by a separate assessment agent that analysed the git history to reconstruct what
+each function was *designed* to do — not just what it currently does.
+
+### Why this order matters
+
+A test agent that reads the source first will write tests that validate the current
+implementation. An agent that reads the intent artefact first will write tests that
+validate the *contract* — and may expose divergences where the implementation
+drifted from intent.
+
+### How to use the artefact
+
+- **Invariants and contracts → EXPECT assertions.** Every bullet in the "Invariants
+  and contracts" section of a function's entry must become at least one `EXPECT_*`
+  assertion in the test suite. If the artefact says "must not return success when
+  the request map is empty", there must be a test that asserts exactly that.
+
+- **DIVERGED functions → intent-first tests.** If a function is flagged `DIVERGED`,
+  write the test against the *stated intent*, not the current implementation. The
+  test may fail on the current code — that is intentional. Mark it with a comment:
+  ```cpp
+  // Intent (from history): <what artefact says>.
+  // Current code diverges — this test validates the intended contract.
+  ```
+  Do not disable or skip DIVERGED tests — they are the point of the exercise.
+
+- **Error conditions → dedicated error-path tests.** Each bullet in the "Error
+  conditions" section becomes a separate test case that reaches that path and
+  asserts the documented return value or state.
+
+- **Deferred / known incomplete → DISABLED_ or TODO.** Items marked as deferred
+  in the artefact should be written as `DISABLED_<TestName>` tests or annotated
+  with a `// TODO:` comment so they are visible but do not block CI.
+
+### Include the intent artefact path in the prompt
+
+When the intent artefact exists, add to the Step 2 (test-writing) instruction:
+
+> Before reading the source, read the intent artefact at
+> `/home/szuraski/BobOutput/Object History/<ClassName>-intent.md`. Use the
+> invariants, contracts, and error conditions documented there as the specification
+> for what to test. For any function flagged DIVERGED, write the test against the
+> stated intent — not the current implementation.
+
+### Template — implementation task with intent artefact
+
+```
+https://tracker.ceph.com/issues/<ID>
+Start work on this tracker: <Title>. Step 1: check whether a local branch
+matching wip-sz-<ID>* already exists (git branch --list 'wip-sz-<ID>*'). If it
+does, check it out. If not, create a new branch named wip-sz-<ID>-<short-description>
+from the tip of ceph-origin/main. Step 2: read the intent artefact at
+/home/szuraski/BobOutput/Object History/<ClassName>-intent.md before reading the
+source. Use the invariants, contracts, and error conditions documented there as the
+specification for what to test. For any function flagged DIVERGED, write the test
+against the stated intent — not the current implementation. Then write the unit
+tests for <Class> in src/test/mgr/, following the patterns in the existing test
+files (test_clusterstate.cc, test_daemonstate.cc). Do not stop after reading —
+proceed immediately to writing code. Every test must include ASSERT/EXPECT macros
+that verify actual values — not just that the code runs without crashing. A test
+with no assertions is not acceptable. Step 3: update CMakeLists.txt to build the
+new test. Step 4: if the build directory does not exist or is not configured, run
+./do_cmake.sh to configure it. Then build with:
+ninja -C build unittest_mgr_<name>. Run the test with:
+./build/bin/unittest_mgr_<name>. The run is only considered passing when the
+output contains [  PASSED  ] N tests. and the command exits with code 0 — an
+Exit code: unknown or signal-terminated exit is a crash that must be fixed
+before proceeding. Step 5: perform a gap analysis across all four dimensions:
+(1) method coverage — every public method called and its return value verified,
+cross-checked against the intent artefact;
+(2) error paths — every guard clause, early return, and error code reached and
+asserted, including every error condition listed in the intent artefact;
+(3) boundary/edge cases — null inputs, empty collections, zero/max values,
+pre-condition violations documented in the invariants;
+(4) state transitions — every internal state change exercised, including any
+DIVERGED transitions. Write gap analysis notes to
+/home/szuraski/BobOutput/agent-<N>/<ID>-<desc>-run<N>/ — do not commit these
+notes. If any gaps are found, add tests, rebuild, rerun, and repeat the gap
+analysis from scratch. Do not shortcut this — a gap analysis that produces an
+empty list on the first pass is almost certainly wrong. Step 6: once all four
+gap lists are genuinely empty and all tests pass, squash all test work into the
+fewest logical commits needed: check whether a previous test commit already
+exists on this branch (git log --oneline); if it does, use git commit --amend
+or a soft-reset+recommit (git reset --soft HEAD~1 && git commit) to fold new
+tests into it rather than creating a separate "more tests" commit — note that
+git rebase -i may fail in this worktree due to submodule symlink issues, so
+prefer amend or soft-reset. Each commit message must be concise: a subject line
+naming the scope and a short body (one or two sentences) describing what was
+missing and how the tests address it — no section headers, no bullet lists, no
+per-dimension inventories. Every commit must end with this footer (no blank lines
+between the three lines):
+
+Fixes: https://tracker.ceph.com/issues/<ID>
 Assisted-by: IBM Bob
 
 When all work is committed, run: git checkout agent/<N>
