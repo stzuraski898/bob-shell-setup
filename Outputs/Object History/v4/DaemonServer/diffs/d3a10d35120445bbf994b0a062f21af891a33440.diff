@@ -1,0 +1,71 @@
+commit d3a10d35120445bbf994b0a062f21af891a33440
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 21 20:24:24 2017 -0500
+
+    mgr/MgrStandby: add LogClient
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 1a0bd404e16..efd453d9051 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -28,9 +28,11 @@
+ #define dout_prefix *_dout << "mgr.server " << __func__ << " "
+ 
+ DaemonServer::DaemonServer(MonClient *monc_,
+-  DaemonStateIndex &daemon_state_,
+-  ClusterState &cluster_state_,
+-  PyModules &py_modules_)
++			   DaemonStateIndex &daemon_state_,
++			   ClusterState &cluster_state_,
++			   PyModules &py_modules_,
++			   LogChannelRef clog_,
++			   LogChannelRef audit_clog_)
+     : Dispatcher(g_ceph_context),
+       client_byte_throttler(new Throttle(g_ceph_context, "mgr_client_bytes",
+ 					 g_conf->mgr_client_bytes)),
+@@ -53,6 +55,8 @@ DaemonServer::DaemonServer(MonClient *monc_,
+       daemon_state(daemon_state_),
+       cluster_state(cluster_state_),
+       py_modules(py_modules_),
++      clog(clog_),
++      audit_clog(audit_clog_),
+       auth_registry(g_ceph_context,
+                     g_conf->auth_supported.empty() ?
+                       g_conf->auth_cluster_required :
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 160bd5939a8..4337d727dd5 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -20,6 +20,7 @@
+ #include <string>
+ 
+ #include "common/Mutex.h"
++#include "common/LogClient.h"
+ 
+ #include <msg/Messenger.h>
+ #include <mon/MonClient.h>
+@@ -56,6 +57,7 @@ protected:
+   DaemonStateIndex &daemon_state;
+   ClusterState &cluster_state;
+   PyModules &py_modules;
++  LogChannelRef clog, audit_clog;
+ 
+   AuthAuthorizeHandlerRegistry auth_registry;
+ 
+@@ -78,9 +80,11 @@ public:
+   entity_addr_t get_myaddr() const;
+ 
+   DaemonServer(MonClient *monc_,
+-      DaemonStateIndex &daemon_state_,
+-      ClusterState &cluster_state_,
+-      PyModules &py_modules_);
++	       DaemonStateIndex &daemon_state_,
++	       ClusterState &cluster_state_,
++	       PyModules &py_modules_,
++	       LogChannelRef cl,
++	       LogChannelRef auditcl);
+   ~DaemonServer() override;
+ 
+   bool ms_dispatch(Message *m) override;

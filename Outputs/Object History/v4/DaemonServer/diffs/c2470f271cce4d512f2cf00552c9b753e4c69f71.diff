@@ -1,0 +1,42 @@
+commit c2470f271cce4d512f2cf00552c9b753e4c69f71
+Author: Jos Collin <jcollin@redhat.com>
+Date:   Tue Jun 29 15:29:01 2021 +0530
+
+    mgr, pybind/mgr, mgr/stats: be resilient to offline rank0 MDS
+    
+    Reregister the user queries during the rank0 MDS failover event
+    by calling listener.handle_query_updated(). This enables
+    `ceph fs perf stats` to receive the updated metrics after the
+    failover.
+    
+    Fixes: https://tracker.ceph.com/issues/50033
+    Signed-off-by: Jos Collin <jcollin@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index f5c0376c7ca..fd493a8d947 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -3084,6 +3084,11 @@ int DaemonServer::remove_mds_perf_query(MetricQueryID query_id)
+   return mds_perf_metric_collector.remove_query(query_id);
+ }
+ 
++void DaemonServer::reregister_mds_perf_queries()
++{
++  mds_perf_metric_collector.reregister_queries();
++}
++
+ int DaemonServer::get_mds_perf_counters(MDSPerfCollector *collector)
+ {
+   return mds_perf_metric_collector.get_counters(collector);
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index b3c9f191aa1..d719a96a7bc 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -296,6 +296,7 @@ public:
+   MetricQueryID add_mds_perf_query(const MDSPerfMetricQuery &query,
+                                    const std::optional<MDSPerfMetricLimit> &limit);
+   int remove_mds_perf_query(MetricQueryID query_id);
++  void reregister_mds_perf_queries();
+   int get_mds_perf_counters(MDSPerfCollector *collector);
+ 
+   virtual const char** get_tracked_conf_keys() const override;

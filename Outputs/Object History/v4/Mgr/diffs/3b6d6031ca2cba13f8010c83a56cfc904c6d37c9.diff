@@ -1,0 +1,25 @@
+commit 3b6d6031ca2cba13f8010c83a56cfc904c6d37c9
+Author: Jos Collin <jcollin@redhat.com>
+Date:   Tue Oct 24 20:46:41 2017 +0530
+
+    mon,mgr,doc,test: standardize argument as role
+    
+    `ceph rmfailed` refers to its argument as "who" and `ceph repaired` refers to its argument as "rank". We should make these commands and others consistent by standardizing the argument as "role".
+    
+    Fixes: http://tracker.ceph.com/issues/21393
+    
+    Signed-off-by: Jos Collin <jcollin@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index eed2bae7200..de0933da3d3 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -567,7 +567,7 @@ void Mgr::handle_fs_map(MFSMap* m)
+       c->set_default("addr", stringify(info.addr));
+ 
+       std::ostringstream cmd;
+-      cmd << "{\"prefix\": \"mds metadata\", \"who\": \""
++      cmd << "{\"prefix\": \"mds metadata\", \"role\": \""
+           << info.name << "\"}";
+       monc->start_mon_command(
+           {cmd.str()},

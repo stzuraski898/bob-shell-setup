@@ -1,0 +1,37 @@
+commit 890f482568574757eab4a46c5c8fb362404dd0ce
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu May 25 18:25:27 2017 -0400
+
+    mgr/MgrStandby: prevent use-after-free on just-shut-down Mgr
+    
+    Fixes: http://tracker.ceph.com/issues/19595
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 1bfcadd71b4..bc946e41c18 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -258,8 +258,9 @@ bool MgrStandby::ms_dispatch(Message *m)
+ 
+     default:
+       if (active_mgr) {
++	auto am = active_mgr;
+         lock.Unlock();
+-        active_mgr->ms_dispatch(m);
++        am->ms_dispatch(m);
+         lock.Lock();
+       } else {
+         return false;
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index d33c633dc42..b60d591018e 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -53,7 +53,7 @@ protected:
+   Mutex lock;
+   SafeTimer timer;
+ 
+-  std::unique_ptr<Mgr> active_mgr;
++  std::shared_ptr<Mgr> active_mgr;
+ 
+   std::string state_str();
+ 

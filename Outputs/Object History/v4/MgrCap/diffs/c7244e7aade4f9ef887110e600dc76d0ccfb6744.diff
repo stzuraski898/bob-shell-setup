@@ -1,0 +1,21 @@
+commit c7244e7aade4f9ef887110e600dc76d0ccfb6744
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jun 17 14:43:47 2020 -0500
+
+    misc language changes: whitelist -> ignore etc
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/MgrCap.cc b/src/mgr/MgrCap.cc
+index 555779d5764..cba758083c3 100644
+--- a/src/mgr/MgrCap.cc
++++ b/src/mgr/MgrCap.cc
+@@ -186,7 +186,7 @@ void MgrCapGrant::expand_profile(std::ostream *err) const {
+       perms = mgr_rwxa_t{MGR_CAP_R | MGR_CAP_W};
+     }
+ 
+-    // whitelist all 'rbd_support' commands (restricted by optional
++    // allow all 'rbd_support' commands (restricted by optional
+     // pool/namespace constraints)
+     profile_grants.push_back({{}, "rbd_support", {}, {},
+                               std::move(filtered_arguments), perms});

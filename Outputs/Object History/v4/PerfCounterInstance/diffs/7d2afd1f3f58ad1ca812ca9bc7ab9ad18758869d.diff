@@ -1,0 +1,46 @@
+commit 7d2afd1f3f58ad1ca812ca9bc7ab9ad18758869d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Aug 8 23:13:44 2006 +0000
+
+    *** empty log message ***
+    
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@791 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/ceph/common/Clock.h b/ceph/common/Clock.h
+index 158d039a519..492e73c99f0 100644
+--- a/ceph/common/Clock.h
++++ b/ceph/common/Clock.h
+@@ -121,6 +121,7 @@ class Clock {
+   //utime_t start_offset;
+   //utime_t abs_last;
+   utime_t last;
++  utime_t zero;
+ 
+  public:
+   Clock() {
+@@ -131,14 +132,24 @@ class Clock {
+   // relative time (from startup)
+   const utime_t& now() {
+ 	gettimeofday(&last.timeval(), NULL);
++	last -= zero;
+ 	//last = abs_last - start_offset;
+ 	return last;
+   }
++  const utime_t real_now() {
++	utime_t now;
++	gettimeofday(&now.timeval(), NULL);
++	return now;
++  }
+ 
+   const utime_t& recent_now() {
+ 	return last;
+   }
+ 
++  void tare() {
++	gettimeofday(&zero.timeval(), NULL);
++  }
++
+   // absolute time
+   time_t gettime() {
+ 	now();

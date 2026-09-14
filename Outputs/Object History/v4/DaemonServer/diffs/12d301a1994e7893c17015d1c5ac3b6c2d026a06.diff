@@ -1,0 +1,34 @@
+commit 12d301a1994e7893c17015d1c5ac3b6c2d026a06
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Sep 18 12:46:09 2019 +0800
+
+    mgr: pass MessageRef to monc.send_mon_message()
+    
+    less chance to leak memory
+    
+    see also: https://tracker.ceph.com/issues/37884
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ba6c7f8c4a8..6722d0812ed 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2356,7 +2356,7 @@ void DaemonServer::send_report()
+     }
+   }
+ 
+-  auto m = new MMonMgrReport();
++  auto m = ceph::make_message<MMonMgrReport>();
+   py_modules.get_health_checks(&m->health_checks);
+   py_modules.get_progress_events(&m->progress_events);
+ 
+@@ -2427,7 +2427,7 @@ void DaemonServer::send_report()
+   // TODO? We currently do not notify the PyModules
+   // TODO: respect needs_send, so we send the report only if we are asked to do
+   //       so, or the state is updated.
+-  monc->send_mon_message(m);
++  monc->send_mon_message(std::move(m));
+ }
+ 
+ void DaemonServer::adjust_pgs()

@@ -1,0 +1,43 @@
+commit 25963f24e59568871e8231432bfc31d60624e911
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Sun Sep 29 14:15:07 2019 +0800
+
+    mgr: fix weird health-alert daemon key
+    
+    Was:
+      19 slow ops, oldest one blocked for 34 sec, daemons [osd,2,osd,4] have slow ops.
+    
+    Now:
+      153 slow ops, oldest one blocked for 38 sec, daemons [osd.3,osd.4,osd.5] have slow ops.
+    
+    Fixes: https://tracker.ceph.com/issues/42079
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/DaemonHealthMetricCollector.cc b/src/mgr/DaemonHealthMetricCollector.cc
+index 0f4d5bd643e..711ebe60da8 100644
+--- a/src/mgr/DaemonHealthMetricCollector.cc
++++ b/src/mgr/DaemonHealthMetricCollector.cc
+@@ -11,6 +11,23 @@ ostream& operator<<(ostream& os,
+   return os << daemon.first << "." << daemon.second;
+ }
+ 
++// define operator<<(ostream&, const vector<DaemonKey>&) after
++// ostream& operator<<(ostream&, const DaemonKey&), so that C++'s
++// ADL can use the former instead of using the generic one:
++// operator<<(ostream&, const std::pair<A,B>&)
++ostream& operator<<(
++   ostream& os,
++   const vector<DaemonHealthMetricCollector::DaemonKey>& daemons)
++{
++  os << "[";
++  for (auto d = daemons.begin(); d != daemons.end(); ++d) {
++    if (d != daemons.begin()) os << ",";
++    os << *d;
++  }
++  os << "]";
++  return os;
++}
++
+ namespace {
+ 
+ class SlowOps final : public DaemonHealthMetricCollector {

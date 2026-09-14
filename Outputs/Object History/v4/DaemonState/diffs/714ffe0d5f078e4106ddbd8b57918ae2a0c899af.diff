@@ -1,0 +1,21 @@
+commit 714ffe0d5f078e4106ddbd8b57918ae2a0c899af
+Author: Shanchun Lv <lvshanchun@gmail.com>
+Date:   Tue Mar 13 14:41:14 2018 +0800
+
+    mgr,osd: make osd_metric more popular
+    
+    Signed-off-by: lvshanchun <lvshanchun@gmail.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 545d4b1bebc..15106f7f07b 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -98,7 +98,7 @@ class DaemonState
+   std::map<std::string, std::string> metadata;
+ 
+   // TODO: this can be generalized to other daemons
+-  std::vector<OSDHealthMetric> osd_health_metrics;
++  std::vector<DaemonHealthMetric> daemon_health_metrics;
+ 
+   // Ephemeral state
+   bool service_daemon = false;

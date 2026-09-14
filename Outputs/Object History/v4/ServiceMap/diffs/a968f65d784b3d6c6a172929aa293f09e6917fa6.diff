@@ -1,0 +1,126 @@
+commit a968f65d784b3d6c6a172929aa293f09e6917fa6
+Author: Xiubo Li <xiubli@redhat.com>
+Date:   Thu Feb 4 14:14:13 2021 +0800
+
+    mgr: enhance the rados service
+    
+    For some use cases, like the tcmu-runner, there maybe handreds or
+    thousands of LUNs, and then for each LUN it will register one service
+    daemon, then in the `ceph -s` output will be full of useless info.
+    
+    This will allow to classify the sevices service daemons in one
+    specified format by adding two pairs in metadata:
+    
+      "daemon_type"   : "${TYPE}"
+      "daemon_prefix" : "${PREFIX}"
+    
+    TYPE: will be used to replace the default "daemon(s)"
+    showed in `ceph -s`. If absent, the "daemon" will be used.
+    PREFIX: if present the active members will be classified
+    by the prefix instead of "daemon_name".
+    
+    For exmaple for iscsi gateways, it will be something likes:
+      "daemon_type"   : "portal"
+      "daemon_prefix" : "gw${N}"
+    
+    Then the `ceph -s` output will be:
+    
+      ...
+      services:
+        mon:   3 daemons, quorum a,b,c (age 50m)
+        mgr:   x(active, since 49m)
+        mds:   a:1 {0=c=up:active} 2 up:standby
+        osd:   3 osds: 3 up (since 49m), 3 in (since 49m)
+        iscsi: 8 portals active (gw0, gw1, gw2, gw3, gw4, gw5, gw6, gw7)
+      ...
+    
+    Fixes: https://tracker.ceph.com/issues/49057
+    Signed-off-by: Xiubo Li <xiubli@redhat.com>
+
+diff --git a/src/mgr/ServiceMap.cc b/src/mgr/ServiceMap.cc
+index 812691a8478..4babb81f224 100644
+--- a/src/mgr/ServiceMap.cc
++++ b/src/mgr/ServiceMap.cc
+@@ -3,7 +3,9 @@
+ 
+ #include "mgr/ServiceMap.h"
+ 
++#include <experimental/iterator>
+ #include <fmt/format.h>
++#include <regex>
+ 
+ #include "common/Formatter.h"
+ 
+@@ -75,19 +77,61 @@ std::string ServiceMap::Service::get_summary() const
+   if (daemons.empty()) {
+     return "no daemons active";
+   }
++
+   std::ostringstream ss;
+-  ss << daemons.size() << (daemons.size() > 1 ? " daemons" : " daemon")
+-     << " active";
+-
+-  if (!daemons.empty()) {
+-    ss << " (";
+-    for (auto p = daemons.begin(); p != daemons.end(); ++p) {
+-      if (p != daemons.begin()) {
+-	ss << ", ";
+-      }
+-      ss << p->first;
++
++  // The format two pairs in metadata:
++  //   "daemon_type"   : "${TYPE}"
++  //   "daemon_prefix" : "${PREFIX}"
++  //
++  // TYPE: will be used to replace the default "daemon(s)"
++  // showed in `ceph -s`. If absent, the "daemon" will be used.
++  // PREFIX: if present the active members will be classified
++  // by the prefix instead of "daemon_name".
++  //
++  // For exmaple for iscsi gateways, it will be something likes:
++  //   "daemon_type"   : "portal"
++  //   "daemon_prefix" : "gateway${N}"
++  // The `ceph -s` will be something likes:
++  //    iscsi: 3 portals active (gateway0, gateway1, gateway2)
++
++  std::map<std::string, std::set<std::string>> prefs;
++  for (auto& d : daemons) {
++    // In case the "daemon_type" is absent, use the
++    // default "daemon" type
++    std::string type("daemon");
++    std::string prefix;
++
++    auto t = d.second.metadata.find("daemon_type");
++    if (t != d.second.metadata.end()) {
++      type = d.second.metadata.at("daemon_type");
++    }
++    auto p = d.second.metadata.find("daemon_prefix");
++    if (p != d.second.metadata.end()) {
++      prefix = d.second.metadata.at("daemon_prefix");
++    } else {
++      // In case the "daemon_prefix" is absent, show
++      // the daemon_name instead.
++      prefix = d.first;
++    }
++    auto& pref = prefs[type];
++    pref.insert(prefix);
++  }
++
++  for (auto &pr : prefs) {
++    if (!ss.str().empty())
++      ss << ", ";
++
++    ss << pr.second.size() << " " << pr.first
++       << (pr.second.size() > 1 ? "s" : "")
++       << " active";
++
++    if (pr.second.size()) {
++      ss << " (";
++      std::copy(std::begin(pr.second), std::end(pr.second),
++                std::experimental::make_ostream_joiner(ss, ", "));
++      ss << ")";
+     }
+-    ss << ")";
+   }
+ 
+   return ss.str();

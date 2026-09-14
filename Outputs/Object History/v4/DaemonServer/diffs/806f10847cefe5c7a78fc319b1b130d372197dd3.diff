@@ -1,0 +1,30 @@
+commit 806f10847cefe5c7a78fc319b1b130d372197dd3
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Aug 24 12:53:24 2017 -0400
+
+    mgr: clean up DaemonStateIndex locking
+    
+    Various things here were dangerously operating
+    outside locks.
+    
+    Additionally switch to a RWLock because this lock
+    will be relatively read-hot when it's taken every time
+    a MMgrReport is handled, to look up the DaemonState
+    for the sender.
+    
+    Fixes: http://tracker.ceph.com/issues/21158
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index e9e6bf28acd..5ff7bbb9a89 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -333,7 +333,7 @@ bool DaemonServer::handle_open(MMgrOpen *m)
+   if (daemon) {
+     dout(20) << "updating existing DaemonState for " << m->daemon_name << dendl;
+     Mutex::Locker l(daemon->lock);
+-    daemon_state.get(key)->perf_counters.clear();
++    daemon->perf_counters.clear();
+   }
+ 
+   if (m->service_daemon) {

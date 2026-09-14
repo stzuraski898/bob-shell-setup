@@ -1,0 +1,29 @@
+commit f0e9dcda0c1c0cdd5616560ea6814ba523fd67ae
+Author: Dan Mick <dmick@redhat.com>
+Date:   Tue Jul 11 22:29:48 2017 -0700
+
+    mgr/DaemonServer: add perf_schema_update notification for Py modules
+    
+    MMgrReport contains info about changed schema, so create a notify
+    type for it so that Python modules interested in perf counters can
+    update schema only when it changes
+    
+    Signed-off-by: Dan Mick <dan.mick@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 6454c8da306..48a60035ee9 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -386,6 +386,12 @@ bool DaemonServer::handle_report(MMgrReport *m)
+   assert(daemon != nullptr);
+   auto &daemon_counters = daemon->perf_counters;
+   daemon_counters.update(m);
++  // if there are any schema updates, notify the python modules
++  if (!m->declare_types.empty() || !m->undeclare_types.empty()) {
++    ostringstream oss;
++    oss << key.first << '.' << key.second;
++    py_modules.notify_all("perf_schema_update", oss.str());
++  }
+ 
+   if (daemon->service_daemon) {
+     utime_t now = ceph_clock_now();

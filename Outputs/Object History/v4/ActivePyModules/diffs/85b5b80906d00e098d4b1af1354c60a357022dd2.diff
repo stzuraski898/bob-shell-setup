@@ -1,0 +1,29 @@
+commit 85b5b80906d00e098d4b1af1354c60a357022dd2
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jul 11 16:25:42 2017 -0400
+
+    mgr/PyModules: add 'pg_status' dump
+    
+    This is summary info, same as what's in 'ceph status'.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index d8b7b01cc62..2ba4d628f43 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -254,6 +254,14 @@ PyObject *PyModules::get_python(const std::string &what)
+         }
+     );
+     return f.get();
++  } else if (what == "pg_status") {
++    PyFormatter f;
++    cluster_state.with_pgmap(
++        [&f](const PGMap &pg_map) {
++	  pg_map.print_summary(&f, nullptr);
++        }
++    );
++    return f.get();
+ 
+   } else if (what == "df") {
+     PyFormatter f;

@@ -1,0 +1,26 @@
+commit 9d47b164afde3529d43f142356980e3d9853e07f
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Thu Oct 10 08:19:20 2024 +0200
+
+    mgr/ActivePyModule: return std::string_view instead of std::string copy
+    
+    This impliciy heap allocation is unnecessary.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 17bb3951142..aebbb5d8c9a 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -770,9 +770,9 @@ std::map<std::string, std::string> ActivePyModules::get_services() const
+   std::map<std::string, std::string> result;
+   std::lock_guard l(lock);
+   for (const auto& [name, module] : modules) {
+-    std::string svc_str = module->get_uri();
++    const std::string_view svc_str = module->get_uri();
+     if (!svc_str.empty()) {
+-      result[name] = svc_str;
++      result.emplace(name, svc_str);
+     }
+   }
+ 

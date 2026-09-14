@@ -1,0 +1,99 @@
+commit 3193d40d0daf766d5e210e7b1117afbfebd71f31
+Author: Rubab-Syed <rubab.syed21@gmail.com>
+Date:   Fri Feb 16 15:51:11 2018 +0500
+
+    mgr: centralized setting/getting of mgr configs
+    
+    Signed-off-by: Rubab Syed<rubab.syed21@gmail.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index dac80005c36..686dbfc872c 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -141,7 +141,8 @@ void PyModuleRegistry::standby_start(MonClient *monc)
+ 
+   dout(4) << "Starting modules in standby mode" << dendl;
+ 
+-  standby_modules.reset(new StandbyPyModules(monc, mgr_map, clog));
++  standby_modules.reset(new StandbyPyModules(
++        monc, mgr_map, module_config, clog));
+ 
+   std::set<std::string> failed_modules;
+   for (const auto &i : modules) {
+@@ -172,7 +173,7 @@ void PyModuleRegistry::standby_start(MonClient *monc)
+ }
+ 
+ void PyModuleRegistry::active_start(
+-            PyModuleConfig &config_,
++            PyModuleConfig &module_config,
+             DaemonStateIndex &ds, ClusterState &cs, MonClient &mc,
+             LogChannelRef clog_, Objecter &objecter_, Client &client_,
+             Finisher &f)
+@@ -193,7 +194,7 @@ void PyModuleRegistry::active_start(
+   }
+ 
+   active_modules.reset(new ActivePyModules(
+-              config_, ds, cs, mc, clog_, objecter_, client_, f));
++              module_config, ds, cs, mc, clog_, objecter_, client_, f));
+ 
+   for (const auto &i : modules) {
+     // Anything we're skipping because of !can_run will be flagged
+@@ -387,3 +388,14 @@ void PyModuleRegistry::get_health_checks(health_check_map_t *checks)
+   }
+ }
+ 
++void PyModuleRegistry::handle_config(const std::string &k, const std::string &v)
++{
++  Mutex::Locker l(module_config.lock);
++
++  if (!v.empty()) {
++    module_config.config[k] = v;
++  } else {
++    module_config.config.erase(k);
++  }
++}
++
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index e2221affe47..8f64cf1d76f 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -26,8 +26,6 @@
+ #include "ActivePyModules.h"
+ #include "StandbyPyModules.h"
+ 
+-
+-
+ /**
+  * This class is responsible for setting up the python runtime environment
+  * and importing the python modules.
+@@ -40,7 +38,6 @@ class PyModuleRegistry
+ {
+ private:
+   mutable Mutex lock{"PyModuleRegistry::lock"};
+-
+   LogChannelRef clog;
+ 
+   std::map<std::string, PyModuleRef> modules;
+@@ -59,9 +56,13 @@ private:
+    */
+   std::set<std::string> probe_modules() const;
+ 
++  PyModuleConfig module_config;
++
+ public:
+   static std::string config_prefix;
+ 
++  void handle_config(const std::string &k, const std::string &v);
++
+   /**
+    * Get references to all modules (whether they have loaded and/or
+    * errored) or not.
+@@ -89,7 +90,7 @@ public:
+   void init();
+ 
+   void active_start(
+-                PyModuleConfig &config_,
++                PyModuleConfig &module_config,
+                 DaemonStateIndex &ds, ClusterState &cs, MonClient &mc,
+                 LogChannelRef clog_, Objecter &objecter_, Client &client_,
+                 Finisher &f);

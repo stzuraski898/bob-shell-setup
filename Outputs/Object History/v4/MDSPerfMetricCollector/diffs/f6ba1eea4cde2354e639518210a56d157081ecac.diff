@@ -1,0 +1,84 @@
+commit f6ba1eea4cde2354e639518210a56d157081ecac
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Tue Sep 10 09:53:09 2019 -0400
+
+    mds: forward mds metrics to ceph manager w/ quering interfaces
+    
+    `MetricAggregator` sets up manager callback to forward metrics
+    data to ceph-mgr. Also, add querying interfaces for adding and
+    removing user queries and a simple interface to fetch MDS perf
+    metrics.
+    
+    Fixes: http://tracker.ceph.com/issues/36253
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/MDSPerfMetricCollector.cc b/src/mgr/MDSPerfMetricCollector.cc
+new file mode 100644
+index 00000000000..7d08f3431d4
+--- /dev/null
++++ b/src/mgr/MDSPerfMetricCollector.cc
+@@ -0,0 +1,36 @@
++// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
++// vim: ts=8 sw=2 smarttab
++
++#include "common/debug.h"
++#include "common/errno.h"
++
++#include "messages/MMgrReport.h"
++#include "mgr/MDSPerfMetricTypes.h"
++#include "mgr/MDSPerfMetricCollector.h"
++
++#define dout_context g_ceph_context
++#define dout_subsys ceph_subsys_mgr
++#undef dout_prefix
++#define dout_prefix *_dout << "mgr.mds_perf_metric_collector " << __func__ << " "
++
++MDSPerfMetricCollector::MDSPerfMetricCollector(MetricListener &listener)
++  : MetricCollector<MDSPerfMetricQuery,
++                    MDSPerfMetricLimit,
++                    MDSPerfMetricKey,
++                    MDSPerfMetrics>(listener) {
++}
++
++void MDSPerfMetricCollector::process_reports(const MetricPayload &payload) {
++  const MDSPerfMetricReport &metric_report = boost::get<MDSMetricPayload>(payload).metric_report;
++
++  std::lock_guard locker(lock);
++  process_reports_generic(
++    metric_report.reports, [](PerformanceCounter *counter, const PerformanceCounter &update) {
++      counter->first = update.first;
++      counter->second = update.second;
++    });
++
++  // update delayed rank set
++  delayed_ranks = metric_report.rank_metrics_delayed;
++  dout(20) << ": delayed ranks=[" << delayed_ranks << "]" << dendl;
++}
+diff --git a/src/mgr/MDSPerfMetricCollector.h b/src/mgr/MDSPerfMetricCollector.h
+new file mode 100644
+index 00000000000..777e4c8fc8a
+--- /dev/null
++++ b/src/mgr/MDSPerfMetricCollector.h
+@@ -0,0 +1,22 @@
++// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
++// vim: ts=8 sw=2 smarttab
++
++#ifndef CEPH_MGR_MDS_PERF_COLLECTOR_H
++#define CEPH_MGR_MDS_PERF_COLLECTOR_H
++
++#include "mgr/MetricCollector.h"
++#include "mgr/MDSPerfMetricTypes.h"
++
++// MDS performance query class
++class MDSPerfMetricCollector
++  : public MetricCollector<MDSPerfMetricQuery, MDSPerfMetricLimit, MDSPerfMetricKey,
++                           MDSPerfMetrics> {
++private:
++  std::set<mds_rank_t> delayed_ranks;
++public:
++  MDSPerfMetricCollector(MetricListener &listener);
++
++  void process_reports(const MetricPayload &payload) override;
++};
++
++#endif // CEPH_MGR_MDS_PERF_COLLECTOR_H

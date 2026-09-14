@@ -1,0 +1,30 @@
+commit 6a8da7ca734726315c06929635c25dbb88599654
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Nov 16 06:45:45 2017 -0500
+
+    mgr: load all modules (not just active ones)
+    
+    This is to enable us to learn more about the module
+    before it is enabled, such as whether its can_run method
+    return true.
+    
+    We can also use this to enable loading a module's
+    commands before it is enabled, to give the user
+    a better response when they try to use a command
+    belong to a module that is not loaded.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index cd8ec2ca36c..be0f6af1891 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -152,7 +152,7 @@ void MgrStandby::send_beacon()
+   dout(1) << state_str() << dendl;
+ 
+   set<string> modules;
+-  PyModuleRegistry::list_modules(&modules);
++  py_module_registry.list_modules(&modules);
+ 
+   // Whether I think I am available (request MgrMonitor to set me
+   // as available in the map)

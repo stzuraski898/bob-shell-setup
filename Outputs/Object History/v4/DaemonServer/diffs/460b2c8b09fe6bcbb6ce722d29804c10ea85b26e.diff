@@ -1,0 +1,86 @@
+commit 460b2c8b09fe6bcbb6ce722d29804c10ea85b26e
+Author: Laura Flores <lflores@ibm.com>
+Date:   Thu May 14 23:59:20 2026 +0000
+
+    mgr, osd: remove pg_upmap_primary mappings for PG merge targets
+    
+    `OSDMap::check_pg_upmaps` already takes care of removing pg_upmap_primary
+    mappings for:
+    
+    1. PGs that were “merge sources” (PGs that merged into another PG and thus
+       no longer exist in the pool)
+    2. PGs that are “pending merge” (these PGs will end up becoming merge sources)
+    
+    But there is a third scenario that was missing for pg_upmap_primary: “merge targets”.
+    
+    The DaemonServer identifies PGs as “merge targets”, or the PGs that a “merge source”
+    will merge into. If there is a pg_upmap, pg_upmap_items, or pg_upmap_primary mapping
+    associated with a “merge target”, the DaemonServer issues this message:
+    
+    ```
+    2026-05-14T21:16:56.700+0000 7f745e33d640 10 mgr.server operator() pool 5 pg_num_target
+    32 pg_num 33 - merge target 5.0 acting does not match (source [3,2,1] != target [3,1,2])
+    ```
+    
+    Until the acting set of the “merge target” matches the “merge source”, the merging process
+    will stall. One way the PG merging process is triggered is by removing the “bulk” flag from a pool.
+    
+    Removing upmap mappings for “merge target” PGs is not handled in the OSDMap code, but rather, the
+    DaemonServer code. This patch adds in that missing logic.
+    
+    Fixes: https://tracker.ceph.com/issues/76731
+    Signed-off-by: Laura Flores <lflores@ibm.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 9092fce0f03..4599774648f 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -3302,6 +3302,7 @@ void DaemonServer::adjust_pgs()
+   std::map<string,unsigned> pg_num_to_set;
+   std::map<string,unsigned> pgp_num_to_set;
+   std::set<pg_t> upmaps_to_clear;
++  std::map<uint64_t,string> current_pools; // pid -> pool_name
+   cluster_state.with_osdmap_and_pgmap([&](const OSDMap& osdmap, const PGMap& pg_map) {
+       unsigned creating_or_unknown = 0;
+       for (auto& i : pg_map.num_pg_by_state) {
+@@ -3336,7 +3337,8 @@ void DaemonServer::adjust_pgs()
+ 
+       for (auto& i : osdmap.get_pools()) {
+ 	const pg_pool_t& p = i.second;
+-
++        const auto& pool_name = osdmap.get_pool_name(i.first);
++        current_pools[i.first] = pool_name;
+ 	// adjust pg_num?
+ 	if (p.get_pg_num_target() != p.get_pg_num()) {
+ 	  dout(20) << "pool " << i.first
+@@ -3593,7 +3595,9 @@ void DaemonServer::adjust_pgs()
+       "}";
+     monc->start_mon_command({cmd}, {}, nullptr, nullptr, nullptr);
+   }
++  std::set<uint64_t> affected_pools;
+   for (auto pg : upmaps_to_clear) {
++    affected_pools.emplace(pg.pool());
+     const string cmd =
+       "{"
+       "\"prefix\": \"osd rm-pg-upmap\", "
+@@ -3606,6 +3610,20 @@ void DaemonServer::adjust_pgs()
+       "\"pgid\": \"" + stringify(pg) + "\"" +
+       "}";
+     monc->start_mon_command({cmd2}, {}, nullptr, nullptr, nullptr);
++   }
++  // remove all pg_upmap_primary mappings from any pool where pg_num was changed.
++  for (auto pool_id : affected_pools) {
++   std::string pool_name;
++   auto it = current_pools.find(pool_id);
++   if (it != current_pools.end()) {
++     pool_name = it->second;
++     const string cmd =
++       "{"
++       "\"prefix\": \"osd rm-pg-upmap-primary-all\", "
++       "\"pool\": \"" + pool_name + "\"" +
++       "}";
++     monc->start_mon_command({cmd}, {}, nullptr, nullptr, nullptr);
++   }
+   }
+ }
+ 

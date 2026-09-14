@@ -1,0 +1,59 @@
+commit 67a47951053bbca0d5951ac3f49fd99d100a9d14
+Author: Tim Serong <tserong@suse.com>
+Date:   Fri May 10 15:08:30 2019 +1000
+
+    mgr/PyModuleRegistry: log error if we can't find any modules to load
+    
+    Fixes: https://tracker.ceph.com/issues/39662
+    Signed-off-by: Tim Serong <tserong@suse.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 785b5d3ab45..061a92c6c7c 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -66,7 +66,8 @@ void PyModuleRegistry::init()
+ 
+   std::list<std::string> failed_modules;
+ 
+-  std::set<std::string> module_names = probe_modules();
++  const std::string module_path = g_conf().get_val<std::string>("mgr_module_path");
++  std::set<std::string> module_names = probe_modules(module_path);
+   // Load python code
+   for (const auto& module_name : module_names) {
+     dout(1) << "Loading python module '" << module_name << "'" << dendl;
+@@ -88,7 +89,9 @@ void PyModuleRegistry::init()
+     // report its loading error
+     modules[module_name] = std::move(mod);
+   }
+-
++  if (module_names.empty()) {
++    clog->error() << "No ceph-mgr modules found in " << module_path;
++  }
+   if (!failed_modules.empty()) {
+     clog->error() << "Failed to load ceph-mgr modules: " << joinify(
+         failed_modules.begin(), failed_modules.end(), std::string(", "));
+@@ -255,10 +258,8 @@ void PyModuleRegistry::shutdown()
+   Py_Finalize();
+ }
+ 
+-std::set<std::string> PyModuleRegistry::probe_modules() const
++std::set<std::string> PyModuleRegistry::probe_modules(const std::string &path) const
+ {
+-  std::string path = g_conf().get_val<std::string>("mgr_module_path");
+-
+   DIR *dir = opendir(path.c_str());
+   if (!dir) {
+     return {};
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 0e46af44e6e..52e9907e361 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -55,7 +55,7 @@ private:
+   /**
+    * Discover python modules from local disk
+    */
+-  std::set<std::string> probe_modules() const;
++  std::set<std::string> probe_modules(const std::string &path) const;
+ 
+   PyModuleConfig module_config;
+ 

@@ -1,0 +1,50 @@
+commit 85acc8bf1261289c4147a1ddd40a0d879fc8cb4e
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Oct 23 16:00:55 2020 +0800
+
+    mgr/DaemonHealthMetricCollector: replace boost::format with fmt::format
+    
+    the latter is easier to use, and future proof in the sense that {fmt}
+    was included as a part of C++20 standard
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonHealthMetricCollector.cc b/src/mgr/DaemonHealthMetricCollector.cc
+index 6467fed0497..4b51100ee2e 100644
+--- a/src/mgr/DaemonHealthMetricCollector.cc
++++ b/src/mgr/DaemonHealthMetricCollector.cc
+@@ -1,4 +1,4 @@
+-#include <boost/format.hpp>
++#include <fmt/format.h>
+ 
+ #include "include/health.h"
+ #include "include/types.h"
+@@ -30,7 +30,6 @@ class SlowOps final : public DaemonHealthMetricCollector {
+     if (daemons.empty()) {
+       return;
+     }
+-    static const char* fmt = "%1% slow ops, oldest one blocked for %2% sec, %3%";
+     ostringstream ss;
+     if (daemons.size() > 1) {
+       if (daemons.size() > 10) {
+@@ -42,7 +41,9 @@ class SlowOps final : public DaemonHealthMetricCollector {
+     } else {
+       ss << daemons.front() << " has slow ops";
+     }
+-    check.summary = boost::str(boost::format(fmt) % value.n1 % value.n2 % ss.str());
++    check.summary =
++        fmt::format("{} slow ops, oldest one blocked for {} sec, {}",
++                    value.n1, value.n2, ss.str());
+     // No detail
+   }
+   vector<DaemonKey> daemons;
+@@ -70,8 +71,7 @@ class PendingPGs final : public DaemonHealthMetricCollector {
+     if (osds.empty()) {
+       return;
+     }
+-    static const char* fmt = "%1% PGs pending on creation";
+-    check.summary = boost::str(boost::format(fmt) % value.n);
++    check.summary = fmt::format("{} PGs pending on creation", value.n);
+     ostringstream ss;
+     if (osds.size() > 1) {
+       ss << "osds " << osds << " have pending PGs.";

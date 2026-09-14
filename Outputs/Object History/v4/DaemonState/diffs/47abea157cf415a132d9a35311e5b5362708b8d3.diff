@@ -1,0 +1,117 @@
+commit 47abea157cf415a132d9a35311e5b5362708b8d3
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 5 14:03:42 2018 -0500
+
+    mgr: implement 'device {set,rm}-predicted-failure' commands
+    
+    Record predicted device failure time.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index e8daf7dfd0e..60eefb7dfe7 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -14,12 +14,42 @@
+ #include "DaemonState.h"
+ 
+ #include "MgrSession.h"
++#include "include/stringify.h"
+ 
+ #define dout_context g_ceph_context
+ #define dout_subsys ceph_subsys_mgr
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ 
++void DeviceState::set_metadata(map<string,string>&& m)
++{
++  metadata = std::move(m);
++  auto p = metadata.find("expected_failure");
++  if (p != metadata.end()) {
++    expected_failure.parse(p->second);
++  }
++  p = metadata.find("expected_failure_stamp");
++  if (p != metadata.end()) {
++    expected_failure_stamp.parse(p->second);
++  }
++}
++
++void DeviceState::set_expected_failure(utime_t when, utime_t now)
++{
++  expected_failure = when;
++  expected_failure_stamp = now;
++  metadata["expected_failure"] = stringify(expected_failure);
++  metadata["expected_failure_stamp"] = stringify(expected_failure_stamp);
++}
++
++void DeviceState::rm_expected_failure()
++{
++  expected_failure = utime_t();
++  expected_failure_stamp = utime_t();
++  metadata.erase("expected_failure");
++  metadata.erase("expected_failure_stamp");
++}
++
+ void DaemonStateIndex::insert(DaemonStatePtr dm)
+ {
+   RWLock::WLocker l(lock);
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 654c12beb7e..27190b95941 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -193,10 +193,16 @@ struct DeviceState : public RefCountedObject
+ 
+   std::map<string,string> metadata;  ///< persistent metadata
+ 
++  utime_t expected_failure;       ///< when device failure is expected
++  utime_t expected_failure_stamp; ///< when expected_failure was recorded
++
+   DeviceState(const std::string& n) : devid(n) {}
+ 
+   void set_metadata(map<string,string>&& m);
+ 
++  void set_expected_failure(utime_t when, utime_t now);
++  void rm_expected_failure();
++
+   /// true of we can be safely forgotten/removed from memory
+   bool empty() const {
+     return daemons.empty() && metadata.empty();
+@@ -263,7 +269,7 @@ public:
+   }
+ 
+   template<typename Callback, typename...Args>
+-  auto with_device(const std::string& dev,
++  bool with_device(const std::string& dev,
+ 		   Callback&& cb, Args&&... args) const {
+     RWLock::RLocker l(lock);
+     auto p = devices.find(dev);
+@@ -274,6 +280,29 @@ public:
+     return true;
+   }
+ 
++  template<typename Callback, typename...Args>
++  bool with_device_write(const std::string& dev,
++			 Callback&& cb, Args&&... args) {
++    RWLock::WLocker l(lock);
++    auto p = devices.find(dev);
++    if (p == devices.end()) {
++      return false;
++    }
++    std::forward<Callback>(cb)(*p->second, std::forward<Args>(args)...);
++    if (p->second->empty()) {
++      _erase_device(p->second);
++    }
++    return true;
++  }
++
++  template<typename Callback, typename...Args>
++  void with_device_create(const std::string& dev,
++			  Callback&& cb, Args&&... args) {
++    RWLock::WLocker l(lock);
++    auto d = _get_or_create_device(dev);
++    std::forward<Callback>(cb)(*d, std::forward<Args>(args)...);
++  }
++
+   template<typename Callback, typename...Args>
+   void with_devices(Callback&& cb, Args&&... args) const {
+     RWLock::RLocker l(lock);

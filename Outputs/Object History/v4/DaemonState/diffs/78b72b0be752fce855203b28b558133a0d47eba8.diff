@@ -1,0 +1,31 @@
+commit 78b72b0be752fce855203b28b558133a0d47eba8
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Feb 8 10:41:48 2021 -0600
+
+    mgr/DaemonState: fix serialization/storage of device life expectancy min/max
+    
+    These weren't encoded as strings, which means they were effectively
+    forgotton on each mgr restart.  Sigh.
+    
+    Fixes: https://tracker.ceph.com/issues/49215
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 07d58541799..b9e1b04ea6c 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -46,12 +46,12 @@ void DeviceState::set_life_expectancy(utime_t from, utime_t to, utime_t now)
+   life_expectancy = make_pair(from, to);
+   life_expectancy_stamp = now;
+   if (from != utime_t()) {
+-    metadata["life_expectancy_min"] = from;
++    metadata["life_expectancy_min"] = stringify(from);
+   } else {
+     metadata["life_expectancy_min"] = "";
+   }
+   if (to != utime_t()) {
+-    metadata["life_expectancy_max"] = to;
++    metadata["life_expectancy_max"] = stringify(to);
+   } else {
+     metadata["life_expectancy_max"] = "";
+   }

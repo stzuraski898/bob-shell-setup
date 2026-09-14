@@ -1,0 +1,53 @@
+commit 3068c4290166076093119d1dc08a2c0fada8235f
+Author: Noah Watkins <nwatkins@redhat.com>
+Date:   Thu Jul 26 10:52:34 2018 -0700
+
+    mgr: report health check changes immediately
+    
+    Currently beacons and reports are sent periodically, which means that
+    health check changes made by modules are only visible to the monitor
+    after a delay. This patch sends a health report immediately after a
+    change occurs.
+    
+    1. decouple scheduling of reports from beacons
+    2. moves report scheduling into DaemonServer
+    3. exposes a "send now" option
+    4. health check change detection triggers immediate report
+    
+    Signed-off-by: Noah Watkins <nwatkins@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index ebb01a5c5b2..33816640535 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -171,7 +171,7 @@ void PyModuleRegistry::active_start(
+             DaemonStateIndex &ds, ClusterState &cs,
+             const std::map<std::string, std::string> &kv_store,
+             MonClient &mc, LogChannelRef clog_, Objecter &objecter_,
+-            Client &client_, Finisher &f)
++            Client &client_, Finisher &f, DaemonServer &server)
+ {
+   Mutex::Locker locker(lock);
+ 
+@@ -190,7 +190,7 @@ void PyModuleRegistry::active_start(
+ 
+   active_modules.reset(new ActivePyModules(
+               module_config, kv_store, ds, cs, mc,
+-              clog_, objecter_, client_, f));
++              clog_, objecter_, client_, f, server));
+ 
+   for (const auto &i : modules) {
+     // Anything we're skipping because of !can_run will be flagged
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 241ba55ad11..568e7409960 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -95,7 +95,7 @@ public:
+                 DaemonStateIndex &ds, ClusterState &cs,
+                 const std::map<std::string, std::string> &kv_store,
+                 MonClient &mc, LogChannelRef clog_, Objecter &objecter_,
+-                Client &client_, Finisher &f);
++                Client &client_, Finisher &f, DaemonServer &server);
+   void standby_start(MonClient &mc);
+ 
+   bool is_standby_running() const

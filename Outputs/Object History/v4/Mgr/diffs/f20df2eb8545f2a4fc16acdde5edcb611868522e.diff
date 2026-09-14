@@ -1,0 +1,75 @@
+commit f20df2eb8545f2a4fc16acdde5edcb611868522e
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Thu Jan 30 17:08:07 2025 -0500
+
+    mgr: excise CephFS client from mgr C++ base
+    
+    Linking to the client causes two copies of the Client library to be linked in
+    the ceph-mgr when modules also dynamically link to libcephfs via the "cephfs"
+    python library. This creates problems with duplicate boost::locale.
+    
+    Instead, modules should just use the "cephfs" library to send commands to the
+    MDS.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@ibm.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 9acd58248fb..83c29388f82 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -14,7 +14,6 @@
+ #include <Python.h>
+ 
+ #include "osdc/Objecter.h"
+-#include "client/Client.h"
+ #include "common/errno.h"
+ #include "mon/MonClient.h"
+ #include "include/stringify.h"
+@@ -54,10 +53,9 @@ using std::string;
+ Mgr::Mgr(MonClient *monc_, const MgrMap& mgrmap,
+          PyModuleRegistry *py_module_registry_,
+ 	 Messenger *clientm_, Objecter *objecter_,
+-	 Client* client_, LogChannelRef clog_, LogChannelRef audit_clog_) :
++	 LogChannelRef clog_, LogChannelRef audit_clog_) :
+   monc(monc_),
+   objecter(objecter_),
+-  client(client_),
+   client_messenger(clientm_),
+   finisher(g_ceph_context, "Mgr", "mgr-fin"),
+   digest_received(false),
+@@ -351,7 +349,7 @@ void Mgr::init()
+   py_module_registry->active_start(
+     daemon_state, cluster_state,
+     pre_init_store, mon_allows_kv_sub,
+-    *monc, clog, audit_clog, *objecter, *client,
++    *monc, clog, audit_clog, *objecter,
+     finisher, server);
+ 
+   cluster_state.final_init();
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index 65931c331f3..b00590881d4 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -35,13 +35,11 @@ class MMgrDigest;
+ class MLog;
+ class MServiceMap;
+ class Objecter;
+-class Client;
+ 
+ class Mgr : public AdminSocketHook {
+ protected:
+   MonClient *monc;
+   Objecter  *objecter;
+-  Client    *client;
+   Messenger *client_messenger;
+ 
+   mutable ceph::mutex lock = ceph::make_mutex("Mgr::lock");
+@@ -74,7 +72,7 @@ public:
+   Mgr(MonClient *monc_, const MgrMap& mgrmap,
+       PyModuleRegistry *py_module_registry_,
+       Messenger *clientm_, Objecter *objecter_,
+-      Client *client_, LogChannelRef clog_, LogChannelRef audit_clog_);
++      LogChannelRef clog_, LogChannelRef audit_clog_);
+   ~Mgr();
+ 
+   bool is_initialized() const {return initialized;}

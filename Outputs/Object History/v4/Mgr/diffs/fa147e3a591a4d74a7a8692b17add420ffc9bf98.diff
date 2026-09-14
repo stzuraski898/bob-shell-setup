@@ -1,0 +1,54 @@
+commit fa147e3a591a4d74a7a8692b17add420ffc9bf98
+Author: John Spray <jspray@redhat.com>
+Date:   Sun Jul 31 18:07:20 2016 +0100
+
+    mgr: handle PGStats with a PGMap
+    
+    No longer need the mon to send us
+    the pg_summary json hack.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 5328270d954..2a1cd246e51 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -11,6 +11,8 @@
+  * Foundation.  See file COPYING.
+  */
+ 
++#include <Python.h>
++
+ #include "osdc/Objecter.h"
+ #include "common/errno.h"
+ #include "mon/MonClient.h"
+@@ -44,7 +46,7 @@ Mgr::Mgr(MonClient *monc_, Messenger *clientm_, Objecter *objecter_) :
+   waiting_for_fs_map(NULL),
+   py_modules(daemon_state, cluster_state, *monc, finisher),
+   cluster_state(monc, nullptr),
+-  server(monc, daemon_state, py_modules),
++  server(monc, daemon_state, cluster_state, py_modules),
+   initialized(false),
+   initializing(false)
+ {
+@@ -165,6 +167,11 @@ void Mgr::init()
+   objecter->wait_for_osd_map();
+   lock.Lock();
+ 
++  // Populate PGs in ClusterState
++  objecter->with_osdmap([this](const OSDMap &osd_map) {
++    cluster_state.notify_osdmap(osd_map);
++  });
++
+   monc->sub_want("mgrdigest", 0, 0);
+ 
+   // Prepare to receive FSMap and request it
+@@ -394,6 +401,8 @@ void Mgr::handle_osd_map()
+         assert(r == 0);  // start_mon_command defined to not fail
+       }
+     }
++
++    cluster_state.notify_osdmap(osd_map);
+   });
+ 
+   // TODO: same culling for MonMap and FSMap

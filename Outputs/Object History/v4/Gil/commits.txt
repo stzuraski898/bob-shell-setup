@@ -1,0 +1,18 @@
+# Non-merge commits touching src/mgr/Gil.cc and/or src/mgr/Gil.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+19a9981e8f64c7808b0f0d29d1397e97300174ed 2025-12-18 Samuel Just | mgr/Gil.cc: do not use PyGILState_Check()
+fb26bcd9865b336a043453c9c50aa935f68fdf90 2025-12-18 Samuel Just | mgr/Gil.cc: simplify Gil(), ~Gil()
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b 2025-10-02 Edwin Rodriguez | Add blank line after header block
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 2025-10-02 Edwin Rodriguez | Add missing blank line after comment block
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+6469a9a6a14ef388d1bf486355af78c301086232 2021-11-24 Sage Weil | mgr/ActivePyModule: avoid with_gil where possible
+88db7b190a974d70c08a1951b06b7fc9957b1b60 2021-02-18 Kefu Chai | mgr: move GIL helpers to Gil.{h,cc}
+ab23c506964753990f9fe23e314b9f3e2547a773 2018-08-23 Adam C. Emerson | mgr: Use ceph_assert for asserts.
+39ffec281af577c766c619d568f7a7051d108b00 2018-04-25 Danny Al-Gaaf | misc: mark constructors as explicit
+23c3a075ee1a27e1b57fcb452a4d6ce53080264e 2017-08-22 John Spray | mgr: move Gil implementation into .cc
+625e1b5cfb9b8a5843dfe75e97826f70a57d6ebe 2017-10-03 John Spray | mgr: safety checks on pyThreadState usage
+987612a97529be7e67b89977c4a0cf47906a5ecb 2017-07-26 John Spray | mgr: reduce Gil verbosity at level 20
+f36b0d9d4053e167f59b89286cc9378e8e1563f7 2017-05-12 Tim Serong | mgr: use new Gil class in place of PyGILState_*() API

@@ -1,0 +1,29 @@
+commit c7c2d18da5058ffbe1f71e66a8d4c1dcfd8eacdb
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Apr 29 16:17:40 2019 -0500
+
+    mgr/DaemonServer: allow pgp_num increases to be fast if pool is empty(ish)
+    
+    If we just created a new pool and it's basically empty, there is no reason
+    to throttle the pgp_num changes.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index bd3e1c624fe..a12c093fcb9 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2558,7 +2558,12 @@ void DaemonServer::adjust_pgs()
+ 	    // max_misplaced, to somewhat limit the magnitude of
+ 	    // our potential error here.
+ 	    int next;
+-	    if (aggro) {
++
++	    pool_stat_t s = pg_map.get_pg_pool_sum_stat(i.first);
++	    if (aggro ||
++		// pool is (virtually) empty; just jump to final pgp_num?
++		(p.get_pgp_num_target() > p.get_pgp_num() &&
++		 s.stats.sum.num_objects <= p.get_pgp_num_target())) {
+ 	      next = target;
+ 	    } else {
+ 	      double room =

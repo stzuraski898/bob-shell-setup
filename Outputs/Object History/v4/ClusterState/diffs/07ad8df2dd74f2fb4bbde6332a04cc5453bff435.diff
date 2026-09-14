@@ -1,0 +1,31 @@
+commit 07ad8df2dd74f2fb4bbde6332a04cc5453bff435
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sat Oct 23 17:32:11 2021 -0500
+
+    common/admin_socket: pass inbl to sync call() method
+    
+    Only the async_call got this before.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+    Signed-off-by: Radoslaw Zarzynski <rzarzyns@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 2d7efe4dfd8..7f811a5e415 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -198,6 +198,7 @@ class ClusterSocketHook : public AdminSocketHook {
+ public:
+   explicit ClusterSocketHook(ClusterState *o) : cluster_state(o) {}
+   int call(std::string_view admin_command, const cmdmap_t& cmdmap,
++	   const bufferlist&,
+ 	   Formatter *f,
+ 	   std::ostream& errss,
+ 	   bufferlist& out) override {
+@@ -239,6 +240,7 @@ bool ClusterState::asok_command(
+   ostream& ss)
+ {
+   std::lock_guard l(lock);
++
+   if (admin_command == "dump_osd_network") {
+     int64_t value = 0;
+     // Default to health warning level if nothing specified

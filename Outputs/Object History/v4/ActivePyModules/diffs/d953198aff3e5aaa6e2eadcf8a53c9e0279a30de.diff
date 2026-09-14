@@ -1,0 +1,60 @@
+commit d953198aff3e5aaa6e2eadcf8a53c9e0279a30de
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 27 18:12:35 2017 -0400
+
+    mon,mgr: track available modules in MgrMap too
+    
+    Require --force to enable a module that isn't reported as available.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 7d091a253e1..96b2698e3c3 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -674,3 +674,32 @@ PyObject *PyModules::get_context()
+   return capsule;
+ }
+ 
++static void _list_modules(
++  const std::string path,
++  std::set<std::string> *modules)
++{
++  DIR *dir = opendir(path.c_str());
++  if (!dir) {
++    return;
++  }
++  struct dirent *entry = NULL;
++  while ((entry = readdir(dir)) != NULL) {
++    string n(entry->d_name);
++    string fn = path + "/" + n;
++    struct stat st;
++    int r = ::stat(fn.c_str(), &st);
++    if (r == 0 && S_ISDIR(st.st_mode)) {
++      string initfn = fn + "/module.py";
++      r = ::stat(initfn.c_str(), &st);
++      if (r == 0) {
++	modules->insert(n);
++      }
++    }
++  }
++  closedir(dir);
++}
++
++void PyModules::list_modules(std::set<std::string> *modules)
++{
++  _list_modules(g_conf->mgr_module_path, modules);
++}
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index c98f7694bf6..93cbd5be851 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -101,6 +101,8 @@ public:
+ 
+   void log(const std::string &handle,
+            int level, const std::string &record);
++
++  static void list_modules(std::set<std::string> *modules);
+ };
+ 
+ #endif

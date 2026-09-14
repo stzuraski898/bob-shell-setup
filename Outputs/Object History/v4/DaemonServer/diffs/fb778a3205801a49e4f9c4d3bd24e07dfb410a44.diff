@@ -1,0 +1,23 @@
+commit fb778a3205801a49e4f9c4d3bd24e07dfb410a44
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Feb 26 12:14:09 2021 -0500
+
+    mgr/DaemonServer: make warning language a bit friendlier
+    
+    This message is shown during the upgrade process.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 6b25b8b9bfc..2c2069f9e12 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1765,7 +1765,7 @@ bool DaemonServer::_handle_command(
+     f->flush(cmdctx->odata);
+     cmdctx->odata.append("\n");
+     if (!out_report.ok_to_stop()) {
+-      ss << "unsafe to stop osd(s)";
++      ss << "unsafe to stop osd(s) at this time (" << out_report.not_ok.size() << " PGs are or would become offline)";
+       cmdctx->reply(-EBUSY, ss);
+     } else {
+       cmdctx->reply(0, ss);

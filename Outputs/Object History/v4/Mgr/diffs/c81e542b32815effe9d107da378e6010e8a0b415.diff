@@ -1,0 +1,109 @@
+commit c81e542b32815effe9d107da378e6010e8a0b415
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Jul 4 15:22:27 2016 +0100
+
+    mgr: enable multiple python modules
+    
+    serve() each one in a separate thread, include a shutdown()
+    hook so that we can tear down cleanly.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 35c6b075ba2..75197999368 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -15,6 +15,7 @@
+ #include "mon/MonClient.h"
+ #include "include/stringify.h"
+ #include "global/global_context.h"
++#include "global/signal_handler.h"
+ 
+ #include "mgr/MgrContext.h"
+ 
+@@ -213,6 +214,8 @@ int Mgr::init()
+ 
+   finisher.start();
+ 
++  py_modules.init();
++
+   dout(4) << "Complete." << dendl;
+   return 0;
+ }
+@@ -339,6 +342,12 @@ void Mgr::load_config()
+   py_modules.insert_config(loaded);
+ }
+ 
++void Mgr::handle_signal(int signum)
++{
++  Mutex::Locker l(lock);
++  assert(signum == SIGINT || signum == SIGTERM);
++  shutdown();
++}
+ 
+ void Mgr::shutdown()
+ {
+@@ -349,14 +358,13 @@ void Mgr::shutdown()
+   // to touch references to the things we're about to tear down
+   finisher.stop();
+ 
+-  lock.Lock();
++  //lock.Lock();
+   timer.shutdown();
+   objecter->shutdown();
+-  lock.Unlock();
++  //lock.Unlock();
+ 
+   monc->shutdown();
+   client_messenger->shutdown();
+-  client_messenger->wait();
+ }
+ 
+ void Mgr::handle_osd_map()
+@@ -552,10 +560,33 @@ bool Mgr::ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer,
+   return *authorizer != NULL;
+ }
+ 
++// A reference for use by the signal handler
++Mgr *signal_mgr = nullptr;
++
++static void handle_mgr_signal(int signum)
++{
++  if (signal_mgr) {
++    signal_mgr->handle_signal(signum);
++  }
++}
+ 
+ int Mgr::main(vector<const char *> args)
+ {
+-  return py_modules.main(args);
++  py_modules.start();
++
++  // Enable signal handlers
++  signal_mgr = this;
++  init_async_signal_handler();
++  register_async_signal_handler_oneshot(SIGINT, handle_mgr_signal);
++  register_async_signal_handler_oneshot(SIGTERM, handle_mgr_signal);
++
++  client_messenger->wait();
++
++  // Disable signal handlers
++  unregister_async_signal_handler(SIGINT, handle_mgr_signal);
++  unregister_async_signal_handler(SIGTERM, handle_mgr_signal);
++  shutdown_async_signal_handler();
++  signal_mgr = nullptr;
+ }
+ 
+ 
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index 4a2ce779c8f..e85358f06b7 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -81,6 +81,7 @@ public:
+   void shutdown();
+   void usage() {}
+   int main(vector<const char *> args);
++  void handle_signal(int signum);
+ };
+ 
+ #endif /* MDS_UTILITY_H_ */

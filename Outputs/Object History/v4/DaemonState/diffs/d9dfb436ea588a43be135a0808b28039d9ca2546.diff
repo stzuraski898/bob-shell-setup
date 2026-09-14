@@ -1,0 +1,309 @@
+commit d9dfb436ea588a43be135a0808b28039d9ca2546
+Author: John Spray <jspray@redhat.com>
+Date:   Sun Jul 3 19:45:28 2016 +0100
+
+    mgr: s/DaemonMetadata/DaemonState/g
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+new file mode 100644
+index 00000000000..9ec95ffbfb0
+--- /dev/null
++++ b/src/mgr/DaemonState.cc
+@@ -0,0 +1,142 @@
++// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
++// vim: ts=8 sw=2 smarttab
++/*
++ * Ceph - scalable distributed file system
++ *
++ * Copyright (C) 2016 John Spray <john.spray@redhat.com>
++ *
++ * This is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License version 2.1, as published by the Free Software
++ * Foundation.  See file COPYING.
++ */
++
++#include "DaemonState.h"
++
++#define dout_subsys ceph_subsys_mgr
++#undef dout_prefix
++#define dout_prefix *_dout << "mgr " << __func__ << " "
++
++void DaemonStateIndex::insert(DaemonStatePtr dm)
++{
++  Mutex::Locker l(lock);
++
++  if (all.count(dm->key)) {
++    _erase(dm->key);
++  }
++
++  by_server[dm->hostname][dm->key] = dm;
++  all[dm->key] = dm;
++}
++
++void DaemonStateIndex::_erase(DaemonKey dmk)
++{
++  assert(lock.is_locked_by_me());
++
++  const auto dm = all.at(dmk);
++  auto &server_collection = by_server[dm->hostname];
++  server_collection.erase(dm->key);
++  if (server_collection.empty()) {
++    by_server.erase(dm->hostname);
++  }
++
++  all.erase(dmk);
++}
++
++DaemonStateCollection DaemonStateIndex::get_by_type(uint8_t type) const
++{
++  Mutex::Locker l(lock);
++
++  DaemonStateCollection result;
++
++  for (const auto &i : all) {
++    if (i.first.first == type) {
++      result[i.first] = i.second;
++    }
++  }
++
++  return result;
++}
++
++DaemonStateCollection DaemonStateIndex::get_by_server(const std::string &hostname) const
++{
++  Mutex::Locker l(lock);
++
++  if (by_server.count(hostname)) {
++    return by_server.at(hostname);
++  } else {
++    return {};
++  }
++}
++
++bool DaemonStateIndex::exists(const DaemonKey &key) const
++{
++  Mutex::Locker l(lock);
++
++  return all.count(key) > 0;
++}
++
++DaemonStatePtr DaemonStateIndex::get(const DaemonKey &key)
++{
++  Mutex::Locker l(lock);
++
++  return all.at(key);
++}
++
++void DaemonStateIndex::cull(entity_type_t daemon_type,
++                               std::set<std::string> names_exist)
++{
++  Mutex::Locker l(lock);
++
++  std::set<DaemonKey> victims;
++
++  for (const auto &i : all) {
++    if (i.first.first != daemon_type) {
++      continue;
++    }
++
++    if (names_exist.count(i.first.second) == 0) {
++      victims.insert(i.first);
++    }
++  }
++
++  for (const auto &i : victims) {
++    dout(4) << "Removing data for " << i << dendl;
++    _erase(i);
++  }
++}
++
++void DaemonPerfCounters::update(MMgrReport *report)
++{
++  dout(20) << "loading " << report->declare_types.size() << " new types, "
++           << report->packed.length() << " bytes of data" << dendl;
++
++  // Load any newly declared types
++  for (const auto &t : report->declare_types) {
++    types.insert(std::make_pair(t.path, t));
++    declared_types.insert(t.path);
++  }
++
++  // Parse packed data according to declared set of types
++  bufferlist::iterator p = report->packed.begin();
++  DECODE_START(1, p);
++  for (const auto &t_path : declared_types) {
++    const auto &t = types.at(t_path);
++    uint64_t val = 0;
++    uint64_t avgcount = 0;
++    uint64_t avgcount2 = 0;
++
++    ::decode(val, p);
++    if (t.type & PERFCOUNTER_LONGRUNAVG) {
++      ::decode(avgcount, p);
++      ::decode(avgcount2, p);
++    }
++    // TODO: interface for insertion of avgs, add timestamp
++    instances[t_path].push(val);
++  }
++  // TODO: handle badly encoded things without asserting out
++  DECODE_FINISH(p);
++}
++
++
++
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+new file mode 100644
+index 00000000000..a5aef3b3993
+--- /dev/null
++++ b/src/mgr/DaemonState.h
+@@ -0,0 +1,147 @@
++// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
++// vim: ts=8 sw=2 smarttab
++/*
++ * Ceph - scalable distributed file system
++ *
++ * Copyright (C) 2016 John Spray <john.spray@redhat.com>
++ *
++ * This is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License version 2.1, as published by the Free Software
++ * Foundation.  See file COPYING.
++ */
++
++#ifndef DAEMON_STATE_H_
++#define DAEMON_STATE_H_
++
++#include <map>
++#include <string>
++#include <memory>
++#include <set>
++
++#include "common/Mutex.h"
++
++#include "msg/msg_types.h"
++
++// For PerfCounterType
++#include "messages/MMgrReport.h"
++
++
++// Unique reference to a daemon within a cluster
++typedef std::pair<entity_type_t, std::string> DaemonKey;
++
++// An instance of a performance counter type, within
++// a particular daemon.
++class PerfCounterInstance
++{
++  // TODO: store some short history or whatever
++  uint64_t current;
++  public:
++  void push(uint64_t const &v) {current = v;}
++};
++
++
++typedef std::map<std::string, PerfCounterType> PerfCounterTypes;
++
++// Performance counters for one daemon
++class DaemonPerfCounters
++{
++  public:
++  // The record of perf stat types, shared between daemons
++  PerfCounterTypes &types;
++
++  DaemonPerfCounters(PerfCounterTypes &types_)
++    : types(types_)
++  {}
++
++  std::map<std::string, PerfCounterInstance> instances;
++
++  // FIXME: this state is really local to DaemonServer, it's part
++  // of the protocol rather than being part of what other classes
++  // mgiht want to read.  Maybe have a separate session object
++  // inside DaemonServer instead of stashing session-ish state here?
++  std::set<std::string> declared_types;
++
++  void update(MMgrReport *report);
++};
++
++// The state that we store about one daemon
++class DaemonState
++{
++  public:
++  DaemonKey key;
++
++  // The hostname where daemon was last seen running (extracted
++  // from the metadata)
++  std::string hostname;
++
++  // The metadata (hostname, version, etc) sent from the daemon
++  std::map<std::string, std::string> metadata;
++
++  // The perf counters received in MMgrReport messages
++  DaemonPerfCounters perf_counters;
++
++  DaemonState(PerfCounterTypes &types_)
++    : perf_counters(types_)
++  {
++  }
++};
++
++typedef std::shared_ptr<DaemonState> DaemonStatePtr;
++typedef std::map<DaemonKey, DaemonStatePtr> DaemonStateCollection;
++
++
++
++
++/**
++ * Fuse the collection of per-daemon metadata from Ceph into
++ * a view that can be queried by service type, ID or also
++ * by server (aka fqdn).
++ */
++class DaemonStateIndex
++{
++  private:
++  std::map<std::string, DaemonStateCollection> by_server;
++  DaemonStateCollection all;
++
++  std::set<DaemonKey> updating;
++
++  mutable Mutex lock;
++
++  public:
++
++  DaemonStateIndex() : lock("DaemonState") {}
++
++  // FIXME: shouldn't really be public, maybe construct DaemonState
++  // objects internally to avoid this.
++  PerfCounterTypes types;
++
++  void insert(DaemonStatePtr dm);
++  void _erase(DaemonKey dmk);
++
++  bool exists(const DaemonKey &key) const;
++  DaemonStatePtr get(const DaemonKey &key);
++  DaemonStateCollection get_by_server(const std::string &hostname) const;
++  DaemonStateCollection get_by_type(uint8_t type) const;
++
++  const DaemonStateCollection &get_all() const {return all;}
++  const std::map<std::string, DaemonStateCollection> &get_all_servers() const
++  {
++    return by_server;
++  }
++
++  void notify_updating(const DaemonKey &k) { updating.insert(k); }
++  void clear_updating(const DaemonKey &k) { updating.erase(k); }
++  bool is_updating(const DaemonKey &k) { return updating.count(k) > 0; }
++
++  /**
++   * Remove state for all daemons of this type whose names are
++   * not present in `names_exist`.  Use this function when you have
++   * a cluster map and want to ensure that anything absent in the map
++   * is also absent in this class.
++   */
++  void cull(entity_type_t daemon_type, std::set<std::string> names_exist);
++};
++
++#endif
++

@@ -1,0 +1,24 @@
+commit 140761f8a2df10c45eb02041fad5e8237bf57c20
+Author: Dan Mick <dmick@redhat.com>
+Date:   Tue Jun 19 20:36:08 2018 -0700
+
+    mgr, pybind/mgr: pass inbuf (ceph -i <file>) to modules
+    
+    Modules may wish to receive bulk data; allow it
+    
+    Signed-off-by: Dan Mick <dan.mick@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index f8c77479846..388b6ca2484 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1979,7 +1979,8 @@ bool DaemonServer::handle_command(MCommand *m)
+     }
+ 
+     std::stringstream ds;
+-    int r = py_modules.handle_command(handler_name, cmdctx->cmdmap, &ds, &ss);
++    bufferlist inbl = cmdctx->m->get_data();
++    int r = py_modules.handle_command(handler_name, cmdctx->cmdmap, inbl, &ds, &ss);
+     cmdctx->odata.append(ds);
+     cmdctx->reply(r, ss);
+   }));

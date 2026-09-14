@@ -1,0 +1,48 @@
+commit 948635a8b2130b561fae08bd5b2405a2dc6d3e9f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Oct 16 14:11:33 2018 -0500
+
+    mgr: Mutex::Locker -> std::lock_guard
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index da358d868fb..9265c4ff1d5 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -105,7 +105,7 @@ int MgrStandby::init()
+   init_async_signal_handler();
+   register_async_signal_handler(SIGHUP, sighup_handler);
+ 
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+ 
+   // Initialize Messenger
+   client_messenger->add_dispatcher_tail(this);
+@@ -248,7 +248,7 @@ void MgrStandby::tick()
+ 
+ void MgrStandby::handle_signal(int signum)
+ {
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+   ceph_assert(signum == SIGINT || signum == SIGTERM);
+   derr << "*** Got signal " << sig_str(signum) << " ***" << dendl;
+   shutdown();
+@@ -372,7 +372,7 @@ void MgrStandby::handle_mgr_map(MMgrMap* mmap)
+             [this](int r){
+               // Advertise our active-ness ASAP instead of waiting for
+               // next tick.
+-              Mutex::Locker l(lock);
++              std::lock_guard l(lock);
+               send_beacon();
+             }));
+       dout(1) << "I am now activating" << dendl;
+@@ -404,7 +404,7 @@ void MgrStandby::handle_mgr_map(MMgrMap* mmap)
+ 
+ bool MgrStandby::ms_dispatch(Message *m)
+ {
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+   dout(4) << state_str() << " " << *m << dendl;
+ 
+   if (m->get_type() == MSG_MGR_MAP) {

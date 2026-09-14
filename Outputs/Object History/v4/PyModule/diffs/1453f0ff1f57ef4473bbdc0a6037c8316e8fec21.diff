@@ -1,0 +1,31 @@
+commit 1453f0ff1f57ef4473bbdc0a6037c8316e8fec21
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jan 17 09:16:36 2021 +0800
+
+    mgr,pybind/mgr: use bool for poll in COMMANDS
+    
+    use correctly typed variable helps with readability and less
+    error-prone.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 07461af3b88..48295a7a5bc 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -499,12 +499,9 @@ int PyModule::load_commands()
+     command.perm = PyUnicode_AsUTF8(pPerm);
+ 
+     command.polling = false;
+-    PyObject *pPoll = PyDict_GetItemString(pCommand, "poll");
+-    if (pPoll) {
+-      std::string polling = PyUnicode_AsUTF8(pPoll);
+-      if (boost::iequals(polling, "true")) {
+-        command.polling = true;
+-      }
++    if (PyObject *pPoll = PyDict_GetItemString(pCommand, "poll");
++	pPoll && PyObject_IsTrue(pPoll)) {
++      command.polling = true;
+     }
+ 
+     command.module_name = module_name;

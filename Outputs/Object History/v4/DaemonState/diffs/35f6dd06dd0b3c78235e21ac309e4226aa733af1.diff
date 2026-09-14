@@ -1,0 +1,194 @@
+commit 35f6dd06dd0b3c78235e21ac309e4226aa733af1
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Thu Aug 14 18:41:01 2025 +0200
+
+    mgr/DaemonState: move PerfCounters classes to separate sources
+    
+    To reduce header dependencies.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 37231285f67..965bba4ad42 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -378,65 +378,3 @@ void DaemonStateIndex::cull_services(const std::set<std::string>& types_exist)
+     _erase(i);
+   }
+ }
+-
+-void DaemonPerfCounters::update(const MMgrReport& report)
+-{
+-  dout(20) << "loading " << report.declare_types.size() << " new types, "
+-	   << report.undeclare_types.size() << " old types, had "
+-	   << types.size() << " types, got "
+-           << report.packed.length() << " bytes of data" << dendl;
+-
+-  // Retrieve session state
+-  auto priv = report.get_connection()->get_priv();
+-  auto session = static_cast<MgrSession*>(priv.get());
+-
+-  // Load any newly declared types
+-  for (const auto &t : report.declare_types) {
+-    types.insert(std::make_pair(t.path, t));
+-    session->declared_types.insert(t.path);
+-  }
+-  // Remove any old types
+-  for (const auto &t : report.undeclare_types) {
+-    session->declared_types.erase(t);
+-  }
+-
+-  const auto now = ceph_clock_now();
+-
+-  // Parse packed data according to declared set of types
+-  auto p = report.packed.cbegin();
+-  DECODE_START(1, p);
+-  for (const auto &t_path : session->declared_types) {
+-    const auto &t = types.at(t_path);
+-    auto instances_it = instances.find(t_path);
+-    // Always check the instance exists, as we don't prevent yet
+-    // multiple sessions from daemons with the same name, and one
+-    // session clearing stats created by another on open.
+-    if (instances_it == instances.end()) {
+-      instances_it = instances.insert({t_path, t.type}).first;
+-    }
+-    uint64_t val = 0;
+-    uint64_t avgcount = 0;
+-    uint64_t avgcount2 = 0;
+-
+-    decode(val, p);
+-    if (t.type & PERFCOUNTER_LONGRUNAVG) {
+-      decode(avgcount, p);
+-      decode(avgcount2, p);
+-      instances_it->second.push_avg(now, val, avgcount);
+-    } else {
+-      instances_it->second.push(now, val);
+-    }
+-  }
+-  DECODE_FINISH(p);
+-}
+-
+-void PerfCounterInstance::push(utime_t t, uint64_t const &v)
+-{
+-  buffer.push_back({t, v});
+-}
+-
+-void PerfCounterInstance::push_avg(utime_t t, uint64_t const &s,
+-                                   uint64_t const &c)
+-{
+-  avg_buffer.push_back({t, s, c});
+-}
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 5f591525222..fca31ac9e65 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -21,10 +21,8 @@
+ #include <memory>
+ #include <shared_mutex> // for std::shared_lock
+ #include <set>
+-#include <boost/circular_buffer.hpp>
+ 
+ #include "common/ceph_mutex.h"
+-#include "common/perf_counters.h" // for enum perfcounter_type_d
+ #include "common/RefCountedObj.h"
+ #include "include/utime.h"
+ 
+@@ -32,97 +30,12 @@
+ 
+ #include "DaemonHealthMetric.h"
+ #include "DaemonKey.h"
++#include "DaemonPerfCounters.h"
+ 
+ namespace ceph {
+   class Formatter;
+ }
+ 
+-class PerfCounterType;
+-class MMgrReport;
+-
+-// An instance of a performance counter type, within
+-// a particular daemon.
+-class PerfCounterInstance
+-{
+-  class DataPoint
+-  {
+-    public:
+-    utime_t t;
+-    uint64_t v;
+-    DataPoint(utime_t t_, uint64_t v_)
+-      : t(t_), v(v_)
+-    {}
+-  };
+-
+-  class AvgDataPoint
+-  {
+-    public:
+-    utime_t t;
+-    uint64_t s;
+-    uint64_t c;
+-    AvgDataPoint(utime_t t_, uint64_t s_, uint64_t c_)
+-      : t(t_), s(s_), c(c_)
+-    {}
+-  };
+-
+-  boost::circular_buffer<DataPoint> buffer;
+-  boost::circular_buffer<AvgDataPoint> avg_buffer;
+-
+-  uint64_t get_current() const;
+-
+-  public:
+-  const boost::circular_buffer<DataPoint> & get_data() const
+-  {
+-    return buffer;
+-  }
+-  const DataPoint& get_latest_data() const
+-  {
+-    return buffer.back();
+-  }
+-  const boost::circular_buffer<AvgDataPoint> & get_data_avg() const
+-  {
+-    return avg_buffer;
+-  }
+-  const AvgDataPoint& get_latest_data_avg() const
+-  {
+-    return avg_buffer.back();
+-  }
+-  void push(utime_t t, uint64_t const &v);
+-  void push_avg(utime_t t, uint64_t const &s, uint64_t const &c);
+-
+-  PerfCounterInstance(enum perfcounter_type_d type)
+-  {
+-    if (type & PERFCOUNTER_LONGRUNAVG)
+-      avg_buffer = boost::circular_buffer<AvgDataPoint>(20);
+-    else
+-      buffer = boost::circular_buffer<DataPoint>(20);
+-  };
+-};
+-
+-
+-typedef std::map<std::string, PerfCounterType> PerfCounterTypes;
+-
+-// Performance counters for one daemon
+-class DaemonPerfCounters
+-{
+-  public:
+-  // The record of perf stat types, shared between daemons
+-  PerfCounterTypes &types;
+-
+-  explicit DaemonPerfCounters(PerfCounterTypes &types_)
+-    : types(types_)
+-  {}
+-
+-  std::map<std::string, PerfCounterInstance> instances;
+-
+-  void update(const MMgrReport& report);
+-
+-  void clear()
+-  {
+-    instances.clear();
+-  }
+-};
+-
+ // The state that we store about one daemon
+ class DaemonState
+ {

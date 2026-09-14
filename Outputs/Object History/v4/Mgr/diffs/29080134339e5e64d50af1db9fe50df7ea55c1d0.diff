@@ -1,0 +1,21 @@
+commit 29080134339e5e64d50af1db9fe50df7ea55c1d0
+Author: Chang Liu <liuchang0812@gmail.com>
+Date:   Thu Aug 24 10:56:29 2017 +0800
+
+    mgr: kill MgrSession when MMgrReport come from daemon without metadata info
+    
+    Signed-off-by: liuchang0812 <liuchang0812@gmail.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index f138018f6ff..edb93846851 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -410,7 +410,7 @@ void Mgr::handle_osd_map()
+    * reload the metadata.
+    */
+   objecter->with_osdmap([this, &names_exist](const OSDMap &osd_map) {
+-    for (unsigned int osd_id = 0; osd_id < osd_map.get_num_osds(); ++osd_id) {
++    for (unsigned int osd_id = 0; osd_id < osd_map.get_max_osd(); ++osd_id) {
+       if (!osd_map.exists(osd_id)) {
+         continue;
+       }

@@ -1,0 +1,33 @@
+commit 281a7d31b2df2462e64a5e81b42dc8510fd9bb5c
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sun Feb 5 04:24:16 2006 +0000
+
+    *** empty log message ***
+    
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@592 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/ceph/common/Clock.h b/ceph/common/Clock.h
+index 74d705a74a1..323686f16eb 100644
+--- a/ceph/common/Clock.h
++++ b/ceph/common/Clock.h
+@@ -19,10 +19,17 @@ class utime_t {
+  private:
+   struct timeval tv;
+ 
++  void normalize() {
++	if (tv.tv_usec > 1000*1000) {
++	  tv.tv_sec += tv.tv_usec / (1000*1000);
++	  tv.tv_usec %= 1000*1000;
++	}
++  }
++
+  public:
+   // cons
+-  utime_t() { tv.tv_sec = 0; tv.tv_usec = 0; }
+-  utime_t(time_t s, int u) { tv.tv_sec = s; tv.tv_usec = u; }
++  utime_t() { tv.tv_sec = 0; tv.tv_usec = 0; normalize(); }
++  utime_t(time_t s, int u) { tv.tv_sec = s; tv.tv_usec = u; normalize(); }
+   
+   // accessors
+   time_t        sec()  const { return tv.tv_sec; } 

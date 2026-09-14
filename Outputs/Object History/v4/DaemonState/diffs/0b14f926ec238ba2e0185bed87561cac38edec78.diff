@@ -1,0 +1,25 @@
+commit 0b14f926ec238ba2e0185bed87561cac38edec78
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Nov 8 21:28:05 2018 -0600
+
+    mgr/DeviceState: fix DeviceState initial refcount
+    
+    Should be 0
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 42b7ed9b283..692c265027c 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -210,7 +210,9 @@ struct DeviceState : public RefCountedObject
+   pair<utime_t,utime_t> life_expectancy;  ///< when device failure is expected
+   utime_t life_expectancy_stamp;          ///< when life expectency was recorded
+ 
+-  DeviceState(const std::string& n) : devid(n) {}
++  DeviceState(const std::string& n)
++    : RefCountedObject(nullptr, 0),
++      devid(n) {}
+ 
+   void set_metadata(map<string,string>&& m);
+ 

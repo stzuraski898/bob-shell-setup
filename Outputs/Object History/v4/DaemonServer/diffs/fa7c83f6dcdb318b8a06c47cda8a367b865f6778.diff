@@ -1,0 +1,54 @@
+commit fa7c83f6dcdb318b8a06c47cda8a367b865f6778
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jan 21 17:55:58 2019 -0600
+
+    osd,mgr,mds: remove unused authorize registries
+    
+    These are handled by AuthClient and AuthServer now.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 1298f64f0ac..f256c2c548d 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -76,14 +76,6 @@ DaemonServer::DaemonServer(MonClient *monc_,
+       py_modules(py_modules_),
+       clog(clog_),
+       audit_clog(audit_clog_),
+-      auth_cluster_registry(g_ceph_context,
+-                    g_conf()->auth_supported.empty() ?
+-                      g_conf()->auth_cluster_required :
+-                      g_conf()->auth_supported),
+-      auth_service_registry(g_ceph_context,
+-                   g_conf()->auth_supported.empty() ?
+-                      g_conf()->auth_service_required :
+-                      g_conf()->auth_supported),
+       lock("DaemonServer"),
+       pgmap_ready(false),
+       timer(g_ceph_context, lock),
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 35901aad446..310a030b1b5 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -26,8 +26,6 @@
+ #include <msg/Messenger.h>
+ #include <mon/MonClient.h>
+ 
+-#include "auth/AuthAuthorizeHandler.h"
+-
+ #include "ServiceMap.h"
+ #include "MgrSession.h"
+ #include "DaemonState.h"
+@@ -67,11 +65,6 @@ protected:
+   PyModuleRegistry &py_modules;
+   LogChannelRef clog, audit_clog;
+ 
+-  // Authentication methods for cluster peers
+-  AuthAuthorizeHandlerRegistry auth_cluster_registry;
+-  // Authentication methods for clients
+-  AuthAuthorizeHandlerRegistry auth_service_registry;
+-
+   // Connections for daemons, and clients with service names set
+   // (i.e. those MgrClients that are allowed to send MMgrReports)
+   std::set<ConnectionRef> daemon_connections;

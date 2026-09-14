@@ -1,0 +1,36 @@
+commit b8362d904a710c10ab72f15c78fdafc3ff21f020
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Wed Nov 14 09:33:01 2018 +0200
+
+    mgr: make dynamic osd perf counters accessible from modules
+    
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index e3c622d9136..4069715e8b7 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2691,3 +2691,10 @@ int DaemonServer::remove_osd_perf_query(OSDPerfMetricQueryID query_id)
+ {
+   return osd_perf_metric_collector.remove_query(query_id);
+ }
++
++int DaemonServer::get_osd_perf_counters(
++    OSDPerfMetricQueryID query_id,
++    std::map<OSDPerfMetricKey, PerformanceCounters> *counters)
++{
++  return osd_perf_metric_collector.get_counters(query_id, counters);
++}
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 6ccab441cf5..47020a884b4 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -167,6 +167,8 @@ public:
+ 
+   OSDPerfMetricQueryID add_osd_perf_query(const OSDPerfMetricQuery &query);
+   int remove_osd_perf_query(OSDPerfMetricQueryID query_id);
++  int get_osd_perf_counters(OSDPerfMetricQueryID query_id,
++                            std::map<OSDPerfMetricKey, PerformanceCounters> *c);
+ 
+   virtual const char** get_tracked_conf_keys() const override;
+   virtual void handle_conf_change(const ConfigProxy& conf,

@@ -1,0 +1,75 @@
+commit 9fa1b382ef423c27d8a9f5f0162e8076b05b310d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu May 18 23:06:20 2017 -0400
+
+    mgr/DaemonServer: keep registry of osd sessions
+    
+    Occasionally we send them messages.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 2a35f7a5b1c..8fda55247d4 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -172,6 +172,14 @@ bool DaemonServer::ms_verify_authorizer(Connection *con,
+       }
+     }
+     con->set_priv(s->get());
++
++    if (peer_type == CEPH_ENTITY_TYPE_OSD) {
++      Mutex::Locker l(lock);
++      s->osd_id = atoi(s->entity_name.get_id().c_str());
++      dout(10) << __func__ << " registering osd." << s->osd_id << " session "
++	       << s << " con " << con << dendl;
++      osd_cons[s->osd_id].insert(con);
++    }
+   }
+ 
+   return true;
+@@ -197,6 +205,22 @@ bool DaemonServer::ms_get_authorizer(int dest_type,
+   return *authorizer != NULL;
+ }
+ 
++bool DaemonServer::ms_handle_reset(Connection *con)
++{
++  if (con->get_peer_type() == CEPH_ENTITY_TYPE_OSD) {
++    MgrSessionRef session(static_cast<MgrSession*>(con->get_priv()));
++    if (!session) {
++      return false;
++    }
++    session->put(); // SessionRef takes a ref
++    Mutex::Locker l(lock);
++    dout(10) << __func__ << " unregistering osd." << session->osd_id
++	     << "  session " << session << " con " << con << dendl;
++    osd_cons[session->osd_id].erase(con);
++  }
++  return false;
++}
++
+ bool DaemonServer::ms_handle_refused(Connection *con)
+ {
+   // do nothing for now
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index bf6261356ce..a1ed292e1a0 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -63,6 +63,9 @@ protected:
+ 
+   AuthAuthorizeHandlerRegistry auth_registry;
+ 
++  /// connections for osds
++  ceph::unordered_map<int,set<ConnectionRef>> osd_cons;
++
+   Mutex lock;
+ 
+   static void _generate_command_map(map<string,cmd_vartype>& cmdmap,
+@@ -96,7 +99,7 @@ public:
+   ~DaemonServer() override;
+ 
+   bool ms_dispatch(Message *m) override;
+-  bool ms_handle_reset(Connection *con) override { return false; }
++  bool ms_handle_reset(Connection *con) override;
+   void ms_handle_remote_reset(Connection *con) override {}
+   bool ms_handle_refused(Connection *con) override;
+   bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer,

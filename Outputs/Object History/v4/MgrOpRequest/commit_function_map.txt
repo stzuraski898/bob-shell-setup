@@ -1,0 +1,12 @@
+# Commit → function map for MgrOpRequest
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b | (no functions)
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+941c5edac00b750e7a0d40c7f8b12b72d39178dc | (no functions)
+5c70e38a8a041306bcdee657731f5d2b4744e58c | (no functions)
+16b3343bb44b92b558a7ed077563aa72cbd520a9 | (no functions)
+66efcaae7a05abaefb12758239b0e1ad5cbd85c9 | (no functions)

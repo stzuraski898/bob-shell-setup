@@ -1,0 +1,67 @@
+commit 803b66a3b48231f9ed1eff2df15df95c9850eba4
+Author: John Spray <jspray@redhat.com>
+Date:   Sun Jul 31 18:05:53 2016 +0100
+
+    mgrc: enable sending pgstats
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 2a85f0df308..1cc610c20d2 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -23,6 +23,7 @@
+ #include "messages/MMgrConfigure.h"
+ #include "messages/MCommand.h"
+ #include "messages/MCommandReply.h"
++#include "messages/MPGStats.h"
+ 
+ #define dout_subsys ceph_subsys_mgrc
+ #undef dout_prefix
+@@ -231,6 +232,11 @@ void MgrClient::send_report()
+     report_callback = new C_StdFunction([this](){send_report();});
+     timer.add_event_after(stats_period, report_callback);
+   }
++
++  if (pgstats_cb) {
++    MPGStats *m_stats = pgstats_cb();
++    session->con->send_message(m_stats);
++  }
+ }
+ 
+ bool MgrClient::handle_mgr_configure(MMgrConfigure *m)
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 20a3cc8c02d..705dea8c4ef 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -27,6 +27,7 @@ class MMgrMap;
+ class MMgrConfigure;
+ class Messenger;
+ class MCommandReply;
++class MPGStats;
+ 
+ class MgrSessionState
+ {
+@@ -67,6 +68,10 @@ protected:
+   list<Cond*> waiting_for_session;
+   Context *report_callback;
+ 
++  // If provided, use this to compose an MPGStats to send with
++  // our reports (hook for use by OSD)
++  std::function<MPGStats*()> pgstats_cb;
++
+ public:
+   MgrClient(CephContext *cct_, Messenger *msgr_);
+ 
+@@ -85,6 +90,11 @@ public:
+ 
+   void send_report();
+ 
++  void set_pgstats_cb(std::function<MPGStats*()> cb_)
++  {
++    pgstats_cb = cb_;
++  }
++
+   int start_command(const vector<string>& cmd, const bufferlist& inbl,
+ 		    bufferlist *outbl, string *outs,
+ 		    Context *onfinish);

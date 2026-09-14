@@ -1,0 +1,28 @@
+commit 62382040ee9b655a68b15ccb43cebb39c9dc3a45
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun May 6 14:39:18 2018 +0800
+
+    common,filestore: silence GCC-8 warnings
+    
+    should catch polymorphic exceptions by reference. this silences warnings
+    like:
+    
+    error: catching polymorphic type ‘class std::RetryException’ by value
+    [-Werror=catch-value=]
+         } catch (std::RetryException) {
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 3cbf8e52594..b2af6ec04e1 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -130,7 +130,7 @@ class DaemonState
+       auto p = config_defaults_bl.begin();
+       try {
+ 	decode(config_defaults, p);
+-      } catch (buffer::error e) {
++      } catch (buffer::error& e) {
+       }
+     }
+     return config_defaults;

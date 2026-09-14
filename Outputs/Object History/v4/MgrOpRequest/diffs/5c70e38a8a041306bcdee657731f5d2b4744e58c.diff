@@ -1,0 +1,22 @@
+commit 5c70e38a8a041306bcdee657731f5d2b4744e58c
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Sat Oct 26 20:54:58 2024 +0200
+
+    mgr/MgrOpRequest: add missing includes
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/MgrOpRequest.h b/src/mgr/MgrOpRequest.h
+index 5b29e5980a3..cc454aa6dc8 100644
+--- a/src/mgr/MgrOpRequest.h
++++ b/src/mgr/MgrOpRequest.h
+@@ -15,6 +15,9 @@
+ #ifndef OPREQUEST_H_
+ #define OPREQUEST_H_
+ 
++#include "msg/Message.h"
++#include "msg/MessageRef.h"
++#include "msg/msg_types.h"
+ #include "common/TrackedOp.h"
+ #include "common/tracer.h"
+ /**

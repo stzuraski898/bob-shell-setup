@@ -1,0 +1,32 @@
+commit 6ff0857974ea91e83f4355b25a81198303907290
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sun Feb 26 14:09:33 2017 -0500
+
+    mgr/MgrClient: don't block command submission if no session yet
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index e1e0a0c1636..a1dadc884fe 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -111,7 +111,6 @@ void MgrClient::reconnect()
+       session->con->send_message(open);
+     }
+ 
+-    signal_cond_list(waiting_for_session);
+     // resend any pending commands
+     for (const auto &p : command_table.get_commands()) {
+       MCommand *m = p.second.get_message({});
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 8f771d891b3..a97de3c94db 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -66,7 +66,6 @@ protected:
+   void wait_on_list(list<Cond*>& ls);
+   void signal_cond_list(list<Cond*>& ls);
+ 
+-  list<Cond*> waiting_for_session;
+   Context *report_callback;
+ 
+   // If provided, use this to compose an MPGStats to send with

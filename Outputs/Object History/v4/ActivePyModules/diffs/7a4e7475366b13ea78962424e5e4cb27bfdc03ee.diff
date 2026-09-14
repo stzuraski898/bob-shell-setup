@@ -1,0 +1,82 @@
+commit 7a4e7475366b13ea78962424e5e4cb27bfdc03ee
+Author: Laura Flores <lflores@redhat.com>
+Date:   Wed Dec 22 23:09:25 2021 +0000
+
+    mgr: expose rocksdb version number in the mgr module
+    
+    It is only necessary here to link the rocksdb include directory
+    since the mgr simply needs access to the rocksdb version numbers.
+    
+    Signed-off-by: Laura Flores <lflores@redhat.com>
+    Co-authored-by: Kefu Chai <tchaikov@gmail.com>
+    Co-authored-by: Adam Kupczyk <akupczyk@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 0c08f3a02b5..1e9b932daa9 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -14,27 +14,29 @@
+ // Include this first to get python headers earlier
+ #include "Gil.h"
+ 
++#include "ActivePyModules.h"
++
++#include <rocksdb/version.h>
++
+ #include "common/errno.h"
+ #include "include/stringify.h"
+ 
+-#include "PyFormatter.h"
+-
+-#include "osd/OSDMap.h"
+ #include "mon/MonMap.h"
++#include "osd/OSDMap.h"
+ #include "osd/osd_types.h"
+ #include "mgr/MgrContext.h"
+ #include "mgr/TTLCache.h"
+ #include "mgr/mgr_perf_counters.h"
+ 
++#include "DaemonKey.h"
++#include "DaemonServer.h"
++#include "mgr/MgrContext.h"
++#include "PyFormatter.h"
+ // For ::mgr_store_prefix
+ #include "PyModule.h"
+ #include "PyModuleRegistry.h"
+ #include "PyUtil.h"
+ 
+-#include "ActivePyModules.h"
+-#include "DaemonKey.h"
+-#include "DaemonServer.h"
+-
+ #define dout_context g_ceph_context
+ #define dout_subsys ceph_subsys_mgr
+ #undef dout_prefix
+@@ -1025,6 +1027,15 @@ PyObject* ActivePyModules::get_perf_schema_python(
+   return f.get();
+ }
+ 
++PyObject* ActivePyModules::get_rocksdb_version()
++{
++  std::string version = std::to_string(ROCKSDB_MAJOR) + "." +
++                        std::to_string(ROCKSDB_MINOR) + "." +
++                        std::to_string(ROCKSDB_PATCH);
++
++  return PyUnicode_FromString(version.c_str());
++}
++
+ PyObject *ActivePyModules::get_context()
+ {
+   auto l = without_gil([&] {
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 3054fa3a277..2547c256538 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -101,6 +101,7 @@ public:
+   PyObject *get_perf_schema_python(
+      const std::string &svc_type,
+      const std::string &svc_id);
++  PyObject *get_rocksdb_version();
+   PyObject *get_context();
+   PyObject *get_osdmap();
+   /// @note @c fct is not allowed to acquire locks when holding GIL

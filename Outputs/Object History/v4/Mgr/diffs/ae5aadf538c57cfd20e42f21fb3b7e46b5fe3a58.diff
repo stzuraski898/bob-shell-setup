@@ -1,0 +1,21 @@
+commit ae5aadf538c57cfd20e42f21fb3b7e46b5fe3a58
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Fri Nov 1 08:24:46 2024 +0100
+
+    mgr/Mgr: add missing include
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 1a11046ee08..26f93563517 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -38,6 +38,8 @@
+ #include "PyModule.h"
+ #include "Mgr.h"
+ 
++#include <sstream>
++
+ #define dout_context g_ceph_context
+ #define dout_subsys ceph_subsys_mgr
+ #undef dout_prefix

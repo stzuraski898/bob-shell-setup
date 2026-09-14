@@ -1,0 +1,66 @@
+commit bc9ab73704f7bc94e3a7fa0105936b340dde7478
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Mon Jan 29 23:27:33 2018 -0500
+
+    common/admin_socket: Copy fewer strings
+    
+    Pass std::string_view to call, rather than passing strings by value.
+    
+    Change cmdmap_t and the maps in admin_socket to use the std::less<>
+    transparent comparator, so we can compare string_views to strings. (Or
+    anything else with an equality operator with strings.)
+    
+    Pass the cmdmap_t in to call by const reference, not reference.
+    
+    The change to cmdmap_t requires changing some of the users of
+    cmdmap_t. (That is, make them actually use cmdmap_t explicitly, not
+    the open-coed map type.)
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 0be909070ab..a8ba11db6b8 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -522,10 +522,10 @@ bool DaemonServer::handle_report(MMgrReport *m)
+ 
+ 
+ void DaemonServer::_generate_command_map(
+-  map<string,cmd_vartype>& cmdmap,
++  cmdmap_t& cmdmap,
+   map<string,string> &param_str_map)
+ {
+-  for (map<string,cmd_vartype>::const_iterator p = cmdmap.begin();
++  for (auto p = cmdmap.begin();
+        p != cmdmap.end(); ++p) {
+     if (p->first == "prefix")
+       continue;
+@@ -562,7 +562,7 @@ bool DaemonServer::_allowed_command(
+   MgrSession *s,
+   const string &module,
+   const string &prefix,
+-  const map<string,cmd_vartype>& cmdmap,
++  const cmdmap_t& cmdmap,
+   const map<string,string>& param_str_map,
+   const MonCommand *this_cmd) {
+ 
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 1dcc24b2778..9c0575461d2 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -80,13 +80,13 @@ protected:
+ 
+   Mutex lock;
+ 
+-  static void _generate_command_map(map<string,cmd_vartype>& cmdmap,
++  static void _generate_command_map(cmdmap_t& cmdmap,
+                                     map<string,string> &param_str_map);
+   static const MonCommand *_get_mgrcommand(const string &cmd_prefix,
+                                            const std::vector<MonCommand> &commands);
+   bool _allowed_command(
+     MgrSession *s, const string &module, const string &prefix,
+-    const map<string,cmd_vartype>& cmdmap,
++    const cmdmap_t& cmdmap,
+     const map<string,string>& param_str_map,
+     const MonCommand *this_cmd);
+ 

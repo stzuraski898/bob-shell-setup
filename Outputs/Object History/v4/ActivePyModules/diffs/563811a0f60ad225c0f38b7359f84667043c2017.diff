@@ -1,0 +1,25 @@
+commit 563811a0f60ad225c0f38b7359f84667043c2017
+Author: David Zafman <dzafman@redhat.com>
+Date:   Wed Jan 8 16:02:51 2020 -0800
+
+    mgr/progress: Add pg_ready interface for python to get pgmap_ready state
+    
+    Fixes: https://tracker.ceph.com/issues/43557
+    
+    Signed-off-by: David Zafman <dzafman@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 10b7e0d4e2d..6546711aa7a 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -383,6 +383,10 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+       pg_map.dump_pool_stats(&f);
+     });
+     return f.get();
++  } else if (what == "pg_ready") {
++    PyEval_RestoreThread(tstate);
++    server.dump_pg_ready(&f);
++    return f.get();
+   } else if (what == "osd_stats") {
+     cluster_state.with_pgmap(
+         [&f, &tstate](const PGMap &pg_map) {

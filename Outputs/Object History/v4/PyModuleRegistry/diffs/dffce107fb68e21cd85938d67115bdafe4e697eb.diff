@@ -1,0 +1,26 @@
+commit dffce107fb68e21cd85938d67115bdafe4e697eb
+Author: Sebastian Wagner <swagner@suse.com>
+Date:   Mon Jul 22 14:36:41 2019 +0200
+
+    mgr: cleanup idle debug log at level 4.
+    
+    Changed all messages to 10 that are printed repeatedly in an idle cluster.
+    
+    This makes debugging Python modules easier as the log
+    is no longer pullued by mgr core messages.
+    
+    Signed-off-by: Sebastian Wagner <sebastian.wagner@suse.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 061a92c6c7c..16c43e40e07 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -417,7 +417,7 @@ void PyModuleRegistry::handle_config(const std::string &k, const std::string &v)
+   std::lock_guard l(module_config.lock);
+ 
+   if (!v.empty()) {
+-    dout(4) << "Loaded module_config entry " << k << ":" << v << dendl;
++    dout(10) << "Loaded module_config entry " << k << ":" << v << dendl;
+     module_config.config[k] = v;
+   } else {
+     module_config.config.erase(k);

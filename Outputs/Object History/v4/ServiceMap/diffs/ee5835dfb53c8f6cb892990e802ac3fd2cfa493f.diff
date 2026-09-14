@@ -1,0 +1,76 @@
+commit ee5835dfb53c8f6cb892990e802ac3fd2cfa493f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 27 09:32:44 2017 -0400
+
+    mon: make service summary string customizable; simple default
+    
+    Eventually the mgr can populate this field with something tailored to the
+    service.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ServiceMap.cc b/src/mgr/ServiceMap.cc
+index fc3a775f53a..9074e2f8716 100644
+--- a/src/mgr/ServiceMap.cc
++++ b/src/mgr/ServiceMap.cc
+@@ -56,6 +56,7 @@ void ServiceMap::Service::encode(bufferlist& bl, uint64_t features) const
+ {
+   ENCODE_START(1, 1, bl);
+   ::encode(daemons, bl, features);
++  ::encode(summary, bl);
+   ENCODE_FINISH(bl);
+ }
+ 
+@@ -63,12 +64,14 @@ void ServiceMap::Service::decode(bufferlist::iterator& p)
+ {
+   DECODE_START(1, p);
+   ::decode(daemons, p);
++  ::decode(summary, p);
+   DECODE_FINISH(p);
+ }
+ 
+ void ServiceMap::Service::dump(Formatter *f) const
+ {
+   f->open_object_section("daemons");
++  f->dump_string("summary", summary);
+   for (auto& p : daemons) {
+     f->dump_object(p.first.c_str(), p.second);
+   }
+diff --git a/src/mgr/ServiceMap.h b/src/mgr/ServiceMap.h
+index d9121c664f9..5137f9f84f2 100644
+--- a/src/mgr/ServiceMap.h
++++ b/src/mgr/ServiceMap.h
+@@ -6,6 +6,7 @@
+ #include <string>
+ #include <map>
+ #include <list>
++#include <sstream>
+ 
+ #include "include/utime.h"
+ #include "include/buffer.h"
+@@ -31,11 +32,25 @@ struct ServiceMap {
+ 
+   struct Service {
+     map<std::string,Daemon> daemons;
++    std::string summary;   ///< summary status string for 'ceph -s'
+ 
+     void encode(bufferlist& bl, uint64_t features) const;
+     void decode(bufferlist::iterator& p);
+     void dump(Formatter *f) const;
+     static void generate_test_instances(std::list<Service*>& ls);
++
++    std::string get_summary() const {
++      if (summary.size()) {
++	return summary;
++      }
++      if (daemons.empty()) {
++	return "no daemons active";
++      }
++      std::ostringstream ss;
++      ss << daemons.size() << (daemons.size() > 1 ? "daemonss" : "daemon")
++	 << " active";
++      return ss.str();
++    }
+   };
+ 
+   epoch_t epoch = 0;

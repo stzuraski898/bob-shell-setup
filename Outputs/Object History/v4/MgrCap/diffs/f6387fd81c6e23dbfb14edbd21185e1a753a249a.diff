@@ -1,0 +1,55 @@
+commit f6387fd81c6e23dbfb14edbd21185e1a753a249a
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Tue Aug 26 13:28:56 2025 +0800
+
+    src: replace push_back(T{}) with emplace_back()
+    
+    in ed6b7124, we switched from some instances of `push_back(Type{})`
+    patterns to `emplace_back()` to simplify the code and to avoid
+    unnecessary overhead of copy/move constructor calls. but there were
+    still remaining instances of them in `generate_test_instance()`
+    member function implementations.
+    
+    in this change, we switched all of them to be more consistent.
+    
+    Signed-off-by: Kefu Chai <tchaikov@gmail.com>
+
+diff --git a/src/mgr/MgrCap.cc b/src/mgr/MgrCap.cc
+index 1d10b13ab5c..637223ee49a 100644
+--- a/src/mgr/MgrCap.cc
++++ b/src/mgr/MgrCap.cc
+@@ -387,24 +387,24 @@ void MgrCap::dump(ceph::Formatter *f) const {
+ 
+ std::list<MgrCap> MgrCap::generate_test_instances() {
+   std::list<MgrCap> ls;
+-  ls.push_back(MgrCap{});
+-  ls.push_back(MgrCap{});
++  ls.emplace_back();
++  ls.emplace_back();
+   ls.back().parse("allow *");
+-  ls.push_back(MgrCap{});
++  ls.emplace_back();
+   ls.back().parse("allow rwx");
+-  ls.push_back(MgrCap{});
++  ls.emplace_back();
+   ls.back().parse("allow service foo x");
+-  ls.push_back(MgrCap{});
++  ls.emplace_back();
+   ls.back().parse("allow command bar x");
+-  ls.push_back(MgrCap{});
++  ls.emplace_back();
+   ls.back().parse("allow service foo r, allow command bar x");
+-  ls.push_back(MgrCap{});
++  ls.emplace_back();
+   ls.back().parse("allow command bar with k1=v1 x");
+-  ls.push_back(MgrCap{});
++  ls.emplace_back();
+   ls.back().parse("allow command bar with k1=v1 k2=v2 x");
+-  ls.push_back(MgrCap{});
++  ls.emplace_back();
+   ls.back().parse("allow module bar with k1=v1 k2=v2 x");
+-  ls.push_back(MgrCap{});
++  ls.emplace_back();
+   ls.back().parse("profile rbd pool=rbd");
+   return ls;
+ }

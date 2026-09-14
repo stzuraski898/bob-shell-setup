@@ -1,0 +1,27 @@
+commit 327b3de54eeca80d84fc4cd2da1b2917aca9b791
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Tue Oct 29 10:12:25 2024 +0100
+
+    mgr/ClusterState: move own header to the top
+    
+    This allows verifying the header's dependencies.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 6b106268efc..0ab745a70f8 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -11,11 +11,11 @@
+  * Foundation.  See file COPYING.
+  */
+ 
++#include "mgr/ClusterState.h"
+ #include "messages/MMgrDigest.h"
+ #include "messages/MMonMgrReport.h"
+ #include "messages/MPGStats.h"
+ 
+-#include "mgr/ClusterState.h"
+ #include <time.h>
+ #include <boost/range/adaptor/reversed.hpp>
+ 

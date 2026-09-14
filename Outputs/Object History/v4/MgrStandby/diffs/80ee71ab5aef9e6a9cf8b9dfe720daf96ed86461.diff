@@ -1,0 +1,22 @@
+commit 80ee71ab5aef9e6a9cf8b9dfe720daf96ed86461
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue Feb 13 16:37:00 2018 +0800
+
+    common/options,mon: switch some option to TYPE_SECS
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 0cb1ab2ac4b..361201db8ff 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -225,7 +225,8 @@ void MgrStandby::tick()
+     active_mgr->tick();
+   }
+ 
+-  timer.add_event_after(g_conf->get_val<int64_t>("mgr_tick_period"),
++  timer.add_event_after(
++      g_conf->get_val<std::chrono::seconds>("mgr_tick_period").count(),
+       new FunctionContext([this](int r){
+           tick();
+       }

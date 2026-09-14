@@ -1,0 +1,26 @@
+commit 1ecda507eb35d9ff0b056d68b2f3b47e8bc2afb8
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sat Jun 19 12:56:18 2021 -0400
+
+    mgr/telemetry: redact python crash dump in telemetry
+    
+    Include the exception value in teh crash dump, but redact it in telemetry.
+    That way the operator can see it (it's useful info!) but we don't risk
+    sharing identifying data via telemetry.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index fc03d68df1f..c554ff1d00a 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -106,8 +106,7 @@ std::string handle_pyerror(
+     PyObject *l = get_managed_object(formatted_list, boost::python::tag);
+     if (PyList_Check(l)) {
+       // skip first line, which is: "Traceback (most recent call last):\n"
+-      // omit last line, which contains a runtime value that may be identifying!
+-      for (unsigned i = 1; i < PyList_Size(l) - 1; ++i) {
++      for (unsigned i = 1; i < PyList_Size(l); ++i) {
+ 	PyObject *val = PyList_GET_ITEM(l, i);
+ 	std::string s = PyUnicode_AsUTF8(val);
+ 	s.resize(s.size() - 1);  // strip off newline character

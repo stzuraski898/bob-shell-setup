@@ -1,0 +1,29 @@
+commit 3ca2c482e0fb5af9e8f13c212d60aaf55a033a94
+Author: Neha Ojha <nojha@redhat.com>
+Date:   Thu Jun 18 21:59:40 2020 +0000
+
+    mgr/DaemonServer.cc: make 'config show' on fsid work
+    
+    This follows 5661dd75efd48251b7f433b1ffe01c9c52906e96, which added special
+    handling for "config get" to work on fsid.
+    
+    Fixes: https://tracker.ceph.com/issues/46123
+    Signed-off-by: Neha Ojha <nojha@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index c6f5779158b..1fc57233e39 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1855,6 +1855,12 @@ bool DaemonServer::_handle_command(
+     int r = 0;
+     string name;
+     if (cmd_getval(cmdctx->cmdmap, "key", name)) {
++      // handle special options
++      if (name == "fsid") {
++       cmdctx->odata.append(stringify(monc->get_fsid()) + "\n");
++       cmdctx->reply(r, ss);
++       return true;
++      }
+       auto p = daemon->config.find(name);
+       if (p != daemon->config.end() &&
+ 	  !p->second.empty()) {

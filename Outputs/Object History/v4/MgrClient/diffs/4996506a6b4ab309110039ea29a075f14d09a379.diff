@@ -1,0 +1,26 @@
+commit 4996506a6b4ab309110039ea29a075f14d09a379
+Author: Brad Hubbard <bhubbard@redhat.com>
+Date:   Thu Aug 2 10:33:42 2018 +1000
+
+    mgr/MgrClient: Protect daemon_health_metrics
+    
+    Without holiding the lock update_daemon_health() can race with
+    send_report() corrupting the daemon_health_metrics vector.
+    
+    Fixes: http://tracker.ceph.com/issues/23352
+    
+    Signed-off-by: Kjetil Joergensen <kjetil@medallia.com>
+    Signed-off-by: Brad Hubbard <bhubbard@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index f1a10f0bd17..06d2810d827 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -510,6 +510,7 @@ int MgrClient::service_daemon_update_status(
+ 
+ void MgrClient::update_daemon_health(std::vector<DaemonHealthMetric>&& metrics)
+ {
++  Mutex::Locker l(lock);
+   daemon_health_metrics = std::move(metrics);
+ }
+ 

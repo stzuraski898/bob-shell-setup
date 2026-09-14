@@ -1,0 +1,33 @@
+commit 2d2982e74209a28293d207c67a6f7d60360aa8b5
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Sat Oct 26 21:21:58 2024 +0200
+
+    mgr/DaemonState: add missing includes
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 044ddadad03..84970c749d1 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -17,6 +17,8 @@
+ 
+ #include "MgrSession.h"
+ #include "include/stringify.h"
++#include "common/Clock.h" // for ceph_clock_now()
++#include "common/debug.h"
+ #include "common/Formatter.h"
+ 
+ #define dout_context g_ceph_context
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 0688db81bb1..d78e819405b 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -17,6 +17,7 @@
+ #include <map>
+ #include <string>
+ #include <memory>
++#include <shared_mutex> // for std::shared_lock
+ #include <set>
+ #include <boost/circular_buffer.hpp>
+ 

@@ -1,0 +1,22 @@
+commit e9abc5ce0bb784d2bdca887dfe8e7b003316eb38
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Thu Aug 14 14:54:51 2025 +0200
+
+    mgr/DaemonState: forward-declare class DaemonHealthMetric
+    
+    This requires un-inlining constructor and destructor.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 2d9b8610688..50fb01fce48 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -41,6 +41,7 @@
+ #include "JSONCommand.h"
+ #include "PyModule.h"
+ #include "Mgr.h"
++#include "DaemonHealthMetric.h" // for accessing DaemonState::daemon_health_metrics
+ 
+ #include <sstream>
+ 

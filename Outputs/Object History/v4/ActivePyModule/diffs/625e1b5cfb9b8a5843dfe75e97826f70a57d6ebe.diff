@@ -1,0 +1,89 @@
+commit 625e1b5cfb9b8a5843dfe75e97826f70a57d6ebe
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Oct 3 08:16:10 2017 -0400
+
+    mgr: safety checks on pyThreadState usage
+    
+    Previously relied on the caller of Gil() to
+    pass new_thread=true if they would be
+    calling from a different thread.
+    
+    Enforce this with an assertion, by wrapping
+    PyThreadState in a SafeThreadState class
+    that remembers which POSIX thread
+    it's meant to be used in.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrPyModule.cc b/src/mgr/MgrPyModule.cc
+index 49b70d8a24b..50165e71187 100644
+--- a/src/mgr/MgrPyModule.cc
++++ b/src/mgr/MgrPyModule.cc
+@@ -13,7 +13,6 @@
+ 
+ #include "PyState.h"
+ #include "PyOSDMap.h"
+-#include "Gil.h"
+ 
+ #include "PyFormatter.h"
+ 
+@@ -85,14 +84,14 @@ MgrPyModule::MgrPyModule(const std::string &module_name_, const std::string &sys
+     pClassInstance(nullptr),
+     pMainThreadState(main_ts_)
+ {
+-  assert(pMainThreadState != nullptr);
+-
+   Gil gil(pMainThreadState);
+ 
+-  pMyThreadState = Py_NewInterpreter();
+-  if (pMyThreadState == nullptr) {
++  auto thread_state = Py_NewInterpreter();
++  if (thread_state == nullptr) {
+     derr << "Failed to create python sub-interpreter for '" << module_name << '"' << dendl;
+   } else {
++    pMyThreadState.set(thread_state);
++
+     // Some python modules do not cope with an unpopulated argv, so lets
+     // fake one.  This step also picks up site-packages into sys.path.
+     const char *argv[] = {"ceph-mgr"};
+@@ -120,7 +119,7 @@ MgrPyModule::MgrPyModule(const std::string &module_name_, const std::string &sys
+ 
+ MgrPyModule::~MgrPyModule()
+ {
+-  if (pMyThreadState != nullptr) {
++  if (pMyThreadState.ts != nullptr) {
+     Gil gil(pMyThreadState);
+ 
+     Py_XDECREF(pClassInstance);
+@@ -153,7 +152,7 @@ MgrPyModule::~MgrPyModule()
+ 
+ int MgrPyModule::load()
+ {
+-  if (pMyThreadState == nullptr) {
++  if (pMyThreadState.ts == nullptr) {
+     derr << "No python sub-interpreter exists for module '" << module_name << "'" << dendl;
+     return -EINVAL;
+   }
+diff --git a/src/mgr/MgrPyModule.h b/src/mgr/MgrPyModule.h
+index 6eea29eee24..9f5a5ef53ac 100644
+--- a/src/mgr/MgrPyModule.h
++++ b/src/mgr/MgrPyModule.h
+@@ -23,6 +23,7 @@
+ #include "common/LogEntry.h"
+ #include "common/Mutex.h"
+ #include "mon/health_check.h"
++#include "mgr/Gil.h"
+ 
+ #include <vector>
+ #include <string>
+@@ -46,8 +47,8 @@ class MgrPyModule
+ private:
+   const std::string module_name;
+   PyObject *pClassInstance;
+-  PyThreadState *pMainThreadState;
+-  PyThreadState *pMyThreadState = nullptr;
++  SafeThreadState pMainThreadState;
++  SafeThreadState pMyThreadState;
+ 
+   health_check_map_t health_checks;
+ 

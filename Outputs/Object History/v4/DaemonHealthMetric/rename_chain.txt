@@ -1,0 +1,9 @@
+# Rename chain for src/mgr/DaemonHealthMetric.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/DaemonHealthMetric.cc 437e8949ea6a4e2f582369266e964beb2e2f2bf8 437e8949ea6a4e2f582369266e964beb2e2f2bf8
+#
+# Rename chain for src/mgr/DaemonHealthMetric.h
+#
+src/mgr/DaemonHealthMetric.h 437e8949ea6a4e2f582369266e964beb2e2f2bf8 714ffe0d5f078e4106ddbd8b57918ae2a0c899af
+src/osd/OSDHealthMetric.h 714ffe0d5f078e4106ddbd8b57918ae2a0c899af f4b74125e44fe78154fb377fa06fc08b3325859d

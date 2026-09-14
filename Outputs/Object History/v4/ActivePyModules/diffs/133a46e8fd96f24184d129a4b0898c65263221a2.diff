@@ -1,0 +1,36 @@
+commit 133a46e8fd96f24184d129a4b0898c65263221a2
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Fri Dec 16 16:14:29 2022 +0000
+
+    mgr: don't dump global config holding gil
+    
+    When dumping the config the cpython may drop/take the gil which
+    may lead to a deadlock when another cpython thread is trying to
+    get the config lock while holding the gil.
+    
+    Fixes: https://tracker.ceph.com/issues/58269
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 5fe5ceeb9b4..25712bf957b 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -259,10 +259,16 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+     }
+     f.close_section();
+   } else if (what.substr(0, 6) == "config") {
++    // We make a copy of the global config to avoid printing
++    // to py formater (which may drop-take GIL) while holding
++    // the global config lock, which might deadlock with other
++    // thread that is holding the GIL and acquiring the global
++    // config lock.
++    ConfigProxy config{g_conf()};
+     if (what == "config_options") {
+-      g_conf().config_options(&f);
++      config.config_options(&f);
+     } else if (what == "config") {
+-      g_conf().show_config(&f);
++      config.show_config(&f);
+     }
+   } else if (what == "mon_map") {
+     without_gil_t no_gil;

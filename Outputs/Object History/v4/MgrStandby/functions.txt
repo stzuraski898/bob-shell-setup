@@ -1,0 +1,41 @@
+# Function list for MgrStandby (via ctags)
+# Format: qualified_name | file:line
+#
+MgrHook | src/mgr/MgrStandby.cc:53
+MgrStandby | src/mgr/MgrStandby.cc:71
+__anon3d649c410102 | src/mgr/MgrStandby.cc:239
+__anon3d649c410202 | src/mgr/MgrStandby.cc:250
+__anon3d649c410302 | src/mgr/MgrStandby.cc:391
+__anon3d649c410402 | src/mgr/MgrStandby.cc:473
+_update_log_config | src/mgr/MgrStandby.cc:444
+asok_command | src/mgr/MgrStandby.cc:152
+call | src/mgr/MgrStandby.cc:54
+get_tracked_keys | src/mgr/MgrStandby.cc:107
+handle_conf_change | src/mgr/MgrStandby.cc:124
+handle_mgr_map | src/mgr/MgrStandby.cc:450
+handle_standby_mgr_signal | src/mgr/MgrStandby.cc:183
+init | src/mgr/MgrStandby.cc:189
+main | src/mgr/MgrStandby.cc:534
+ms_dispatch2 | src/mgr/MgrStandby.cc:507
+ms_handle_refused | src/mgr/MgrStandby.cc:528
+respawn | src/mgr/MgrStandby.cc:397
+send_beacon | src/mgr/MgrStandby.cc:298
+state_str | src/mgr/MgrStandby.cc:548
+tick | src/mgr/MgrStandby.cc:384
+~MgrStandby | src/mgr/MgrStandby.cc:96
+MgrStandby | src/mgr/MgrStandby.h:76
+_update_log_config | src/mgr/MgrStandby.h:70
+asok_command | src/mgr/MgrStandby.h:42
+get_tracked_keys | src/mgr/MgrStandby.h:39
+handle_conf_change | src/mgr/MgrStandby.h:40
+handle_mgr_map | src/mgr/MgrStandby.h:69
+init | src/mgr/MgrStandby.h:84
+main | src/mgr/MgrStandby.h:86
+ms_dispatch2 | src/mgr/MgrStandby.h:79
+ms_handle_refused | src/mgr/MgrStandby.h:82
+ms_handle_remote_reset | src/mgr/MgrStandby.h:81
+ms_handle_reset | src/mgr/MgrStandby.h:80
+respawn | src/mgr/MgrStandby.h:85
+send_beacon | src/mgr/MgrStandby.h:71
+state_str | src/mgr/MgrStandby.h:67
+tick | src/mgr/MgrStandby.h:87

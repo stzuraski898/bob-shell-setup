@@ -1,0 +1,31 @@
+# Commit → function map for PyFormatter
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+7c68a00cce5b7769c2e34fb7611d14825283fcda | dump_float dump_format_va
+403340bcf8c2122afff708519f176baa6b646fc1 | finish_pending_streams
+7fadf6a8d464456668550e1f85c6c5a86f94bb49 | get
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b | (no functions)
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+3ab70dd3e1150b2b3f66cbbee329ea95618747a5 | (no functions)
+5f57c526b22af16e8a079aacefcb26cc14202ad2 | open_object_section
+15dfa71cf7c8ff761f305638a89438b0551d64cf | finish_pending_streams
+6712393fbc534c6c7040bfc9ee2d1268f3adc9dd | dump_stream open_array_section dump_bool dump_format_va open_object_section
+48c4bc445fcacd7980e84b4f135a3115b88b05f1 | finish_pending_streams dump_float dump_format_va dump_pyobject
+104c88cfea8e3d2d6bca1a22c26010256919862c | (no functions)
+ac8b016b7237dfa14af74128ea051a83f9e44670 | open_object_section
+34975103eae6e9c0061512e6e000d6f8e1093f20 | (no functions)
+5009d9ecc692076360ff777e47db9902c7bff669 | (no functions)
+938189e8f280c71fbf542f5f84f57dd7a737dda6 | (no functions)
+ab23c506964753990f9fe23e314b9f3e2547a773 | open_object_section
+0c8ec93af7d7437d1ffd646be407c4bf64f505b4 | dump_float
+46003075924bb16b41149e7c12f31e9a6b7a3f15 | (no functions)
+992829d38cb89732f6994642c1bdaa2448e610b7 | (no functions)
+86c851e138ae00cbcc2854ba75ad8d40ef2a2270 | dump_stream
+9ea37c223f92b8f228c57a4c17d4da02d99be756 | (no functions)
+ecbcd591b785009e8a28a41125868024d86c112d | (no functions)
+61fca96c29104683da74c913cfbf4005ba95cf77 | dump_stream dump_pyobject
+ac30e6cee2b2d3815438f1a392a951d511bddfd4 | (no functions)

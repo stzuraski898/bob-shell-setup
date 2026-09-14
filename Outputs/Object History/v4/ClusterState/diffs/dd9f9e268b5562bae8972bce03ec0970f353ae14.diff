@@ -1,0 +1,46 @@
+commit dd9f9e268b5562bae8972bce03ec0970f353ae14
+Author: Ramana Raja <rraja@redhat.com>
+Date:   Thu Nov 2 14:38:02 2023 -0400
+
+    mgr/Mgr: remove shutdown() and handle_signal()
+    
+    Mgr::shutdown() and Mgr::handle_signal() are never called since
+    3363a10. The mgr just exits on SIGINT or SIGTERM.
+    
+    Also found and removed other unreachable code associated with
+    shutdown in mgr codebase.
+    
+    Fixes: https://tracker.ceph.com/issues/63410
+    Signed-off-by: Ramana Raja <rraja@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 7f811a5e415..6b106268efc 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -225,14 +225,6 @@ void ClusterState::final_init()
+   ceph_assert(r == 0);
+ }
+ 
+-void ClusterState::shutdown()
+-{
+-  // unregister commands
+-  g_ceph_context->get_admin_socket()->unregister_commands(asok_hook);
+-  delete asok_hook;
+-  asok_hook = NULL;
+-}
+-
+ bool ClusterState::asok_command(
+   std::string_view admin_command,
+   const cmdmap_t& cmdmap,
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index 7939cd8eb8f..2beac362b47 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -152,7 +152,6 @@ public:
+   }
+ 
+   void final_init();
+-  void shutdown();
+   bool asok_command(std::string_view admin_command,
+ 		    const cmdmap_t& cmdmap,
+ 		    Formatter *f,

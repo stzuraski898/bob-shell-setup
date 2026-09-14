@@ -1,0 +1,37 @@
+commit 8010d919603f2631637f85bef600bf926ca436fc
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu Nov 29 15:44:55 2018 +0800
+
+    mgr: don't write to output if EOPNOTSUPP
+    
+    if process_pg_map_command() fails to fulfill the request, we should keep
+    the odata intact. and let the module take care of it.
+    
+    before this change, we always write to odata even if
+    process_pg_map_command() returns -EOPNOTSUPP, this leaves unnecessary
+    leftover in the output, like pg_info,pg_ready.
+    
+    after this change, we won't touch odata if process_pg_map_command()
+    returns -EOPNOTSUPP. and odata will be filled with whatever the python
+    module returns.
+    
+    Fixes: http://tracker.ceph.com/issues/37444
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 4069715e8b7..eea7503caf2 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2050,9 +2050,11 @@ bool DaemonServer::_handle_command(
+ 
+     if (f) {
+       f->close_section();
+-      f->flush(cmdctx->odata);
+     }
+     if (r != -EOPNOTSUPP) {
++      if (f) {
++	f->flush(cmdctx->odata);
++      }
+       cmdctx->reply(r, ss);
+       return true;
+     }

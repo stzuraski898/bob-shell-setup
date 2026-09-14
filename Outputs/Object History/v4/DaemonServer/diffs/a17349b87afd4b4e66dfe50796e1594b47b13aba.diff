@@ -1,0 +1,20 @@
+commit a17349b87afd4b4e66dfe50796e1594b47b13aba
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Tue Aug 12 21:06:17 2025 +0200
+
+    mgr: add missing includes
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index d456b16c4e7..a967658e2f4 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -39,6 +39,7 @@
+ #include "messages/MCommandReply.h"
+ #include "messages/MMgrCommand.h"
+ #include "messages/MMgrCommandReply.h"
++#include "messages/MMgrReport.h"
+ #include "messages/MPGStats.h"
+ #include "messages/MOSDScrub2.h"
+ #include "messages/MOSDForceRecovery.h"

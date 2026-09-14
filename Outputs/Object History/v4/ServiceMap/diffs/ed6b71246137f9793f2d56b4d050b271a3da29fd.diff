@@ -1,0 +1,147 @@
+commit ed6b71246137f9793f2d56b4d050b271a3da29fd
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Mon Jun 9 20:35:44 2025 +0800
+
+    src: Fix memory leaks in generate_test_instance() by returning values instead of pointers
+    
+    Problem:
+    
+    The current `generate_test_instance()` function returns `std::list<T*>`,
+    which creates memory management issues:
+    
+    - Inconsistent lifecycle management of test instances
+    - Callers don't always properly clean up allocated memory
+    - Results in ASan memory leak reports in unit tests and ceph-dencoder
+    
+    Solution:
+    
+    Change `generate_test_instance()` to return `std::list<T>` instead of `std::list<T*>`:
+    
+    Core Changes:
+    
+    - Modified all classes with `generate_test_instance()` to return `std::list<T>`
+    - Use `emplace_back()` without parameters** to avoid copy/move
+      constructors for classes that don't define them
+    - Updated ceph-dencoder to handle the new return type
+    
+    ceph-dencoder Adaptations:
+    
+    Since `m_list` now holds `T` objects instead of `T*`, and we can't
+    assume `T` is copyable/moveable:
+    
+    - Keep `m_object` as a pointer for flexibility
+    - Handle two scenarios:
+      1. `m_object` points to an element in `m_list`
+      2. `m_object` points to a decoded instance (requires manual cleanup)
+    - Introduce `make_ptr()` as a factory function to create a smart pointer
+      to conditionally free the managed pointer.
+    
+    Additional Cleanup:
+    
+    - Simplify DencoderBase constructor from template to plain
+      function (extra parameters were never used in derived classes)
+    
+    With this change, object lifecycles are now managed by value semantics
+    instead of raw pointers, eliminating memory leaks.
+    
+    Signed-off-by: Kefu Chai <tchaikov@gmail.com>
+
+diff --git a/src/mgr/ServiceMap.cc b/src/mgr/ServiceMap.cc
+index 1faee971db3..10d2cd9fc98 100644
+--- a/src/mgr/ServiceMap.cc
++++ b/src/mgr/ServiceMap.cc
+@@ -58,13 +58,15 @@ void ServiceMap::Daemon::dump(Formatter *f) const
+   f->close_section();
+ }
+ 
+-void ServiceMap::Daemon::generate_test_instances(std::list<Daemon*>& ls)
++auto ServiceMap::Daemon::generate_test_instances() -> std::list<Daemon>
+ {
+-  ls.push_back(new Daemon);
+-  ls.push_back(new Daemon);
+-  ls.back()->gid = 222;
+-  ls.back()->metadata["this"] = "that";
+-  ls.back()->task_status["task1"] = "running";
++  std::list<Daemon> ls;
++  ls.push_back(Daemon{});
++  ls.push_back(Daemon{});
++  ls.back().gid = 222;
++  ls.back().metadata["this"] = "that";
++  ls.back().task_status["task1"] = "running";
++  return ls;
+ }
+ 
+ // Service
+@@ -194,12 +196,14 @@ void ServiceMap::Service::dump(Formatter *f) const
+   f->close_section();
+ }
+ 
+-void ServiceMap::Service::generate_test_instances(std::list<Service*>& ls)
++auto ServiceMap::Service::generate_test_instances() -> std::list<Service>
+ {
+-  ls.push_back(new Service);
+-  ls.push_back(new Service);
+-  ls.back()->daemons["one"].gid = 1;
+-  ls.back()->daemons["two"].gid = 2;
++  std::list<Service> ls;
++  ls.push_back(Service{});
++  ls.push_back(Service{});
++  ls.back().daemons["one"].gid = 1;
++  ls.back().daemons["two"].gid = 2;
++  return ls;
+ }
+ 
+ // ServiceMap
+@@ -233,12 +237,14 @@ void ServiceMap::dump(Formatter *f) const
+   f->close_section();
+ }
+ 
+-void ServiceMap::generate_test_instances(std::list<ServiceMap*>& ls)
++std::list<ServiceMap> ServiceMap::generate_test_instances()
+ {
+-  ls.push_back(new ServiceMap);
+-  ls.push_back(new ServiceMap);
+-  ls.back()->epoch = 123;
+-  ls.back()->services["rgw"].daemons["one"].gid = 123;
+-  ls.back()->services["rgw"].daemons["two"].gid = 344;
+-  ls.back()->services["iscsi"].daemons["foo"].gid = 3222;
++  std::list<ServiceMap> ls;
++  ls.push_back(ServiceMap{});
++  ls.push_back(ServiceMap{});
++  ls.back().epoch = 123;
++  ls.back().services["rgw"].daemons["one"].gid = 123;
++  ls.back().services["rgw"].daemons["two"].gid = 344;
++  ls.back().services["iscsi"].daemons["foo"].gid = 3222;
++  return ls;
+ }
+diff --git a/src/mgr/ServiceMap.h b/src/mgr/ServiceMap.h
+index 70fdf0f0082..10f02620dd1 100644
+--- a/src/mgr/ServiceMap.h
++++ b/src/mgr/ServiceMap.h
+@@ -28,7 +28,7 @@ struct ServiceMap {
+     void encode(ceph::buffer::list& bl, uint64_t features) const;
+     void decode(ceph::buffer::list::const_iterator& p);
+     void dump(ceph::Formatter *f) const;
+-    static void generate_test_instances(std::list<Daemon*>& ls);
++    static std::list<Daemon> generate_test_instances();
+   };
+ 
+   struct Service {
+@@ -38,7 +38,7 @@ struct ServiceMap {
+     void encode(ceph::buffer::list& bl, uint64_t features) const;
+     void decode(ceph::buffer::list::const_iterator& p);
+     void dump(ceph::Formatter *f) const;
+-    static void generate_test_instances(std::list<Service*>& ls);
++    static std::list<Service> generate_test_instances();
+ 
+     std::string get_summary() const;
+     bool has_running_tasks() const;
+@@ -54,7 +54,7 @@ struct ServiceMap {
+   void encode(ceph::buffer::list& bl, uint64_t features) const;
+   void decode(ceph::buffer::list::const_iterator& p);
+   void dump(ceph::Formatter *f) const;
+-  static void generate_test_instances(std::list<ServiceMap*>& ls);
++  static std::list<ServiceMap> generate_test_instances();
+ 
+   std::pair<Daemon*,bool> get_daemon(const std::string& service,
+ 				     const std::string& daemon) {

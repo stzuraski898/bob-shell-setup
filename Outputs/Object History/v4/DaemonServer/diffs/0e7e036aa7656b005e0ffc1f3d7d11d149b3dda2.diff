@@ -1,0 +1,24 @@
+commit 0e7e036aa7656b005e0ffc1f3d7d11d149b3dda2
+Author: haoyixing <haoyixing@kuaishou.com>
+Date:   Mon Nov 23 20:36:32 2020 +0800
+
+    doc/dev: use http://docs.ceph.com/en/latest/ instead of /docs/master/ for docs
+    
+    Several links under http://docs.ceph.com/docs/master/ were unable to access.
+    Change them to http://docs.ceph.com/en/lastest so we can access them directly.
+    
+    Signed-off-by: haoyixing <haoyixing@kuaishou.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 91e6c3759b9..2b1878cb78f 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -863,7 +863,7 @@ void DaemonServer::log_access_denied(
+                      << "entity='" << session->entity_name << "' "
+                      << "cmd=" << cmdctx->cmd << ":  access denied";
+   ss << "access denied: does your client key have mgr caps? "
+-        "See http://docs.ceph.com/docs/master/mgr/administrator/"
++        "See http://docs.ceph.com/en/latest/mgr/administrator/"
+         "#client-authentication";
+ }
+ 

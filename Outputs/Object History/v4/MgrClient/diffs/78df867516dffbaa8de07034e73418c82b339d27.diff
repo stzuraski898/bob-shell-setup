@@ -1,0 +1,59 @@
+commit 78df867516dffbaa8de07034e73418c82b339d27
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Thu Mar 28 20:42:34 2019 -0400
+
+    mgr: Update MgrClient to work without using namespace
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 6a61317aa06..9ece47bbb92 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -26,6 +26,11 @@
+ #include "messages/MCommandReply.h"
+ #include "messages/MPGStats.h"
+ 
++using std::string;
++using std::vector;
++
++using ceph::bufferlist;
++
+ #define dout_subsys ceph_subsys_mgrc
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgrc " << __func__ << " "
+@@ -412,8 +417,8 @@ bool MgrClient::handle_mgr_close(MMgrClose *m)
+ }
+ 
+ int MgrClient::start_command(const vector<string>& cmd, const bufferlist& inbl,
+-                  bufferlist *outbl, string *outs,
+-                  Context *onfinish)
++			     bufferlist *outbl, string *outs,
++			     Context *onfinish)
+ {
+   std::lock_guard l(lock);
+ 
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 09764afaf8c..2b913c05b2b 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -58,7 +58,7 @@ protected:
+   MgrMap map;
+   Messenger *msgr;
+ 
+-  unique_ptr<MgrSessionState> session;
++  std::unique_ptr<MgrSessionState> session;
+ 
+   Mutex lock = {"MgrClient::lock"};
+   Cond shutdown_cond;
+@@ -137,8 +137,8 @@ public:
+     pgstats_cb = std::move(cb_);
+   }
+ 
+-  int start_command(const vector<string>& cmd, const bufferlist& inbl,
+-		    bufferlist *outbl, string *outs,
++  int start_command(const std::vector<std::string>& cmd, const ceph::buffer::list& inbl,
++		    ceph::buffer::list *outbl, std::string *outs,
+ 		    Context *onfinish);
+ 
+   int service_daemon_register(

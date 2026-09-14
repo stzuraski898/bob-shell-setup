@@ -1,0 +1,40 @@
+commit dd7f8af9d643e03d4b2ea5504a5e20c53e86b661
+Author: Sridhar Seshasayee <sridhar.seshasayee@ibm.com>
+Date:   Wed May 6 20:41:33 2026 +0530
+
+    mgr/DaemonServer: clarify ok-to-upgrade error message for CRUSH buckets
+    
+    Refine the error string in DaemonServer.cc returned by the
+    ok-to-upgrade command when OSDs in a CRUSH bucket cannot be upgraded.
+    
+    The original message is ambiguous. It fails to clearly convey that
+    stopping *any* individual OSD in that specific bucket will drop PGs
+    offline, meaning no OSDs within that bucket can be safely upgraded at
+    this time.
+    
+    Update the phrasing to explicitly state that at least X PGs will go offline
+    if any OSD out of the total count in that CRUSH bucket is stopped. Also
+    standardize on capitalized acronyms (PG, OSD, CRUSH) and wrap the bucket
+    name in single quotes for better log readability.
+    
+    Fixes: https://tracker.ceph.com/issues/74612
+    Signed-off-by: Sridhar Seshasayee <sridhar.seshasayee@ibm.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 210ff663208..afe0a0c37fa 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2400,9 +2400,11 @@ bool DaemonServer::_handle_command(
+         cmdctx->reply(-EAGAIN, ss);
+       }
+       if (!pg_offline_report.ok_to_stop()) {
+-        ss << "unsafe to upgrade osd(s) at this time ("
++        ss << "unsafe to upgrade OSD(s) at this time (at least "
+            << pg_offline_report.not_ok.size()
+-           << " PGs are or would become offline)";
++           << " PG(s) will become offline if any OSD out of the "
++           << osds_in_crush_bucket.size() << " in CRUSH bucket '"
++           << crush_bucket_name << "' is stopped)";
+         cmdctx->reply(-EBUSY, ss);
+       }
+       // ok_to_upgrade() would be false in case all osds are upgraded

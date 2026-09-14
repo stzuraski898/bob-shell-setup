@@ -1,0 +1,35 @@
+commit 8fc290bfba4d71a60d30c2374ce4bcba37e649de
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue Mar 9 12:51:55 2021 +0800
+
+    mgr: add mon metada using type of "mon"
+    
+    this change addresses a regression introduced by
+    c037f4cb5d7436879d58c34748ef516b5269781f
+    
+    also remove the "P" before the json command.
+    
+    see also: https://tracker.ceph.com/issues/48905
+    
+    Fixes: https://tracker.ceph.com/issues/49661
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 91e5ed48269..fb5f5253275 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -544,12 +544,12 @@ void Mgr::handle_mon_map()
+     }
+   });
+   for (const auto& name : names_exist) {
+-    const auto k = DaemonKey{"osd", name};
++    const auto k = DaemonKey{"mon", name};
+     if (daemon_state.is_updating(k)) {
+       continue;
+     }
+     auto c = new MetadataUpdate(daemon_state, k);
+-    const char* cmd = R"(P{{"prefix": "mon metadata", "id": "{}"}})";
++    const char* cmd = R"({{"prefix": "mon metadata", "id": "{}"}})";
+     monc->start_mon_command({fmt::format(cmd, name)}, {},
+ 			    &c->outbl, &c->outs, c);
+   }

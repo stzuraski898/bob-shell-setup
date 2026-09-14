@@ -1,0 +1,22 @@
+# Commit → function map for MgrCap
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+488cb91e47036475637bc7bb4fd1941daaa85663 | expand_profile
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+f6387fd81c6e23dbfb14edbd21185e1a753a249a | dump
+ed6b71246137f9793f2d56b4d050b271a3da29fd | dump
+4f1f40ad6143cbafdd27557f1aafdfb6b837d854 | (no functions)
+03da55716ca1e277a573c2edca333a339ddc218a | (no functions)
+c7244e7aade4f9ef887110e600dc76d0ccfb6744 | expand_profile
+1e8864092d44761da8a1768760f3156ed12382c4 | is_capable get_allowed decode
+98dfce1c36f8f594d2a771855db72abae45d18f1 | (no functions)
+2dc7a959509325f8da23d0baef2509174477398c | expand_profile
+3463613bd43d5fb7f8094c3b9b8a3163325ff196 | is_capable get_allowed is_allow_all expand_profile
+9193d8762347af65bebdaea673175113f7ccd01a | get_allowed parse_network parse expand_profile
+b0d73aed19a9f3f242d5a13757016759835c164c | expand_profile
+cb534e0049afc4f9259812a6624744bbdbaabafa | get_allowed generate_test_instances expand_profile
+6350bee5c873cb1cef0ca1345b89bff66817e0c1 | (no functions)

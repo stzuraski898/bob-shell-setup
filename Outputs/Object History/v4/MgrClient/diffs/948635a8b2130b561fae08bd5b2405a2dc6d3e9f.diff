@@ -1,0 +1,115 @@
+commit 948635a8b2130b561fae08bd5b2405a2dc6d3e9f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Oct 16 14:11:33 2018 -0500
+
+    mgr: Mutex::Locker -> std::lock_guard
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index c436bb9fee1..4bddbe2a19c 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -39,7 +39,7 @@ MgrClient::MgrClient(CephContext *cct_, Messenger *msgr_)
+ 
+ void MgrClient::init()
+ {
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+ 
+   ceph_assert(msgr != nullptr);
+ 
+@@ -48,7 +48,7 @@ void MgrClient::init()
+ 
+ void MgrClient::shutdown()
+ {
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+   ldout(cct, 10) << dendl;
+ 
+   if (connect_retry_callback) {
+@@ -83,7 +83,7 @@ void MgrClient::shutdown()
+ 
+ bool MgrClient::ms_dispatch(Message *m)
+ {
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+ 
+   switch(m->get_type()) {
+   case MSG_MGR_MAP:
+@@ -219,7 +219,7 @@ bool MgrClient::handle_mgr_map(MMgrMap *m)
+ 
+ bool MgrClient::ms_handle_reset(Connection *con)
+ {
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+   if (session && con == session->con) {
+     ldout(cct, 4) << __func__ << " con " << con << dendl;
+     reconnect();
+@@ -359,7 +359,7 @@ void MgrClient::_send_report()
+ 
+ void MgrClient::send_pgstats()
+ {
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+   _send_pgstats();
+ }
+ 
+@@ -415,7 +415,7 @@ int MgrClient::start_command(const vector<string>& cmd, const bufferlist& inbl,
+                   bufferlist *outbl, string *outs,
+                   Context *onfinish)
+ {
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+ 
+   ldout(cct, 20) << "cmd: " << cmd << dendl;
+ 
+@@ -479,7 +479,7 @@ int MgrClient::service_daemon_register(
+   const std::string& name,
+   const std::map<std::string,std::string>& metadata)
+ {
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+   if (service == "osd" ||
+       service == "mds" ||
+       service == "client" ||
+@@ -509,7 +509,7 @@ int MgrClient::service_daemon_register(
+ int MgrClient::service_daemon_update_status(
+   std::map<std::string,std::string>&& status)
+ {
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+   ldout(cct,10) << status << dendl;
+   daemon_status = std::move(status);
+   daemon_dirty_status = true;
+@@ -518,7 +518,7 @@ int MgrClient::service_daemon_update_status(
+ 
+ void MgrClient::update_daemon_health(std::vector<DaemonHealthMetric>&& metrics)
+ {
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+   daemon_health_metrics = std::move(metrics);
+ }
+ 
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index ffeb586450a..5b561d26170 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -124,7 +124,7 @@ public:
+           std::function<void(OSDPerfMetricReport *)> cb_get)
+ 
+   {
+-      Mutex::Locker l(lock);
++      std::lock_guard l(lock);
+       set_perf_queries_cb = cb_set;
+       get_perf_report_cb = cb_get;
+   }
+@@ -133,7 +133,7 @@ public:
+   void send_pgstats();
+   void set_pgstats_cb(std::function<MPGStats*()>&& cb_)
+   {
+-    Mutex::Locker l(lock);
++    std::lock_guard l(lock);
+     pgstats_cb = std::move(cb_);
+   }
+ 

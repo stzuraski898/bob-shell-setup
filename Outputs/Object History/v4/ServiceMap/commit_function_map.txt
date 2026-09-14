@@ -1,0 +1,29 @@
+# Commit → function map for ServiceMap
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+f6387fd81c6e23dbfb14edbd21185e1a753a249a | dump
+ed6b71246137f9793f2d56b4d050b271a3da29fd | dump
+0f367a5f9b331090a34f78e0185bfce3756c3dac | (no functions)
+c63ecb602e5916d5e0beed137787fdfc67707f15 | get_summary
+3adad9309a891baaafdae8ff653925b417acc2cd | (no functions)
+ab0d8f2ae9f551e15a4c7bacbf69161e91263785 | get_summary
+a968f65d784b3d6c6a172929aa293f09e6917fa6 | get_summary
+e0cfad08b670affd3468be4eabccd7d5d8285cf8 | get_task_summary generate_test_instances
+310e33cf9a6ce7987d82566dba9ebc6b97c18a19 | generate_test_instances
+7305acda01b1f4b66327cd2ce5e6b12acfb65de6 | get_summary
+79503fc16749ed0cfe8a89ea3b3c8c792d6b8809 | (no functions)
+3e65551d0ab4acafaf4012601987b3391b2411ed | dump
+5c25a018643b10aa78db8270cae1476f71d8f4f4 | generate_test_instances dump
+45eeca27deb27905d0d2a5137dab1117b66969f4 | (no functions)
+394baa0b7935853bbbb67f483f680100fcd54463 | (no functions)
+671641df5af03c296c6d8f2869ed624a1d6e9f17 | dump
+f146c6c514b7f1ab8a2420edb5f7b64702bc9639 | encode
+156c941ad0d27c3cd487a085e04df9faeeffa768 | generate_test_instances
+293b7ba956298c9533628006b70998604d8b4dcd | (no functions)
+80a42122a023df2e716738fd06bef2d2a49dce8f | (no functions)
+ee5835dfb53c8f6cb892990e802ac3fd2cfa493f | encode decode
+7fce6382f2c35e767dcf326c088bc31e650386d3 | (no functions)

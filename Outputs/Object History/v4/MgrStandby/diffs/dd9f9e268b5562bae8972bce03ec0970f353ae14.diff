@@ -1,0 +1,73 @@
+commit dd9f9e268b5562bae8972bce03ec0970f353ae14
+Author: Ramana Raja <rraja@redhat.com>
+Date:   Thu Nov 2 14:38:02 2023 -0400
+
+    mgr/Mgr: remove shutdown() and handle_signal()
+    
+    Mgr::shutdown() and Mgr::handle_signal() are never called since
+    3363a10. The mgr just exits on SIGINT or SIGTERM.
+    
+    Also found and removed other unreachable code associated with
+    shutdown in mgr codebase.
+    
+    Fixes: https://tracker.ceph.com/issues/63410
+    Signed-off-by: Ramana Raja <rraja@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 545624eb79b..052e6868177 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -295,41 +295,6 @@ void MgrStandby::tick()
+   ));
+ }
+ 
+-void MgrStandby::shutdown()
+-{
+-  finisher.queue(new LambdaContext([&](int) {
+-    std::lock_guard l(lock);
+-
+-    dout(4) << "Shutting down" << dendl;
+-
+-    py_module_registry.shutdown();
+-    // stop sending beacon first, I use monc to talk with monitors
+-    timer.shutdown();
+-    // client uses monc and objecter
+-    client.shutdown();
+-    mgrc.shutdown();
+-    // Stop asio threads, so leftover events won't call into shut down
+-    // monclient/objecter.
+-    poolctx.finish();
+-    // stop monc, so mon won't be able to instruct me to shutdown/activate after
+-    // the active_mgr is stopped
+-    monc.shutdown();
+-    if (active_mgr) {
+-      active_mgr->shutdown();
+-    }
+-    // objecter is used by monc and active_mgr
+-    objecter.shutdown();
+-    // client_messenger is used by all of them, so stop it in the end
+-    client_messenger->shutdown();
+-  }));
+-
+-  // Then stop the finisher to ensure its enqueued contexts aren't going
+-  // to touch references to the things we're about to tear down
+-  finisher.wait_for_empty();
+-  finisher.stop();
+-  mgr_perf_stop(g_ceph_context);
+-}
+-
+ void MgrStandby::respawn()
+ {
+   // --- WARNING TO FUTURE COPY/PASTERS ---
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index 0f06e3074a0..5d238c85577 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -79,7 +79,6 @@ public:
+   bool ms_handle_refused(Connection *con) override;
+ 
+   int init();
+-  void shutdown();
+   void respawn();
+   int main(std::vector<const char *> args);
+   void tick();

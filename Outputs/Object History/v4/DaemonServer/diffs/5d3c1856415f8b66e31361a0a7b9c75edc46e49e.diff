@@ -1,0 +1,20 @@
+commit 5d3c1856415f8b66e31361a0a7b9c75edc46e49e
+Author: David Zafman <dzafman@redhat.com>
+Date:   Tue Jul 9 17:22:12 2019 +0000
+
+    mgr: Add "dump_osd_network" mgr admin request to get a sorted report
+    
+    Signed-off-by: David Zafman <dzafman@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ed200f232eb..c361c1759f1 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -352,6 +352,7 @@ void DaemonServer::shutdown()
+   dout(10) << "begin" << dendl;
+   msgr->shutdown();
+   msgr->wait();
++  cluster_state.shutdown();
+   dout(10) << "done" << dendl;
+ 
+   std::lock_guard l(lock);

@@ -1,0 +1,23 @@
+commit 618025908cc0389bbf0d237e0b124240e3c13aa4
+Author: Konstantin Shalygin <k0ste@k0ste.ru>
+Date:   Thu Dec 5 12:23:37 2024 +0300
+
+    mgr/DaemonServer: fixed mistype for mgr_osd_messages
+    
+    Triple 's' to double 's', as option name
+    
+    Signed-off-by: Konstantin Shalygin <k0ste@k0ste.ru>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ca335a744d4..57381a93c06 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -80,7 +80,7 @@ DaemonServer::DaemonServer(MonClient *monc_,
+ 					g_conf().get_val<uint64_t>("mgr_client_messages"))),
+       osd_byte_throttler(new Throttle(g_ceph_context, "mgr_osd_bytes",
+ 				      g_conf().get_val<Option::size_t>("mgr_osd_bytes"))),
+-      osd_msg_throttler(new Throttle(g_ceph_context, "mgr_osd_messsages",
++      osd_msg_throttler(new Throttle(g_ceph_context, "mgr_osd_messages",
+ 				     g_conf().get_val<uint64_t>("mgr_osd_messages"))),
+       mds_byte_throttler(new Throttle(g_ceph_context, "mgr_mds_bytes",
+ 				      g_conf().get_val<Option::size_t>("mgr_mds_bytes"))),

@@ -1,0 +1,33 @@
+commit 1dc66c4aebbf7581fcc508af5e1820768553272d
+Author: Tim Serong <tserong@suse.com>
+Date:   Fri Apr 21 16:04:05 2017 +1000
+
+    mgr: fix crash on set_config from python module with insufficient caps
+    
+    If config-key put fails, we now log the failure rather than asserting that
+    it must always succeed.
+    
+    Fixes: http://tracker.ceph.com/issues/19629
+    Signed-off-by: Tim Serong <tserong@suse.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 6bb5384ec9b..335a9a0866a 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -544,8 +544,14 @@ void PyModules::set_config(const std::string &handle,
+   }
+   set_cmd.wait();
+ 
+-  // FIXME: is config-key put ever allowed to fail?
+-  assert(set_cmd.r == 0);
++  if (set_cmd.r != 0) {
++    // config-key put will fail if mgr's auth key has insufficient
++    // permission to set config keys
++    // FIXME: should this somehow raise an exception back into Python land?
++    dout(0) << "`config-key put " << global_key << " " << val << "` failed: "
++      << cpp_strerror(set_cmd.r) << dendl;
++    dout(0) << "mon returned " << set_cmd.r << ": " << set_cmd.outs << dendl;
++  }
+ }
+ 
+ std::vector<ModuleCommand> PyModules::get_commands()

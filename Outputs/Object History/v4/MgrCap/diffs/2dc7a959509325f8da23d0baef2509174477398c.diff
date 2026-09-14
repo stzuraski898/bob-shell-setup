@@ -1,0 +1,35 @@
+commit 2dc7a959509325f8da23d0baef2509174477398c
+Author: Jason Dillaman <dillaman@redhat.com>
+Date:   Tue Oct 22 09:11:34 2019 -0400
+
+    mgr: added placeholder 'osd' and 'mds' profiles
+    
+    CephFS documents a previously unhandled profile named 'mds' that
+    needs to be accepted as valid (but currently provides no caps).
+    Similarly, the 'osd' cap is deployed in several scenarios as well.
+    
+    Signed-off-by: Jason Dillaman <dillaman@redhat.com>
+
+diff --git a/src/mgr/MgrCap.cc b/src/mgr/MgrCap.cc
+index 5c990a1bdf6..ef1f3943973 100644
+--- a/src/mgr/MgrCap.cc
++++ b/src/mgr/MgrCap.cc
+@@ -155,6 +155,18 @@ void MgrCapGrant::expand_profile(std::ostream *err) const {
+     return;
+   }
+ 
++  if (profile == "osd") {
++    // this is a documented profile (so we need to accept it as valid), but it
++    // currently doesn't do anything
++    return;
++  }
++
++  if (profile == "mds") {
++    // this is a documented profile (so we need to accept it as valid), but it
++    // currently doesn't do anything
++    return;
++  }
++
+   if (profile == "rbd" || profile == "rbd-read-only") {
+     Arguments filtered_arguments;
+     for (auto& [key, constraint] : arguments) {

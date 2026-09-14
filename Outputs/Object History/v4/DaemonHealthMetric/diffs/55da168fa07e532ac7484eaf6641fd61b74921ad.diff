@@ -1,0 +1,22 @@
+commit 55da168fa07e532ac7484eaf6641fd61b74921ad
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Thu Mar 19 11:58:05 2026 +0100
+
+    mgr/DaemonHealthMetric: add missing includes
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/DaemonHealthMetric.h b/src/mgr/DaemonHealthMetric.h
+index 6a2eb3371c7..8081d0a611d 100644
+--- a/src/mgr/DaemonHealthMetric.h
++++ b/src/mgr/DaemonHealthMetric.h
+@@ -4,7 +4,9 @@
+ #pragma once
+ 
+ #include <cstdint>
++#include <list>
+ #include <ostream>
++#include <string>
+ #include "common/Formatter.h"
+ #include "include/denc.h"
+ #include "common/Formatter.h"

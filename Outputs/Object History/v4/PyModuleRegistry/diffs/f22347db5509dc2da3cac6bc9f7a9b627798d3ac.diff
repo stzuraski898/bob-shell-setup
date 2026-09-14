@@ -1,0 +1,72 @@
+commit f22347db5509dc2da3cac6bc9f7a9b627798d3ac
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Thu Jan 24 11:04:24 2019 +0200
+
+    mgr: load modules in finisher to avoid potential lock cycles
+    
+    Fixes: https://tracker.ceph.com/issues/37997
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 5ef411a5d55..d0b3c87e5b4 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -128,7 +128,7 @@ bool PyModuleRegistry::handle_mgr_map(const MgrMap &mgr_map_)
+ 
+ 
+ 
+-void PyModuleRegistry::standby_start(MonClient &mc)
++void PyModuleRegistry::standby_start(MonClient &mc, Finisher &f)
+ {
+   std::lock_guard l(lock);
+   ceph_assert(active_modules == nullptr);
+@@ -141,7 +141,7 @@ void PyModuleRegistry::standby_start(MonClient &mc)
+   dout(4) << "Starting modules in standby mode" << dendl;
+ 
+   standby_modules.reset(new StandbyPyModules(
+-        mgr_map, module_config, clog, mc));
++        mgr_map, module_config, clog, mc, f));
+ 
+   std::set<std::string> failed_modules;
+   for (const auto &i : modules) {
+@@ -155,13 +155,7 @@ void PyModuleRegistry::standby_start(MonClient &mc)
+ 
+     if (i.second->pStandbyClass) {
+       dout(4) << "starting module " << i.second->get_name() << dendl;
+-      int r = standby_modules->start_one(i.second);
+-      if (r != 0) {
+-        derr << "failed to start module '" << i.second->get_name()
+-             << "'" << dendl;;
+-        failed_modules.insert(i.second->get_name());
+-        // Continue trying to load any other modules
+-      }
++      standby_modules->start_one(i.second);
+     } else {
+       dout(4) << "skipping module '" << i.second->get_name() << "' because "
+                  "it does not implement a standby mode" << dendl;
+@@ -210,11 +204,7 @@ void PyModuleRegistry::active_start(
+     }
+ 
+     dout(4) << "Starting " << i.first << dendl;
+-    int r = active_modules->start_one(i.second);
+-    if (r != 0) {
+-      derr << "Failed to run module in active mode ('" << i.first << "')"
+-           << dendl;
+-    }
++    active_modules->start_one(i.second);
+   }
+ }
+ 
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 6868aec65bc..eccc2bfb0f6 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -99,7 +99,7 @@ public:
+                 MonClient &mc, LogChannelRef clog_, LogChannelRef audit_clog_,
+                 Objecter &objecter_, Client &client_, Finisher &f,
+                 DaemonServer &server);
+-  void standby_start(MonClient &mc);
++  void standby_start(MonClient &mc, Finisher &f);
+ 
+   bool is_standby_running() const
+   {

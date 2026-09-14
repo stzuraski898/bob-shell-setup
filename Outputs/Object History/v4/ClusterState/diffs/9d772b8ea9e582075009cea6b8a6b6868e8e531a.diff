@@ -1,0 +1,55 @@
+commit 9d772b8ea9e582075009cea6b8a6b6868e8e531a
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Sep 6 10:36:31 2019 -0500
+
+    common/admin_socket: return int from hook call()
+    
+    Previously, call() returned a bool.  Return an int instead so we can
+    wire this up to tell command return values.
+    
+    The admin socket 'ceph daemon ...' unix domain socket protocol does not
+    pass a return code, only data, so we cannot pass these errors that way.
+    We have two choices: make error codes silently succeed when accessed via
+    asok (so that we get an error string etc), or make them fail without any
+    specific error code or string.
+    
+    Unfortunately, there are several cases where an exception was caught and
+    what() returned as a string, or where error strings are returned.  These
+    would "blindly" fail if we took the latter approach.
+    
+    So, for the asok interface, -ENOSYS means a "hard" error that gives the
+    user no data and makes the 'ceph daemon ...' command return an error code.
+    Other error codes are interpreted as a success.  This is ONLY for the
+    asok interface; the tell interface has full fidelity with error codes and
+    error strings.
+    
+    Note that this means that 'net new' tell-style commands that we move over
+    to this handler will also appear to succeed via the 'ceph daemon'
+    interface when they return error codes.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 12b30adc0ff..9c95bbb1661 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -181,15 +181,15 @@ class ClusterSocketHook : public AdminSocketHook {
+   ClusterState *cluster_state;
+ public:
+   explicit ClusterSocketHook(ClusterState *o) : cluster_state(o) {}
+-  bool call(std::string_view admin_command, const cmdmap_t& cmdmap,
+-	    std::string_view format, bufferlist& out) override {
++  int call(std::string_view admin_command, const cmdmap_t& cmdmap,
++	   std::string_view format, bufferlist& out) override {
+     stringstream ss;
+-    bool r = true;
++    int r = 0;
+     try {
+       r = cluster_state->asok_command(admin_command, cmdmap, format, ss);
+     } catch (const bad_cmd_get& e) {
+       ss << e.what();
+-      r = true;
++      r = -EINVAL;
+     }
+     out.append(ss);
+     return r;

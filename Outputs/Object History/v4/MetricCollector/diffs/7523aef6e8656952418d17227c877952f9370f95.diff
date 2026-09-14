@@ -1,0 +1,55 @@
+commit 7523aef6e8656952418d17227c877952f9370f95
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Mon Aug 26 05:32:23 2019 -0400
+
+    mgr/stats: mds performance stats module
+    
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/MetricCollector.cc b/src/mgr/MetricCollector.cc
+index 836662a165d..7da0dae7fe4 100644
+--- a/src/mgr/MetricCollector.cc
++++ b/src/mgr/MetricCollector.cc
+@@ -115,11 +115,10 @@ void MetricCollector<Query, Limit, Key, Report>::remove_all_queries() {
+ }
+ 
+ template <typename Query, typename Limit, typename Key, typename Report>
+-int MetricCollector<Query, Limit, Key, Report>::get_counters(
++int MetricCollector<Query, Limit, Key, Report>::get_counters_generic(
+     MetricQueryID query_id, std::map<Key, PerformanceCounters> *c) {
+   dout(20) << dendl;
+-
+-  std::lock_guard locker(lock);
++  ceph_assert(ceph_mutex_is_locked(lock));
+ 
+   auto it = counters.find(query_id);
+   if (it == counters.end()) {
+diff --git a/src/mgr/MetricCollector.h b/src/mgr/MetricCollector.h
+index f74787e96a9..19a3eed9b0a 100644
+--- a/src/mgr/MetricCollector.h
++++ b/src/mgr/MetricCollector.h
+@@ -34,8 +34,6 @@ public:
+ 
+   void remove_all_queries();
+ 
+-  int get_counters(MetricQueryID query_id, std::map<Key, PerformanceCounters> *counters);
+-
+   std::map<Query, Limits> get_queries() const {
+     std::lock_guard locker(lock);
+ 
+@@ -53,6 +51,7 @@ public:
+   }
+ 
+   virtual void process_reports(const MetricPayload &payload) = 0;
++  virtual int get_counters(PerfCollector *collector) = 0;
+ 
+ protected:
+   typedef std::optional<Limit> OptionalLimit;
+@@ -67,6 +66,7 @@ protected:
+   Counters counters;
+ 
+   void process_reports_generic(const std::map<Query, Report> &reports, UpdateCallback callback);
++  int get_counters_generic(MetricQueryID query_id, std::map<Key, PerformanceCounters> *counters);
+ 
+ private:
+   MetricListener &listener;

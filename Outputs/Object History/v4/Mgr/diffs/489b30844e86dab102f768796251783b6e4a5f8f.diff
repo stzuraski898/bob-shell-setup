@@ -1,0 +1,34 @@
+commit 489b30844e86dab102f768796251783b6e4a5f8f
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Wed Aug 14 11:23:42 2019 -0700
+
+    include: convert FunctionContext usage to generic LambdaContext
+    
+    The main motivation for this change is to avoid copies due to the use of
+    boost::function/std::function where captures of std::unique_ptr (in
+    subsequent commits) would fail to compile.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 9620ca769bf..f3730d813d2 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -158,7 +158,7 @@ void Mgr::background_init(Context *completion)
+ 
+   finisher.start();
+ 
+-  finisher.queue(new FunctionContext([this, completion](int r){
++  finisher.queue(new LambdaContext([this, completion](int r){
+     init();
+     completion->complete(0);
+   }));
+@@ -400,7 +400,7 @@ void Mgr::load_all_metadata()
+ 
+ void Mgr::shutdown()
+ {
+-  finisher.queue(new FunctionContext([&](int) {
++  finisher.queue(new LambdaContext([&](int) {
+     {
+       std::lock_guard l(lock);
+       // First stop the server so that we're not taking any more incoming

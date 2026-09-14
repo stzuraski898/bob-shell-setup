@@ -1,0 +1,23 @@
+commit 6350bee5c873cb1cef0ca1345b89bff66817e0c1
+Author: Jason Dillaman <dillaman@redhat.com>
+Date:   Fri Oct 11 10:30:03 2019 -0400
+
+    mgr: stop re-using MonCap for handling MGR caps
+    
+    Use the existing MonCap as the basis for a new custom MgrCap
+    processor.
+    
+    Signed-off-by: Jason Dillaman <dillaman@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index e087f0ea931..2eceda48ba5 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -681,7 +681,6 @@ bool DaemonServer::_allowed_command(
+ 
+   bool capable = s->caps.is_capable(
+     g_ceph_context,
+-    CEPH_ENTITY_TYPE_MGR,
+     s->entity_name,
+     module, prefix, param_str_map,
+     cmd_r, cmd_w, cmd_x,

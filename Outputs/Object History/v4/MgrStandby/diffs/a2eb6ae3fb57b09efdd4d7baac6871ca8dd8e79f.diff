@@ -1,0 +1,26 @@
+commit a2eb6ae3fb57b09efdd4d7baac6871ca8dd8e79f
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Sep 14 21:39:04 2016 +0800
+
+    mon/monclient: hunt for multiple monitor in parallel
+    
+    * add an option "mon_client_hunt_parallel" for the maxmimum number of parallel
+      hunting sessions.
+    
+    Fixes: http://tracker.ceph.com/issues/16091
+    Signed-off-by: Steven Dieffenbach <sdieffen@redhat.com>
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 7a87e60886b..92cb8013a7f 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -211,7 +211,7 @@ bool MgrStandby::ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer,
+       return false;
+   }
+ 
+-  *authorizer = monc->auth->build_authorizer(dest_type);
++  *authorizer = monc->build_authorizer(dest_type);
+   return *authorizer != NULL;
+ }
+ 

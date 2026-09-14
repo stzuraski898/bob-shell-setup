@@ -1,0 +1,22 @@
+commit f4763c32fa84f57c93c559d742203fb3fd2985a8
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Nov 1 12:08:03 2017 -0400
+
+    mgr: emit cluster log message on serve() exception
+    
+    Fixes: http://tracker.ceph.com/issues/21999
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 83091d305e1..47eb0a1325b 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -330,7 +330,7 @@ int ActivePyModules::start_one(std::string const &module_name,
+ 
+   modules[module_name].reset(new ActivePyModule(
+       module_name, pClass,
+-      pMyThreadState));
++      pMyThreadState, clog));
+ 
+   int r = modules[module_name]->load(this);
+   if (r != 0) {

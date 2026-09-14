@@ -1,0 +1,195 @@
+commit df8797320bed7ad9f121477e35d7e3862efd89bd
+Author: John Spray <jspray@redhat.com>
+Date:   Fri Oct 6 11:02:44 2017 -0400
+
+    mgr: cut down duplication between active+standby
+    
+    ...by using PyModuleRunner class from ActivePyModule too.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+new file mode 100644
+index 00000000000..c20199e9c66
+--- /dev/null
++++ b/src/mgr/PyModuleRunner.cc
+@@ -0,0 +1,97 @@
++// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
++// vim: ts=8 sw=2 smarttab
++/*
++ * Ceph - scalable distributed file system
++ *
++ * Copyright (C) 2016 John Spray <john.spray@redhat.com>
++ *
++ * This is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License version 2.1, as published by the Free Software
++ * Foundation.  See file COPYING.
++ */
++
++
++// Python.h comes first because otherwise it clobbers ceph's assert
++#include "Python.h"
++
++#include "common/debug.h"
++#include "mgr/Gil.h"
++
++#include "PyModuleRunner.h"
++
++#define dout_context g_ceph_context
++#define dout_subsys ceph_subsys_mgr
++
++
++std::string handle_pyerror();
++
++PyModuleRunner::~PyModuleRunner()
++{
++  Gil gil(pMyThreadState);
++
++  if (pClassInstance) {
++    Py_XDECREF(pClassInstance);
++    pClassInstance = nullptr;
++  }
++
++  Py_DECREF(pClass);
++  pClass = nullptr;
++}
++
++int PyModuleRunner::serve()
++{
++  assert(pClassInstance != nullptr);
++
++  // This method is called from a separate OS thread (i.e. a thread not
++  // created by Python), so tell Gil to wrap this in a new thread state.
++  Gil gil(pMyThreadState, true);
++
++  auto pValue = PyObject_CallMethod(pClassInstance,
++      const_cast<char*>("serve"), nullptr);
++
++  int r = 0;
++  if (pValue != NULL) {
++    Py_DECREF(pValue);
++  } else {
++    derr << module_name << ".serve:" << dendl;
++    derr << handle_pyerror() << dendl;
++    return -EINVAL;
++  }
++
++  return r;
++}
++
++void PyModuleRunner::shutdown()
++{
++  assert(pClassInstance != nullptr);
++
++  Gil gil(pMyThreadState);
++
++  auto pValue = PyObject_CallMethod(pClassInstance,
++      const_cast<char*>("shutdown"), nullptr);
++
++  if (pValue != NULL) {
++    Py_DECREF(pValue);
++  } else {
++    derr << "Failed to invoke shutdown() on " << module_name << dendl;
++    derr << handle_pyerror() << dendl;
++  }
++}
++
++void PyModuleRunner::log(int level, const std::string &record)
++{
++#undef dout_prefix
++#define dout_prefix *_dout << "mgr[" << module_name << "] "
++  dout(level) << record << dendl;
++#undef dout_prefix
++#define dout_prefix *_dout << "mgr " << __func__ << " "
++}
++
++void* PyModuleRunner::PyModuleRunnerThread::entry()
++{
++  // No need to acquire the GIL here; the module does it.
++  dout(4) << "Entering thread for " << mod->get_name() << dendl;
++  mod->serve();
++  return nullptr;
++}
+diff --git a/src/mgr/PyModuleRunner.h b/src/mgr/PyModuleRunner.h
+new file mode 100644
+index 00000000000..1cb0506054e
+--- /dev/null
++++ b/src/mgr/PyModuleRunner.h
+@@ -0,0 +1,76 @@
++// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
++// vim: ts=8 sw=2 smarttab
++/*
++ * Ceph - scalable distributed file system
++ *
++ * Copyright (C) 2016 John Spray <john.spray@redhat.com>
++ *
++ * This is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License version 2.1, as published by the Free Software
++ * Foundation.  See file COPYING.
++ */
++
++
++#pragma once
++
++#include "common/Thread.h"
++#include "mgr/Gil.h"
++
++/**
++ * Implement the pattern of calling serve() on a module in a thread,
++ * until shutdown() is called.
++ */
++class PyModuleRunner
++{
++protected:
++  const std::string module_name;
++
++  // Passed in by whoever loaded our python module and looked up
++  // the symbols in it.
++  PyObject *pClass = nullptr;
++
++  // Passed in by whoever created our subinterpreter for us
++  SafeThreadState pMyThreadState = nullptr;
++
++  // Populated when we construct our instance of pClass in load()
++  PyObject *pClassInstance = nullptr;
++
++  class PyModuleRunnerThread : public Thread
++  {
++    PyModuleRunner *mod;
++
++  public:
++    PyModuleRunnerThread(PyModuleRunner *mod_)
++      : mod(mod_) {}
++
++    void *entry() override;
++  };
++
++public:
++  int serve();
++  void shutdown();
++  void log(int level, const std::string &record);
++
++  PyModuleRunner(
++      const std::string &module_name_,
++      PyObject *pClass_,
++      PyThreadState *pMyThreadState_)
++    : 
++      module_name(module_name_),
++      pClass(pClass_), pMyThreadState(pMyThreadState_),
++      thread(this)
++  {
++    assert(pClass != nullptr);
++    assert(pMyThreadState != nullptr);
++    assert(!module_name.empty());
++  }
++
++  ~PyModuleRunner();
++
++  PyModuleRunnerThread thread;
++
++  std::string const &get_name() const { return module_name; }
++};
++
++

@@ -1,0 +1,38 @@
+commit e29f1a5ec16c00f70c7b505769fbefe98db03d1b
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu May 20 11:00:06 2021 +0800
+
+    common/cmdparse: return cmd option using return value
+    
+    instead of
+    
+    - always returning "true"
+    - returning using an input parameter
+    
+    just return the value with retval. simpler this way.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ea41ba05887..1bb2e56edc0 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1046,7 +1046,7 @@ bool DaemonServer::_handle_command(
+     if (boost::algorithm::ends_with(prefix, "_json")) {
+       format = "json";
+     } else {
+-      cmd_getval(cmdctx->cmdmap, "format", format, string("plain"));
++      format = cmd_getval_or<string>(cmdctx->cmdmap, "format", "plain");
+     }
+     f.reset(Formatter::create(format));
+   }
+@@ -1408,8 +1408,7 @@ bool DaemonServer::_handle_command(
+     bool dry_run =
+       prefix == "osd test-reweight-by-pg" ||
+       prefix == "osd test-reweight-by-utilization";
+-    int64_t oload;
+-    cmd_getval(cmdctx->cmdmap, "oload", oload, int64_t(120));
++    int64_t oload = cmd_getval_or<int64_t>(cmdctx->cmdmap, "oload", 120);
+     set<int64_t> pools;
+     vector<string> poolnames;
+     cmd_getval(cmdctx->cmdmap, "pools", poolnames);

@@ -1,0 +1,145 @@
+commit 810369b0cc0ec595da496466d7ab08ecdbc9d57d
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Feb 5 16:06:09 2018 +0100
+
+    mgr: initialize PyModuleRegistry sooner
+    
+    This was waiting on MgrMap to init, so that it would know whether
+    modules should be enabled.  However, you don't really need to know
+    that until someone calls standby_start or active_start, so we
+    can initialize during MgrStandby::init, and fill out the enabled
+    flags later.
+    
+    This prevents the mgr from prematurely emitting a MMgrBeacon
+    that claims no modules are found.
+    
+    http://tracker.ceph.com/issues/22918
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 82060f483f7..7285d02d7d3 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -37,15 +37,10 @@ std::string PyModuleRegistry::config_prefix;
+ 
+ 
+ 
+-int PyModuleRegistry::init(const MgrMap &map)
++int PyModuleRegistry::init()
+ {
+   Mutex::Locker locker(lock);
+ 
+-  // Don't try and init me if you don't really have a map
+-  assert(map.epoch > 0);
+-
+-  mgr_map = map;
+-
+   // namespace in config-key prefixed by "mgr/"
+   config_prefix = std::string(g_conf->name.get_type_str()) + "/";
+ 
+@@ -82,9 +77,9 @@ int PyModuleRegistry::init(const MgrMap &map)
+   for (const auto& module_name : module_names) {
+     dout(1) << "Loading python module '" << module_name << "'" << dendl;
+ 
+-    bool enabled = (mgr_map.modules.count(module_name) > 0);
+-
+-    auto mod = std::make_shared<PyModule>(module_name, enabled);
++    // Everything starts disabled, set enabled flag on module
++    // when we see first MgrMap
++    auto mod = std::make_shared<PyModule>(module_name);
+     int r = mod->load(pMainThreadState);
+     if (r != 0) {
+       // Don't use handle_pyerror() here; we don't have the GIL
+@@ -107,12 +102,43 @@ int PyModuleRegistry::init(const MgrMap &map)
+   return 0;
+ }
+ 
++bool PyModuleRegistry::handle_mgr_map(const MgrMap &mgr_map_)
++{
++  Mutex::Locker l(lock);
++
++  if (mgr_map.epoch == 0) {
++    mgr_map = mgr_map_;
++
++    // First time we see MgrMap, set the enabled flags on modules
++    // This should always happen before someone calls standby_start
++    // or active_start
++    for (const auto &[module_name, module] : modules) {
++      const bool enabled = (mgr_map.modules.count(module_name) > 0);
++      module->set_enabled(enabled);
++    }
++
++    return false;
++  } else {
++    bool modules_changed = mgr_map_.modules != mgr_map.modules;
++    mgr_map = mgr_map_;
++
++    if (standby_modules != nullptr) {
++      standby_modules->handle_mgr_map(mgr_map_);
++    }
++
++    return modules_changed;
++  }
++}
++
+ void PyModuleRegistry::standby_start(MonClient *monc)
+ {
+   Mutex::Locker l(lock);
+   assert(active_modules == nullptr);
+   assert(standby_modules == nullptr);
+-  assert(is_initialized());
++
++  // Must have seen a MgrMap by this point, in order to know
++  // which modules should be enabled
++  assert(mgr_map.epoch > 0);
+ 
+   dout(4) << "Starting modules in standby mode" << dendl;
+ 
+@@ -157,7 +183,10 @@ void PyModuleRegistry::active_start(
+   dout(4) << "Starting modules in active mode" << dendl;
+ 
+   assert(active_modules == nullptr);
+-  assert(is_initialized());
++
++  // Must have seen a MgrMap by this point, in order to know
++  // which modules should be enabled
++  assert(mgr_map.epoch > 0);
+ 
+   if (standby_modules != nullptr) {
+     standby_modules->shutdown();
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 1f5a910d046..16ec132bfbd 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -81,26 +81,12 @@ public:
+     : clog(clog_)
+   {}
+ 
+-  bool handle_mgr_map(const MgrMap &mgr_map_)
+-  {
+-    Mutex::Locker l(lock);
+-
+-    bool modules_changed = mgr_map_.modules != mgr_map.modules;
+-    mgr_map = mgr_map_;
+-
+-    if (standby_modules != nullptr) {
+-      standby_modules->handle_mgr_map(mgr_map_);
+-    }
+-
+-    return modules_changed;
+-  }
+-
+-  bool is_initialized() const
+-  {
+-    return mgr_map.epoch > 0;
+-  }
++  /**
++   * @return true if the mgrmap has changed such that the service needs restart
++   */
++  bool handle_mgr_map(const MgrMap &mgr_map_);
+ 
+-  int init(const MgrMap &map);
++  int init();
+ 
+   void active_start(
+                 PyModuleConfig &config_,

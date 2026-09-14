@@ -1,0 +1,33 @@
+commit b4304d521f61b61515cade872824210e7d67f6db
+Author: Brad Hubbard <bhubbard@redhat.com>
+Date:   Thu Jul 31 09:12:23 2025 +1000
+
+    mgr/DaemonState: Minimise time we hold the DaemonStateIndex lock
+    
+    Calling back into python functions whilst holding the lock can result in
+    this thread being queued for the GIL and resulting in extended delays
+    for threads waiting to acquire the lock.
+    
+    Fixes: https://tracker.ceph.com/issues/72337
+    Signed-off-by: Brad Hubbard <bhubbard@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index d78e819405b..960cbcbd302 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -261,9 +261,12 @@ public:
+   template<typename Callback, typename...Args>
+   auto with_daemons_by_server(Callback&& cb, Args&&... args) const ->
+     decltype(cb(by_server, std::forward<Args>(args)...)) {
+-    std::shared_lock l{lock};
+-    
+-    return std::forward<Callback>(cb)(by_server, std::forward<Args>(args)...);
++    const decltype(by_server) by_server_copy = [&] {
++      // Don't hold the lock any longer than necessary
++      std::shared_lock l{lock};
++      return by_server;
++    }();
++    return std::forward<Callback>(cb)(by_server_copy, std::forward<Args>(args)...);
+   }
+ 
+   template<typename Callback, typename...Args>

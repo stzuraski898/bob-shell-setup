@@ -1,0 +1,11 @@
+# Non-merge commits touching src/mgr/MgrOpRequest.cc and/or src/mgr/MgrOpRequest.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b 2025-10-02 Edwin Rodriguez | Add blank line after header block
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+941c5edac00b750e7a0d40c7f8b12b72d39178dc 2025-04-04 Milind Changire | mgr: avoid explicitly dropping ref of MgrOpRequest.request
+5c70e38a8a041306bcdee657731f5d2b4744e58c 2024-10-26 Max Kellermann | mgr/MgrOpRequest: add missing includes
+16b3343bb44b92b558a7ed077563aa72cbd520a9 2024-06-14 Mohit Agrawal | mgr: Convert the last_event_detail data_type to std::string
+66efcaae7a05abaefb12758239b0e1ad5cbd85c9 2023-12-21 Prashant D | mgr: integrate optracker in ceph-mgr

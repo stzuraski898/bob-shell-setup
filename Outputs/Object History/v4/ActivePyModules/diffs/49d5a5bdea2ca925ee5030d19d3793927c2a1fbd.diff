@@ -1,0 +1,26 @@
+commit 49d5a5bdea2ca925ee5030d19d3793927c2a1fbd
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jun 30 09:03:13 2021 -0400
+
+    mgr/ActivePyModules: streamline mgr_ips a bit
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index a5589062e99..4981a53b8db 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -432,11 +432,9 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+     std::set<std::string> did;
+     for (auto& i : myaddrs.v) {
+       std::string ip = i.ip_only_to_str();
+-      if (did.count(ip)) {
+-	continue;
++      if (auto [where, inserted] = did.insert(ip); inserted) {
++	f.dump_string("ip", ip);
+       }
+-      did.insert(ip);
+-      f.dump_string("ip", ip);
+     }
+     f.close_section();
+     return f.get();

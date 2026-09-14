@@ -1,0 +1,69 @@
+commit 282c31c383856b45caadcefb876a71e39fe4b219
+Author: Jason Dillaman <dillaman@redhat.com>
+Date:   Mon Oct 14 10:39:54 2019 -0400
+
+    mgr: python modules can now perform authorization tests
+    
+    In cases where the python service or individual python modules are
+    enabled via caps, the module might want to perform finer grained
+    tests to ensure specific commands are allowed. An example of this is
+    the 'rbd_support' module limiting access by pools and namespaces.
+    
+    Signed-off-by: Jason Dillaman <dillaman@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 63782156421..e9cef87c697 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -911,22 +911,24 @@ void ActivePyModules::set_health_checks(const std::string& module_name,
+ }
+ 
+ int ActivePyModules::handle_command(
+-  std::string const &module_name,
++  const ModuleCommand& module_command,
++  const MgrSession& session,
+   const cmdmap_t &cmdmap,
+   const bufferlist &inbuf,
+   std::stringstream *ds,
+   std::stringstream *ss)
+ {
+   lock.lock();
+-  auto mod_iter = modules.find(module_name);
++  auto mod_iter = modules.find(module_command.module_name);
+   if (mod_iter == modules.end()) {
+-    *ss << "Module '" << module_name << "' is not available";
++    *ss << "Module '" << module_command.module_name << "' is not available";
+     lock.unlock();
+     return -ENOENT;
+   }
+ 
+   lock.unlock();
+-  return mod_iter->second->handle_command(cmdmap, inbuf, ds, ss);
++  return mod_iter->second->handle_command(module_command, session, cmdmap,
++                                          inbuf, ds, ss);
+ }
+ 
+ void ActivePyModules::get_health_checks(health_check_map_t *checks)
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index f36d6593c63..0ba50ff598b 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -33,6 +33,8 @@
+ 
+ class health_check_map_t;
+ class DaemonServer;
++class MgrSession;
++class ModuleCommand;
+ class PyModuleRegistry;
+ 
+ class ActivePyModules
+@@ -137,7 +139,8 @@ public:
+   void set_uri(const std::string& module_name, const std::string &uri);
+ 
+   int handle_command(
+-    const std::string &module_name,
++    const ModuleCommand& module_command,
++    const MgrSession& session,
+     const cmdmap_t &cmdmap,
+     const bufferlist &inbuf,
+     std::stringstream *ds,

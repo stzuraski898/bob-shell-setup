@@ -1,0 +1,67 @@
+commit 6c10417f7ed365425019108c2cb9f6d1e091b975
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 27 15:52:25 2017 -0400
+
+    mgr: include MgrMap in ClusterState
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index cd21408efa3..0030fc706c5 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -39,7 +39,8 @@
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ 
+ 
+-Mgr::Mgr(MonClient *monc_, Messenger *clientm_, Objecter *objecter_,
++Mgr::Mgr(MonClient *monc_, const MgrMap& mgrmap,
++	 Messenger *clientm_, Objecter *objecter_,
+ 	 Client* client_, LogChannelRef clog_, LogChannelRef audit_clog_) :
+   monc(monc_),
+   objecter(objecter_),
+@@ -50,7 +51,7 @@ Mgr::Mgr(MonClient *monc_, Messenger *clientm_, Objecter *objecter_,
+   finisher(g_ceph_context, "Mgr", "mgr-fin"),
+   py_modules(daemon_state, cluster_state, *monc, clog_, *objecter, *client,
+              finisher),
+-  cluster_state(monc, nullptr),
++  cluster_state(monc, nullptr, mgrmap),
+   server(monc, finisher, daemon_state, cluster_state, py_modules,
+          clog_, audit_clog_),
+   initialized(false),
+@@ -567,6 +568,12 @@ void Mgr::handle_fs_map(MFSMap* m)
+   daemon_state.cull(CEPH_ENTITY_TYPE_MDS, names_exist);
+ }
+ 
++void Mgr::got_mgr_map(const MgrMap& m)
++{
++  Mutex::Locker l(lock);
++  dout(10) << m << dendl;
++  cluster_state.set_mgr_map(m);
++}
+ 
+ void Mgr::handle_mgr_digest(MMgrDigest* m)
+ {
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index 0aa5b5c5be0..d6e7bc629a7 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -72,7 +72,8 @@ protected:
+   bool initializing;
+ 
+ public:
+-  Mgr(MonClient *monc_, Messenger *clientm_, Objecter *objecter_,
++  Mgr(MonClient *monc_, const MgrMap& mgrmap,
++      Messenger *clientm_, Objecter *objecter_,
+       Client *client_, LogChannelRef clog_, LogChannelRef audit_clog_);
+   ~Mgr();
+ 
+@@ -84,6 +85,8 @@ public:
+   void handle_osd_map();
+   void handle_log(MLog *m);
+ 
++  void got_mgr_map(const MgrMap& m);
++
+   bool ms_dispatch(Message *m);
+ 
+   void tick();

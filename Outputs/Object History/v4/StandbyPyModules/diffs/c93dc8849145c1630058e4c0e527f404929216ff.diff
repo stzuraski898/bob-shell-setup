@@ -1,0 +1,68 @@
+commit c93dc8849145c1630058e4c0e527f404929216ff
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jul 7 11:14:49 2019 +0800
+
+    mgr: s/Mutex/ceph::mutex/
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/StandbyPyModules.cc b/src/mgr/StandbyPyModules.cc
+index 988107190b3..5735b415e60 100644
+--- a/src/mgr/StandbyPyModules.cc
++++ b/src/mgr/StandbyPyModules.cc
+@@ -56,20 +56,20 @@ void StandbyPyModules::shutdown()
+     auto module = i.second.get();
+     const auto& name = i.first;
+     dout(10) << "waiting for module " << name << " to shutdown" << dendl;
+-    lock.Unlock();
++    lock.unlock();
+     module->shutdown();
+-    lock.Lock();
++    lock.lock();
+     dout(10) << "module " << name << " shutdown" << dendl;
+   }
+ 
+   // For modules implementing serve(), finish the threads where we
+   // were running that.
+   for (auto &i : modules) {
+-    lock.Unlock();
++    lock.unlock();
+     dout(10) << "joining thread for module " << i.first << dendl;
+     i.second->thread.join();
+     dout(10) << "joined thread for module " << i.first << dendl;
+-    lock.Lock();
++    lock.lock();
+   }
+ 
+   modules.clear();
+diff --git a/src/mgr/StandbyPyModules.h b/src/mgr/StandbyPyModules.h
+index 0de0b07eb61..d8d5e1a07ef 100644
+--- a/src/mgr/StandbyPyModules.h
++++ b/src/mgr/StandbyPyModules.h
+@@ -19,7 +19,7 @@
+ #include <map>
+ 
+ #include "common/Thread.h"
+-#include "common/Mutex.h"
++#include "common/ceph_mutex.h"
+ 
+ #include "mgr/Gil.h"
+ #include "mon/MonClient.h"
+@@ -33,7 +33,7 @@ class Finisher;
+  */
+ class StandbyPyModuleState
+ {
+-  mutable Mutex lock{"StandbyPyModuleState::lock"};
++  mutable ceph::mutex lock = ceph::make_mutex("StandbyPyModuleState::lock");
+ 
+   MgrMap mgr_map;
+   PyModuleConfig &module_config;
+@@ -100,7 +100,7 @@ class StandbyPyModule : public PyModuleRunner
+ class StandbyPyModules
+ {
+ private:
+-  mutable Mutex lock{"StandbyPyModules::lock"};
++  mutable ceph::mutex lock = ceph::make_mutex("StandbyPyModules::lock");
+   std::map<std::string, std::unique_ptr<StandbyPyModule>> modules;
+ 
+   StandbyPyModuleState state;

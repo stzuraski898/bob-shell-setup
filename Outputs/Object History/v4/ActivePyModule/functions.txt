@@ -1,0 +1,26 @@
+# Function list for ActivePyModule (via ctags)
+# Format: qualified_name | file:line
+#
+config_notify | src/mgr/ActivePyModule.cc:237
+dispatch_remote | src/mgr/ActivePyModule.cc:144
+get_health_checks | src/mgr/ActivePyModule.cc:322
+handle_command | src/mgr/ActivePyModule.cc:255
+is_authorized | src/mgr/ActivePyModule.cc:331
+load | src/mgr/ActivePyModule.cc:32
+method_exists | src/mgr/ActivePyModule.cc:131
+notify | src/mgr/ActivePyModule.cc:58
+notify_clog | src/mgr/ActivePyModule.cc:92
+ActivePyModule | src/mgr/ActivePyModule.h:56
+config_notify | src/mgr/ActivePyModule.h:96
+dispatch_remote | src/mgr/ActivePyModule.h:71
+get_fin_thread_name | src/mgr/ActivePyModule.h:108
+get_health_checks | src/mgr/ActivePyModule.h:95
+get_uri | src/mgr/ActivePyModule.h:103
+handle_command | src/mgr/ActivePyModule.h:78
+is_authorized | src/mgr/ActivePyModule.h:113
+load | src/mgr/ActivePyModule.h:65
+method_exists | src/mgr/ActivePyModule.h:69
+notify | src/mgr/ActivePyModule.h:66
+notify_clog | src/mgr/ActivePyModule.h:67
+set_health_checks | src/mgr/ActivePyModule.h:87
+set_uri | src/mgr/ActivePyModule.h:98

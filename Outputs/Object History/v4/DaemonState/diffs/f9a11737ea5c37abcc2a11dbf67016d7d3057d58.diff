@@ -1,0 +1,25 @@
+commit f9a11737ea5c37abcc2a11dbf67016d7d3057d58
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Aug 28 13:39:54 2020 +0800
+
+    mgr/DaemonState: avoid searching for a daemon state twice
+    
+    and less repeating this way
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 87f820bffb7..07d58541799 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -216,8 +216,8 @@ DaemonStateCollection DaemonStateIndex::get_by_server(
+ {
+   std::shared_lock l{lock};
+ 
+-  if (by_server.count(hostname)) {
+-    return by_server.at(hostname);
++  if (auto found = by_server.find(hostname); found != by_server.end()) {
++    return found->second;
+   } else {
+     return {};
+   }

@@ -1,0 +1,70 @@
+commit f146c6c514b7f1ab8a2420edb5f7b64702bc9639
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue May 15 23:56:39 2018 +0800
+
+    core: use const_iterator for decode
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ServiceMap.cc b/src/mgr/ServiceMap.cc
+index cde279efc5c..e873aa7eee2 100644
+--- a/src/mgr/ServiceMap.cc
++++ b/src/mgr/ServiceMap.cc
+@@ -18,7 +18,7 @@ void ServiceMap::Daemon::encode(bufferlist& bl, uint64_t features) const
+   ENCODE_FINISH(bl);
+ }
+ 
+-void ServiceMap::Daemon::decode(bufferlist::iterator& p)
++void ServiceMap::Daemon::decode(bufferlist::const_iterator& p)
+ {
+   DECODE_START(1, p);
+   decode(gid, p);
+@@ -60,7 +60,7 @@ void ServiceMap::Service::encode(bufferlist& bl, uint64_t features) const
+   ENCODE_FINISH(bl);
+ }
+ 
+-void ServiceMap::Service::decode(bufferlist::iterator& p)
++void ServiceMap::Service::decode(bufferlist::const_iterator& p)
+ {
+   DECODE_START(1, p);
+   decode(daemons, p);
+@@ -97,7 +97,7 @@ void ServiceMap::encode(bufferlist& bl, uint64_t features) const
+   ENCODE_FINISH(bl);
+ }
+ 
+-void ServiceMap::decode(bufferlist::iterator& p)
++void ServiceMap::decode(bufferlist::const_iterator& p)
+ {
+   DECODE_START(1, p);
+   decode(epoch, p);
+diff --git a/src/mgr/ServiceMap.h b/src/mgr/ServiceMap.h
+index 99165112731..7c877baa8f0 100644
+--- a/src/mgr/ServiceMap.h
++++ b/src/mgr/ServiceMap.h
+@@ -25,7 +25,7 @@ struct ServiceMap {
+     std::map<std::string,std::string> metadata;  ///< static metadata
+ 
+     void encode(bufferlist& bl, uint64_t features) const;
+-    void decode(bufferlist::iterator& p);
++    void decode(bufferlist::const_iterator& p);
+     void dump(Formatter *f) const;
+     static void generate_test_instances(std::list<Daemon*>& ls);
+   };
+@@ -35,7 +35,7 @@ struct ServiceMap {
+     std::string summary;   ///< summary status string for 'ceph -s'
+ 
+     void encode(bufferlist& bl, uint64_t features) const;
+-    void decode(bufferlist::iterator& p);
++    void decode(bufferlist::const_iterator& p);
+     void dump(Formatter *f) const;
+     static void generate_test_instances(std::list<Service*>& ls);
+ 
+@@ -71,7 +71,7 @@ struct ServiceMap {
+   map<std::string,Service> services;
+ 
+   void encode(bufferlist& bl, uint64_t features) const;
+-  void decode(bufferlist::iterator& p);
++  void decode(bufferlist::const_iterator& p);
+   void dump(Formatter *f) const;
+   static void generate_test_instances(std::list<ServiceMap*>& ls);
+ 

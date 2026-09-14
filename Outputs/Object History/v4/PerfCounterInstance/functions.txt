@@ -1,0 +1,15 @@
+# Function list for PerfCounterInstance (via ctags)
+# Format: qualified_name | file:line
+#
+push | src/mgr/PerfCounterInstance.cc:16
+push_avg | src/mgr/PerfCounterInstance.cc:21
+AvgDataPoint | src/mgr/PerfCounterInstance.h:44
+DataPoint | src/mgr/PerfCounterInstance.h:33
+PerfCounterInstance | src/mgr/PerfCounterInstance.h:74
+get_current | src/mgr/PerfCounterInstance.h:52
+get_data | src/mgr/PerfCounterInstance.h:55
+get_data_avg | src/mgr/PerfCounterInstance.h:63
+get_latest_data | src/mgr/PerfCounterInstance.h:59
+get_latest_data_avg | src/mgr/PerfCounterInstance.h:67
+push | src/mgr/PerfCounterInstance.h:71
+push_avg | src/mgr/PerfCounterInstance.h:72

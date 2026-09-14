@@ -1,0 +1,10 @@
+# Rename chain for src/mgr/PerfCounterInstance.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/PerfCounterInstance.cc 35f6dd06dd0b3c78235e21ac309e4226aa733af1 c1865445c5b88cae2df499e4d2047af156225177
+trunk/ceph/common/Clock.h c1865445c5b88cae2df499e4d2047af156225177 9b453154cf913cea60ffdd947ac1f8944f643b6e
+ceph/common/Clock.h 9b453154cf913cea60ffdd947ac1f8944f643b6e 9afeaa0127bc5e2993e6eea718db81f10d059f10
+#
+# Rename chain for src/mgr/PerfCounterInstance.h
+#
+src/mgr/PerfCounterInstance.h 35f6dd06dd0b3c78235e21ac309e4226aa733af1 35f6dd06dd0b3c78235e21ac309e4226aa733af1

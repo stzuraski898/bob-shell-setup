@@ -1,0 +1,19 @@
+# Commit → function map for Gil
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+19a9981e8f64c7808b0f0d29d1397e97300174ed | ~Gil
+fb26bcd9865b336a043453c9c50aa935f68fdf90 | Gil SafeThreadState
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b | (no functions)
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+6469a9a6a14ef388d1bf486355af78c301086232 | (no functions)
+88db7b190a974d70c08a1951b06b7fc9957b1b60 | ~Gil
+ab23c506964753990f9fe23e314b9f3e2547a773 | Gil
+39ffec281af577c766c619d568f7a7051d108b00 | (no functions)
+23c3a075ee1a27e1b57fcb452a4d6ce53080264e | (no functions)
+625e1b5cfb9b8a5843dfe75e97826f70a57d6ebe | ~Gil Gil
+987612a97529be7e67b89977c4a0cf47906a5ecb | (no functions)
+f36b0d9d4053e167f59b89286cc9378e8e1563f7 | (no functions)

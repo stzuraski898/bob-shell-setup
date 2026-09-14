@@ -1,0 +1,117 @@
+commit cf68ce511f31d3746ca1cb13a9d3b39c25bb06a8
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jan 5 14:55:12 2018 -0600
+
+    mgr: have MgrStandby send mgr reports to active mgr (even self!)
+    
+    This allows the mgr daemons to register state with the active mgr just
+    like the rest of the cluster, including perfcounters and current config.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 2172dbc5e5f..0cb1ab2ac4b 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -39,9 +39,16 @@
+ MgrStandby::MgrStandby(int argc, const char **argv) :
+   Dispatcher(g_ceph_context),
+   monc{g_ceph_context},
+-  client_messenger(Messenger::create_client_messenger(g_ceph_context, "mgr")),
++  client_messenger(Messenger::create(
++		     g_ceph_context,
++		     cct->_conf->get_val<std::string>("ms_type"),
++		     entity_name_t::MGR(),
++		     "mgr",
++		     getpid(),
++		     0)),
+   objecter{g_ceph_context, client_messenger.get(), &monc, NULL, 0, 0},
+   client{client_messenger.get(), &monc, &objecter},
++  mgrc(g_ceph_context, client_messenger.get()),
+   log_client(g_ceph_context, client_messenger.get(), &monc.monmap, LogClient::NO_FLAGS),
+   clog(log_client.create_channel(CLOG_CHANNEL_CLUSTER)),
+   audit_clog(log_client.create_channel(CLOG_CHANNEL_AUDIT)),
+@@ -125,6 +132,9 @@ int MgrStandby::init()
+     client_messenger->wait();
+     return r;
+   }
++  mgrc.init();
++  client_messenger->add_dispatcher_tail(&mgrc);
++
+   r = monc.authenticate();
+   if (r < 0) {
+     derr << "Authentication failed, did you specify a mgr ID with a valid keyring?" << dendl;
+@@ -135,7 +145,7 @@ int MgrStandby::init()
+   }
+ 
+   client_t whoami = monc.get_global_id();
+-  client_messenger->set_myname(entity_name_t::CLIENT(whoami.v));
++  client_messenger->set_myname(entity_name_t::MGR(whoami.v));
+   monc.set_log_client(&log_client);
+   _update_log_config();
+   objecter.set_client_incarnation(0);
+@@ -241,6 +251,7 @@ void MgrStandby::shutdown()
+   timer.shutdown();
+   // client uses monc and objecter
+   client.shutdown();
++  mgrc.shutdown();
+   // stop monc, so mon won't be able to instruct me to shutdown/activate after
+   // the active_mgr is stopped
+   monc.shutdown();
+@@ -380,8 +391,6 @@ void MgrStandby::handle_mgr_map(MMgrMap* mmap)
+       }
+     }
+   }
+-
+-  mmap->put();
+ }
+ 
+ bool MgrStandby::ms_dispatch(Message *m)
+@@ -391,16 +400,19 @@ bool MgrStandby::ms_dispatch(Message *m)
+ 
+   if (m->get_type() == MSG_MGR_MAP) {
+     handle_mgr_map(static_cast<MMgrMap*>(m));
+-    return true;
+-  } else if (active_mgr) {
++  }
++  bool handled = false;
++  if (active_mgr) {
+     auto am = active_mgr;
+     lock.Unlock();
+-    bool handled = am->ms_dispatch(m);
++    handled = am->ms_dispatch(m);
+     lock.Lock();
+-    return handled;
+-  } else {
+-    return false;
+   }
++  if (m->get_type() == MSG_MGR_MAP && !handled) {
++    m->put();
++    handled = true;
++  }
++  return handled;
+ }
+ 
+ 
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index a64fd7e9995..4d4cc364c31 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -24,7 +24,7 @@
+ #include "mon/MonClient.h"
+ #include "osdc/Objecter.h"
+ #include "PyModuleRegistry.h"
+-
++#include "MgrClient.h"
+ 
+ class MMgrMap;
+ class Mgr;
+@@ -43,6 +43,8 @@ protected:
+   Objecter objecter;
+   Client client;
+ 
++  MgrClient mgrc;
++
+   LogClient log_client;
+   LogChannelRef clog, audit_clog;
+ 

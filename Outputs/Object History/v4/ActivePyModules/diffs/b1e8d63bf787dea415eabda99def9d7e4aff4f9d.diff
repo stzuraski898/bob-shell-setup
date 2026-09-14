@@ -1,0 +1,37 @@
+commit b1e8d63bf787dea415eabda99def9d7e4aff4f9d
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Apr 23 17:15:22 2018 -0400
+
+    mgr: handle commands sent to unavailable modules
+    
+    There are some up-front checks in DaemonServer
+    but it shouldn't assume that its checks are
+    necessarily going to match the choices about
+    how ActivePyModules composes its ::modules member,
+    so let's have some extra checks to avoid
+    risk of crashing mgr on commands sent to
+    unhealthy/unloaded modules.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index cc604d175a9..4cb8a0883a9 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -756,9 +756,14 @@ int ActivePyModules::handle_command(
+   std::stringstream *ss)
+ {
+   lock.Lock();
+-  auto mod = modules.at(module_name).get();
++  auto mod_iter = modules.find(module_name);
++  if (mod_iter == modules.end()) {
++    *ss << "Module '" << module_name << "' is not available";
++    return -ENOENT;
++  }
++
+   lock.Unlock();
+-  return mod->handle_command(cmdmap, ds, ss);
++  return mod_iter->second->handle_command(cmdmap, ds, ss);
+ }
+ 
+ void ActivePyModules::get_health_checks(health_check_map_t *checks)

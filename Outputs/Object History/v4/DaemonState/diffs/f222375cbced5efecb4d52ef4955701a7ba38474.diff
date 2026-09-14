@@ -1,0 +1,54 @@
+commit f222375cbced5efecb4d52ef4955701a7ba38474
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Jun 7 21:48:19 2018 -0500
+
+    mgr: use prettified durations for life expectancy
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 1e1ebdb67cc..d8f36d0be01 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -57,13 +57,25 @@ void DeviceState::rm_life_expectancy()
+   metadata.erase("life_expectancy_stamp");
+ }
+ 
+-string DeviceState::get_life_expectancy_str() const
++string DeviceState::get_life_expectancy_str(utime_t now) const
+ {
+   if (life_expectancy.first == utime_t()) {
+     return string();
+   }
+-  return stringify(life_expectancy.first) + " to " +
+-    stringify(life_expectancy.second);
++  if (now >= life_expectancy.first) {
++    return "now";
++  }
++  utime_t min = life_expectancy.first - now;
++  utime_t max = life_expectancy.second - now;
++  if (life_expectancy.second == utime_t()) {
++    return string(">") + timespan_str(make_timespan(min));
++  }
++  string a = timespan_str(make_timespan(min));
++  string b = timespan_str(make_timespan(max));
++  if (a == b) {
++    return a;
++  }
++  return a + " to " + b;
+ }
+ 
+ void DeviceState::dump(Formatter *f) const
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 6f9f4f3d93d..0a083ac5617 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -208,7 +208,7 @@ struct DeviceState : public RefCountedObject
+   void set_life_expectancy(utime_t from, utime_t to, utime_t now);
+   void rm_life_expectancy();
+ 
+-  string get_life_expectancy_str() const;
++  string get_life_expectancy_str(utime_t now) const;
+ 
+   /// true of we can be safely forgotten/removed from memory
+   bool empty() const {

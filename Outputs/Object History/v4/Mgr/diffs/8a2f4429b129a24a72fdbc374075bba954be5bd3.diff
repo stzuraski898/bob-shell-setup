@@ -1,0 +1,41 @@
+commit 8a2f4429b129a24a72fdbc374075bba954be5bd3
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Oct 18 17:33:46 2018 -0500
+
+    mgr: adjust DaemonState device index when daemon metadata is updated
+    
+    We need to unregister the old metadata (in particular, its devices
+    in the DaemonState device indexes) before adjusting and reregistering
+    the new metadata.
+    
+    Do the whole thing under the DaemonState lock to that there isn't a window
+    where the osd metadata isn't present at all.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index fcb1fa99c73..478a82be2f9 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -94,19 +94,18 @@ void MetadataUpdate::finish(int r)
+       DaemonStatePtr state;
+       if (daemon_state.exists(key)) {
+         state = daemon_state.get(key);
+-	std::lock_guard l(state->lock);
+         if (key.first == "mds" || key.first == "mgr") {
+           daemon_meta.erase("name");
+         } else if (key.first == "osd") {
+           daemon_meta.erase("id");
+         }
+         daemon_meta.erase("hostname");
+-        state->metadata.clear();
+ 	map<string,string> m;
+         for (const auto &i : daemon_meta) {
+           m[i.first] = i.second.get_str();
+ 	}
+-	state->set_metadata(m);
++
++	daemon_state.update_metadata(state, m);
+       } else {
+         state = std::make_shared<DaemonState>(daemon_state.types);
+         state->key = key;

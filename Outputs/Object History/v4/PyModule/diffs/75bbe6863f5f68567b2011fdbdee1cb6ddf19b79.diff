@@ -1,0 +1,58 @@
+commit 75bbe6863f5f68567b2011fdbdee1cb6ddf19b79
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Feb 22 12:38:13 2021 +0800
+
+    mgr: return the error if set_config() fails
+    
+    in general, `ActivePyModules::set_config()` is called by mgr module when
+    serving user commands updating module, sometimes if the option is of the
+    wrong type or invalid value, monitor rejects this request sent by mgr,
+    but the error info is only logged in the logging message on mgr, but not
+    returned to user. in this change, `ceph_set_module_option()` and the
+    underlying methods are updated to return the error to the caller as an
+    python exception.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 60c18eb3773..8756b77907e 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -145,7 +145,7 @@ PyModuleConfig::PyModuleConfig(PyModuleConfig &mconfig)
+ PyModuleConfig::~PyModuleConfig() = default;
+ 
+ 
+-void PyModuleConfig::set_config(
++std::pair<int, std::string> PyModuleConfig::set_config(
+     MonClient *monc,
+     const std::string &module_name,
+     const std::string &key, const boost::optional<std::string>& val)
+@@ -177,6 +177,7 @@ void PyModuleConfig::set_config(
+     } else {
+       config.erase(global_key);
+     }
++    return {0, ""};
+   } else {
+     if (val) {
+       dout(0) << "`config set mgr " << global_key << " " << val << "` failed: "
+@@ -186,6 +187,7 @@ void PyModuleConfig::set_config(
+         << cpp_strerror(set_cmd.r) << dendl;
+     }
+     dout(0) << "mon returned " << set_cmd.r << ": " << set_cmd.outs << dendl;
++    return {set_cmd.r, set_cmd.outs};
+   }
+ }
+ 
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index 6df3ee5860f..64fa373b8bf 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -176,7 +176,7 @@ public:
+   
+   ~PyModuleConfig();
+ 
+-  void set_config(
++  std::pair<int, std::string> set_config(
+     MonClient *monc,
+     const std::string &module_name,
+     const std::string &key, const boost::optional<std::string>& val);

@@ -1,0 +1,66 @@
+commit d9dfb436ea588a43be135a0808b28039d9ca2546
+Author: John Spray <jspray@redhat.com>
+Date:   Sun Jul 3 19:45:28 2016 +0100
+
+    mgr: s/DaemonMetadata/DaemonState/g
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index bfd551d1225..b2f7882ea34 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -23,7 +23,7 @@
+ #define dout_prefix *_dout << "mgr.server " << __func__ << " "
+ 
+ DaemonServer::DaemonServer(MonClient *monc_,
+-  DaemonMetadataIndex &daemon_state_,
++  DaemonStateIndex &daemon_state_,
+   PyModules &py_modules_)
+     : Dispatcher(g_ceph_context), msgr(nullptr), monc(monc_),
+       daemon_state(daemon_state_),
+@@ -166,11 +166,11 @@ bool DaemonServer::handle_report(MMgrReport *m)
+   dout(4) << "from " << m->get_connection() << " name "
+           << m->daemon_name << dendl;
+ 
+-  DaemonMetadataPtr daemon;
++  DaemonStatePtr daemon;
+   if (daemon_state.exists(key)) {
+     daemon = daemon_state.get(key);
+   } else {
+-    daemon = std::make_shared<DaemonMetadata>(daemon_state.types);
++    daemon = std::make_shared<DaemonState>(daemon_state.types);
+     // FIXME: crap, we don't know the hostname at this stage.
+     daemon->key = key;
+     daemon_state.insert(daemon);
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index ab935743600..f37e7f015b6 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -26,7 +26,7 @@
+ 
+ #include "auth/AuthAuthorizeHandler.h"
+ 
+-#include "DaemonMetadata.h"
++#include "DaemonState.h"
+ 
+ class MMgrReport;
+ class MMgrOpen;
+@@ -42,7 +42,7 @@ class DaemonServer : public Dispatcher
+ protected:
+   Messenger *msgr;
+   MonClient *monc;
+-  DaemonMetadataIndex &daemon_state;
++  DaemonStateIndex &daemon_state;
+   PyModules &py_modules;
+ 
+   AuthAuthorizeHandlerRegistry auth_registry;
+@@ -57,7 +57,7 @@ public:
+   entity_addr_t get_myaddr() const;
+ 
+   DaemonServer(MonClient *monc_,
+-      DaemonMetadataIndex &daemon_state_,
++      DaemonStateIndex &daemon_state_,
+       PyModules &py_modules_);
+   ~DaemonServer();
+ 

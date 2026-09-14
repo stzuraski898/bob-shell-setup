@@ -1,0 +1,26 @@
+commit 4f1f40ad6143cbafdd27557f1aafdfb6b837d854
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Thu Oct 10 08:25:15 2024 +0200
+
+    mgr/MgrCap: add missing includes
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/MgrCap.h b/src/mgr/MgrCap.h
+index f7a8bd5f8e6..699c6589e29 100644
+--- a/src/mgr/MgrCap.h
++++ b/src/mgr/MgrCap.h
+@@ -5,10 +5,13 @@
+ #define CEPH_MGRCAP_H
+ 
+ #include <iosfwd>
++#include <map>
++#include <string>
+ 
+ #include "include/common_fwd.h"
+ #include "include/types.h"
+ #include "common/entity_name.h"
++#include "msg/msg_types.h" // for struct entity_addr_t
+ 
+ static const __u8 MGR_CAP_R     = (1 << 1);      // read
+ static const __u8 MGR_CAP_W     = (1 << 2);      // write

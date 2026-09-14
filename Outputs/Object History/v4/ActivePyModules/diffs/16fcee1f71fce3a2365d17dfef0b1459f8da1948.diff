@@ -1,0 +1,45 @@
+commit 16fcee1f71fce3a2365d17dfef0b1459f8da1948
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 27 15:58:44 2017 -0400
+
+    mon,mgr: manage mgr module list in mgrmap
+    
+    Kill old mgr_modules option.
+    
+    Add new mgr_initial_modules option, on the mon, for the initial cluster
+    mgrmap.
+    
+    Add ls, enable, disable commands.
+    
+    Respawn mgr if the module list changes.  In the future we could enable
+    new modules without a full restart, but disabling probably requires (and
+    is best handled by) a respawn.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 6d5788a3033..7d091a253e1 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -15,7 +15,6 @@
+ #include "PyState.h"
+ #include "Gil.h"
+ 
+-#include <boost/tokenizer.hpp>
+ #include "common/errno.h"
+ #include "include/stringify.h"
+ 
+@@ -363,8 +362,11 @@ int PyModules::init()
+   std::list<std::string> failed_modules;
+ 
+   // Load python code
+-  boost::tokenizer<> tok(g_conf->mgr_modules);
+-  for(const auto& module_name : tok) {
++  set<string> ls;
++  cluster_state.with_mgrmap([&](const MgrMap& m) {
++      ls = m.modules;
++    });
++  for (const auto& module_name : ls) {
+     dout(1) << "Loading python module '" << module_name << "'" << dendl;
+     auto mod = std::unique_ptr<MgrPyModule>(new MgrPyModule(module_name, sys_path, pMainThreadState));
+     int r = mod->load();

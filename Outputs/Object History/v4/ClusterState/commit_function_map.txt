@@ -1,0 +1,75 @@
+# Commit → function map for ClusterState
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+0bac6af3c18a989771e2d5bb9199f8aae64943f8 | update_delta_stats notify_osdmap
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b | (no functions)
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+3ab70dd3e1150b2b3f66cbbee329ea95618747a5 | (no functions)
+70b41ea1ee8388d0e5910fd0a3ca3c9fb9e645ec | ingest_pgstats
+327b3de54eeca80d84fc4cd2da1b2917aca9b791 | (no functions)
+dd9f9e268b5562bae8972bce03ec0970f353ae14 | final_init
+07ad8df2dd74f2fb4bbde6332a04cc5453bff435 | asok_command
+c63ecb602e5916d5e0beed137787fdfc67707f15 | (no functions)
+9c652fb305a3e3d1b4a752bac9bd8a85d15c7de9 | (no functions)
+493ec9d3acd3f57eed3e4b96ad7c6739c2089ff1 | ingest_pgstats
+da362675da51de8b20a12e4cec479a77c7f5442b | set_service_map
+a54d0a90c06aed1ae26826d7d5317ba13e18c86e | asok_command
+5d5b0f96df39fd0c7e7ae5998043d53cd785b18e | asok_command
+adf1486e46cb1f7820c77adb7b6436c47c743242 | asok_command
+a4c07734bf9e1da0c4f31c83f5dcb611cc8b449b | (no functions)
+9d772b8ea9e582075009cea6b8a6b6868e8e531a | (no functions)
+1a7cdedb56015485cfd6c9dcf767176d1e850f12 | final_init
+6d2e4cb109caff8dae5e5e18563b6305131b488b | asok_command
+5f83a6158b29944cf8f5a069c50edba3e172cdcc | asok_command
+9d02e5d39d7b5e2806a5d98bdde24f4584e70528 | asok_command
+048f8096265dd3a647adb970255e4b11c9617b2e | asok_command
+0d1bbd34e96e2da2027861229b376805d5ea8aa6 | asok_command
+297a0e7b1de410c094fc9a6e42be14813d6dac5e | asok_command
+3f846d7c806b7f62ead08f0e9fb2ba927ffe0592 | asok_command
+5d3c1856415f8b66e31361a0a7b9c75edc46e49e | notify_osdmap ClusterState
+ea20d3522aaf644cef989c565e11dd781e420e18 | asok_command
+c93dc8849145c1630058e4c0e527f404929216ff | ClusterState
+a075639ce746fe12cde1a3df8ad7b13c3fd9baf6 | load_digest
+63df4060824316476e5e022e1a923c57090c2be7 | update_delta_stats ingest_pgstats
+03a761c980a1171fe6adf7a463f3ab80ec6d4052 | update_delta_stats
+60876ccce4e9de7e138dc04cfac056b29a607b4c | (no functions)
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f | update_delta_stats load_digest ClusterState
+9e906733fe07925f6956a592e2718000f62fef93 | ingest_pgstats notify_osdmap
+ab23c506964753990f9fe23e314b9f3e2547a773 | (no functions)
+86f0b811882de334f0d7e577b6c47bef6aba2422 | (no functions)
+83b9ef73c0c135ef7cd09edf33ae929693886ef5 | ingest_pgstats
+1dcab1c770b07f523f15870d5bef201a93546acc | ClusterState
+a7612d33d1e4184af7faa6712fc50d6487a09c40 | ingest_pgstats
+ae688fc4d72c10d5bfb15ab75ad700f1187f77f5 | ingest_pgstats
+97cfc3cb694eb2723cae22d71057323773746cee | set_mgr_map
+6c10417f7ed365425019108c2cb9f6d1e091b975 | set_fsmap
+19810df09e0b4a3752d0ab138fe2263bd3afb569 | (no functions)
+c2258991393fedf64f5747e44f03a04f3a853e88 | update_delta_stats notify_osdmap
+aad1afcb96de1483ecaf93adf473d5732246ea7a | update_delta_stats notify_osdmap
+6afca3beb2a867195d971e0f37710aa3d6b5b4b8 | ingest_pgstats notify_osdmap
+d6d1db62edeb4c40a774fcb56e7619b2997ff2d0 | ingest_pgstats load_digest notify_osdmap
+0612b716275403f2bd34846c6082654f35115847 | notify_osdmap
+681d37c05554b8d57cf70c9b4809e6967f03ccd2 | notify_osdmap
+74752505bfc30de11821fc5c7e6a6631a1cba2b6 | notify_osdmap
+27bd39cd0550a25be39d93737c0dc91c25d34a33 | notify_osdmap
+b73e4374147210628a64267cfeaf3970c55a45eb | notify_osdmap
+759c7d0aee11acf3a14492c239d2bc5493cb841f | notify_osdmap
+ff1258e7ef39f1f1a69ef6475445712c1dc6e037 | notify_osdmap
+983fe8ec888b998cee33680390173fe6636574f3 | ingest_pgstats
+3da07ea0a599c92f24053e5d6778fa2fda89a461 | ingest_pgstats
+6646b35ac76d518f7d764724b8a2cf7e4f8356ee | (no functions)
+c14b913bad3898e90630fcc7a4340783a985469f | (no functions)
+3f514bda1cfc6a0833f62edff98a279ebbd2a22b | (no functions)
+1113eb123b1470f19feb3539153cad5159e54509 | (no functions)
+454da5e7b24c3e8bc4b0e61ca4460fdcc90d5168 | notify_osdmap
+3893432646b7bb70a85b72ca1bd827c42fdd912a | notify_osdmap
+b9182564c716fdfcb39cc77314ba295990dd4312 | (no functions)
+45b33934e878908332c9fee239b47db7657302ee | (no functions)
+afa7078763efc053814434d4b0dae08dd2295349 | notify_osdmap
+ea46778e3681e5ed6b322f68ab40747b2e052433 | (no functions)
+fa147e3a591a4d74a7a8692b17add420ffc9bf98 | set_fsmap
+ac30e6cee2b2d3815438f1a392a951d511bddfd4 | (no functions)

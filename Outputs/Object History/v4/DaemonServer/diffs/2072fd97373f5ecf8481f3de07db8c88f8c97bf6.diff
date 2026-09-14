@@ -1,0 +1,23 @@
+commit 2072fd97373f5ecf8481f3de07db8c88f8c97bf6
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 21 20:05:47 2017 -0500
+
+    mgr/DaemonServer: debug on shutdown
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index f837469c4c5..1a0bd404e16 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -217,8 +217,10 @@ bool DaemonServer::ms_dispatch(Message *m)
+ 
+ void DaemonServer::shutdown()
+ {
++  dout(10) << __func__ << dendl;
+   msgr->shutdown();
+   msgr->wait();
++  dout(10) << __func__ << " done" << dendl;
+ }
+ 
+ 

@@ -1,0 +1,61 @@
+commit 7d2964bf782eb3f4d39cca2c2098501caf8a8de3
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Apr 21 21:47:29 2021 +0800
+
+    mgr/PyModuleRegistry: use vector<> when appropriate
+    
+    no need to use a set<string> for storing module name, they are
+    inherently unique.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 1ae44143c7d..79c42653620 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -75,7 +75,7 @@ void PyModuleRegistry::init()
+   std::list<std::string> failed_modules;
+ 
+   const std::string module_path = g_conf().get_val<std::string>("mgr_module_path");
+-  std::set<std::string> module_names = probe_modules(module_path);
++  auto module_names = probe_modules(module_path);
+   // Load python code
+   for (const auto& module_name : module_names) {
+     dout(1) << "Loading python module '" << module_name << "'" << dendl;
+@@ -270,12 +270,12 @@ void PyModuleRegistry::shutdown()
+   Py_Finalize();
+ }
+ 
+-std::set<std::string> PyModuleRegistry::probe_modules(const std::string &path) const
++std::vector<std::string> PyModuleRegistry::probe_modules(const std::string &path) const
+ {
+   const auto opt = g_conf().get_val<std::string>("mgr_disabled_modules");
+   const auto disabled_modules = ceph::split(opt);
+ 
+-  std::set<std::string> modules;
++  std::vector<std::string> modules;
+   for (const auto& entry: fs::directory_iterator(path)) {
+     if (!fs::is_directory(entry)) {
+       continue;
+@@ -287,7 +287,7 @@ std::set<std::string> PyModuleRegistry::probe_modules(const std::string &path) c
+     }
+     auto module_path = entry.path() / "module.py";
+     if (fs::exists(module_path)) {
+-      modules.emplace(name);
++      modules.push_back(name);
+     }
+   }
+   return modules;
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index ad48af9dafe..27590107bb7 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -58,7 +58,7 @@ private:
+   /**
+    * Discover python modules from local disk
+    */
+-  std::set<std::string> probe_modules(const std::string &path) const;
++  std::vector<std::string> probe_modules(const std::string &path) const;
+ 
+   PyModuleConfig module_config;
+ 

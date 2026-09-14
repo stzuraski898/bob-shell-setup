@@ -1,0 +1,32 @@
+commit 2cdb67c2fe1c8d21759bda5b2ca7acbd61746148
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Fri Oct 11 12:32:11 2024 +0200
+
+    mgr/PyModule: do not lock in get_name()
+    
+    The way get_name() used the lock is completely wrong: in the protected
+    code block, it do not access anything that needs to be protected.  All
+    it effectively does is return the `this` pointer with an offset to the
+    `module_name` field; but it does not actually access the field.  The
+    actual access is done by the caller, after the mutex has been unlocked
+    already.
+    
+    But anyway, `module_name` does not need any protection.  It is `const`
+    and thus cannot be modified by other threads.  So instead of fixing
+    the return value (removing the `&`), let's just remove the lock.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index 177447c2cb3..3dd39a77865 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -161,7 +161,7 @@ public:
+   }
+ 
+   const std::string &get_name() const {
+-    std::lock_guard l(lock) ; return module_name;
++    return module_name;
+   }
+   const std::string &get_error_string() const {
+     std::lock_guard l(lock) ; return error_string;

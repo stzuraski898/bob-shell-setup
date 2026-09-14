@@ -1,0 +1,27 @@
+commit 8e070294542a23e55e9305deaa52a3df30649122
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Mar 7 08:50:53 2019 -0600
+
+    mds,mgr,mon: warn future respawn() copy-pasters to set thread name
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index e0c80e0b00e..061ddd0f9b9 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -302,6 +302,14 @@ void MgrStandby::shutdown()
+ 
+ void MgrStandby::respawn()
+ {
++  // --- WARNING TO FUTURE COPY/PASTERS ---
++  // You must also add a call like
++  //
++  //   ceph_pthread_setname(pthread_self(), "ceph-mgr");
++  //
++  // to main() so that /proc/$pid/stat field 2 contains "(ceph-mgr)"
++  // instead of "(exe)", so that killall (and log rotation) will work.
++
+   char *new_argv[orig_argc+1];
+   dout(1) << " e: '" << orig_argv[0] << "'" << dendl;
+   for (int i=0; i<orig_argc; i++) {

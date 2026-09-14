@@ -1,0 +1,23 @@
+commit 3ab70dd3e1150b2b3f66cbbee329ea95618747a5
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Wed Oct 16 17:34:06 2024 +0200
+
+    common/Formatter: move {JSON,Table,XML}Formatter to separate files
+    
+    Most sources only need the Formatter interface and don't need the
+    other implementations (and their header dependencies).
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index fe33555280e..8b0629bb9ea 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -21,6 +21,7 @@
+ 
+ #include "include/stringify.h"
+ #include "common/BackTrace.h"
++#include "common/JSONFormatter.h"
+ #include "global/signal_handler.h"
+ 
+ #include "common/debug.h"

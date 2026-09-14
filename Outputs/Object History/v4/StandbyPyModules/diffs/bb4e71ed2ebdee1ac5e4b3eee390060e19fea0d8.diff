@@ -1,0 +1,32 @@
+commit bb4e71ed2ebdee1ac5e4b3eee390060e19fea0d8
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Oct 12 13:14:02 2017 -0400
+
+    mgr: fix thread naming
+    
+    Was passing a reference to a local stringstream into
+    Thread::create, not realising that it was taking a char*
+    reference instead of a copy.  Result was garbage (or usually,
+    all threads having the name of the last one created)
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/StandbyPyModules.cc b/src/mgr/StandbyPyModules.cc
+index 3992553bd44..2b442d5ef9d 100644
+--- a/src/mgr/StandbyPyModules.cc
++++ b/src/mgr/StandbyPyModules.cc
+@@ -97,10 +97,11 @@ int StandbyPyModules::start_one(std::string const &module_name,
+     modules.erase(module_name);
+     return r;
+   } else {
+-    std::ostringstream thread_name;
+-    thread_name << "mgr." << module_name;
+     dout(4) << "Starting thread for " << module_name << dendl;
+-    modules[module_name]->thread.create(thread_name.str().c_str());
++    // Giving Thread the module's module_name member as its
++    // char* thread name: thread must not outlive module class lifetime.
++    modules[module_name]->thread.create(
++        modules[module_name]->get_name().c_str());
+     return 0;
+   }
+ }

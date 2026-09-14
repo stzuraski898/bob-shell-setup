@@ -1,0 +1,21 @@
+commit 78b7f10d298070515418f5a71931d6235498c87f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jan 3 08:37:12 2018 -0600
+
+    mgr/DaemonServer: fix error string
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index b5474099de4..d4ab6fd1a34 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1219,7 +1219,7 @@ bool DaemonServer::handle_command(MCommand *m)
+ 	  } else {
+ 	    auto workit = pg_map.pg_stat.find(parsed_pg);
+ 	    if (workit == pg_map.pg_stat.end()) {
+-	      ss << "pg " << pstr << " not exists; ";
++	      ss << "pg " << pstr << " does not exist; ";
+ 	      r = -ENOENT;
+ 	    } else {
+ 	      pg_stat_t workpg = workit->second;

@@ -1,0 +1,21 @@
+commit 1a3e935774b2ff02acfda9bb0ffea0b85ff3edbc
+Author: Radoslaw Zarzynski <rzarzynski@redhat.com>
+Date:   Mon Feb 12 19:58:51 2018 +0100
+
+    core: resurrect the old check on dout's levels where possible.
+    
+    Signed-off-by: Radoslaw Zarzynski <rzarzyns@redhat.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index 5b98a70279a..f500ad475c7 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -100,7 +100,7 @@ void PyModuleRunner::log(int level, const std::string &record)
+ {
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr[" << get_name() << "] "
+-  dout(level) << record << dendl;
++  dout(ceph::dout::need_dynamic(level)) << record << dendl;
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ }

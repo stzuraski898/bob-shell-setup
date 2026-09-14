@@ -1,0 +1,130 @@
+commit 95a90f7da8a32dd2a5a1e3b381aaeacea378437b
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Sun Dec 8 18:08:39 2024 +0000
+
+    mgr: Add per-module performance counters to mgr
+    
+    This commit introduces performance counters for individual Ceph mgr modules.
+    These counters allow monitoring module behavior, debugging latency issues,
+    and identifying performance bottlenecks, all without modifying the modules themselves.
+    
+    The following counters are now exposed under:
+      > ceph daemon mgr.<id> perf dump
+    
+    Example structure:
+    "mgr_module_<module_name>": {
+        "notify_avg_usec": {     <- Average time spent handling notify events
+            "avgcount": 0,
+            "sum": 0
+        },
+        "cmd_avg_usec": {        <- Average time spent processing CLI/admin commands
+            "avgcount": 0,
+            "sum": 0
+        },
+        "serve_avg_usec": {      <- Average time spent in module serve loop (if applicable)
+            "avgcount": 0,
+            "sum": 0
+        },
+        "alive": 1               <- Module is alive (1 = running, 0 = exited)
+        "cpu_usage": 0,          <- CPU usage in percent
+        "mem_rss_change": 0,     <- Memory RSS change in bytes
+        "mem_rss_current": 490737664 <- Memory RSS current in bytes
+    
+    }
+    
+    Signed-off-by: Nitzan Mordechai <nmordech@ibm.com>
+    
+    Conflicts:
+      src/mgr/ActivePyModules.cc - finisher.queue changed by 63859, adding py_module to the parameter list
+      src/mgr/PyModuleRegistry.cc - check_all_modules_started added by 63859
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index b974a60b265..46dc97073b8 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -287,6 +287,10 @@ std::pair<int, std::string> PyModuleConfig::set_config(
+   }
+ }
+ 
++  PyModule::PyModule(const std::string &module_name_)
++    : module_name(module_name_)
++  { }
++
+ PyObject* PyModule::init_ceph_logger()
+ {
+   auto py_logger = PyModule_Create(&ceph_logger_module);
+@@ -792,3 +796,18 @@ PyModule::~PyModule()
+   }
+ }
+ 
++int PyModule::perf_counter_build(CephContext *cct) {
++  ceph_assert(perfcounter == nullptr);
++  PerfCountersBuilder pcb(cct, "mgr_module_" + get_name(), l_pym_first, l_pym_last);
++  pcb.add_u64_avg(l_pym_notify_avg_usec, "notify_avg_usec", "Average time spent in notify calls", "nsec", 0);
++  pcb.add_u64_avg(l_pym_cmd_avg_usec, "cmd_avg_usec", "Average time spent in command calls", "csec", 0);
++  pcb.add_u64(l_pym_alive, "alive", "Is the module alive?", "aliv", 0, uint64_t(1));
++  pcb.add_u64(l_pym_cpu_usage, "cpu_usage", "CPU usage in percent", "cpu", 0, uint64_t(100));
++  pcb.add_u64(l_pym_mem_rss_change, "mem_rss_change", "Memory RSS change in bytes", "", 0);
++  pcb.add_u64(l_pym_mem_rss_current, "mem_rss_current", "Memory RSS current in bytes", "", 0);
++  pcb.add_u64(l_pym_serve_cpu_usage, "serve_cpu_usage", "Serve thread CPU usage in percent", "cpu", 0, uint64_t(100));
++  perfcounter = std::unique_ptr<PerfCounters>(pcb.create_perf_counters());
++  cct->get_perfcounters_collection()->add(perfcounter.get());
++
++  return 0;
++}
+\ No newline at end of file
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index 01cca1d8e27..77212dd94b7 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -19,7 +19,9 @@
+ #include <string>
+ #include <vector>
+ #include <boost/optional.hpp>
++#include "common/ceph_context.h"
+ #include "common/ceph_mutex.h"
++#include "common/perf_counters.h"
+ #include "Python.h"
+ #include "Gil.h"
+ #include "mon/MgrMap.h"
+@@ -98,6 +100,7 @@ private:
+   std::set<std::string> notify_types;
+ 
+ public:
++  std::unique_ptr<PerfCounters> perfcounter;
+   static std::string mgr_store_prefix;
+ 
+   SafeThreadState pMyThreadState;
+@@ -108,10 +111,7 @@ public:
+   // true unless module in mgr_subinterpreter_modules
+   bool use_main_interpreter = true;
+ 
+-  explicit PyModule(const std::string &module_name_)
+-    : module_name(module_name_)
+-  {
+-  }
++  explicit PyModule(const std::string &module_name_);
+ 
+   ~PyModule();
+ 
+@@ -181,6 +181,20 @@ public:
+   bool get_can_run() const {
+     std::lock_guard l(lock) ; return can_run;
+   }
++
++  enum PerfModuleCounters {
++    l_pym_first = 10000,
++    l_pym_notify_avg_usec,
++    l_pym_cmd_avg_usec,
++    l_pym_alive,
++    l_pym_cpu_usage,
++    l_pym_mem_rss_change,
++    l_pym_mem_rss_current,
++    l_pym_serve_cpu_usage,
++    l_pym_last
++  };
++
++  int perf_counter_build(CephContext *cct);
+ };
+ 
+ typedef std::shared_ptr<PyModule> PyModuleRef;

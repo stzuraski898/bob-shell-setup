@@ -1,0 +1,29 @@
+commit d8141f4302ad7631a3a068e5017e9b018d6cb741
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Fri Apr 25 23:53:08 2025 +0800
+
+    mgr: migrate from boost::variant to std::variant
+    
+    Replace `boost::variant` with `std::variant` as part of our effort to reduce
+    third-party dependencies in favor of C++ standard library alternatives.
+    
+    Benefits include:
+    - Improved code readability and maintainability
+    - Reduced external dependency surface
+    - More consistent API usage with other components
+    
+    Signed-off-by: Kefu Chai <tchaikov@gmail.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 23843622b38..cb6cf95ce34 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -465,7 +465,7 @@ bool MgrClient::handle_mgr_configure(ref_t<MMgrConfigure> m)
+     handle_config_payload(m->osd_perf_metric_queries);
+   } else if (m->metric_config_message) {
+     const MetricConfigMessage &message = *m->metric_config_message;
+-    boost::apply_visitor(HandlePayloadVisitor(this), message.payload);
++    std::visit(HandlePayloadVisitor(this), message.payload);
+   }
+ 
+   bool starting = (stats_period == 0) && (m->stats_period != 0);

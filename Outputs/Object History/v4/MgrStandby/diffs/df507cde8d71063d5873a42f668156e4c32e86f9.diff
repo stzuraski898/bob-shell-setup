@@ -1,0 +1,42 @@
+commit df507cde8d71063d5873a42f668156e4c32e86f9
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Mon Dec 2 20:27:44 2019 -0800
+
+    mgr: forward RADOS client instances for potential blacklist
+    
+    The mgr creates a per-module RADOS client connection for modules which
+    interact with RADOS (e.g. the volumes module). These clients should also
+    be blacklisted when the active mgr is failed; we don't want the former
+    active mgr to continue interacting with RADOS when the new one takes
+    over. This is particularly impactful for avoiding extraneous
+    "unresponsive client" warnings from the MDS when the mgr switches
+    (especially in testing). The MDS will pickup the new OSD blacklists
+    which include's the old mgr's libcephfs instance and blacklist/evict
+    that session quietly.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 1d806569c39..16c82b72e88 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -206,6 +206,11 @@ void MgrStandby::send_beacon()
+     module_info.push_back(std::move(info));
+   }
+ 
++  auto clients = py_module_registry.get_clients();
++  for (const auto& client : clients) {
++    dout(15) << "noting RADOS client for blacklist: " << client << dendl;
++  }
++
+   // Whether I think I am available (request MgrMonitor to set me
+   // as available in the map)
+   bool available = active_mgr != nullptr && active_mgr->is_initialized();
+@@ -225,6 +230,7 @@ void MgrStandby::send_beacon()
+                                  available,
+ 				 std::move(module_info),
+ 				 std::move(metadata),
++                                 std::move(clients),
+ 				 CEPH_FEATURES_ALL);
+ 
+   if (available) {

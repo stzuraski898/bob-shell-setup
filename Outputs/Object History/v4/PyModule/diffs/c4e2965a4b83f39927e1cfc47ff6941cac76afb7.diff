@@ -1,0 +1,28 @@
+commit c4e2965a4b83f39927e1cfc47ff6941cac76afb7
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Feb 14 18:21:38 2019 -0600
+
+    mgr: hold GIL while generating a typed option value
+    
+    Drop the GIL while looking up the module and option value.  Retake
+    it before calling get_typed_option_value(), where we generate the
+    Python objects for the value.
+    
+    Fixes: http://tracker.ceph.com/issues/38123
+    Fixes: http://tracker.ceph.com/issues/38204
+    Fixes: http://tracker.ceph.com/issues/38292
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 2ece13be843..d8c5f8eee26 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -622,6 +622,8 @@ bool PyModule::is_option(const std::string &option_name)
+ PyObject *PyModule::get_typed_option_value(const std::string& name,
+ 					   const std::string& value)
+ {
++  // we don't need to hold a lock here because these MODULE_OPTIONS
++  // are set up exactly once during startup.
+   auto p = options.find(name);
+   if (p != options.end()) {
+     switch (p->second.type) {

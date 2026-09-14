@@ -1,0 +1,27 @@
+commit f9a4ca07acecd15986cbce61a6e118a6cb05af29
+Author: John Spray <jspray@redhat.com>
+Date:   Fri Sep 8 11:33:02 2017 -0400
+
+    mgr: fix py calls for dne service perf counters
+    
+    Fixes: http://tracker.ceph.com/issues/21253
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 93fe130190e..f304b18c6fc 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -85,7 +85,12 @@ DaemonStatePtr DaemonStateIndex::get(const DaemonKey &key)
+ {
+   Mutex::Locker l(lock);
+ 
+-  return all.at(key);
++  auto iter = all.find(key);
++  if (iter != all.end()) {
++    return iter->second;
++  } else {
++    return nullptr;
++  }
+ }
+ 
+ void DaemonStateIndex::cull(const std::string& svc_name,

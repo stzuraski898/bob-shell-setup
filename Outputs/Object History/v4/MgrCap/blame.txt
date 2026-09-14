@@ -1,0 +1,786 @@
+# git blame -w -M -C src/mgr/MgrCap.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman   2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/MgrCap.cc                        (Edwin Rodriguez  2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+c8c1019d1962 src/mgr/MgrCap.cc                        (Edwin Rodriguez  2025-10-02 15:31:35 -0400   3) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400   4) /*
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400   5)  * Ceph - scalable distributed file system
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400   6)  *
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400   7)  * Copyright (C) 2013 Inktank
+a5fef101ec47 ceph/msg/Message.h                       (Sage Weil        2006-02-12 06:53:23 +0000   8)  *
+80ebaa3764f1 ceph/msg/Message.h                       (Sage Weil        2006-02-20 05:15:16 +0000   9)  * This is free software; you can redistribute it and/or
+a5fef101ec47 ceph/msg/Message.h                       (Sage Weil        2006-02-12 06:53:23 +0000  10)  * modify it under the terms of the GNU Lesser General Public
+80ebaa3764f1 ceph/msg/Message.h                       (Sage Weil        2006-02-20 05:15:16 +0000  11)  * License version 2.1, as published by the Free Software
+80ebaa3764f1 ceph/msg/Message.h                       (Sage Weil        2006-02-20 05:15:16 +0000  12)  * Foundation.  See file COPYING.
+a5fef101ec47 ceph/msg/Message.h                       (Sage Weil        2006-02-12 06:53:23 +0000  13)  *
+a5fef101ec47 ceph/msg/Message.h                       (Sage Weil        2006-02-12 06:53:23 +0000  14)  */
+a5fef101ec47 ceph/msg/Message.h                       (Sage Weil        2006-02-12 06:53:23 +0000  15) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  16) #include <boost/algorithm/string/predicate.hpp>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  17) #include <boost/config/warning_disable.hpp>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  18) #include <boost/fusion/adapted/struct/adapt_struct.hpp>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  19) #include <boost/fusion/include/adapt_struct.hpp>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  20) #include <boost/fusion/include/std_pair.hpp>
+03da55716ca1 src/mgr/MgrCap.cc                        (Kefu Chai        2022-07-29 22:35:19 +0800  21) #include <boost/phoenix.hpp>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  22) #include <boost/spirit/include/qi.hpp>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  23) #include <boost/spirit/include/qi_uint.hpp>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  24) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  25) #include "MgrCap.h"
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  26) #include "include/stringify.h"
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  27) #include "include/ipaddr.h"
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  28) #include "common/debug.h"
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  29) #include "common/Formatter.h"
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  30) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  31) #include <algorithm>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  32) #include <regex>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  33) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  34) #include "include/ceph_assert.h"
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  35) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  36) static inline bool is_not_alnum_space(char c) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  37)   return !(isalpha(c) || isdigit(c) || (c == '-') || (c == '_'));
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  38) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  39) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  40) static std::string maybe_quote_string(const std::string& str) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  41)   if (find_if(str.begin(), str.end(), is_not_alnum_space) == str.end())
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  42)     return str;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  43)   return std::string("\"") + str + std::string("\"");
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  44) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  45) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  46) #define dout_subsys ceph_subsys_mgr
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  47) 
+1e8864092d44 src/mgr/MgrCap.cc                        (Adam C. Emerson  2020-03-22 00:04:06 -0400  48) std::ostream& operator<<(std::ostream& out, const mgr_rwxa_t& p) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  49)   if (p == MGR_CAP_ANY)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  50)     return out << "*";
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  51) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  52)   if (p & MGR_CAP_R)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  53)     out << "r";
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  54)   if (p & MGR_CAP_W)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  55)     out << "w";
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  56)   if (p & MGR_CAP_X)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  57)     out << "x";
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  58)   return out;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  59) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  60) 
+1e8864092d44 src/mgr/MgrCap.cc                        (Adam C. Emerson  2020-03-22 00:04:06 -0400  61) std::ostream& operator<<(std::ostream& out, const MgrCapGrantConstraint& c) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  62)   switch (c.match_type) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  63)   case MgrCapGrantConstraint::MATCH_TYPE_EQUAL:
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  64)     out << "=";
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  65)     break;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  66)   case MgrCapGrantConstraint::MATCH_TYPE_PREFIX:
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  67)     out << " prefix ";
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  68)     break;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  69)   case MgrCapGrantConstraint::MATCH_TYPE_REGEX:
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  70)     out << " regex ";
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  71)     break;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  72)   default:
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  73)     break;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  74)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  75)   out << maybe_quote_string(c.value);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  76)   return out;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  77) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  78) 
+1e8864092d44 src/mgr/MgrCap.cc                        (Adam C. Emerson  2020-03-22 00:04:06 -0400  79) std::ostream& operator<<(std::ostream& out, const MgrCapGrant& m) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  80)   if (!m.profile.empty()) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  81)     out << "profile " << maybe_quote_string(m.profile);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  82)   } else {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  83)     out << "allow";
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  84)     if (!m.service.empty()) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  85)       out << " service " << maybe_quote_string(m.service);
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400  86)     } else if (!m.module.empty()) {
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400  87)       out << " module " << maybe_quote_string(m.module);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  88)     } else if (!m.command.empty()) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  89)       out << " command " << maybe_quote_string(m.command);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  90)     }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  91)   }
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400  92) 
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400  93)   if (!m.arguments.empty()) {
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400  94)     out << (!m.profile.empty() ? "" : " with");
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400  95)     for (auto& [key, constraint] : m.arguments) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  96)       out << " " << maybe_quote_string(key) << constraint;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  97)     }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  98)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400  99) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 100)   if (m.allow != 0) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 101)     out << " " << m.allow;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 102)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 103) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 104)   if (m.network.size()) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 105)     out << " network " << m.network;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 106)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 107)   return out;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 108) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 109) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 110) // <magic>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 111) //  fusion lets us easily populate structs via the qi parser.
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 112) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 113) typedef std::map<std::string, MgrCapGrantConstraint> kvmap;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 114) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 115) BOOST_FUSION_ADAPT_STRUCT(MgrCapGrant,
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 116)                           (std::string, service)
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 117)                           (std::string, module)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 118)                           (std::string, profile)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 119)                           (std::string, command)
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 120)                           (kvmap, arguments)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 121)                           (mgr_rwxa_t, allow)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 122)                           (std::string, network))
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 123) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 124) BOOST_FUSION_ADAPT_STRUCT(MgrCapGrantConstraint,
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 125)                           (MgrCapGrantConstraint::MatchType, match_type)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 126)                           (std::string, value))
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 127) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 128) // </magic>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 129) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 130) void MgrCapGrant::parse_network() {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 131)   network_valid = ::parse_network(network.c_str(), &network_parsed,
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 132)                                   &network_prefix);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 133) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 134) 
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 135) void MgrCapGrant::expand_profile(std::ostream *err) const {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 136)   // only generate this list once
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 137)   if (!profile_grants.empty()) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 138)     return;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 139)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 140) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 141)   if (profile == "read-only") {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 142)     // grants READ-ONLY caps MGR-wide
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 143)     profile_grants.push_back({{}, {}, {}, {}, {}, mgr_rwxa_t{MGR_CAP_R}});
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 144)     return;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 145)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 146) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 147)   if (profile == "read-write") {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 148)     // grants READ-WRITE caps MGR-wide
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 149)     profile_grants.push_back({{}, {}, {}, {}, {},
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 150)                               mgr_rwxa_t{MGR_CAP_R | MGR_CAP_W}});
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 151)     return;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 152)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 153) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 154)   if (profile == "crash") {
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 155)     profile_grants.push_back({{}, {}, {}, "crash post", {}, {}});
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 156)     return;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 157)   }
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 158) 
+488cb91e4703 src/mgr/MgrCap.cc                        (Matthew N. Heler 2026-07-26 10:24:24 -0500 159)   if (profile == "osd" || profile == "mds" || profile == "rgw") {
+488cb91e4703 src/mgr/MgrCap.cc                        (Matthew N. Heler 2026-07-26 10:24:24 -0500 160)     // these are documented profiles (so we need to accept them as valid), but
+488cb91e4703 src/mgr/MgrCap.cc                        (Matthew N. Heler 2026-07-26 10:24:24 -0500 161)     // they grant nothing here
+2dc7a9595093 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-22 09:11:34 -0400 162)     return;
+2dc7a9595093 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-22 09:11:34 -0400 163)   }
+2dc7a9595093 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-22 09:11:34 -0400 164) 
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 165)   if (profile == "rbd" || profile == "rbd-read-only") {
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 166)     Arguments filtered_arguments;
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 167)     for (auto& [key, constraint] : arguments) {
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 168)       if (key == "pool" || key == "namespace") {
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 169)         filtered_arguments[key] = std::move(constraint);
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 170)       } else {
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 171)         if (err != nullptr) {
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 172)           *err << "profile '" << profile << "' does not recognize key '" << key
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 173)                << "'";
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 174)         }
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 175)         return;
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 176)       }
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 177)     }
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 178) 
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 179)     mgr_rwxa_t perms = mgr_rwxa_t{MGR_CAP_R};
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 180)     if (profile == "rbd") {
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 181)       perms = mgr_rwxa_t{MGR_CAP_R | MGR_CAP_W};
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 182)     }
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 183) 
+c7244e7aade4 src/mgr/MgrCap.cc                        (Sage Weil        2020-06-17 14:43:47 -0500 184)     // allow all 'rbd_support' commands (restricted by optional
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 185)     // pool/namespace constraints)
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 186)     profile_grants.push_back({{}, "rbd_support", {}, {},
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 187)                               std::move(filtered_arguments), perms});
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 188)     return;
+b0d73aed19a9 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-14 10:54:44 -0400 189)   }
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 190) 
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 191)   if (err != nullptr) {
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 192)     *err << "unrecognized profile '" << profile << "'";
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 193)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 194) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 195) 
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 196) bool MgrCapGrant::validate_arguments(
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 197)       const std::map<std::string, std::string>& args) const {
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 198)   for (auto& [key, constraint] : arguments) {
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 199)     auto q = args.find(key);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 200) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 201)     // argument must be present if a constraint exists
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 202)     if (q == args.end()) {
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 203)       return false;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 204)     }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 205) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 206)     switch (constraint.match_type) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 207)     case MgrCapGrantConstraint::MATCH_TYPE_EQUAL:
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 208)       if (constraint.value != q->second)
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 209)         return false;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 210)       break;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 211)     case MgrCapGrantConstraint::MATCH_TYPE_PREFIX:
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 212)       if (q->second.find(constraint.value) != 0)
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 213)         return false;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 214)       break;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 215)     case MgrCapGrantConstraint::MATCH_TYPE_REGEX:
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 216)       try {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 217)         std::regex pattern(constraint.value, std::regex::extended);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 218)         if (!std::regex_match(q->second, pattern)) {
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 219)           return false;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 220)         }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 221)       } catch(const std::regex_error&) {
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 222)         return false;
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 223)       }
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 224)       break;
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 225)     default:
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 226)       return false;
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 227)     }
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 228)   }
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 229) 
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 230)   return true;
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 231) }
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 232) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 233) mgr_rwxa_t MgrCapGrant::get_allowed(
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 234)     CephContext *cct, EntityName name, const std::string& s,
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 235)     const std::string& m, const std::string& c,
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 236)     const std::map<std::string, std::string>& args) const {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 237)   if (!profile.empty()) {
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 238)     expand_profile(nullptr);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 239)     mgr_rwxa_t a;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 240)     for (auto& grant : profile_grants) {
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 241)       a = a | grant.get_allowed(cct, name, s, m, c, args);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 242)     }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 243)     return a;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 244)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 245) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 246)   if (!service.empty()) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 247)     if (service != s) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 248)       return mgr_rwxa_t{};
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 249)     }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 250)     return allow;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 251)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 252) 
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 253)   if (!module.empty()) {
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 254)     if (module != m) {
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 255)       return mgr_rwxa_t{};
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 256)     }
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 257) 
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 258)     // don't test module arguments when validating a specific command
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 259)     if (c.empty() && !validate_arguments(args)) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 260)       return mgr_rwxa_t{};
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 261)     }
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 262)     return allow;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 263)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 264) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 265)   if (!command.empty()) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 266)     if (command != c) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 267)       return mgr_rwxa_t{};
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 268)     }
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 269)     if (!validate_arguments(args)) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 270)       return mgr_rwxa_t{};
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 271)     }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 272)     return mgr_rwxa_t{MGR_CAP_ANY};
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 273)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 274) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 275)   return allow;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 276) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 277) 
+1e8864092d44 src/mgr/MgrCap.cc                        (Adam C. Emerson  2020-03-22 00:04:06 -0400 278) std::ostream& operator<<(std::ostream&out, const MgrCap& m) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 279)   bool first = true;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 280)   for (auto& grant : m.grants) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 281)     if (!first) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 282)       out << ", ";
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 283)     }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 284)     first = false;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 285) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 286)     out << grant;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 287)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 288)   return out;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 289) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 290) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 291) bool MgrCap::is_allow_all() const {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 292)   for (auto& grant : grants) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 293)     if (grant.is_allow_all()) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 294)       return true;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 295)     }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 296)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 297)   return false;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 298) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 299) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 300) void MgrCap::set_allow_all() {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 301)   grants.clear();
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 302)   grants.push_back({{}, {}, {}, {}, {}, mgr_rwxa_t{MGR_CAP_ANY}});
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 303)   text = "allow *";
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 304) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 305) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 306) bool MgrCap::is_capable(
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 307)     CephContext *cct,
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 308)     EntityName name,
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 309)     const std::string& service,
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 310)     const std::string& module,
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 311)     const std::string& command,
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 312)     const std::map<std::string, std::string>& command_args,
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 313)     bool op_may_read, bool op_may_write, bool op_may_exec,
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 314)     const entity_addr_t& addr) const {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 315)   if (cct) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 316)     ldout(cct, 20) << "is_capable service=" << service << " "
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 317)                    << "module=" << module << " "
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 318)                    << "command=" << command
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 319)                    << (op_may_read ? " read":"")
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 320)                    << (op_may_write ? " write":"")
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 321)                    << (op_may_exec ? " exec":"")
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 322)                    << " addr " << addr
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 323)                    << " on cap " << *this
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 324)                    << dendl;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 325)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 326) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 327)   mgr_rwxa_t allow;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 328)   for (auto& grant : grants) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 329)     if (cct)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 330)       ldout(cct, 20) << " allow so far " << allow << ", doing grant " << grant
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 331)                      << dendl;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 332) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 333)     if (grant.network.size() &&
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 334)         (!grant.network_valid ||
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 335)          !network_contains(grant.network_parsed,
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 336)                            grant.network_prefix,
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 337)                            addr))) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 338)       continue;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 339)     }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 340) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 341)     if (grant.is_allow_all()) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 342)       if (cct) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 343)         ldout(cct, 20) << " allow all" << dendl;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 344)       }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 345)       return true;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 346)     }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 347) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 348)     // check enumerated caps
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 349)     allow = allow | grant.get_allowed(cct, name, service, module, command,
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 350)                                       command_args);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 351)     if ((!op_may_read || (allow & MGR_CAP_R)) &&
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 352)         (!op_may_write || (allow & MGR_CAP_W)) &&
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 353)         (!op_may_exec || (allow & MGR_CAP_X))) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 354)       if (cct) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 355)         ldout(cct, 20) << " match" << dendl;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 356)       }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 357)       return true;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 358)     }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 359)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 360)   return false;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 361) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 362) 
+1e8864092d44 src/mgr/MgrCap.cc                        (Adam C. Emerson  2020-03-22 00:04:06 -0400 363) void MgrCap::encode(ceph::buffer::list& bl) const {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 364)   // remain backwards compatible w/ MgrCap
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 365)   ENCODE_START(4, 4, bl);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 366)   encode(text, bl);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 367)   ENCODE_FINISH(bl);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 368) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 369) 
+1e8864092d44 src/mgr/MgrCap.cc                        (Adam C. Emerson  2020-03-22 00:04:06 -0400 370) void MgrCap::decode(ceph::buffer::list::const_iterator& bl) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 371)   // remain backwards compatible w/ MgrCap
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 372)   std::string s;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 373)   DECODE_START(4, bl);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 374)   decode(s, bl);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 375)   DECODE_FINISH(bl);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 376)   parse(s, NULL);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 377) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 378) 
+1e8864092d44 src/mgr/MgrCap.cc                        (Adam C. Emerson  2020-03-22 00:04:06 -0400 379) void MgrCap::dump(ceph::Formatter *f) const {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 380)   f->dump_string("text", text);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 381) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 382) 
+ed6b71246137 src/mgr/MgrCap.cc                        (Kefu Chai        2025-06-09 20:35:44 +0800 383) std::list<MgrCap> MgrCap::generate_test_instances() {
+ed6b71246137 src/mgr/MgrCap.cc                        (Kefu Chai        2025-06-09 20:35:44 +0800 384)   std::list<MgrCap> ls;
+f6387fd81c6e src/mgr/MgrCap.cc                        (Kefu Chai        2025-08-26 13:28:56 +0800 385)   ls.emplace_back();
+f6387fd81c6e src/mgr/MgrCap.cc                        (Kefu Chai        2025-08-26 13:28:56 +0800 386)   ls.emplace_back();
+ed6b71246137 src/mgr/MgrCap.cc                        (Kefu Chai        2025-06-09 20:35:44 +0800 387)   ls.back().parse("allow *");
+f6387fd81c6e src/mgr/MgrCap.cc                        (Kefu Chai        2025-08-26 13:28:56 +0800 388)   ls.emplace_back();
+ed6b71246137 src/mgr/MgrCap.cc                        (Kefu Chai        2025-06-09 20:35:44 +0800 389)   ls.back().parse("allow rwx");
+f6387fd81c6e src/mgr/MgrCap.cc                        (Kefu Chai        2025-08-26 13:28:56 +0800 390)   ls.emplace_back();
+ed6b71246137 src/mgr/MgrCap.cc                        (Kefu Chai        2025-06-09 20:35:44 +0800 391)   ls.back().parse("allow service foo x");
+f6387fd81c6e src/mgr/MgrCap.cc                        (Kefu Chai        2025-08-26 13:28:56 +0800 392)   ls.emplace_back();
+ed6b71246137 src/mgr/MgrCap.cc                        (Kefu Chai        2025-06-09 20:35:44 +0800 393)   ls.back().parse("allow command bar x");
+f6387fd81c6e src/mgr/MgrCap.cc                        (Kefu Chai        2025-08-26 13:28:56 +0800 394)   ls.emplace_back();
+ed6b71246137 src/mgr/MgrCap.cc                        (Kefu Chai        2025-06-09 20:35:44 +0800 395)   ls.back().parse("allow service foo r, allow command bar x");
+f6387fd81c6e src/mgr/MgrCap.cc                        (Kefu Chai        2025-08-26 13:28:56 +0800 396)   ls.emplace_back();
+ed6b71246137 src/mgr/MgrCap.cc                        (Kefu Chai        2025-06-09 20:35:44 +0800 397)   ls.back().parse("allow command bar with k1=v1 x");
+f6387fd81c6e src/mgr/MgrCap.cc                        (Kefu Chai        2025-08-26 13:28:56 +0800 398)   ls.emplace_back();
+ed6b71246137 src/mgr/MgrCap.cc                        (Kefu Chai        2025-06-09 20:35:44 +0800 399)   ls.back().parse("allow command bar with k1=v1 k2=v2 x");
+f6387fd81c6e src/mgr/MgrCap.cc                        (Kefu Chai        2025-08-26 13:28:56 +0800 400)   ls.emplace_back();
+ed6b71246137 src/mgr/MgrCap.cc                        (Kefu Chai        2025-06-09 20:35:44 +0800 401)   ls.back().parse("allow module bar with k1=v1 k2=v2 x");
+f6387fd81c6e src/mgr/MgrCap.cc                        (Kefu Chai        2025-08-26 13:28:56 +0800 402)   ls.emplace_back();
+ed6b71246137 src/mgr/MgrCap.cc                        (Kefu Chai        2025-06-09 20:35:44 +0800 403)   ls.back().parse("profile rbd pool=rbd");
+ed6b71246137 src/mgr/MgrCap.cc                        (Kefu Chai        2025-06-09 20:35:44 +0800 404)   return ls;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 405) }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 406) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 407) // grammar
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 408) namespace qi = boost::spirit::qi;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 409) namespace ascii = boost::spirit::ascii;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 410) namespace phoenix = boost::phoenix;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 411) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 412) template <typename Iterator>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 413) struct MgrCapParser : qi::grammar<Iterator, MgrCap()> {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 414)   MgrCapParser() : MgrCapParser::base_type(mgrcap) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 415)     using qi::char_;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 416)     using qi::int_;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 417)     using qi::ulong_long;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 418)     using qi::lexeme;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 419)     using qi::alnum;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 420)     using qi::_val;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 421)     using qi::_1;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 422)     using qi::_2;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 423)     using qi::_3;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 424)     using qi::eps;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 425)     using qi::lit;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 426) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 427)     quoted_string %=
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 428)       lexeme['"' >> +(char_ - '"') >> '"'] |
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 429)       lexeme['\'' >> +(char_ - '\'') >> '\''];
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 430)     unquoted_word %= +char_("a-zA-Z0-9_./-");
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 431)     str %= quoted_string | unquoted_word;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 432)     network_str %= +char_("/.:a-fA-F0-9][");
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 433) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 434)     spaces = +(lit(' ') | lit('\n') | lit('\t'));
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 435) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 436)     // key <=|prefix|regex> value[ ...]
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 437)     str_match = -spaces >> lit('=') >> -spaces >>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 438)                 qi::attr(MgrCapGrantConstraint::MATCH_TYPE_EQUAL) >> str;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 439)     str_prefix = spaces >> lit("prefix") >> spaces >>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 440)                  qi::attr(MgrCapGrantConstraint::MATCH_TYPE_PREFIX) >> str;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 441)     str_regex = spaces >> lit("regex") >> spaces >>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 442)                  qi::attr(MgrCapGrantConstraint::MATCH_TYPE_REGEX) >> str;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 443)     kv_pair = str >> (str_match | str_prefix | str_regex);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 444)     kv_map %= kv_pair >> *(spaces >> kv_pair);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 445) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 446)     // command := command[=]cmd [k1=v1 k2=v2 ...]
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 447)     command_match = -spaces >> lit("allow") >> spaces >> lit("command") >> (lit('=') | spaces)
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 448)                             >> qi::attr(std::string())
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 449)                             >> qi::attr(std::string())
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 450)                             >> qi::attr(std::string())
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 451)                             >> str
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 452)                             >> -(spaces >> lit("with") >> spaces >> kv_map)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 453)                             >> qi::attr(0)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 454)                             >> -(spaces >> lit("network") >> spaces >> network_str);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 455) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 456)     // service foo rwxa
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 457)     service_match %= -spaces >> lit("allow") >> spaces >> lit("service") >> (lit('=') | spaces)
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 458)                              >> str
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 459)                              >> qi::attr(std::string())
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 460)                              >> qi::attr(std::string())
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 461)                              >> qi::attr(std::string())
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 462)                              >> qi::attr(std::map<std::string, MgrCapGrantConstraint>())
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 463)                              >> spaces >> rwxa
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 464)                              >> -(spaces >> lit("network") >> spaces >> network_str);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 465) 
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 466)     // module foo rwxa
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 467)     module_match %= -spaces >> lit("allow") >> spaces >> lit("module") >> (lit('=') | spaces)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 468)                             >> qi::attr(std::string())
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 469)                             >> str
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 470)                             >> qi::attr(std::string())
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 471)                             >> qi::attr(std::string())
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 472)                             >> -(spaces >> lit("with") >> spaces >> kv_map)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 473)                             >> spaces >> rwxa
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 474)                             >> -(spaces >> lit("network") >> spaces >> network_str);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 475) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 476)     // profile foo
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 477)     profile_match %= -spaces >> -(lit("allow") >> spaces)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 478)                              >> lit("profile") >> (lit('=') | spaces)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 479)                              >> qi::attr(std::string())
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 480)                              >> qi::attr(std::string())
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 481)                              >> str
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 482)                              >> qi::attr(std::string())
+cb534e0049af src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 12:44:01 -0400 483)                              >> -(spaces >> kv_map)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 484)                              >> qi::attr(0)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 485)                              >> -(spaces >> lit("network") >> spaces >> network_str);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 486) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 487)     // rwxa
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 488)     rwxa_match %= -spaces >> lit("allow") >> spaces
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 489)                           >> qi::attr(std::string())
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 490)                           >> qi::attr(std::string())
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 491)                           >> qi::attr(std::string())
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 492)                           >> qi::attr(std::string())
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 493)                           >> qi::attr(std::map<std::string,MgrCapGrantConstraint>())
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 494)                           >> rwxa
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 495)                           >> -(spaces >> lit("network") >> spaces >> network_str);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 496) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 497)     // rwxa := * | [r][w][x]
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 498)     rwxa =
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 499)       (lit("*")[_val = MGR_CAP_ANY]) |
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 500)       (lit("all")[_val = MGR_CAP_ANY]) |
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 501)       ( eps[_val = 0] >>
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 502)         ( lit('r')[_val |= MGR_CAP_R] ||
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 503)           lit('w')[_val |= MGR_CAP_W] ||
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 504)           lit('x')[_val |= MGR_CAP_X]
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 505)           )
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 506)         );
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 507) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 508)     // grant := allow ...
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 509)     grant = -spaces >> (rwxa_match | profile_match | service_match |
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 510)                         module_match | command_match) >> -spaces;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 511) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 512)     // mgrcap := grant [grant ...]
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 513)     grants %= (grant % (*lit(' ') >> (lit(';') | lit(',')) >> *lit(' ')));
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 514)     mgrcap = grants  [_val = phoenix::construct<MgrCap>(_1)];
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 515)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 516) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 517)   qi::rule<Iterator> spaces;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 518)   qi::rule<Iterator, unsigned()> rwxa;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 519)   qi::rule<Iterator, std::string()> quoted_string;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 520)   qi::rule<Iterator, std::string()> unquoted_word;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 521)   qi::rule<Iterator, std::string()> str, network_str;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 522) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 523)   qi::rule<Iterator, MgrCapGrantConstraint()> str_match, str_prefix, str_regex;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 524)   qi::rule<Iterator, std::pair<std::string, MgrCapGrantConstraint>()> kv_pair;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 525)   qi::rule<Iterator, std::map<std::string, MgrCapGrantConstraint>()> kv_map;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 526) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 527)   qi::rule<Iterator, MgrCapGrant()> rwxa_match;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 528)   qi::rule<Iterator, MgrCapGrant()> command_match;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 529)   qi::rule<Iterator, MgrCapGrant()> service_match;
+3463613bd43d src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 11:25:56 -0400 530)   qi::rule<Iterator, MgrCapGrant()> module_match;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 531)   qi::rule<Iterator, MgrCapGrant()> profile_match;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 532)   qi::rule<Iterator, MgrCapGrant()> grant;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 533)   qi::rule<Iterator, std::vector<MgrCapGrant>()> grants;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 534)   qi::rule<Iterator, MgrCap()> mgrcap;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 535) };
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 536) 
+1e8864092d44 src/mgr/MgrCap.cc                        (Adam C. Emerson  2020-03-22 00:04:06 -0400 537) bool MgrCap::parse(const std::string& str, std::ostream *err) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 538)   auto iter = str.begin();
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 539)   auto end = str.end();
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 540) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 541)   MgrCapParser<std::string::const_iterator> exp;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 542)   bool r = qi::parse(iter, end, exp, *this);
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 543)   if (r && iter == end) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 544)     text = str;
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 545) 
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 546)     std::stringstream profile_err;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 547)     for (auto& g : grants) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 548)       g.parse_network();
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 549) 
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 550)       if (!g.profile.empty()) {
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 551)         g.expand_profile(&profile_err);
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 552)       }
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 553)     }
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 554) 
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 555)     if (!profile_err.str().empty()) {
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 556)       if (err != nullptr) {
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 557)         *err << "mgr capability parse failed during profile evaluation: "
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 558)              << profile_err.str();
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 559)       }
+9193d8762347 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-17 09:37:13 -0400 560)       return false;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 561)     }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 562)     return true;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 563)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 564) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 565)   // Make sure no grants are kept after parsing failed!
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 566)   grants.clear();
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 567) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 568)   if (err) {
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 569)     if (iter != end)
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 570)       *err << "mgr capability parse failed, stopped at '"
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 571)            << std::string(iter, end) << "' of '" << str << "'";
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 572)     else
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 573)       *err << "mgr capability parse failed, stopped at end of '" << str << "'";
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 574)   }
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 575) 
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 576)   return false;
+6350bee5c873 src/mgr/MgrCap.cc                        (Jason Dillaman   2019-10-11 10:30:03 -0400 577) }
+
+# git blame -w -M -C src/mgr/MgrCap.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng   2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/MgrCap.h                                           (Edwin Rodriguez 2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400   3) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400   4) #ifndef CEPH_MGRCAP_H
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400   5) #define CEPH_MGRCAP_H
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400   6) 
+98dfce1c36f8 src/mgr/MgrCap.h                                           (Kefu Chai       2020-03-02 20:45:03 +0800   7) #include <iosfwd>
+4f1f40ad6143 src/mgr/MgrCap.h                                           (Max Kellermann  2024-10-10 08:25:15 +0200   8) #include <map>
+4f1f40ad6143 src/mgr/MgrCap.h                                           (Max Kellermann  2024-10-10 08:25:15 +0200   9) #include <string>
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  10) 
+98dfce1c36f8 src/mgr/MgrCap.h                                           (Kefu Chai       2020-03-02 20:45:03 +0800  11) #include "include/common_fwd.h"
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  12) #include "include/types.h"
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  13) #include "common/entity_name.h"
+4f1f40ad6143 src/mgr/MgrCap.h                                           (Max Kellermann  2024-10-10 08:25:15 +0200  14) #include "msg/msg_types.h" // for struct entity_addr_t
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  15) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  16) static const __u8 MGR_CAP_R     = (1 << 1);      // read
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  17) static const __u8 MGR_CAP_W     = (1 << 2);      // write
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  18) static const __u8 MGR_CAP_X     = (1 << 3);      // execute
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  19) static const __u8 MGR_CAP_ANY   = 0xff;          // *
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  20) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  21) struct mgr_rwxa_t {
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  22)   __u8 val = 0U;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  23) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  24)   mgr_rwxa_t() {}
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  25)   explicit mgr_rwxa_t(__u8 v) : val(v) {}
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  26) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  27)   mgr_rwxa_t& operator=(__u8 v) {
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  28)     val = v;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  29)     return *this;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  30)   }
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  31)   operator __u8() const {
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  32)     return val;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  33)   }
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  34) };
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  35) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  36) std::ostream& operator<<(std::ostream& out, const mgr_rwxa_t& p);
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  37) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  38) struct MgrCapGrantConstraint {
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  39)   enum MatchType {
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  40)     MATCH_TYPE_NONE,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  41)     MATCH_TYPE_EQUAL,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  42)     MATCH_TYPE_PREFIX,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  43)     MATCH_TYPE_REGEX
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  44)   };
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  45) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  46)   MatchType match_type = MATCH_TYPE_NONE;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  47)   std::string value;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  48) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  49)   MgrCapGrantConstraint() {}
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  50)   MgrCapGrantConstraint(MatchType match_type, std::string value)
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  51)     : match_type(match_type), value(value) {
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  52)   }
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  53) };
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  54) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  55) std::ostream& operator<<(std::ostream& out, const MgrCapGrantConstraint& c);
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  56) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  57) struct MgrCapGrant {
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  58)   /*
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  59)    * A grant can come in one of four forms:
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  60)    *
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  61)    *  - a blanket allow ('allow rw', 'allow *')
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  62)    *    - this will match against any service and the read/write/exec flags
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  63)    *      in the mgr code.  semantics of what X means are somewhat ad hoc.
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  64)    *
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  65)    *  - a service allow ('allow service mds rw')
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  66)    *    - this will match against a specific service and the r/w/x flags.
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  67)    *
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400  68)    *  - a module allow ('allow module rbd_support rw, allow module rbd_support with pool=rbd rw')
+3463613bd43d src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 11:25:56 -0400  69)    *    - this will match against a specific python add-on module and the r/w/x
+3463613bd43d src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 11:25:56 -0400  70)    *      flags.
+3463613bd43d src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 11:25:56 -0400  71)    *
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400  72)    *  - a profile ('profile read-only, profile rbd pool=rbd')
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  73)    *    - this will match against specific MGR-enforced semantics of what
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  74)    *      this type of user should need to do.  examples include 'read-write',
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  75)    *      'read-only', 'crash'.
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  76)    *
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  77)    *  - a command ('allow command foo', 'allow command bar with arg1=val1 arg2 prefix val2')
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400  78)    *      this includes the command name (the prefix string)
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400  79)    *
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400  80)    *  The command, module, and profile caps can also accept an optional
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400  81)    *  key/value map. If not provided, all command arguments and module
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400  82)    *  meta-arguments are allowed. If a key/value pair is specified, that
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400  83)    *  argument must be present and must match the provided constraint.
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  84)    */
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400  85)   typedef std::map<std::string, MgrCapGrantConstraint> Arguments;
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400  86) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  87)   std::string service;
+3463613bd43d src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 11:25:56 -0400  88)   std::string module;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  89)   std::string profile;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  90)   std::string command;
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400  91)   Arguments arguments;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  92) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  93)   // restrict by network
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  94)   std::string network;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  95) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  96)   // these are filled in by parse_network(), called by MgrCap::parse()
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  97)   entity_addr_t network_parsed;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  98)   unsigned network_prefix = 0;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400  99)   bool network_valid = true;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 100) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 101)   void parse_network();
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 102) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 103)   mgr_rwxa_t allow;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 104) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 105)   // explicit grants that a profile grant expands to; populated as
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 106)   // needed by expand_profile() (via is_match()) and cached here.
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 107)   mutable std::list<MgrCapGrant> profile_grants;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 108) 
+9193d8762347 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-17 09:37:13 -0400 109)   void expand_profile(std::ostream *err=nullptr) const;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 110) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 111)   MgrCapGrant() : allow(0) {}
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 112)   MgrCapGrant(std::string&& service,
+3463613bd43d src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 11:25:56 -0400 113)               std::string&& module,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 114)               std::string&& profile,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 115)               std::string&& command,
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400 116)               Arguments&& arguments,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 117)               mgr_rwxa_t allow)
+3463613bd43d src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 11:25:56 -0400 118)     : service(std::move(service)), module(std::move(module)),
+3463613bd43d src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 11:25:56 -0400 119)       profile(std::move(profile)), command(std::move(command)),
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400 120)       arguments(std::move(arguments)), allow(allow) {
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 121)   }
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 122) 
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400 123)   bool validate_arguments(
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400 124)       const std::map<std::string, std::string>& arguments) const;
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400 125) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 126)   /**
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 127)    * check if given request parameters match our constraints
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 128)    *
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 129)    * @param cct context
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 130)    * @param name entity name
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 131)    * @param service service (if any)
+3463613bd43d src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 11:25:56 -0400 132)    * @param module module (if any)
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 133)    * @param command command (if any)
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400 134)    * @param arguments profile/module/command args (if any)
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 135)    * @return bits we allow
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 136)    */
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 137)   mgr_rwxa_t get_allowed(
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 138)       CephContext *cct,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 139)       EntityName name,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 140)       const std::string& service,
+3463613bd43d src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 11:25:56 -0400 141)       const std::string& module,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 142)       const std::string& command,
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400 143)       const std::map<std::string, std::string>& arguments) const;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 144) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 145)   bool is_allow_all() const {
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 146)     return (allow == MGR_CAP_ANY &&
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 147)             service.empty() &&
+3463613bd43d src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 11:25:56 -0400 148)             module.empty() &&
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 149)             profile.empty() &&
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 150)             command.empty());
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 151)   }
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 152) };
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 153) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 154) std::ostream& operator<<(std::ostream& out, const MgrCapGrant& g);
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 155) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 156) struct MgrCap {
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 157)   std::string text;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 158)   std::vector<MgrCapGrant> grants;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 159) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 160)   MgrCap() {}
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 161)   explicit MgrCap(const std::vector<MgrCapGrant> &g) : grants(g) {}
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 162) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 163)   std::string get_str() const {
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 164)     return text;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 165)   }
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 166) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 167)   bool is_allow_all() const;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 168)   void set_allow_all();
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 169)   bool parse(const std::string& str, std::ostream *err=NULL);
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 170) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 171)   /**
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 172)    * check if we are capable of something
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 173)    *
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 174)    * This method actually checks a description of a particular operation against
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 175)    * what the capability has specified.
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 176)    *
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 177)    * @param service service name
+3463613bd43d src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 11:25:56 -0400 178)    * @param module module name
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 179)    * @param command command id
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400 180)    * @param arguments
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 181)    * @param op_may_read whether the operation may need to read
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 182)    * @param op_may_write whether the operation may need to write
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 183)    * @param op_may_exec whether the operation may exec
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 184)    * @return true if the operation is allowed, false otherwise
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 185)    */
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 186)   bool is_capable(CephContext *cct,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 187) 		  EntityName name,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 188) 		  const std::string& service,
+3463613bd43d src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 11:25:56 -0400 189) 		  const std::string& module,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 190) 		  const std::string& command,
+cb534e0049af src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 12:44:01 -0400 191) 		  const std::map<std::string, std::string>& arguments,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 192) 		  bool op_may_read, bool op_may_write, bool op_may_exec,
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 193) 		  const entity_addr_t& addr) const;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 194) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 195)   void encode(ceph::buffer::list& bl) const;
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 196)   void decode(ceph::buffer::list::const_iterator& bl);
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 197)   void dump(ceph::Formatter *f) const;
+ed6b71246137 src/mgr/MgrCap.h                                           (Kefu Chai       2025-06-09 20:35:44 +0800 198)   static std::list<MgrCap> generate_test_instances();
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 199) };
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 200) WRITE_CLASS_ENCODER(MgrCap)
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 201) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 202) std::ostream& operator<<(std::ostream& out, const MgrCap& cap);
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 203) 
+6350bee5c873 src/mgr/MgrCap.h                                           (Jason Dillaman  2019-10-11 10:30:03 -0400 204) #endif // CEPH_MGRCAP_H

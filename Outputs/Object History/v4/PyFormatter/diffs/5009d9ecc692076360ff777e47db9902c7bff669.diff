@@ -1,0 +1,26 @@
+commit 5009d9ecc692076360ff777e47db9902c7bff669
+Author: Brad Hubbard <bhubbard@redhat.com>
+Date:   Fri Sep 14 14:22:00 2018 +1000
+
+    Rename "include/assert.h"
+    
+    This conflicts with the system assert.h so rename and change includes to
+    reflect the new name.
+    
+    Fixes: http://tracker.ceph.com/issues/35682
+    
+    Signed-off-by: Brad Hubbard <bhubbard@redhat.com>
+
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index 9c7d54eebbc..d65e14167e9 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -25,7 +25,7 @@
+ #include <list>
+ 
+ #include "common/Formatter.h"
+-#include "include/assert.h"
++#include "include/ceph_assert.h"
+ 
+ class PyFormatter : public ceph::Formatter
+ {

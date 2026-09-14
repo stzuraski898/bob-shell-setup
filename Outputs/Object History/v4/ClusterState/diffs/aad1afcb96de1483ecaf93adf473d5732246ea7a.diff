@@ -1,0 +1,33 @@
+commit aad1afcb96de1483ecaf93adf473d5732246ea7a
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue May 30 00:40:25 2017 +0800
+
+    mgr: reset pending_inc after applying it
+    
+    we cannot apply pending_inc twice and expect the result is the same. in
+    other words, pg_map.apply_incremental(pending_inc) is not an idempotent
+    operation.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 3ca97499cd9..60612cb90b5 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -96,6 +96,7 @@ void ClusterState::update_delta_stats()
+   pending_inc.version = pg_map.version + 1; // to make apply_incremental happy
+   dout(10) << " v" << pending_inc.version << dendl;
+   pg_map.apply_incremental(g_ceph_context, pending_inc);
++  pending_inc = PGMap::Incremental();
+ }
+ 
+ void ClusterState::notify_osdmap(const OSDMap &osd_map)
+@@ -122,7 +123,7 @@ void ClusterState::notify_osdmap(const OSDMap &osd_map)
+ 			       need_check_down_pg_osds, &pending_inc);
+ 
+   pg_map.apply_incremental(g_ceph_context, pending_inc);
+-
++  pending_inc = PGMap::Incremental();
+   // TODO: Complete the separation of PG state handling so
+   // that a cut-down set of functionality remains in PGMonitor
+   // while the full-blown PGMap lives only here.

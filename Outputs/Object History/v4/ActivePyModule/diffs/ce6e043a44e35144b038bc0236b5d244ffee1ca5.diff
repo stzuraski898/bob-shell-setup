@@ -1,0 +1,24 @@
+commit ce6e043a44e35144b038bc0236b5d244ffee1ca5
+Author: Wilson E. Alvarez <wilson.e.alvarez1@gmail.com>
+Date:   Tue Mar 27 22:45:14 2018 -0400
+
+    src: Added const references to various function parameters
+    
+    Added const references to various function parameters in order to avoid
+    copying data unnecessarily and enhancing performance
+    
+    Signed-off-by: Wilson E. Alvarez <wilson.e.alvarez1@gmail.com>
+
+diff --git a/src/mgr/ActivePyModule.h b/src/mgr/ActivePyModule.h
+index 9279f1c8f5d..85d50807a05 100644
+--- a/src/mgr/ActivePyModule.h
++++ b/src/mgr/ActivePyModule.h
+@@ -43,7 +43,7 @@ private:
+   std::string uri;
+ 
+ public:
+-  ActivePyModule(PyModuleRef py_module_,
++  ActivePyModule(const PyModuleRef &py_module_,
+       LogChannelRef clog_)
+     : PyModuleRunner(py_module_, clog_)
+   {}

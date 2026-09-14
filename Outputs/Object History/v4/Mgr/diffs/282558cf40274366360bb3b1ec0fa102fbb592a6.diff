@@ -1,0 +1,46 @@
+commit 282558cf40274366360bb3b1ec0fa102fbb592a6
+Author: Cory Snyder <csnyder@1111systems.com>
+Date:   Fri Apr 19 15:42:00 2024 +0000
+
+    mgr/Mgr.cc: clear daemon health metrics instead of removing down/out osd from daemon state
+    
+    Reverts the change from https://github.com/ceph/ceph/pull/53993
+    and directly clears daemon health metrics for down and out OSDs.
+    The former approach of removing down/out OSDs from the daemon
+    state has undesirable consequences for stat output, including
+    the prometheus exporter.
+    
+    Fixes: https://tracker.ceph.com/issues/66168
+    Signed-off-by: Cory Snyder <csnyder@1111systems.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 5bd2ffb246c..d0abed7261f 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -498,7 +498,7 @@ void Mgr::handle_osd_map()
+   cluster_state.with_osdmap_and_pgmap([this, &names_exist](const OSDMap &osd_map,
+ 							   const PGMap &pg_map) {
+     for (int osd_id = 0; osd_id < osd_map.get_max_osd(); ++osd_id) {
+-      if (!osd_map.exists(osd_id) || (osd_map.is_out(osd_id) && osd_map.is_down(osd_id))) {
++      if (!osd_map.exists(osd_id)) {
+         continue;
+       }
+ 
+@@ -510,9 +510,16 @@ void Mgr::handle_osd_map()
+       if (daemon_state.is_updating(k)) {
+         continue;
+       }
++        
++      DaemonStatePtr daemon = daemon_state.get(k);
++        
++      if (daemon && osd_map.is_out(osd_id) && osd_map.is_down(osd_id)) {
++        std::lock_guard l(daemon->lock);
++        daemon->daemon_health_metrics.clear();
++      }
+ 
+       bool update_meta = false;
+-      if (daemon_state.exists(k)) {
++      if (daemon) {
+         if (osd_map.get_up_from(osd_id) == osd_map.get_epoch()) {
+           dout(4) << "Mgr::handle_osd_map: osd." << osd_id
+ 		  << " joined cluster at " << "e" << osd_map.get_epoch()

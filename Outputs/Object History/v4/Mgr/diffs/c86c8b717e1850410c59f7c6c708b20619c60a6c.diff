@@ -1,0 +1,29 @@
+commit c86c8b717e1850410c59f7c6c708b20619c60a6c
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jul 18 16:00:28 2017 -0400
+
+    mgr: move mgr_commands to separate compilation unit
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index e46b2cabd63..dcadb254e98 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -22,6 +22,7 @@
+ #include "global/signal_handler.h"
+ 
+ #include "mgr/MgrContext.h"
++#include "mgr/mgr_commands.h"
+ 
+ #include "MgrPyModule.h"
+ #include "DaemonServer.h"
+@@ -637,7 +638,7 @@ std::vector<MonCommand> Mgr::get_command_set() const
+ {
+   Mutex::Locker l(lock);
+ 
+-  std::vector<MonCommand> commands = DaemonServer::mgr_commands;
++  std::vector<MonCommand> commands = mgr_commands;
+   std::vector<MonCommand> py_commands = py_modules.get_commands();
+   commands.insert(commands.end(), py_commands.begin(), py_commands.end());
+   return commands;

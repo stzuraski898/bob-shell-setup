@@ -1,0 +1,35 @@
+commit 7523aef6e8656952418d17227c877952f9370f95
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Mon Aug 26 05:32:23 2019 -0400
+
+    mgr/stats: mds performance stats module
+    
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/OSDPerfMetricCollector.cc b/src/mgr/OSDPerfMetricCollector.cc
+index e1acff2e801..eb548ce70c4 100644
+--- a/src/mgr/OSDPerfMetricCollector.cc
++++ b/src/mgr/OSDPerfMetricCollector.cc
+@@ -30,3 +30,10 @@ void OSDPerfMetricCollector::process_reports(const MetricPayload &payload) {
+       counter->second += update.second;
+     });
+ }
++
++int OSDPerfMetricCollector::get_counters(PerfCollector *collector) {
++  OSDPerfCollector *c = static_cast<OSDPerfCollector *>(collector);
++
++  std::lock_guard locker(lock);
++  return get_counters_generic(c->query_id, &c->counters);
++}
+diff --git a/src/mgr/OSDPerfMetricCollector.h b/src/mgr/OSDPerfMetricCollector.h
+index f45a89c8be2..c531dbf6303 100644
+--- a/src/mgr/OSDPerfMetricCollector.h
++++ b/src/mgr/OSDPerfMetricCollector.h
+@@ -17,6 +17,7 @@ public:
+   OSDPerfMetricCollector(MetricListener &listener);
+ 
+   void process_reports(const MetricPayload &payload) override;
++  int get_counters(PerfCollector *collector) override;
+ };
+ 
+ #endif // OSD_PERF_METRIC_COLLECTOR_H_

@@ -1,0 +1,27 @@
+commit 3365c5d40b93f3886175d3e7c07e66db9f6dcead
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Sep 19 16:40:22 2018 -0500
+
+    mgr/DaemonServer: remove stale/misleading check
+    
+    The PGMap::last_osdmap_epoch is always 0.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index b43077bca31..899692b1ca8 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2261,12 +2261,6 @@ void DaemonServer::adjust_pgs()
+ 	       << dendl;
+ 
+       cluster_state.with_osdmap([&](const OSDMap& osdmap) {
+-	  if (pg_map.last_osdmap_epoch != osdmap.get_epoch()) {
+-	    // do nothing if maps aren't in sync
+-	    dout(10) << "last_osdmap_epoch " << pg_map.last_osdmap_epoch
+-		     << " osdmap " << osdmap.get_epoch() << dendl;
+-	    //return;
+-	  }
+ 	  for (auto& i : osdmap.get_pools()) {
+ 	    const pg_pool_t& p = i.second;
+ 

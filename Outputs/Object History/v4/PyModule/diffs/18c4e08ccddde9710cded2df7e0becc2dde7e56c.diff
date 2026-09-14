@@ -1,0 +1,40 @@
+commit 18c4e08ccddde9710cded2df7e0becc2dde7e56c
+Author: Sebastian Marschke <sebastian@marschke.org>
+Date:   Tue Aug 11 07:07:05 2026 +0000
+
+    mgr: don't record a crash dump for NotImplementedError from dispatch_remote
+    
+    NotImplementedError is how an orchestrator module signals it doesn't
+    implement an optional method not a fault. But dispatch_remote() asked
+    for a crash dump on any exception the callee raised, so following that
+    convention still produced a crash record.
+    
+    On a Rook-managed cluster this bit hard: mgr/prometheus calls the
+    cephadm-only node_proxy_fullreport() every scrape, Rook doesn't
+    implement it, and each scrape left a crash record behind about 5,760
+    a day. RECENT_MGR_MODULE_CRASH gets raised within minutes and never
+    clears, so HEALTH_OK becomes unreachable.
+    
+    Skip the crash dump for NotImplementedError; the exception itself is
+    still raised and returned to the caller as before. handle_pyerror()
+    already took a crash_dump parameter for this but never honored it
+    now it does, with no effect on any other caller.
+    
+    Fixes: https://tracker.ceph.com/issues/79106
+    Signed-off-by: Sebastian Marschke <sebastian@marschke.org>
+    Signed-off-by: Nitzan Mordechai <nmordech@ibm.com>
+    Assisted by: IBM Bob
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 16bbd7a8a06..14634b4fc31 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -110,7 +110,7 @@ std::string handle_pyerror(
+   }
+   formatted = str("").join(formatted_list);
+ 
+-  if (!module.empty()) {
++  if (crash_dump && !module.empty()) {
+     std::list<std::string> bt_strings;
+     std::map<std::string, std::string> extra;
+     

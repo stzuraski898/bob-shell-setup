@@ -1,0 +1,44 @@
+commit 07cae6214b6c12e4b118f5142e90a37386b446b2
+Author: John Spray <jspray@redhat.com>
+Date:   Sun Mar 5 10:31:49 2017 -0500
+
+    mgr: add get_context() to python interface
+    
+    For modules that would like a CephContext* inside
+    a capsule, suitable for passing to librados constructor.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 0c28ef2e91f..7501ac55e29 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -660,3 +660,16 @@ PyObject* PyModules::get_counter_python(
+   return f.get();
+ }
+ 
++PyObject *PyModules::get_context()
++{
++  PyThreadState *tstate = PyEval_SaveThread();
++  Mutex::Locker l(lock);
++  PyEval_RestoreThread(tstate);
++
++  // Construct a capsule containing ceph context.
++  // Not incrementing/decrementing ref count on the context because
++  // it's the global one and it has process lifetime.
++  auto capsule = PyCapsule_New(g_ceph_context, nullptr, nullptr);
++  return capsule;
++}
++
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index 0005dabb1b0..b5fdde8a776 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -60,6 +60,7 @@ public:
+   PyObject *get_counter_python(std::string const &handle,
+       entity_type_t svc_type, const std::string &svc_id,
+       const std::string &path);
++  PyObject *get_context();
+ 
+   std::map<std::string, std::string> config_cache;
+ 

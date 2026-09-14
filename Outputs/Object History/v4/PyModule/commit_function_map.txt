@@ -1,0 +1,83 @@
+# Commit → function map for PyModule
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+18c4e08ccddde9710cded2df7e0becc2dde7e56c | (no functions)
+e61de15ddb8502abcd74c01617e0c8416bd77bd1 | init_ceph_logger init_ceph_module
+3705db897484743849dd9ec417a7aa94f4e0f77b | init_ceph_logger
+d3c8d3fc6566d3c909d36875d9ba05345fc90cb2 | (no functions)
+95a90f7da8a32dd2a5a1e3b381aaeacea378437b | ~PyModule set_config
+a89074c6bee999a10952c24c5b6afc2bc05e54bf | load
+239b0dc8a9c42449ee1faa1bf78bdcc380345ae2 | load ~PyModule
+f69069e114ea8c785d6c27c57560a0b9bb8c16be | load ~PyModule
+18cb6bf5ad94b7452b0f4e3a558913f662246c9b | load_notify_types
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b | (no functions)
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+3ab70dd3e1150b2b3f66cbbee329ea95618747a5 | (no functions)
+3366ef5153f3af8fa4d83dfc40a4a4a4fad7557d | ~PyModule
+c1614fe7b89374095c4b434946d221ecfe512fb9 | load_subclass_of
+d44b2227cdc6d1e2ad4b242473f6c392419d6fbf | (no functions)
+92aa60e999609f8bfd79e76ca811f66ba4cb7280 | (no functions)
+2cdb67c2fe1c8d21759bda5b2ca7acbd61746148 | (no functions)
+51a5774aa605f3b976ced47902e15ce450f50339 | load set_config
+07773617f339a2779aa7cf910c0361c937ffe4c2 | load
+0d94eebb0dd1b3e2afdde92e1c1051affded46f2 | load_options
+4589c4d8ac524206d4fb6349b07c5a4e83f926dc | load_notify_types
+6f0ce7a6e99c900e97a18ab7e2c766791a474f8f | load set_config
+45832deb6ccdc4886a27cf506bb46e9edacd3299 | load set_config
+e417c1c935a35dbed838f1e664729647817a47e2 | load
+ee4e3ecd6e0754854c00f3dfa0eaaa17bbf3603d | load register_options
+c63ecb602e5916d5e0beed137787fdfc67707f15 | (no functions)
+a41b62bd85688bec566a7760cea95341bcb7a953 | ~PyModuleConfig
+1ecda507eb35d9ff0b056d68b2f3b47e8bc2afb8 | (no functions)
+719d5e1836c95bcbc446dbeb7d8f03adefd02a3e | load_commands load load_subclass_of register_options
+52d1473f13eb47cbf3bb6412e09d6a1dc7879f0e | load_options
+8638f526a9d04c3dfd758073980d709165070336 | load
+75bbe6863f5f68567b2011fdbdee1cb6ddf19b79 | PyModuleConfig set_config
+3bafb5e571681dd71df35bf1863a95d69142d02d | (no functions)
+b0a4bff845bec0f9bdd07db1acbc78c59f2efca4 | set_config
+1453f0ff1f57ef4473bbdc0a6037c8316e8fec21 | load_commands
+24e57a211b6b76885e3e19f8d25c9aa483ed0e16 | (no functions)
+5c95e22109695abec5b481e28428f1b153d932ff | (no functions)
+0a183082e5d66a4895b90e9dee8989d6f12bec25 | load init_ceph_logger init_ceph_module
+dee598087a37623238c35d7595348a4c674c43f3 | (no functions)
+3eeaefddb98b76e319b47891d6cb41cff48cccff | load walk_dict_list
+48c4bc445fcacd7980e84b4f135a3115b88b05f1 | load_commands get_typed_option_value load load_subclass_of load_options
+0520ff571cfb480872c8bd429c94bd4ce15eeb40 | set_config
+f4005ae062264481bbd73230c2a7266318b464a7 | walk_dict_list
+845ca9c10df70ed1f441b47dcdbc2d1eb5da697e | get_typed_option_value
+c93dc8849145c1630058e4c0e527f404929216ff | (no functions)
+7e34b27676e12c1333c5f34ef1b561c8713cddbd | load
+c4e2965a4b83f39927e1cfc47ff6941cac76afb7 | is_option
+a5e9eb018947bacc212b8b480ee149f8d6bf76d0 | walk_dict_list
+2e8f9e690141641c06a6dc8e62ec4c63a2efebe9 | is_option
+0f814f38e5d811d84fe07fe2d443c1038d53ca9a | load_options
+1f3e9d4811b846974d8f882ce00697e889a80788 | load_commands
+641d9e42ba14b3a27f9738abcda97a0f62764de2 | load_commands load
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f | load_options set_config
+18f253aa3f1b0693c5345756ecca7ca365c389e5 | (no functions)
+5009d9ecc692076360ff777e47db9902c7bff669 | (no functions)
+ab23c506964753990f9fe23e314b9f3e2547a773 | load_commands walk_dict_list load_options init_ceph_module
+eb59c69674eb5de18f8054c7ddc3cd76d795512c | init_ceph_module
+cf292dfa8f9254e5095689c45a3d5e895e5df333 | (no functions)
+abca98058926f8a97af274ab990bf5ae4475c0cf | (no functions)
+4718b7cb2fac65b2ac7014f42ba1a10181350f0b | load
+9d68af58ce959aaafbe257ac999eec1efde86488 | (no functions)
+2df0a50e07947f42d37b3c54d7dbba96f1ccbad9 | (no functions)
+39ffec281af577c766c619d568f7a7051d108b00 | (no functions)
+6c8fba9758319a173fd479263e6242b36817685d | load
+37484af0b86083c02a7a506a0c9be02b3fd67b28 | PyModuleConfig
+3bc9850e6f56295956047981d7f842ad39c8eb98 | set_config
+3193d40d0daf766d5e210e7b1117afbfebd71f31 | (no functions)
+7c80548dba38a170ba33c964d3f6ad8dba49db4f | load load_subclass_of
+78e884dfb042221d6034151cee25e543b35df5e2 | load_commands
+072699d863e5586d72c166464998e523a51cb29d | (no functions)
+810369b0cc0ec595da496466d7ab08ecdbc9d57d | (no functions)
+410ce76f62c151810a61ba528f7547b8e0147d08 | load
+46003075924bb16b41149e7c12f31e9a6b7a3f15 | load
+6a8da7ca734726315c06929635c25dbb88599654 | (no functions)
+712ad57d09a2a96dc1e21cd245fbf1a6372867ba | load
+834bc27940507737f064bca7362b4c7f4cd54c98 | load

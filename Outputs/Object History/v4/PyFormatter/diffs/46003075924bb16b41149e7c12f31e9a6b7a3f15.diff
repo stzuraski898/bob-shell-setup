@@ -1,0 +1,29 @@
+commit 46003075924bb16b41149e7c12f31e9a6b7a3f15
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Jan 24 01:13:50 2018 +0800
+
+    mgr: be compatible with py3
+    
+    so ceph-mgr can be compiled using py3
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index ec4dad81c29..e74f2fe7c49 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -18,13 +18,7 @@
+ #define PY_FORMATTER_H_
+ 
+ // Python.h comes first because otherwise it clobbers ceph's assert
+-#include "Python.h"
+-// Python's pyconfig-64.h conflicts with ceph's acconfig.h
+-#undef HAVE_SYS_WAIT_H
+-#undef HAVE_UNISTD_H
+-#undef HAVE_UTIME_H
+-#undef _POSIX_C_SOURCE
+-#undef _XOPEN_SOURCE
++#include "PythonCompat.h"
+ 
+ #include <stack>
+ #include <memory>

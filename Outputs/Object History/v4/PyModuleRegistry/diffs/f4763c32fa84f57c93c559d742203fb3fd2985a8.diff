@@ -1,0 +1,22 @@
+commit f4763c32fa84f57c93c559d742203fb3fd2985a8
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Nov 1 12:08:03 2017 -0400
+
+    mgr: emit cluster log message on serve() exception
+    
+    Fixes: http://tracker.ceph.com/issues/21999
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index bab057c6c28..938a9c5b9b8 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -309,7 +309,7 @@ void PyModuleRegistry::standby_start(MonClient *monc)
+ 
+   dout(4) << "Starting modules in standby mode" << dendl;
+ 
+-  standby_modules.reset(new StandbyPyModules(monc, mgr_map));
++  standby_modules.reset(new StandbyPyModules(monc, mgr_map, clog));
+ 
+   std::set<std::string> failed_modules;
+   for (const auto &i : modules) {

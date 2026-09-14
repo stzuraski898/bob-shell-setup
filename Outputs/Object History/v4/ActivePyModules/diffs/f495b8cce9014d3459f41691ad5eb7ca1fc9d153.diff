@@ -1,0 +1,26 @@
+commit f495b8cce9014d3459f41691ad5eb7ca1fc9d153
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Sun Sep 23 20:33:14 2018 +0300
+
+    osd: collect client perf stats when query is enabled
+    
+    Fixes: https://tracker.ceph.com/issues/36091
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 16f781e03a7..ae834039717 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -28,11 +28,10 @@
+ 
+ #include "DaemonState.h"
+ #include "ClusterState.h"
+-#include "OSDPerfMetricQuery.h"
++#include "OSDPerfMetricTypes.h"
+ 
+ class health_check_map_t;
+ class DaemonServer;
+-struct OSDPerfMetricQuery;
+ 
+ class ActivePyModules
+ {

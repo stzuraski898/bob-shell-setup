@@ -1,0 +1,78 @@
+commit 6a8da7ca734726315c06929635c25dbb88599654
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Nov 16 06:45:45 2017 -0500
+
+    mgr: load all modules (not just active ones)
+    
+    This is to enable us to learn more about the module
+    before it is enabled, such as whether its can_run method
+    return true.
+    
+    We can also use this to enable loading a module's
+    commands before it is enabled, to give the user
+    a better response when they try to use a command
+    belong to a module that is not loaded.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 47eb0a1325b..76b54203ded 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -12,7 +12,6 @@
+  */
+ 
+ // Include this first to get python headers earlier
+-#include "BaseMgrModule.h"
+ #include "Gil.h"
+ 
+ #include "common/errno.h"
+@@ -321,26 +320,23 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+   }
+ }
+ 
+-int ActivePyModules::start_one(std::string const &module_name,
+-    PyObject *pClass, const SafeThreadState &pMyThreadState)
++int ActivePyModules::start_one(PyModuleRef py_module)
+ {
+   Mutex::Locker l(lock);
+ 
+-  assert(modules.count(module_name) == 0);
++  assert(modules.count(py_module->get_name()) == 0);
+ 
+-  modules[module_name].reset(new ActivePyModule(
+-      module_name, pClass,
+-      pMyThreadState, clog));
++  modules[py_module->get_name()].reset(new ActivePyModule(py_module, clog));
+ 
+-  int r = modules[module_name]->load(this);
++  int r = modules[py_module->get_name()]->load(this);
+   if (r != 0) {
+     return r;
+   } else {
+-    dout(4) << "Starting thread for " << module_name << dendl;
++    dout(4) << "Starting thread for " << py_module->get_name() << dendl;
+     // Giving Thread the module's module_name member as its
+     // char* thread name: thread must not outlive module class lifetime.
+-    modules[module_name]->thread.create(
+-        modules[module_name]->get_name().c_str());
++    modules[py_module->get_name()]->thread.create(
++        py_module->get_name().c_str());
+ 
+     return 0;
+   }
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 21e6529a933..6d0feedb417 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -108,9 +108,7 @@ public:
+   int init();
+   void shutdown();
+ 
+-  int start_one(std::string const &module_name,
+-                PyObject *pClass,
+-                const SafeThreadState &pMyThreadState);
++  int start_one(PyModuleRef py_module);
+ 
+   void dump_server(const std::string &hostname,
+                    const DaemonStateCollection &dmc,

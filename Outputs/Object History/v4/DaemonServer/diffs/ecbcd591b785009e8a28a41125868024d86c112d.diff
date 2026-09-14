@@ -1,0 +1,41 @@
+commit ecbcd591b785009e8a28a41125868024d86c112d
+Author: Chang Liu <liuchang0812@gmail.com>
+Date:   Wed Feb 22 19:52:46 2017 +0800
+
+    mgr: add override in headers
+    
+    Signed-off-by: liuchang0812 <liuchang0812@gmail.com>
+
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 52afefbcfa4..91ce05776da 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -61,21 +61,21 @@ public:
+       DaemonStateIndex &daemon_state_,
+       ClusterState &cluster_state_,
+       PyModules &py_modules_);
+-  ~DaemonServer();
++  ~DaemonServer() override;
+ 
+-  bool ms_dispatch(Message *m);
+-  bool ms_handle_reset(Connection *con) { return false; }
+-  void ms_handle_remote_reset(Connection *con) {}
+-  bool ms_handle_refused(Connection *con);
++  bool ms_dispatch(Message *m) override;
++  bool ms_handle_reset(Connection *con) override { return false; }
++  void ms_handle_remote_reset(Connection *con) override {}
++  bool ms_handle_refused(Connection *con) override;
+   bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer,
+-                         bool force_new);
++                         bool force_new) override;
+   bool ms_verify_authorizer(Connection *con,
+       int peer_type,
+       int protocol,
+       ceph::bufferlist& authorizer,
+       ceph::bufferlist& authorizer_reply,
+       bool& isvalid,
+-      CryptoKey& session_key);
++      CryptoKey& session_key) override;
+ 
+   bool handle_open(MMgrOpen *m);
+   bool handle_report(MMgrReport *m);

@@ -1,0 +1,31 @@
+commit 3bc9850e6f56295956047981d7f842ad39c8eb98
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Apr 9 15:51:05 2018 -0400
+
+    mgr: fix PyModuleConfig::set_config
+    
+    Commands were slightly wrong.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 89439860625..89927a72c64 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -159,11 +159,13 @@ void PyModuleConfig::set_config(
+     JSONFormatter jf;
+     jf.open_object_section("cmd");
+     if (val) {
+-      jf.dump_string("prefix", "config set mgr");
+-      jf.dump_string("key", global_key);
+-      jf.dump_string("val", *val);
++      jf.dump_string("prefix", "config set");
++      jf.dump_string("who", "mgr");
++      jf.dump_string("name", global_key);
++      jf.dump_string("value", *val);
+     } else {
+       jf.dump_string("prefix", "config rm");
++      jf.dump_string("name", "mgr");
+       jf.dump_string("key", global_key);
+     }
+     jf.close_section();

@@ -1,0 +1,23 @@
+commit 92f7e6e053a334e90ddfcaeb5e9036385ce08108
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sat Feb 17 22:49:47 2007 +0000
+
+    merge from branches/sage/cephmds2
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@1106 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/trunk/ceph/common/Clock.h b/trunk/ceph/common/Clock.h
+index 3cfe726ece8..92a2b2bddf6 100644
+--- a/trunk/ceph/common/Clock.h
++++ b/trunk/ceph/common/Clock.h
+@@ -100,6 +100,10 @@ inline utime_t& operator-=(utime_t& l, const utime_t& r) {
+   }
+   return l;
+ }
++inline utime_t& operator-=(utime_t& l, double f) {
++  l += -f;
++  return l;
++}
+ 
+ inline bool operator>(const utime_t& a, const utime_t& b)
+ {

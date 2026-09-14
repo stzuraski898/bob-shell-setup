@@ -1,0 +1,36 @@
+commit f82ab1cbf242ca61c45ce31a756d8646710957eb
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Tue Aug 12 11:20:23 2025 +0200
+
+    mgr, mon, osdc: pass complex parameters by rvalue reference
+    
+    A non-trivial type is always passed by reference, even if the
+    parameter is declared as a value; in that case, the compiler must
+    allocate stack space and move the value there, and then really passes
+    a reference to this stack allocation.  This only adds overhead for no
+    reason.
+    
+    A side effect of this API change is that all callers that accidently
+    created temporary copies are now revealed by throwing a compiler
+    error.  This commit fixes all callers and reduces a good amount of
+    useless overhead by wrapping those parameters in std::move() instead
+    of copying temporaries.
+    
+    More temporaries are avoided by emplacing the std::string&& into the
+    std::vector.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index b770d24bf94..21e4ec69cfe 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -1578,7 +1578,7 @@ void ActivePyModules::set_device_wear_level(const std::string& devid,
+     "}";
+ 
+   Command set_cmd;
+-  set_cmd.run(&monc, cmd, json);
++  set_cmd.run(&monc, std::move(cmd), std::move(json));
+   set_cmd.wait();
+ }
+ 

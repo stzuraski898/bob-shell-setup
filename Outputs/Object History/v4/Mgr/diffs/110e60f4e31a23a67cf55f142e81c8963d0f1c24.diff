@@ -1,0 +1,28 @@
+commit 110e60f4e31a23a67cf55f142e81c8963d0f1c24
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jul 14 16:07:28 2017 -0400
+
+    mgr/Mgr: debug init a bit more
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index aa4cc6a7f7b..68126e9430e 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -222,12 +222,13 @@ void Mgr::init()
+   load_config();
+ 
+   // Wait for MgrDigest...
+-  while(!digest_received) {
++  dout(4) << "waiting for MgrDigest..." << dendl;
++  while (!digest_received) {
+     digest_cond.Wait(lock);
+   }
+ 
+   // assume finisher already initialized in background_init
+-
++  dout(4) << "starting PyModules..." << dendl;
+   py_modules.init();
+   py_modules.start();
+ 

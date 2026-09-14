@@ -1,0 +1,171 @@
+commit 6a8da7ca734726315c06929635c25dbb88599654
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Nov 16 06:45:45 2017 -0500
+
+    mgr: load all modules (not just active ones)
+    
+    This is to enable us to learn more about the module
+    before it is enabled, such as whether its can_run method
+    return true.
+    
+    We can also use this to enable loading a module's
+    commands before it is enabled, to give the user
+    a better response when they try to use a command
+    belong to a module that is not loaded.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index 881ad16b33f..9e5a0da32dd 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -15,6 +15,8 @@
+ // Python.h comes first because otherwise it clobbers ceph's assert
+ #include "Python.h"
+ 
++#include "PyModule.h"
++
+ #include "common/debug.h"
+ #include "mgr/Gil.h"
+ 
+@@ -24,19 +26,14 @@
+ #define dout_subsys ceph_subsys_mgr
+ 
+ 
+-std::string handle_pyerror();
+-
+ PyModuleRunner::~PyModuleRunner()
+ {
+-  Gil gil(pMyThreadState, true);
++  Gil gil(py_module->pMyThreadState, true);
+ 
+   if (pClassInstance) {
+     Py_XDECREF(pClassInstance);
+     pClassInstance = nullptr;
+   }
+-
+-  Py_DECREF(pClass);
+-  pClass = nullptr;
+ }
+ 
+ int PyModuleRunner::serve()
+@@ -45,7 +42,7 @@ int PyModuleRunner::serve()
+ 
+   // This method is called from a separate OS thread (i.e. a thread not
+   // created by Python), so tell Gil to wrap this in a new thread state.
+-  Gil gil(pMyThreadState, true);
++  Gil gil(py_module->pMyThreadState, true);
+ 
+   auto pValue = PyObject_CallMethod(pClassInstance,
+       const_cast<char*>("serve"), nullptr);
+@@ -68,10 +65,10 @@ int PyModuleRunner::serve()
+     Py_DECREF(pvalue_str);
+     PyErr_Restore(ptype, pvalue, ptraceback);
+     
+-    clog->error() << "Unhandled exception from module '" << module_name
++    clog->error() << "Unhandled exception from module '" << get_name()
+                   << "' while running on mgr." << g_conf->name.get_id()
+                   << ": " << exc_msg;
+-    derr << module_name << ".serve:" << dendl;
++    derr << get_name() << ".serve:" << dendl;
+     derr << handle_pyerror() << dendl;
+     return -EINVAL;
+   }
+@@ -83,7 +80,7 @@ void PyModuleRunner::shutdown()
+ {
+   assert(pClassInstance != nullptr);
+ 
+-  Gil gil(pMyThreadState, true);
++  Gil gil(py_module->pMyThreadState, true);
+ 
+   auto pValue = PyObject_CallMethod(pClassInstance,
+       const_cast<char*>("shutdown"), nullptr);
+@@ -91,7 +88,7 @@ void PyModuleRunner::shutdown()
+   if (pValue != NULL) {
+     Py_DECREF(pValue);
+   } else {
+-    derr << "Failed to invoke shutdown() on " << module_name << dendl;
++    derr << "Failed to invoke shutdown() on " << get_name() << dendl;
+     derr << handle_pyerror() << dendl;
+   }
+ }
+@@ -99,7 +96,7 @@ void PyModuleRunner::shutdown()
+ void PyModuleRunner::log(int level, const std::string &record)
+ {
+ #undef dout_prefix
+-#define dout_prefix *_dout << "mgr[" << module_name << "] "
++#define dout_prefix *_dout << "mgr[" << get_name() << "] "
+   dout(level) << record << dendl;
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+diff --git a/src/mgr/PyModuleRunner.h b/src/mgr/PyModuleRunner.h
+index c4b861cf3b6..40b27d11f20 100644
+--- a/src/mgr/PyModuleRunner.h
++++ b/src/mgr/PyModuleRunner.h
+@@ -18,6 +18,8 @@
+ #include "common/LogClient.h"
+ #include "mgr/Gil.h"
+ 
++#include "PyModule.h"
++
+ /**
+  * Implement the pattern of calling serve() on a module in a thread,
+  * until shutdown() is called.
+@@ -25,16 +27,10 @@
+ class PyModuleRunner
+ {
+ protected:
+-  const std::string module_name;
+-
+-  // Passed in by whoever loaded our python module and looked up
+-  // the symbols in it.
+-  PyObject *pClass = nullptr;
++  // Info about the module we're going to run
++  PyModuleRef py_module;
+ 
+-  // Passed in by whoever created our subinterpreter for us
+-  SafeThreadState pMyThreadState = nullptr;
+-
+-  // Populated when we construct our instance of pClass in load()
++  // Populated by descendent class
+   PyObject *pClassInstance = nullptr;
+ 
+   LogChannelRef clog;
+@@ -50,32 +46,28 @@ protected:
+     void *entry() override;
+   };
+ 
++
+ public:
+   int serve();
+   void shutdown();
+   void log(int level, const std::string &record);
+ 
+   PyModuleRunner(
+-      const std::string &module_name_,
+-      PyObject *pClass_,
+-      const SafeThreadState &pMyThreadState_,
++      PyModuleRef py_module_,
+       LogChannelRef clog_)
+     : 
+-      module_name(module_name_),
+-      pClass(pClass_), pMyThreadState(pMyThreadState_),
++      py_module(py_module_),
+       clog(clog_),
+       thread(this)
+   {
+-    assert(pClass != nullptr);
+-    assert(pMyThreadState.ts != nullptr);
+-    assert(!module_name.empty());
++    assert(py_module != nullptr);
+   }
+ 
+   ~PyModuleRunner();
+ 
+   PyModuleRunnerThread thread;
+ 
+-  std::string const &get_name() const { return module_name; }
++  std::string const &get_name() const { return py_module->get_name(); }
+ };
+ 
+ 

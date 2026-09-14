@@ -1,0 +1,36 @@
+commit 5f57c526b22af16e8a079aacefcb26cc14202ad2
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Fri Jul 21 13:57:33 2023 -0400
+
+    common/Formatter: add support for dumping null
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/PyFormatter.cc b/src/mgr/PyFormatter.cc
+index 8e58f6e9a84..6a7f3e98255 100644
+--- a/src/mgr/PyFormatter.cc
++++ b/src/mgr/PyFormatter.cc
+@@ -37,6 +37,11 @@ void PyFormatter::open_object_section(std::string_view name)
+   cursor = dict;
+ }
+ 
++void PyFormatter::dump_null(std::string_view name)
++{
++  dump_pyobject(name, Py_None);
++}
++
+ void PyFormatter::dump_unsigned(std::string_view name, uint64_t u)
+ {
+   PyObject *p = PyLong_FromUnsignedLong(u);
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index 5e4c0a679ac..b45fbf162e0 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -87,6 +87,7 @@ public:
+     stack.pop();
+   }
+   void dump_bool(std::string_view name, bool b) override;
++  void dump_null(std::string_view name) override;
+   void dump_unsigned(std::string_view name, uint64_t u) override;
+   void dump_int(std::string_view name, int64_t u) override;
+   void dump_float(std::string_view name, double d) override;

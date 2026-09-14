@@ -1,0 +1,22 @@
+commit 3ce61e40fa7dfe21b8966879528bc76256a60118
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Tue Jan 8 13:30:11 2019 +0800
+
+    osd, mgr, mds: make timeout of updating rotating keys configurable
+    
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 8522fcd7d20..466a703787a 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -436,7 +436,8 @@ bool MgrStandby::ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer,
+     return true;
+ 
+   if (force_new) {
+-    if (monc.wait_auth_rotating(10) < 0)
++    auto timeout = cct->_conf.get_val<int64_t>("rotating_keys_renewal_timeout");
++    if (monc.wait_auth_rotating(timeout) < 0)
+       return false;
+   }
+ 

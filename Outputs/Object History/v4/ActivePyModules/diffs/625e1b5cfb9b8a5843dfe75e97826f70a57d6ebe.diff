@@ -1,0 +1,29 @@
+commit 625e1b5cfb9b8a5843dfe75e97826f70a57d6ebe
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Oct 3 08:16:10 2017 -0400
+
+    mgr: safety checks on pyThreadState usage
+    
+    Previously relied on the caller of Gil() to
+    pass new_thread=true if they would be
+    calling from a different thread.
+    
+    Enforce this with an assertion, by wrapping
+    PyThreadState in a SafeThreadState class
+    that remembers which POSIX thread
+    it's meant to be used in.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 4b3f5cc608b..11865eff28e 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -417,6 +417,7 @@ int PyModules::init()
+   // Drop the GIL and remember the main thread state (current
+   // thread state becomes NULL)
+   pMainThreadState = PyEval_SaveThread();
++  assert(pMainThreadState != nullptr);
+ 
+   std::list<std::string> failed_modules;
+ 

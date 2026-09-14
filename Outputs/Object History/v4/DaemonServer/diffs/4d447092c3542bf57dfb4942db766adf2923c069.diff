@@ -1,0 +1,31 @@
+commit 4d447092c3542bf57dfb4942db766adf2923c069
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Mar 18 11:45:48 2021 -0500
+
+    mon/MgrStatMonitor: ignore MMgrReport from non-active mgr
+    
+    If it's not the active mgr, we should ignore it.
+    
+    Since the mgr instance is best identified by the gid, add that to the
+    message.  (We can't use the source_addrs for the message since that is
+    the MgrStandby monc addr, not the active mgr addrs in the MgrMap.)
+    
+    This fixes a problem where a just-demoted mgr report gets processed and a
+    new mgr gets a ServiceMap with an epoch >= its pending map.  (At least,
+    that is my theory!)
+    
+    Fixes: https://tracker.ceph.com/issues/48022
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index f665d28304b..64edc8bdfb7 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2525,6 +2525,7 @@ void DaemonServer::send_report()
+   }
+ 
+   auto m = ceph::make_message<MMonMgrReport>();
++  m->gid = monc->get_global_id();
+   py_modules.get_health_checks(&m->health_checks);
+   py_modules.get_progress_events(&m->progress_events);
+ 

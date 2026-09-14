@@ -1,0 +1,36 @@
+commit 34975103eae6e9c0061512e6e000d6f8e1093f20
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue Sep 18 11:27:25 2018 +0800
+
+    mgr/PyFormatter: fix typos
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index d65e14167e9..3e0bd0e1aa7 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -91,20 +91,20 @@ public:
+ 
+   void flush(std::ostream& os) override
+   {
+-      // This class is not a serializer: this doens't make sense
++      // This class is not a serializer: this doesn't make sense
+       ceph_abort();
+   }
+ 
+   int get_len() const override
+   {
+-      // This class is not a serializer: this doens't make sense
++      // This class is not a serializer: this doesn't make sense
+       ceph_abort();
+       return 0;
+   }
+ 
+   void write_raw_data(const char *data) override
+   {
+-      // This class is not a serializer: this doens't make sense
++      // This class is not a serializer: this doesn't make sense
+       ceph_abort();
+   }
+ 

@@ -1,0 +1,27 @@
+commit b5994f3ee07b9ce4c881f6e4be54d907b5665d82
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jun 2 09:50:18 2017 -0400
+
+    mgr/PyModules: prefix by mgr/, not mgr/$id/
+    
+    If modules want per-instance state, they can include
+    the mgr id in their portion of the key name.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index b9596bb5f97..3b3962241d9 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -338,9 +338,8 @@ int PyModules::init()
+   Mutex::Locker locker(lock);
+ 
+   global_handle = this;
+-  // namespace in config-key prefixed by "mgr/<id>/"
+-  config_prefix = std::string(g_conf->name.get_type_str()) + "/" +
+-	          g_conf->name.get_id() + "/";
++  // namespace in config-key prefixed by "mgr/"
++  config_prefix = std::string(g_conf->name.get_type_str()) + "/";
+ 
+   // Set up global python interpreter
+   Py_SetProgramName(const_cast<char*>(PYTHON_EXECUTABLE));

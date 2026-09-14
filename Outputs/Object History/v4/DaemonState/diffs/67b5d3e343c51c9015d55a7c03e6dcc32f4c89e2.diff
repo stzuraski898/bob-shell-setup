@@ -1,0 +1,63 @@
+commit 67b5d3e343c51c9015d55a7c03e6dcc32f4c89e2
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 5 08:46:41 2018 -0500
+
+    mgr: parse out devids from daemon metadata
+    
+    Look for the "device_ids" key in the metadata and parse out a device
+    list.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 9a9d9ab3aab..e8b2a8d5a3d 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -21,6 +21,7 @@
+ #include <boost/circular_buffer.hpp>
+ 
+ #include "common/RWLock.h"
++#include "include/str_map.h"
+ 
+ #include "msg/msg_types.h"
+ 
+@@ -31,6 +32,10 @@
+ // Unique reference to a daemon within a cluster
+ typedef std::pair<std::string, std::string> DaemonKey;
+ 
++static inline std::string to_string(const DaemonKey& dk) {
++  return dk.first + "." + dk.second;
++}
++
+ // An instance of a performance counter type, within
+ // a particular daemon.
+ class PerfCounterInstance
+@@ -121,6 +126,9 @@ class DaemonState
+   // The metadata (hostname, version, etc) sent from the daemon
+   std::map<std::string, std::string> metadata;
+ 
++  /// device ids, derived from metadata[device_ids]
++  std::set<std::string> devids;
++
+   // TODO: this can be generalized to other daemons
+   std::vector<DaemonHealthMetric> daemon_health_metrics;
+ 
+@@ -148,6 +156,18 @@ class DaemonState
+   {
+   }
+ 
++  void set_metadata(const std::map<std::string,std::string>& m) {
++    metadata = m;
++    auto p = m.find("device_ids");
++    if (p != m.end()) {
++      map<std::string,std::string> devs;
++      get_str_map(p->second, &devs, ",; ");
++      for (auto& i : devs) {
++	devids.insert(i.second);
++      }
++    }
++  }
++
+   const std::map<std::string,std::string>& get_config_defaults() {
+     if (config_defaults.empty() &&
+ 	config_defaults_bl.length()) {

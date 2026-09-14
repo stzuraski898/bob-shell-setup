@@ -1,0 +1,71 @@
+commit d6d1db62edeb4c40a774fcb56e7619b2997ff2d0
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue May 23 09:49:16 2017 -0400
+
+    mgr: apply PGMap incremental at same interval as reports
+    
+    We were doing an incremental per osd stat report; this screws up the
+    delta stats updates when there are more than a handful of OSDs.  Instead,
+    do it with the same period as the mgr->mon reports.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 127ac06d4dc..b8d35d30453 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -49,8 +49,6 @@ void ClusterState::load_digest(MMgrDigest *m)
+ void ClusterState::ingest_pgstats(MPGStats *stats)
+ {
+   Mutex::Locker l(lock);
+-  PGMap::Incremental pending_inc;
+-  pending_inc.version = pg_map.version + 1; // to make apply_incremental happy
+ 
+   const int from = stats->get_orig_source().num();
+   bool is_in = false;
+@@ -87,7 +85,13 @@ void ClusterState::ingest_pgstats(MPGStats *stats)
+ 
+     pending_inc.pg_stat_updates[pgid] = pg_stats;
+   }
++}
+ 
++void ClusterState::update_delta_stats()
++{
++  pending_inc.stamp = ceph_clock_now();
++  pending_inc.version = pg_map.version + 1; // to make apply_incremental happy
++  dout(10) << " v" << pending_inc.version << dendl;
+   pg_map.apply_incremental(g_ceph_context, pending_inc);
+ }
+ 
+@@ -95,8 +99,9 @@ void ClusterState::notify_osdmap(const OSDMap &osd_map)
+ {
+   Mutex::Locker l(lock);
+ 
+-  PGMap::Incremental pending_inc;
++  pending_inc.stamp = ceph_clock_now();
+   pending_inc.version = pg_map.version + 1; // to make apply_incremental happy
++  dout(10) << " v" << pending_inc.version << dendl;
+ 
+   PGMapUpdater::check_osd_map(g_ceph_context, osd_map, pg_map, &pending_inc);
+ 
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index ca7deddaea1..56ed080b829 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -39,6 +39,7 @@ protected:
+   mutable Mutex lock;
+ 
+   PGMap pg_map;
++  PGMap::Incremental pending_inc;
+ 
+   bufferlist health_json;
+   bufferlist mon_status_json;
+@@ -48,6 +49,8 @@ public:
+   void load_digest(MMgrDigest *m);
+   void ingest_pgstats(MPGStats *stats);
+ 
++  void update_delta_stats();
++
+   const bufferlist &get_health() const {return health_json;}
+   const bufferlist &get_mon_status() const {return mon_status_json;}
+ 

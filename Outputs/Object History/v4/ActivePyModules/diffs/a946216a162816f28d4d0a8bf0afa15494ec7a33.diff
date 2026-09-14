@@ -1,0 +1,27 @@
+commit a946216a162816f28d4d0a8bf0afa15494ec7a33
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 5 14:21:46 2018 -0500
+
+    mgr/ActivePyModule: expose 'devices' to python modules
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index cbd9b957155..7bc3d84767b 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -287,6 +287,14 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+         }
+     );
+     return f.get();
++  } else if (what == "devices") {
++    PyFormatter f;
++    f.open_array_section("devices");
++    daemon_state.with_devices([&f] (const DeviceState& dev) {
++	f.dump_object("device", dev);
++      });
++    f.close_section();
++    return f.get();
+   } else if (what == "io_rate") {
+     PyFormatter f;
+     cluster_state.with_pgmap(

@@ -1,0 +1,23 @@
+commit 523b7cafc4c84ef09dbae50cb8311d1694618d45
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Mar 22 14:10:23 2017 +0800
+
+    mgr: shutdown py_modules in Mgr::shutdown()
+    
+    Fixes: http://tracker.ceph.com/issues/19258
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index facfc2ea646..6207cd88db2 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -341,6 +341,9 @@ void Mgr::shutdown()
+   // First stop the server so that we're not taking any more incoming requests
+   server.shutdown();
+ 
++  // after the messenger is stopped, signal modules to shutdown via finisher
++  py_modules.shutdown();
++
+   // Then stop the finisher to ensure its enqueued contexts aren't going
+   // to touch references to the things we're about to tear down
+   finisher.wait_for_empty();

@@ -1,0 +1,34 @@
+commit 46de6431603a56fa9ca2a7c7c9c795f126d16452
+Author: Kotresh Hiremath Ravishankar <khiremat@redhat.com>
+Date:   Mon Oct 17 17:19:17 2022 +0530
+
+    mgr: Add one finisher thread per module
+    
+    Adds a finisher thread for each module. Each module command is
+    executed via corresponding finisher thread. There is generic
+    finisher thread via which all other commands like notify, config
+    is run.
+    
+    Fixes: https://tracker.ceph.com/issues/51177
+    Signed-off-by: Kotresh HR <khiremat@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 4cd98e8827e..c0e951ed7b6 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -227,5 +227,15 @@ public:
+     return v;
+   }
+ 
++  bool is_module_active(const std::string &name) {
++    ceph_assert(active_modules);
++    return active_modules->module_exists(name);
++  }
++
++  auto& get_active_module_finisher(const std::string &name) {
++    ceph_assert(active_modules);
++    return active_modules->get_module_finisher(name);
++  }
++
+   // <<< (end of ActivePyModules cheeky call-throughs)
+ };

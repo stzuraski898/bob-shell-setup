@@ -1,0 +1,162 @@
+commit 6712393fbc534c6c7040bfc9ee2d1268f3adc9dd
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Feb 10 12:15:12 2020 +0800
+
+    common,mgr: pass string_view as "name"
+    
+    std::string_view works better along with std::string, as it can be
+    automatically converted from a std::string. and, furthermore, it
+    can potentially save the overhead of more strlen() calls.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyFormatter.cc b/src/mgr/PyFormatter.cc
+index 5dc64a1f4e5..48f1cca2903 100644
+--- a/src/mgr/PyFormatter.cc
++++ b/src/mgr/PyFormatter.cc
+@@ -20,7 +20,7 @@
+ #define LARGE_SIZE 1024
+ 
+ 
+-void PyFormatter::open_array_section(const char *name)
++void PyFormatter::open_array_section(std::string_view name)
+ {
+   PyObject *list = PyList_New(0);
+   dump_pyobject(name, list);
+@@ -28,7 +28,7 @@ void PyFormatter::open_array_section(const char *name)
+   cursor = list;
+ }
+ 
+-void PyFormatter::open_object_section(const char *name)
++void PyFormatter::open_object_section(std::string_view name)
+ {
+   PyObject *dict = PyDict_New();
+   dump_pyobject(name, dict);
+@@ -36,31 +36,31 @@ void PyFormatter::open_object_section(const char *name)
+   cursor = dict;
+ }
+ 
+-void PyFormatter::dump_unsigned(const char *name, uint64_t u)
++void PyFormatter::dump_unsigned(std::string_view name, uint64_t u)
+ {
+   PyObject *p = PyLong_FromUnsignedLong(u);
+   ceph_assert(p);
+   dump_pyobject(name, p);
+ }
+ 
+-void PyFormatter::dump_int(const char *name, int64_t u)
++void PyFormatter::dump_int(std::string_view name, int64_t u)
+ {
+   PyObject *p = PyLong_FromLongLong(u);
+   ceph_assert(p);
+   dump_pyobject(name, p);
+ }
+ 
+-void PyFormatter::dump_float(const char *name, double d)
++void PyFormatter::dump_float(std::string_view name, double d)
+ {
+   dump_pyobject(name, PyFloat_FromDouble(d));
+ }
+ 
+-void PyFormatter::dump_string(const char *name, std::string_view s)
++void PyFormatter::dump_string(std::string_view name, std::string_view s)
+ {
+   dump_pyobject(name, PyUnicode_FromString(s.data()));
+ }
+ 
+-void PyFormatter::dump_bool(const char *name, bool b)
++void PyFormatter::dump_bool(std::string_view name, bool b)
+ {
+   if (b) {
+     Py_INCREF(Py_True);
+@@ -71,7 +71,7 @@ void PyFormatter::dump_bool(const char *name, bool b)
+   }
+ }
+ 
+-std::ostream& PyFormatter::dump_stream(const char *name)
++std::ostream& PyFormatter::dump_stream(std::string_view name)
+ {
+   // Give the caller an ostream, construct a PyString,
+   // and remember the association between the two.  On flush,
+@@ -85,7 +85,7 @@ std::ostream& PyFormatter::dump_stream(const char *name)
+   return ps->stream;
+ }
+ 
+-void PyFormatter::dump_format_va(const char *name, const char *ns, bool quoted, const char *fmt, va_list ap)
++void PyFormatter::dump_format_va(std::string_view name, const char *ns, bool quoted, const char *fmt, va_list ap)
+ {
+   char buf[LARGE_SIZE];
+   vsnprintf(buf, LARGE_SIZE, fmt, ap);
+@@ -96,13 +96,13 @@ void PyFormatter::dump_format_va(const char *name, const char *ns, bool quoted,
+ /**
+  * Steals reference to `p`
+  */
+-void PyFormatter::dump_pyobject(const char *name, PyObject *p)
++void PyFormatter::dump_pyobject(std::string_view name, PyObject *p)
+ {
+   if (PyList_Check(cursor)) {
+     PyList_Append(cursor, p);
+     Py_DECREF(p);
+   } else if (PyDict_Check(cursor)) {
+-    PyObject *key = PyUnicode_FromString(name);
++    PyObject *key = PyUnicode_DecodeUTF8(name.data(), name.size(), nullptr);
+     PyDict_SetItem(cursor, key, p);
+     Py_DECREF(key);
+     Py_DECREF(p);
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index e7503cc1539..cd609eebeca 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -56,9 +56,9 @@ public:
+   }
+ 
+   // Obscure, don't care.
+-  void open_array_section_in_ns(const char *name, const char *ns) override
++  void open_array_section_in_ns(std::string_view name, const char *ns) override
+   {ceph_abort();}
+-  void open_object_section_in_ns(const char *name, const char *ns) override
++  void open_object_section_in_ns(std::string_view name, const char *ns) override
+   {ceph_abort();}
+ 
+   void reset() override
+@@ -77,8 +77,8 @@ public:
+   void output_footer() override {};
+   void enable_line_break() override {};
+ 
+-  void open_array_section(const char *name) override;
+-  void open_object_section(const char *name) override;
++  void open_array_section(std::string_view name) override;
++  void open_object_section(std::string_view name) override;
+   void close_section() override
+   {
+     ceph_assert(cursor != root);
+@@ -86,13 +86,13 @@ public:
+     cursor = stack.top();
+     stack.pop();
+   }
+-  void dump_bool(const char *name, bool b) override;
+-  void dump_unsigned(const char *name, uint64_t u) override;
+-  void dump_int(const char *name, int64_t u) override;
+-  void dump_float(const char *name, double d) override;
+-  void dump_string(const char *name, std::string_view s) override;
+-  std::ostream& dump_stream(const char *name) override;
+-  void dump_format_va(const char *name, const char *ns, bool quoted, const char *fmt, va_list ap) override;
++  void dump_bool(std::string_view name, bool b) override;
++  void dump_unsigned(std::string_view name, uint64_t u) override;
++  void dump_int(std::string_view name, int64_t u) override;
++  void dump_float(std::string_view name, double d) override;
++  void dump_string(std::string_view name, std::string_view s) override;
++  std::ostream& dump_stream(std::string_view name) override;
++  void dump_format_va(std::string_view name, const char *ns, bool quoted, const char *fmt, va_list ap) override;
+ 
+   void flush(std::ostream& os) override
+   {
+@@ -128,7 +128,7 @@ private:
+   PyObject *cursor;
+   std::stack<PyObject *> stack;
+ 
+-  void dump_pyobject(const char *name, PyObject *p);
++  void dump_pyobject(std::string_view name, PyObject *p);
+ 
+   class PendingStream {
+     public:

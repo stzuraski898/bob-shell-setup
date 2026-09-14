@@ -1,0 +1,139 @@
+commit 7845f8d757adf63390d6cb0ff56afbc088bc508b
+Author: John Spray <jspray@redhat.com>
+Date:   Fri Jul 15 00:39:22 2016 +0100
+
+    mgr: flesh out standby/HA
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 2fbbc8048d1..8af29a52222 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -44,14 +44,6 @@ void MgrClient::init()
+   assert(msgr != nullptr);
+ 
+   timer.init();
+-
+-#if 0
+-  if (map.epoch == 0) {
+-    ldout(cct, 4) << "no map yet, waiting..." << dendl;
+-    wait_on_list(waiting_for_map);
+-  }
+-  ldout(cct, 4) << "proceeding with map " << map.epoch << dendl;
+-#endif
+ }
+ 
+ void MgrClient::shutdown()
+@@ -98,38 +90,50 @@ bool MgrClient::handle_mgr_map(MMgrMap *m)
+   if (session == nullptr || 
+       session->con->get_peer_addr() != map.get_active_addr()) {
+ 
+-    entity_inst_t inst;
+-    inst.addr = map.get_active_addr();
+-    inst.name = entity_name_t::MGR(map.get_active_gid());
+-
+-    delete session;
+-    session = new MgrSessionState();
+-    session->con = msgr->get_connection(inst);
+-
+-    // Don't send an open if we're just a client (i.e. doing
+-    // command-sending, not stats etc)
+-    if (g_conf && !g_conf->name.is_client()) {
+-      auto open = new MMgrOpen();
+-      open->daemon_name = g_conf->name.get_id();
+-      session->con->send_message(open);
++    if (session) {
++      ldout(cct, 4) << "Terminating session with "
++                    << session->con->get_peer_addr() << dendl;
++      delete session;
++      session = nullptr;
++
++      std::vector<ceph_tid_t> erase_cmds;
++      auto commands = command_table.get_commands();
++      for (const auto &i : commands) {
++        // FIXME be nicer, retarget command on new mgr?
++        if (i.second->on_finish != nullptr) {
++          i.second->on_finish->complete(-ETIMEDOUT);
++        }
++        erase_cmds.push_back(i.first);
++      }
++      for (const auto &tid : erase_cmds) {
++        command_table.erase(tid);
++      }
+     }
+ 
+-    std::vector<ceph_tid_t> erase_cmds;
+-    auto commands = command_table.get_commands();
+-    for (const auto &i : commands) {
+-      // FIXME be nicer, retarget command on new mgr?
+-      if (i.second->on_finish != nullptr) {
+-        i.second->on_finish->complete(-ETIMEDOUT);
++    if (map.get_available()) {
++      ldout(cct, 4) << "Starting new session with " << map.get_active_addr()
++                    << dendl;
++      entity_inst_t inst;
++      inst.addr = map.get_active_addr();
++      inst.name = entity_name_t::MGR(map.get_active_gid());
++
++      session = new MgrSessionState();
++      session->con = msgr->get_connection(inst);
++
++      // Don't send an open if we're just a client (i.e. doing
++      // command-sending, not stats etc)
++      if (g_conf && !g_conf->name.is_client()) {
++        auto open = new MMgrOpen();
++        open->daemon_name = g_conf->name.get_id();
++        session->con->send_message(open);
+       }
+-      erase_cmds.push_back(i.first);
+-    }
+-    for (const auto &tid : erase_cmds) {
+-      command_table.erase(tid);
++
++      signal_cond_list(waiting_for_session);
++    } else {
++      ldout(cct, 4) << "No active mgr available yet" << dendl;
+     }
+   }
+ 
+-  signal_cond_list(waiting_for_map);
+-
+   return true;
+ }
+ 
+@@ -262,16 +266,13 @@ int MgrClient::start_command(const vector<string>& cmd, const bufferlist& inbl,
+ 
+   ldout(cct, 20) << "cmd: " << cmd << dendl;
+ 
+-  assert(map.epoch > 0);
+-
+-
+-
+   if (session == nullptr) {
+-    derr << "no session" << dendl;
+-    // FIXME: be nicer: maybe block until a mgr is available?
+-    return -ENOENT;
++    derr << "no session, waiting" << dendl;
++    wait_on_list(waiting_for_session);
+   }
+ 
++  assert(map.epoch > 0);
++
+   MgrCommand *op = command_table.start_command();
+   op->cmd = cmd;
+   op->inbl = inbl;
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index bcaf3de5ea5..92775d62e3b 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -63,7 +63,8 @@ protected:
+ 
+   void wait_on_list(list<Cond*>& ls);
+   void signal_cond_list(list<Cond*>& ls);
+-  list<Cond*> waiting_for_map;
++
++  list<Cond*> waiting_for_session;
+ 
+ public:
+   MgrClient(CephContext *cct_, Messenger *msgr_);

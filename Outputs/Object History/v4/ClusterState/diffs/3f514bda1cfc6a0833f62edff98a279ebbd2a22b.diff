@@ -1,0 +1,33 @@
+commit 3f514bda1cfc6a0833f62edff98a279ebbd2a22b
+Author: Wei Jin <jinwei15@wanda.cn>
+Date:   Thu Apr 6 19:10:39 2017 +0800
+
+    mgr: clean nonused function declaration
+    
+    Signed-off-by: Wei Jin <wjin.cn@gmail.com>
+
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index 039da14e8dc..065f17cef3f 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -42,20 +42,6 @@ protected:
+   bufferlist health_json;
+   bufferlist mon_status_json;
+ 
+-  void _update_creating_pgs(
+-      const OSDMap &osd_map,
+-      PGMap::Incremental *pending_inc);
+-
+-  void _register_pg(
+-      const OSDMap &osd_map,
+-      pg_t pgid, epoch_t epoch,
+-      bool new_pool,
+-      PGMap::Incremental *pending_inc);
+-
+-  void _register_new_pgs(
+-      const OSDMap &osd_map,
+-      PGMap::Incremental *pending_inc);
+-
+ public:
+ 
+   void load_digest(MMgrDigest *m);

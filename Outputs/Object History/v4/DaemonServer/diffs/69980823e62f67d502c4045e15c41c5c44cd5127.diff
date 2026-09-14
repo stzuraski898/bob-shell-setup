@@ -1,0 +1,55 @@
+commit 69980823e62f67d502c4045e15c41c5c44cd5127
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Sun Jul 2 20:48:44 2023 -0400
+
+    mgr: register OSDs in ms_handle_accept
+    
+    It's a no-no to acquire locks in these "fast" messenger methods. This
+    can lead to messenger slow downs in the best case as it's blocking reads
+    on the wire. In the worse case, the messenger may deadlock with other
+    threads, preventing any further message reads off the wire.
+    
+    It's not obvious this method is "fast" so I've added a comment regarding
+    this.
+    
+    Fixes: https://tracker.ceph.com/issues/61874
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index f2a4fb8fb51..2c217715f55 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -214,16 +214,19 @@ int DaemonServer::ms_handle_fast_authentication(Connection *con)
+     dout(10) << " session " << s << " " << s->entity_name
+              << " has caps " << s->caps << " '" << str << "'" << dendl;
+   }
++  return 1;
++}
+ 
++void DaemonServer::ms_handle_accept(Connection* con)
++{
+   if (con->get_peer_type() == CEPH_ENTITY_TYPE_OSD) {
++    auto s = ceph::ref_cast<MgrSession>(con->get_priv());
+     std::lock_guard l(lock);
+     s->osd_id = atoi(s->entity_name.get_id().c_str());
+     dout(10) << "registering osd." << s->osd_id << " session "
+ 	     << s << " con " << con << dendl;
+     osd_cons[s->osd_id].insert(con);
+   }
+-
+-  return 1;
+ }
+ 
+ bool DaemonServer::ms_handle_reset(Connection *con)
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 40b7d2a8137..a7b64561004 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -270,6 +270,7 @@ public:
+ 
+   bool ms_dispatch2(const ceph::ref_t<Message>& m) override;
+   int ms_handle_fast_authentication(Connection *con) override;
++  void ms_handle_accept(Connection *con) override;
+   bool ms_handle_reset(Connection *con) override;
+   void ms_handle_remote_reset(Connection *con) override {}
+   bool ms_handle_refused(Connection *con) override;

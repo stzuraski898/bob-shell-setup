@@ -1,0 +1,27 @@
+commit a54d0a90c06aed1ae26826d7d5317ba13e18c86e
+Author: Chunmei Liu <chunmei.liu@intel.com>
+Date:   Fri Jan 17 15:09:10 2020 -0800
+
+    crimson:common add TOPNSPC namespace for ceph and crimson
+    
+    some code coexist in crimson seastar environment and posix environment,
+    so add namespace to avoid same function conflict, for example add namespace
+    for CephContext, since the new namespace for classic ceph-osd,
+    need modify all files declare use CephContext by including "common_fwd.h"
+    which defined the namespace for each environment.
+    
+    Signed-off-by: Chunmei Liu <chunmei.liu@intel.com>
+
+diff --git a/src/mgr/ActivePyModule.cc b/src/mgr/ActivePyModule.cc
+index 88d6502749c..c776acfd03b 100644
+--- a/src/mgr/ActivePyModule.cc
++++ b/src/mgr/ActivePyModule.cc
+@@ -206,7 +206,7 @@ int ActivePyModule::handle_command(
+   Gil gil(py_module->pMyThreadState, true);
+ 
+   PyFormatter f;
+-  cmdmap_dump(cmdmap, &f);
++  TOPNSPC::common::cmdmap_dump(cmdmap, &f);
+   PyObject *py_cmd = f.get();
+   string instr;
+   inbuf.begin().copy(inbuf.length(), instr);

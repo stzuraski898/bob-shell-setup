@@ -1,0 +1,35 @@
+commit 9afeaa0127bc5e2993e6eea718db81f10d059f10
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jul 2 05:01:16 2004 +0000
+
+    *** empty log message ***
+    
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@6 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/ceph/common/Clock.h b/ceph/common/Clock.h
+new file mode 100644
+index 00000000000..7951abaa34d
+--- /dev/null
++++ b/ceph/common/Clock.h
+@@ -0,0 +1,20 @@
++
++#ifndef __CLOCK_H
++#define __CLOCK_H
++
++#include <sys/time.h>
++
++class Clock {
++ protected:
++  struct timeval curtime;
++
++ public:
++  Clock();
++  
++  double gettime();
++  void settime(double tm);
++};
++
++extern Clock g_clock;
++
++#endif

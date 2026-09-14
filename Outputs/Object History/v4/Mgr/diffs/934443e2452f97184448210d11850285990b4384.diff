@@ -1,0 +1,40 @@
+commit 934443e2452f97184448210d11850285990b4384
+Author: Noah Watkins <nwatkins@redhat.com>
+Date:   Thu Jul 26 10:56:18 2018 -0700
+
+    mgr: remove unused timer member
+    
+    Signed-off-by: Noah Watkins <nwatkins@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 2b27038ab64..40200605dc7 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -48,7 +48,6 @@ Mgr::Mgr(MonClient *monc_, const MgrMap& mgrmap,
+   client(client_),
+   client_messenger(clientm_),
+   lock("Mgr::lock"),
+-  timer(g_ceph_context, lock),
+   finisher(g_ceph_context, "Mgr", "mgr-fin"),
+   digest_received(false),
+   py_module_registry(py_module_registry_),
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index 2a4c9eec6b4..d684662a0c9 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -22,7 +22,6 @@
+ #include "msg/Messenger.h"
+ #include "auth/Auth.h"
+ #include "common/Finisher.h"
+-#include "common/Timer.h"
+ #include "mon/MgrMap.h"
+ 
+ #include "DaemonServer.h"
+@@ -46,7 +45,6 @@ protected:
+   Messenger *client_messenger;
+ 
+   mutable Mutex lock;
+-  SafeTimer timer;
+   Finisher finisher;
+ 
+   // Track receipt of initial data during startup

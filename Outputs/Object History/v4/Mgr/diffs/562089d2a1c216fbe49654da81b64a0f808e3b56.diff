@@ -1,0 +1,24 @@
+commit 562089d2a1c216fbe49654da81b64a0f808e3b56
+Author: John Spray <jspray@redhat.com>
+Date:   Sat Feb 4 21:20:44 2017 +0000
+
+    mgr: expose Objecter to PyModules
+    
+    Same motivation as exposing MonClient: so that modules
+    can get at the command sending code.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index eb6c9a1639b..fa534aa0b14 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -46,7 +46,7 @@ Mgr::Mgr(MonClient *monc_, Messenger *clientm_, Objecter *objecter_,
+   lock("Mgr::lock"),
+   timer(g_ceph_context, lock),
+   finisher(g_ceph_context, "Mgr", "mgr-fin"),
+-  py_modules(daemon_state, cluster_state, *monc, finisher),
++  py_modules(daemon_state, cluster_state, *monc, *objecter, finisher),
+   cluster_state(monc, nullptr),
+   server(monc, finisher, daemon_state, cluster_state, py_modules,
+          clog_, audit_clog_),

@@ -1,0 +1,25 @@
+commit fc3090fcddd854b47a08698b3e57a6f7cfb82d4a
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Aug 8 17:09:12 2016 +0100
+
+    mgr: skip past broken modules and load the rest
+    
+    ...instead of stopping at the first python module
+    that fails to load.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 8c1fe867b02..4fba53c52c6 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -330,8 +330,7 @@ int PyModules::init()
+       derr << "Error loading module '" << *module_name << "': "
+         << cpp_strerror(r) << dendl;
+       derr << handle_pyerror() << dendl;
+-
+-      return r;
++      // Don't drop out here, load the other modules
+     } else {
+       // Success!
+       modules[*module_name] = mod;

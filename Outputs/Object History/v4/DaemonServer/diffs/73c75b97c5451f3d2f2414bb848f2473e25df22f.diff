@@ -1,0 +1,24 @@
+commit 73c75b97c5451f3d2f2414bb848f2473e25df22f
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Mar 31 18:30:53 2017 +0800
+
+    mgr: use OSDMap::get_pg_acting_primary() to get the primary
+    
+    OSDMap::pg_to_acting_osds() assumes that the "acting" parameter is not
+    null.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 5237f93a5ed..f4f301193ae 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -498,7 +498,7 @@ bool DaemonServer::handle_command(MCommand *m)
+     int acting_primary = -1;
+     entity_inst_t inst;
+     cluster_state.with_osdmap([&](const OSDMap& osdmap) {
+-	osdmap.pg_to_acting_osds(pgid, nullptr, &acting_primary);
++	acting_primary = osdmap.get_pg_acting_primary(pgid);
+ 	if (acting_primary >= 0) {
+ 	  inst = osdmap.get_inst(acting_primary);
+ 	}

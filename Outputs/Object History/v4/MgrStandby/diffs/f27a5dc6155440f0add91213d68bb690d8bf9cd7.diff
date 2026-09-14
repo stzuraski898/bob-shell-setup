@@ -1,0 +1,25 @@
+commit f27a5dc6155440f0add91213d68bb690d8bf9cd7
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sat Nov 17 07:15:19 2018 -0600
+
+    mgr: call config_notify method when mgr's config has changed
+    
+    This provides a hook for the module to refresh any config values it has
+    cached in module-local variables.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 9265c4ff1d5..70e504c7010 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -138,6 +138,9 @@ int MgrStandby::init()
+       }
+       return false;
+     });
++  monc.register_config_notify_callback([this]() {
++      py_module_registry.handle_config_notify();
++    });
+   dout(4) << "Registered monc callback" << dendl;
+ 
+   int r = monc.init();

@@ -1,0 +1,5 @@
+# Non-merge commits touching src/mgr/MgrMapCache.cc and/or src/mgr/MgrMapCache.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+403340bcf8c2122afff708519f176baa6b646fc1 2025-07-17 Nitzan Mordechai | mgr: replace TTLCache with MgrMapCache and protect api with readonly

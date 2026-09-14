@@ -1,0 +1,28 @@
+commit 6eb5c636dd5d80249fbb073771ed87507808677d
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Nov 28 08:57:28 2017 -0500
+
+    mon: expose can_run flag in `module ls` + mgr dump
+    
+    Enable people to see can_run failures and the explanatory
+    messages (telling them about a missing dependency)
+    before trying to enable a module.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index cf491d8d72a..335e134141a 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -157,9 +157,9 @@ void MgrStandby::send_beacon()
+ 
+   // Construct a list of the info about each loaded module
+   // which we will transmit to the monitor.
+-  std::vector<MMgrBeacon::ModuleInfo> module_info;
++  std::vector<MgrMap::ModuleInfo> module_info;
+   for (const auto &module : modules) {
+-    MMgrBeacon::ModuleInfo info;
++    MgrMap::ModuleInfo info;
+     info.name = module->get_name();
+     info.error_string = module->get_error_string();
+     info.can_run = module->get_can_run();

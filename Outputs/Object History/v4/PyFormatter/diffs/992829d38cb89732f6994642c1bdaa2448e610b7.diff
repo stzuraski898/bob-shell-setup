@@ -1,0 +1,21 @@
+commit 992829d38cb89732f6994642c1bdaa2448e610b7
+Author: Song Weibin <song.weibin@zte.com.cn>
+Date:   Wed Aug 9 14:26:32 2017 +0800
+
+    rbd: adding newline operation when only '--format' used
+    
+    Signed-off-by: songweibin <song.weibin@zte.com.cn>
+
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index 924f5822abe..ec4dad81c29 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -76,7 +76,7 @@ public:
+   void set_status(int status, const char* status_name) override {}
+   void output_header() override {};
+   void output_footer() override {};
+-
++  void enable_line_break() override {};
+ 
+   void open_array_section(const char *name) override;
+   void open_object_section(const char *name) override;

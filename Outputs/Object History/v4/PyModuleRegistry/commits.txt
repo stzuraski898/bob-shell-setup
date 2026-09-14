@@ -1,0 +1,102 @@
+# Non-merge commits touching src/mgr/PyModuleRegistry.cc and/or src/mgr/PyModuleRegistry.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+4c7621dadc4dc555cda05d0908f63671801622e5 2026-06-01 Nitzan Mordechai | mgr/DaemonServer: include mgr module options in config show output
+95a90f7da8a32dd2a5a1e3b381aaeacea378437b 2024-12-08 Nitzan Mordechai | mgr: Add per-module performance counters to mgr
+68221661b00f8a6bef0fbd7b5401aa49eb5118d0 2025-09-11 Laura Flores | mgr, qa: add `pending_modules` to asock command
+bf25a08cc58c8e872806e92dd36d9ff91e5523d9 2025-07-29 Laura Flores | mgr, common, qa, doc: issue health error after max expiration is exceeded
+cbd1726fde08692848b5c0e42c06e4f089ebcd5c 2025-04-25 Laura Flores | mgr: ensure that all modules have started before advertising active mgr
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b 2025-10-02 Edwin Rodriguez | Add blank line after header block
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 2025-10-02 Edwin Rodriguez | Add missing blank line after comment block
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+706b2be416246dd5923478d8a7ee015246f03e95 2025-01-30 Patrick Donnelly | mgr: use std namespace
+f20df2eb8545f2a4fc16acdde5edcb611868522e 2025-01-30 Patrick Donnelly | mgr: excise CephFS client from mgr C++ base
+9962772358048a98a6e871dccf1bfd0a15b4d791 2024-07-19 Rishabh Dave | mon/MgrMonitor: allow disabling always-on MGR modules
+e830f89240e382fdf5da676437ff783c4ea6ae42 2024-07-17 Rishabh Dave | mon/MgrMonitor: improve a log message
+51a5774aa605f3b976ced47902e15ce450f50339 2024-02-03 Kefu Chai | mgr: add site package paths in PyModuleRegistry
+07773617f339a2779aa7cf910c0361c937ffe4c2 2024-02-03 Kefu Chai | mgr: set argv for python in PyModuleRegistry
+4cf9b36c66fd64f2dc50f4e1acca3fe93e29b3f2 2024-02-03 Kefu Chai | mgr: stop using deprecated API to initialize Python
+6f0ce7a6e99c900e97a18ab7e2c766791a474f8f 2024-04-02 Adam King | Revert "Merge pull request #55436 from tchaikov/mgr-python-3.12"
+45832deb6ccdc4886a27cf506bb46e9edacd3299 2024-02-03 Kefu Chai | mgr: add site package paths in PyModuleRegistry
+a21d80c6b4c9e27e5472fed837bb6308639b0492 2024-02-03 Kefu Chai | mgr: stop using deprecated API to initialize Python
+e417c1c935a35dbed838f1e664729647817a47e2 2024-02-03 Kefu Chai | mgr: set argv for python in PyModuleRegistry
+dd9f9e268b5562bae8972bce03ec0970f353ae14 2023-11-02 Ramana Raja | mgr/Mgr: remove shutdown() and handle_signal()
+e72194b42ce1921e4b687fbed94e9d199923e77b 2023-02-27 Patrick Donnelly | mgr: rework register_client to take name and replace
+a586dcc57ab35a269f0c271756951d49f422662d 2023-02-15 Ramana Raja | mgr: take a lock within PyModuleRegistry's mutators and accessor
+b545fb9f5660dca3af4dea195ea4555f09b3a6e8 2023-01-30 Ramana Raja | mgr: store names of modules that register RADOS clients in the MgrMap
+46de6431603a56fa9ca2a7c7c9c795f126d16452 2022-10-17 Kotresh Hiremath Ravishankar | mgr: Add one finisher thread per module
+ee4e3ecd6e0754854c00f3dfa0eaaa17bbf3603d 2021-12-02 Sage Weil | mgr: only queue notify events that modules ask for
+a41b62bd85688bec566a7760cea95341bcb7a953 2021-06-27 Kefu Chai | mgr,mon: s/boost::optional/std::optional/
+756a3512ce74b93953ced1d99e063b496f9a920b 2021-06-07 Kefu Chai | *: always include <filesystem>
+7d2964bf782eb3f4d39cca2c2098501caf8a8de3 2021-04-21 Kefu Chai | mgr/PyModuleRegistry: use vector<> when appropriate
+efc29fb3630aaab4e04d99621c40561d38a99c03 2021-04-16 Sage Weil | mgr/MgrStandby: respawn if mgr_standby_modules changes
+edf1ea2f50927b97a4271c6754f855421dd4d4d0 2021-02-16 Sage Weil | mgr: use new kv subscription for mgr/, device/, config/
+19000fad573138b2b0576c093237c4a708b76020 2020-12-03 Neha Ojha | mgr: don't add config values to mgr log in config_callback and module_config
+70e99e76b5f63265f6b2700f8af77ece4f1dd11b 2020-11-25 Kefu Chai | mgr: do not migrate conf from config-key store to new-style conf
+28985555f8557c297e15d68ff0ed5bd2868adc5e 2020-11-16 Kefu Chai | mgr/PyModuleRegistry: do not call PyEval_InitThreads() on python3.9
+12375a4cf5d664eb2a0d54fc3fdc0ae65a35c4ef 2020-09-04 Venky Shankar | mgr: PyModuleRegistry::unregister_client() can run endlessly
+2d9b3abd1fc50e5fcd9ce2c05e8fac41d389b052 2020-06-25 Kefu Chai | mgr: avoid false alarm of MGR_MODULE_ERROR
+067adbf9a032b5de793fd0b41b071f24f075270a 2020-04-30 Kefu Chai | mgr: do not load disabled modules
+40d06ce623f19172721a2f1d5b4f4f8b642a3077 2020-04-30 Kefu Chai | mgr/PyModuleRegistry: probe modules using std::filesystem
+0a183082e5d66a4895b90e9dee8989d6f12bec25 2020-04-20 Kefu Chai | mgr: drop python2 support
+a59f4e5deb49536af23473658e0f04d0f495829f 2020-04-11 Sage Weil | mgr/PyModuleRegistry: ignore 'obsolete' modules
+df507cde8d71063d5873a42f668156e4c32e86f9 2019-12-02 Patrick Donnelly | mgr: forward RADOS client instances for potential blacklist
+78576c9eecf2209ab69bccb17a2f862db8beffbf 2019-12-02 Patrick Donnelly | mgr: use more efficient data structure
+282c31c383856b45caadcefb876a71e39fe4b219 2019-10-14 Jason Dillaman | mgr: python modules can now perform authorization tests
+d8251aa2139b75452371409c1bd27fec2f7f1774 2019-09-06 Ilsoo Byun | build/ops: fix build fail related to PYTHON_EXECUTABLE variable
+d0eb22f3ba557b9e98836995c813ea77c5e7c2a5 2019-07-31 Sage Weil | mon/health_checks: associate a count with health_alert_t
+c93dc8849145c1630058e4c0e527f404929216ff 2019-07-07 Kefu Chai | mgr: s/Mutex/ceph::mutex/
+dffce107fb68e21cd85938d67115bdafe4e697eb 2019-07-22 Sebastian Wagner | mgr: cleanup idle debug log at level 4.
+67a47951053bbca0d5951ac3f49fd99d100a9d14 2019-05-10 Tim Serong | mgr/PyModuleRegistry: log error if we can't find any modules to load
+ef336075cf932d7de6ca18f4db6abde9c75443a3 2019-02-15 Sage Weil | mgr/PyModuleRegistry: avoid null deref from get_progress_events
+5ac9e85a213017322e0fbdc604a9fc26f157a815 2019-01-25 Volker Theile | mgr: Improve ActivePyModules::get_typed_config implementation
+08d1a6fc3c57ccbeb6dff8fce1aae429edca97f3 2019-02-05 Sage Weil | mgr: send progress events to mon
+4a7aca7737e84a667e77bcf52ea5c53c28ef1231 2019-01-31 Sage Weil | mgr/PyModuleRegistry: add details for MGR_MODULE_{DEPENDENCY,ERROR}
+f22347db5509dc2da3cac6bc9f7a9b627798d3ac 2019-01-24 Mykola Golub | mgr: load modules in finisher to avoid potential lock cycles
+030e85bb9c6c3571fec514f457010efea8f49296 2019-01-03 Volker Theile | mgr: Allow modules to get/set other module options
+b24be6f0746ce9d68433e94deee34cb5bc099c73 2018-12-13 João Eduardo Luís | mgr: make module error message more descriptive
+f27a5dc6155440f0add91213d68bb690d8bf9cd7 2018-11-17 Sage Weil | mgr: call config_notify method when mgr's config has changed
+7734e9fa887293d8262d895d6277bd98ca9bc79e 2018-09-27 John Spray | common: remove unused 'avail' field from commands
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f 2018-10-16 Sage Weil | mgr: Mutex::Locker -> std::lock_guard
+34525ba3af31012d7874920883374d4f23ad90a1 2018-09-28 Volker Theile | Relocate cluster_log(). Only active modules can use it.
+95746ecce9215c8428a02f1745d03e10536a4129 2018-09-24 Volker Theile | mgr: Add ability to trigger a cluster/audit log message from Python
+18f253aa3f1b0693c5345756ecca7ca365c389e5 2018-09-04 Noah Watkins | mgr: monitor-controlled always on modules
+ef88206d1c2ef72b2a1073f0017ff823f4436b78 2018-08-31 Noah Watkins | mgr: remove dead code
+ab23c506964753990f9fe23e314b9f3e2547a773 2018-08-23 Adam C. Emerson | mgr: Use ceph_assert for asserts.
+a26e6067c7ee00cdc65ba64a0b87d7994a6940aa 2018-08-20 John Spray | mgr: replace "Unknown error" string on always_on
+3068c4290166076093119d1dc08a2c0fada8235f 2018-07-26 Noah Watkins | mgr: report health check changes immediately
+cf292dfa8f9254e5095689c45a3d5e895e5df333 2018-07-16 Noah Watkins | mgr: create always_on class of modules
+4718b7cb2fac65b2ac7014f42ba1a10181350f0b 2018-07-06 Kefu Chai | common,rbd,rgw,osd: extract config values into ConfigValues
+140761f8a2df10c45eb02041fad5e8237bf57c20 2018-06-19 Dan Mick | mgr, pybind/mgr: pass inbuf (ceph -i <file>) to modules
+45d4dfed1ded628abcbb9f1c62dfb90095414f0d 2018-06-05 Sage Weil | mgr: load persistent device metadata on mgr stat
+39ffec281af577c766c619d568f7a7051d108b00 2018-04-25 Danny Al-Gaaf | misc: mark constructors as explicit
+6185bd66a9e9b23f1d1982b0bc12d672c33c6fcd 2018-04-26 John Spray | mgr: implement get_store in StandbyPyModules
+cf5ef59bcc435371c9f1a8ccc784792a9388a5fe 2018-04-23 John Spray | mgr: execute modules even if can_run=false
+6c8fba9758319a173fd479263e6242b36817685d 2018-04-16 John Spray | mgr: load MgrModule.OPTIONS and use it in upgrade
+1d830df90169f7220b5ffe65e249cbdc38b512cc 2018-04-16 John Spray | mgr: don't migrate config values that look like data
+6e447fd101557bdc5b72fbbebf1d7da9c6526d8b 2018-04-11 John Spray | mgr: clean up ActivePyModules logging
+37484af0b86083c02a7a506a0c9be02b3fd67b28 2018-04-09 John Spray | mgr: rework kv store load path
+3193d40d0daf766d5e210e7b1117afbfebd71f31 2018-02-16 Rubab-Syed | mgr: centralized setting/getting of mgr configs
+7c80548dba38a170ba33c964d3f6ad8dba49db4f 2018-03-15 John Spray | mgr: improve reporting on unloadable modules
+78e884dfb042221d6034151cee25e543b35df5e2 2018-02-28 Mohamad Gebai | mgr/iostat: add a 'poll' flag to the command description format
+03283b0c72cd3039a3e3d9d452256eab129e93c2 2018-03-02 John Spray | mgr: make PyModuleRegistry::init return void
+810369b0cc0ec595da496466d7ab08ecdbc9d57d 2018-02-05 John Spray | mgr: initialize PyModuleRegistry sooner
+410ce76f62c151810a61ba528f7547b8e0147d08 2018-02-08 Kefu Chai | mgr: load ceph_{logger,module} globally
+46003075924bb16b41149e7c12f31e9a6b7a3f15 2018-01-24 Kefu Chai | mgr: be compatible with py3
+9999ddf67bc6211982523a2b51af9ec1d0b77b63 2017-12-14 John Spray | mgr: refactor get_modules/list_modules
+6a8da7ca734726315c06929635c25dbb88599654 2017-11-16 John Spray | mgr: load all modules (not just active ones)
+712ad57d09a2a96dc1e21cd245fbf1a6372867ba 2017-11-16 John Spray | mgr: evaluate `can_run` method on modules
+834bc27940507737f064bca7362b4c7f4cd54c98 2017-11-23 John Spray | mgr: load command definitions earlier
+d9a47181c45eaad2312476f6565a20b21b09ff97 2017-11-27 John Spray | mgr: add health checks for failed modules
+b280bf40d3971fbd21009f6fe72bb1eedb0174b7 2017-12-05 Adam C. Emerson | common: Remove backported max and make_unique
+8dafb23516ebc6a19c035f52d1010fe3eae2ae52 2017-11-20 Adam C. Emerson | mgr: Call _list_modules under with_val
+345c14438e015c5e447d362489592a46821caa17 2017-10-09 Bhavishya Gopesh | mgr: In plugins 'module' classes need not to be called "Module" anymore.
+f4763c32fa84f57c93c559d742203fb3fd2985a8 2017-11-01 John Spray | mgr: emit cluster log message on serve() exception
+29193a47e6cf8297d9b1ceecc7695f2c85434999 2017-10-16 John Spray | mgr: update for SafeThreadState
+7e61f79f5d56b568103a067d9a1eb87af997ad61 2017-10-13 John Spray | mgr: refactor PyOSDMap etc implementation
+c1471c7501948004096581ee415ab4a1fa2d9379 2017-08-22 John Spray | mgr: standby modules come up and run now
+df8797320bed7ad9f121477e35d7e3862efd89bd 2017-10-06 John Spray | mgr: cut down duplication between active+standby
+70d45a6b93c92baf8d6a3b15765110a5384c5e60 2017-08-15 John Spray | mgr: clean up python source file naming
+9718896c8b844db2f3c07df1d344636da4605e61 2017-08-14 John Spray | mgr: refactor python module management

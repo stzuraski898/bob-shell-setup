@@ -1,0 +1,39 @@
+commit 29193a47e6cf8297d9b1ceecc7695f2c85434999
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Oct 16 10:51:34 2017 -0400
+
+    mgr: update for SafeThreadState
+    
+    A bunch of the previous commits were done
+    before this class existed, so updating in
+    one go instead of trying to edit history
+    in fine detail.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 5bb543c457c..83091d305e1 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -322,7 +322,7 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+ }
+ 
+ int ActivePyModules::start_one(std::string const &module_name,
+-    PyObject *pClass, PyThreadState *pMyThreadState)
++    PyObject *pClass, const SafeThreadState &pMyThreadState)
+ {
+   Mutex::Locker l(lock);
+ 
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 688469f8c13..21e6529a933 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -110,7 +110,7 @@ public:
+ 
+   int start_one(std::string const &module_name,
+                 PyObject *pClass,
+-                PyThreadState *pMyThreadState);
++                const SafeThreadState &pMyThreadState);
+ 
+   void dump_server(const std::string &hostname,
+                    const DaemonStateCollection &dmc,

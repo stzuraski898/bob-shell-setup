@@ -1,0 +1,21 @@
+commit c93dc8849145c1630058e4c0e527f404929216ff
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jul 7 11:14:49 2019 +0800
+
+    mgr: s/Mutex/ceph::mutex/
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index e0cc9f2e0b9..10e526f8d56 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -156,7 +156,7 @@ void DaemonStateIndex::_insert(DaemonStatePtr dm)
+ 
+ void DaemonStateIndex::_erase(const DaemonKey& dmk)
+ {
+-  ceph_assert(lock.is_wlocked());
++  ceph_assert(ceph_mutex_is_wlocked(lock));
+ 
+   const auto to_erase = all.find(dmk);
+   ceph_assert(to_erase != all.end());

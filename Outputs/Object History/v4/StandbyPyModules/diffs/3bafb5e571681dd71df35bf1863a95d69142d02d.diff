@@ -1,0 +1,33 @@
+commit 3bafb5e571681dd71df35bf1863a95d69142d02d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Feb 16 18:27:08 2021 -0500
+
+    mgr: rename config_prefix -> mgr_store_prefix
+    
+    The prefix for module kv store is "mgr/", but it is not *config* (which
+    lives under /config/mgr/...).  Rename the constant.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/StandbyPyModules.cc b/src/mgr/StandbyPyModules.cc
+index 3579ae68ace..86ee8550cad 100644
+--- a/src/mgr/StandbyPyModules.cc
++++ b/src/mgr/StandbyPyModules.cc
+@@ -20,7 +20,7 @@
+ #include "mgr/MgrContext.h"
+ #include "mgr/Gil.h"
+ 
+-// For ::config_prefix
++// For ::mgr_store_prefix
+ #include "PyModuleRegistry.h"
+ 
+ #define dout_context g_ceph_context
+@@ -143,7 +143,7 @@ bool StandbyPyModule::get_store(const std::string &key,
+                                 std::string *value) const
+ {
+ 
+-  const std::string global_key = PyModule::config_prefix
++  const std::string global_key = PyModule::mgr_store_prefix
+     + get_name() + "/" + key;
+ 
+   dout(4) << __func__ << " key: " << global_key << dendl;

@@ -1,0 +1,97 @@
+commit e23420da21b656966c42acb5b54e5458be32b2ce
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 7 14:09:20 2017 -0500
+
+    mgr/DaemonServer: attach MgrSession to connections
+    
+    Reuse MonCap; it is suitably generic.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 1f28257fbbd..72fb0396788 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -127,18 +127,42 @@ bool DaemonServer::ms_verify_authorizer(Connection *con,
+     return true;
+   }
+ 
++  MgrSessionRef s(new MgrSession);
+   AuthCapsInfo caps_info;
+-  EntityName name;
+-  uint64_t global_id = 0;
+ 
+   is_valid = handler->verify_authorizer(
+     cct, monc->rotating_secrets.get(),
+     authorizer_data,
+-    authorizer_reply, name,
+-    global_id, caps_info,
++    authorizer_reply, s->entity_name,
++    s->global_id, caps_info,
+     session_key);
+ 
+-  // TODO: invent some caps suitable for ceph-mgr
++  if (is_valid) {
++    if (caps_info.allow_all) {
++      dout(10) << " session " << s << " " << s->entity_name
++	       << " allow_all" << dendl;
++      s->caps.set_allow_all();
++    }
++    if (caps_info.caps.length() > 0) {
++      bufferlist::iterator p = caps_info.caps.begin();
++      string str;
++      try {
++	::decode(str, p);
++      }
++      catch (buffer::error& e) {
++      }
++      bool success = s->caps.parse(str);
++      if (success) {
++	dout(10) << " session " << s << " " << s->entity_name
++		 << " has caps " << s->caps << " '" << str << "'" << dendl;
++      } else {
++	dout(10) << " session " << s << " " << s->entity_name
++		 << " failed to parse caps '" << str << "'" << dendl;
++	is_valid = false;
++      }
++    }
++    con->set_priv(s->get());
++  }
+ 
+   return true;
+ }
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index e38f3379ac2..ee805919d1b 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -24,6 +24,8 @@
+ #include <msg/Messenger.h>
+ #include <mon/MonClient.h>
+ 
++#include <mon/MonCap.h>
++
+ #include "auth/AuthAuthorizeHandler.h"
+ 
+ #include "DaemonState.h"
+@@ -32,6 +34,21 @@ class MMgrReport;
+ class MMgrOpen;
+ class MCommand;
+ 
++/**
++ * Session state associated with the Connection.
++ */
++struct MgrSession : public RefCountedObject {
++  uint64_t global_id = 0;
++  EntityName entity_name;
++
++  // mon caps are suitably generic for mgr
++  MonCap caps;
++
++  MgrSession() : RefCountedObject(0) {}
++  ~MgrSession() override {}
++};
++
++typedef boost::intrusive_ptr<MgrSession> MgrSessionRef;
+ 
+ /**
+  * Server used in ceph-mgr to communicate with Ceph daemons like

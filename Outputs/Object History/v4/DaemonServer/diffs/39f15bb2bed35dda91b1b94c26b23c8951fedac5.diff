@@ -1,0 +1,25 @@
+commit 39f15bb2bed35dda91b1b94c26b23c8951fedac5
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Tue Sep 3 12:02:42 2019 +0800
+
+    mgr/DaemonServer: skip adjusting pgp_num when merging is in-progress
+    
+    otherwise there is a possibility we might change the up set of the
+    merge participants and hence have to back off the merge process.
+    Also this will cause some other (racy) corner cases that are hard
+    to take care of.
+    
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 9d09f1b5c06..99e44872965 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2512,6 +2512,7 @@ void DaemonServer::adjust_pgs()
+ 		       << " and " << merge_target
+ 		       << ")" << dendl;
+ 	      pg_num_to_set[osdmap.get_pool_name(i.first)] = target;
++              continue;
+ 	    }
+ 	  } else if (p.get_pg_num_target() > p.get_pg_num()) {
+ 	    // pg_num increase (split)

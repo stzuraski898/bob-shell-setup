@@ -1,0 +1,59 @@
+commit fb26bcd9865b336a043453c9c50aa935f68fdf90
+Author: Samuel Just <sjust@redhat.com>
+Date:   Thu Dec 18 19:06:18 2025 +0000
+
+    mgr/Gil.cc: simplify Gil(), ~Gil()
+    
+    Instead of restoring the passed ts and then swapping to
+    a fresh one, restore the fresh one in the first place.
+    
+    Signed-off-by: Samuel Just <sjust@redhat.com>
+
+diff --git a/src/mgr/Gil.cc b/src/mgr/Gil.cc
+index 159a93996dc..5c0cfd91184 100644
+--- a/src/mgr/Gil.cc
++++ b/src/mgr/Gil.cc
+@@ -58,10 +58,6 @@ SafeThreadState::SafeThreadState(PyThreadState *ts_)
+ 
+ Gil::Gil(SafeThreadState &ts, bool new_thread) : pThreadState(ts)
+ {
+-  // Acquire the GIL, set the current thread state
+-  PyEval_RestoreThread(pThreadState.ts);
+-  dout(25) << "GIL acquired for thread state " << pThreadState.ts << dendl;
+-
+   //
+   // If called from a separate OS thread (i.e. a thread not created
+   // by Python, that does't already have a python thread state that
+@@ -82,23 +78,28 @@ Gil::Gil(SafeThreadState &ts, bool new_thread) : pThreadState(ts)
+   //
+   if (new_thread) {
+     pNewThreadState = PyThreadState_New(pThreadState.ts->interp);
+-    PyThreadState_Swap(pNewThreadState);
++    PyEval_RestoreThread(pNewThreadState);
+     dout(20) << "Switched to new thread state " << pNewThreadState << dendl;
+   } else {
++    // Acquire the GIL, set the current thread state
++    PyEval_RestoreThread(pThreadState.ts);
++    dout(25) << "GIL acquired for thread state " << pThreadState.ts << dendl;
+     ceph_assert(pthread_self() == pThreadState.thread);
+   }
++  assert_gil();
+ }
+ 
+ Gil::~Gil()
+ {
++  // Release the GIL, reset the thread state to NULL
+   if (pNewThreadState != nullptr) {
+     dout(20) << "Destroying new thread state " << pNewThreadState << dendl;
+-    PyThreadState_Swap(pThreadState.ts);
+     PyThreadState_Clear(pNewThreadState);
++    PyEval_SaveThread();
+     PyThreadState_Delete(pNewThreadState);
++  } else {
++    PyEval_SaveThread();
+   }
+-  // Release the GIL, reset the thread state to NULL
+-  PyEval_SaveThread();
+   dout(25) << "GIL released for thread state " << pThreadState.ts << dendl;
+ }
+ 

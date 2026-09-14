@@ -1,0 +1,75 @@
+commit 2d4b4235fc255fd2a9b114627d9697718795790b
+Author: Ronen Friedman <rfriedma@redhat.com>
+Date:   Tue Feb 25 07:40:20 2025 -0600
+
+    mon,mgr: replace obsolete get_tracked_conf_keys()
+    
+    .. with get_tracked_keys().
+    
+    Following https://github.com/ceph/ceph/pull/61394,
+    all uses of the deprecated interface will be updated,
+    and that old interface will be removed.
+    
+    Signed-off-by: Ronen Friedman <rfriedma@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 8795ad7f3a0..ea9e51b0dd1 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -40,6 +40,7 @@
+ using std::map;
+ using std::string;
+ using std::vector;
++using namespace std::literals;
+ 
+ MgrStandby::MgrStandby(int argc, const char **argv) :
+   Dispatcher(g_ceph_context),
+@@ -68,23 +69,21 @@ MgrStandby::MgrStandby(int argc, const char **argv) :
+ 
+ MgrStandby::~MgrStandby() = default;
+ 
+-const char** MgrStandby::get_tracked_conf_keys() const
++std::vector<std::string> MgrStandby::get_tracked_keys() const noexcept
+ {
+-  static const char* KEYS[] = {
++  return {
+     // clog & admin clog
+-    "clog_to_monitors",
+-    "clog_to_syslog",
+-    "clog_to_syslog_facility",
+-    "clog_to_syslog_level",
+-    "clog_to_graylog",
+-    "clog_to_graylog_host",
+-    "clog_to_graylog_port",
+-    "mgr_standby_modules",
+-    "host",
+-    "fsid",
+-    NULL
++    "clog_to_monitors"s,
++    "clog_to_syslog"s,
++    "clog_to_syslog_facility"s,
++    "clog_to_syslog_level"s,
++    "clog_to_graylog"s,
++    "clog_to_graylog_host"s,
++    "clog_to_graylog_port"s,
++    "mgr_standby_modules"s,
++    "host"s,
++    "fsid"s
+   };
+-  return KEYS;
+ }
+ 
+ void MgrStandby::handle_conf_change(
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index ab5a8d05cbf..5c7e2222049 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -34,7 +34,7 @@ class MgrStandby : public Dispatcher,
+ 		   public md_config_obs_t {
+ public:
+   // config observer bits
+-  const char** get_tracked_conf_keys() const override;
++  std::vector<std::string> get_tracked_keys() const noexcept override;
+   void handle_conf_change(const ConfigProxy& conf,
+ 			  const std::set <std::string> &changed) override;
+ 

@@ -1,0 +1,23 @@
+commit 3f3a72b42e6410c13dc98d6b05f53ec9da93c4fe
+Author: Brad Hubbard <bhubbard@redhat.com>
+Date:   Wed Dec 21 14:44:00 2016 +1000
+
+    OSDMap: Uncomment code to enable private default constructors
+    
+    C++11 is here so let's enable this code.
+    
+    Signed-off-by: Brad Hubbard <bhubbard@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index c2b79655ad3..d7d8a404e91 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -214,7 +214,7 @@ PyObject *PyModules::get_python(const std::string &what)
+ 
+     cluster_state.with_osdmap([this, &f](const OSDMap &osd_map){
+       cluster_state.with_pgmap(
+-          [osd_map, &f](const PGMap &pg_map) {
++          [&osd_map, &f](const PGMap &pg_map) {
+         pg_map.dump_fs_stats(nullptr, &f, true);
+         pg_map.dump_pool_stats(osd_map, nullptr, &f, true);
+       });

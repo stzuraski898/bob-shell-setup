@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/MgrClient.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/MgrClient.cc 7fd618c288952060658a7f39963d3fc4e65d7f37 88442d2391ad58f95eb6b9f1529d8652e88ba42d
+#
+# Rename chain for src/mgr/MgrClient.h
+#
+src/mgr/MgrClient.h 7fd618c288952060658a7f39963d3fc4e65d7f37 88442d2391ad58f95eb6b9f1529d8652e88ba42d

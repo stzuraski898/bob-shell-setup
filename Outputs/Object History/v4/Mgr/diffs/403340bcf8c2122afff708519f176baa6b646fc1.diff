@@ -1,0 +1,110 @@
+commit 403340bcf8c2122afff708519f176baa6b646fc1
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Thu Jul 17 06:17:00 2025 +0000
+
+    mgr: replace TTLCache with MgrMapCache and protect api with readonly
+    
+    This patch removes the old TTLCache implementation and introduces
+    a new generic MgrMapCache driven by a runtime toggle:
+    
+    - Add `mgr_map_cache_enabled` config option in global.yaml
+    - Swap out `ttl_cache` for `api_cache` (MgrMapCache) in ActivePyModules
+    - Update cacheable_get_python() and get_python() to use LFU‐based api_cache
+    - add new get_mutable parameter to the get api call to get a copy.
+    - Invalidate api_cache on notify_all events
+    - Remove all TTLCache headers, sources, and tests
+    - Include MgrMapCache.cc in CMakeLists and update BaseMgrModule bindings
+    - Improve logging around cache hits, misses, and state changes
+    
+    - ActivePyModules
+      * Remove unused update_cache_metrics()
+      * Log cache hits/misses inline and only insert into cache when
+        enabled+cacheable (with proper Py_INCREF)
+      * Switch get_python() to use PyFormatterRO for cacheable routes, PyFormatter otherwise
+    
+    - MgrMapCache/LFUCache
+      * Add can_read_cache()/can_write_cache() helpers and use const& for key parameters
+      * Guard perf counter increments and improve debug logging
+    
+    - PyFormatter
+      * Add PyFormatterRO subclass that freezes dicts/lists into read-only
+        proxies on the fly
+    
+    - Python mgr_module
+      * Simplify get() to return raw result
+    
+    This change ensures immutable JSON output on cache hits and tightens up cache logic.
+    
+    mgr/cli: add cache flush command with proper status reporting
+    
+    Allow operators to invalidate individual mgr Python caches at runtime
+    without restarting the manager. Introduces a new CLI command:
+    
+      $ ceph mgr cli cache flush <map-name>
+    
+    which returns success or a clear error if the named cache entry doesn’t
+    exist or isn’t cacheable. This makes it easy to drop stale cached maps
+    (e.g. osd_map, mon_map) on demand.
+    
+    Fixes: https://tracker.ceph.com/issues/72447
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+    
+    mgr: add new unit tests for MgrMapCache
+    
+    - Guard against null perf‐counter before calling inc(), preventing crashes
+    - Add “foo” to allowed_keys list (for test coverage)
+    - Rename and refocus the CMake test target from TTLCache to MgrMapCache
+    - Introduce test_mgrmapcache.cc with LFUCache tests.
+    - Remove the obsolete test_ttlcache.cc
+    
+    Fixes: https://tracker.ceph.com/issues/72447
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+    
+    mgr/test_cache: add new tests
+    
+    adding new unit-test for mgrcache
+    
+    Fixes: https://tracker.ceph.com/issues/72447
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 50fb01fce48..174682e74f8 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -622,10 +622,12 @@ Dispatcher::dispatch_result_t Mgr::ms_dispatch2(const ref_t<Message>& m)
+     case CEPH_MSG_FS_MAP:
+       handle_fs_map(ref_cast<MFSMap>(m));
+       py_module_registry->notify_all("fs_map", "");
++      py_module_registry->notify_all("mds_metadata", "");
+       return Dispatcher::ACKNOWLEDGED();
+     case CEPH_MSG_OSD_MAP:
+       handle_osd_map();
+       py_module_registry->notify_all("osd_map", "");
++      py_module_registry->notify_all("osd_metadata", "");
+ 
+       // Continuous subscribe, so that we can generate notifications
+       // for our MgrPyModules
+@@ -762,6 +764,7 @@ bool Mgr::got_mgr_map(const MgrMap& m)
+   cluster_state.with_mgrmap([&](const MgrMap& m) {
+       old_modules = m.modules;
+     });
++  py_module_registry->notify_all("mgr_map", "");
+   if (m.modules != old_modules) {
+     derr << "mgrmap module list changed to (" << m.modules << "), respawn"
+ 	 << dendl;
+@@ -805,12 +808,14 @@ void Mgr::handle_mgr_digest(ref_t<MMgrDigest> m)
+   dout(10) << m->mon_status_json.length() << dendl;
+   dout(10) << m->health_json.length() << dendl;
+   cluster_state.load_digest(m.get());
+-  //no users: py_module_registry->notify_all("mon_status", "");
++  py_module_registry->notify_all("mon_status", "");
+   py_module_registry->notify_all("health", "");
+ 
+   // Hack: use this as a tick/opportunity to prompt python-land that
+   // the pgmap might have changed since last time we were here.
+   py_module_registry->notify_all("pg_summary", "");
++  py_module_registry->notify_all("pg_stats", "");
++  py_module_registry->notify_all("pg_dump", "");
+   dout(10) << "done." << dendl;
+   m.reset();
+ 

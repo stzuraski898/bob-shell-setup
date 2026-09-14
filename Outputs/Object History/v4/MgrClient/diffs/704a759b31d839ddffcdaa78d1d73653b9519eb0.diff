@@ -1,0 +1,24 @@
+commit 704a759b31d839ddffcdaa78d1d73653b9519eb0
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu Feb 4 13:05:44 2021 +0800
+
+    mgr/MgrClient: use mono_clock for clock_t used by Timer
+    
+    so we don't suffer from "missing event" when adjust time the system
+    clock
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 6bd2b26e11a..f09ba91b712 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -76,7 +76,7 @@ protected:
+ 
+   CommandTable<MgrCommand> command_table;
+ 
+-  using clock_t = ceph::real_clock;
++  using clock_t = ceph::mono_clock;
+   clock_t::time_point last_connect_attempt;
+ 
+   uint64_t last_config_bl_version = 0;

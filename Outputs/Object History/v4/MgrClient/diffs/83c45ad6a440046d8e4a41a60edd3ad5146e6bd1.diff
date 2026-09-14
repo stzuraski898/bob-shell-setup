@@ -1,0 +1,28 @@
+commit 83c45ad6a440046d8e4a41a60edd3ad5146e6bd1
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon May 1 10:33:36 2017 -0400
+
+    osd: stop MgrClient callbacks on shutdown
+    
+    Stop the MgrClient callbacks to report PG stats at the
+    start of shutdown() so that we don't get a callback
+    during/after we are done shutting down.
+    
+    Protect the cb update with the MgrClient's lock so that
+    we don't race with MgrClient::send_report() itself.
+    
+    Fixes: http://tracker.ceph.com/issues/19638
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index adc35fe406f..f9385b8be6d 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -95,6 +95,7 @@ public:
+ 
+   void set_pgstats_cb(std::function<MPGStats*()> cb_)
+   {
++    Mutex::Locker l(lock);
+     pgstats_cb = cb_;
+   }
+ 

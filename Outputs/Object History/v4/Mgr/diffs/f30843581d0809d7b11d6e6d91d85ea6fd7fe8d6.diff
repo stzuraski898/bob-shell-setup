@@ -1,0 +1,21 @@
+commit f30843581d0809d7b11d6e6d91d85ea6fd7fe8d6
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 12 12:30:56 2018 -0500
+
+    mgr: myaddr -> myaddrs
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 26142d84bfd..2b27038ab64 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -221,7 +221,7 @@ void Mgr::init()
+   assert(!initialized);
+ 
+   // Start communicating with daemons to learn statistics etc
+-  int r = server.init(monc->get_global_id(), client_messenger->get_myaddr());
++  int r = server.init(monc->get_global_id(), client_messenger->get_myaddrs());
+   if (r < 0) {
+     derr << "Initialize server fail: " << cpp_strerror(r) << dendl;
+     // This is typically due to a bind() failure, so let's let

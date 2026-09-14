@@ -1,0 +1,21 @@
+commit 69a4a8f6161f1693b5fc94089424bde7127da5fd
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 14 09:57:26 2017 -0400
+
+    mgr/DaemonServer: whitespace
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 429db5faa53..f837469c4c5 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -198,7 +198,7 @@ bool DaemonServer::ms_dispatch(Message *m)
+ {
+   Mutex::Locker l(lock);
+ 
+-  switch(m->get_type()) {
++  switch (m->get_type()) {
+     case MSG_PGSTATS:
+       cluster_state.ingest_pgstats(static_cast<MPGStats*>(m));
+       m->put();

@@ -1,0 +1,37 @@
+commit b1c1ddaf0b771420e0905cd47e33919de5e11fd5
+Author: Lumir Sliva <61183145+lumir-sliva@users.noreply.github.com>
+Date:   Sat Apr 4 17:25:15 2026 +0200
+
+    mgr: guard close_section calls in get_perf_schema_python
+    
+    When a daemon exists in the daemon state map but has no perf counters
+    (e.g. an OSD that was running but is now down or destroyed), the loop
+    in get_perf_schema_python never executes, leaving prev_key_name empty
+    and no formatter sections opened. The unconditional close_section()
+    calls after the loop then trigger an assertion failure in PyFormatter
+    (cursor != root).
+    
+    Add the same `if (!prev_key_name.empty())` guard that already protects
+    the close_section() calls inside the loop, so we only close sections
+    that were actually opened.
+    
+    Fixes: https://tracker.ceph.com/issues/75745
+    Signed-off-by: Lumir Sliva <61183145+lumir-sliva@users.noreply.github.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index ab5e40898a7..051c9517af7 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -1264,8 +1264,10 @@ PyObject* ActivePyModules::get_perf_schema_python(
+ 		<< dendl;
+ 	  }
+ 	}
+-	f.close_section();  // close 'counters'
+-	f.close_section();  // close 'counter object' section
++	if (!prev_key_name.empty()) {
++	  f.close_section();  // close 'counters'
++	  f.close_section();  // close 'counter object' section
++	}
+       });
+     }
+   } else {

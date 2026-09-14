@@ -1,0 +1,26 @@
+commit 28c83737345e9b9547a87105ab4d32b6f636bd4b
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu Jun 8 11:21:11 2017 +0800
+
+    msg,common: do not include assert.h everywhere to clobber <assert.h>
+    
+    * reverts c93daaf92b643a06a822558973d377733dbd9d85
+    * add "#include "include/assert.h" to where <cassert> or <assert.h> are
+      included, or avoid including them if possible.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index ad1e96a2d58..dc4daed1b59 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -33,9 +33,6 @@
+ 
+ #include "Mgr.h"
+ 
+-// reinclude our assert to clobber the system one
+-#include "include/assert.h"
+-
+ #define dout_context g_ceph_context
+ #define dout_subsys ceph_subsys_mgr
+ #undef dout_prefix

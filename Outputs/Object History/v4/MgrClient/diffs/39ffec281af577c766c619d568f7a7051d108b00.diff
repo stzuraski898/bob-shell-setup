@@ -1,0 +1,32 @@
+commit 39ffec281af577c766c619d568f7a7051d108b00
+Author: Danny Al-Gaaf <danny.al-gaaf@bisect.de>
+Date:   Wed Apr 25 09:30:56 2018 +0200
+
+    misc: mark constructors as explicit
+    
+    Set 218 constructors as explicit to avoid implicit usage.
+    
+    Fix for cppcheck warning:
+     Class has a constructor with 1 argument that is
+     not explicit. Such constructors should in general be explicit for
+     type safety reasons. Using the explicit keyword in the constructor
+     means some mistakes when using the class can be avoided.
+    
+     For more information check:
+      https://www.codeproject.com/Articles/28663/Explicit-Constructor-in-C
+    
+    Signed-off-by: Danny Al-Gaaf <danny.al-gaaf@bisect.de>
+
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 4a044b5d5e3..3c21ca87b42 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -44,7 +44,7 @@ class MgrCommand : public CommandOp
+ {
+   public:
+ 
+-  MgrCommand(ceph_tid_t t) : CommandOp(t) {}
++  explicit MgrCommand(ceph_tid_t t) : CommandOp(t) {}
+   MgrCommand() : CommandOp() {}
+ };
+ 

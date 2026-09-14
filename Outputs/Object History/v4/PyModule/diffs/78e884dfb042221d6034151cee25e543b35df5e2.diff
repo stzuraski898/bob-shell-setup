@@ -1,0 +1,48 @@
+commit 78e884dfb042221d6034151cee25e543b35df5e2
+Author: Mohamad Gebai <mgebai@suse.com>
+Date:   Wed Feb 28 09:20:44 2018 -0500
+
+    mgr/iostat: add a 'poll' flag to the command description format
+    
+    Signed-off-by: Mohamad Gebai <mgebai@suse.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index e2e96ea342d..0aacaf8a9d0 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -26,6 +26,7 @@
+ 
+ // Courtesy of http://stackoverflow.com/questions/1418015/how-to-get-python-exception-text
+ #include <boost/python.hpp>
++#include <boost/algorithm/string/predicate.hpp>
+ #include "include/assert.h"  // boost clobbers this
+ // decode a Python exception into a string
+ std::string handle_pyerror()
+@@ -384,6 +385,15 @@ int PyModule::load_commands()
+     assert(pPerm != nullptr);
+     item.perm = PyString_AsString(pPerm);
+ 
++    item.polling = false;
++    PyObject *pPoll = PyDict_GetItemString(command, "poll");
++    if (pPoll) {
++      std::string polling = PyString_AsString(pPoll);
++      if (boost::iequals(polling, "true")) {
++        item.polling = true;
++      }
++    }
++
+     item.module_name = module_name;
+ 
+     commands.push_back(item);
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index bea92689e0a..b077beafbbe 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -30,6 +30,7 @@ public:
+   std::string cmdstring;
+   std::string helpstring;
+   std::string perm;
++  bool polling;
+ 
+   // Call the ActivePyModule of this name to handle the command
+   std::string module_name;

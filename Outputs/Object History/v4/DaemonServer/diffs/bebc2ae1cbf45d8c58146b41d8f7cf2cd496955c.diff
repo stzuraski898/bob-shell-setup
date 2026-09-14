@@ -1,0 +1,45 @@
+commit bebc2ae1cbf45d8c58146b41d8f7cf2cd496955c
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue Jul 14 17:48:59 2020 +0800
+
+    mgr/DaemonServer: keep daemon in service map when it has no tasks
+    
+    we should not remove a daemon from service map even if it has no task
+    running, as it is not an evidence that the service is removed from the
+    cluster.
+    
+    this change partially reverts 5a7d0632d989536e09b2d916b5ea9713dc8dbea5
+    
+    Fixes: https://tracker.ceph.com/issues/46495
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index a6227db2754..99f255ec2e6 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -554,21 +554,10 @@ void DaemonServer::update_task_status(
+ {
+   dout(10) << "got task status from " << key << dendl;
+ 
+-  bool service_map_dirty = false;
+-  if (task_status.empty()) {
+-    auto removed = pending_service_map.rm_daemon(key.type, key.name);
+-    if (removed) {
+-      service_map_dirty = true;
+-    }
+-  } else {
+-    auto p = pending_service_map.get_daemon(key.type, key.name);
+-    if (!map_compare(p.first->task_status, task_status)) {
+-      service_map_dirty = true;
+-      p.first->task_status = task_status;
+-    }
+-  }
+-
+-  if (service_map_dirty) {
++  [[maybe_unused]] auto [daemon, added] =
++    pending_service_map.get_daemon(key.type, key.name);
++  if (daemon->task_status != task_status) {
++    daemon->task_status = task_status;
+     pending_service_map_dirty = pending_service_map.epoch;
+   }
+ }

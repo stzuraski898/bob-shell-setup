@@ -1,0 +1,26 @@
+commit 4d7dd0012962202532bde4fbc47554186c95b9fb
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Feb 17 12:39:25 2021 -0500
+
+    mgr/cephadm/upgrade: restart mgr after mons upgrade to pacific
+    
+    If we are upgrading to pacific, we need to restart the mgr *after* the
+    mons have a pacific quorum so that they can get the kv subscriptions.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 02935c8b5f8..38e638e8af2 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -486,6 +486,10 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+       mgr_map.dump(&f);
+       return f.get();
+     });
++  } else if (what == "have_local_config_map") {
++    with_gil_t with_gil{no_gil};
++    f.dump_bool("have_local_config_map", have_local_config_map);
++    return f.get();
+   } else {
+     derr << "Python module requested unknown data '" << what << "'" << dendl;
+     with_gil_t with_gil{no_gil};

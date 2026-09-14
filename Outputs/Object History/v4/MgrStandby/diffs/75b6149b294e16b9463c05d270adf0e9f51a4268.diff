@@ -1,0 +1,43 @@
+commit 75b6149b294e16b9463c05d270adf0e9f51a4268
+Author: Steven Zuraski <steven.zuraski@ibm.com>
+Date:   Thu May 21 19:23:54 2026 +0000
+
+    common/TrackedOp: make OpHistory::on_shutdown() idempotent
+    
+    Make on_shutdown() idempotent using shutdown.exchange(true) to ensure
+    thread shutdown and join happens exactly once, even if on_shutdown() is
+    called multiple times.
+    
+    The atomic exchange returns the previous value of shutdown:
+    - If it was already true, return early (already shut down)
+    - If it was false, proceed with shutdown: break_thread(), conditionally
+      join if started, and clear history containers
+    
+    Add an is_started() check before joining the opsvc thread in on_shutdown().
+    This prevents attempting to join a thread that hasn't started yet, making the
+    shutdown process safe for rapidly created and destroyed objects.
+    
+    Add history.on_shutdown() call in OpTracker destructor as a failsafe,
+    with documentation explaining that on_shutdown() should be called before
+    destruction. The idempotent design makes this safe even if on_shutdown()
+    was already called explicitly during shutdown sequences in OSD::shutdown(),
+    Monitor::shutdown(), MDSRank::~MDSRank(), and DaemonServer::~DaemonServer().
+    
+    Fixes: https://tracker.ceph.com/issues/76334
+    Signed-off-by: stzuraski898 <steven.zuraski@ibm.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 8209d4f8b4c..45fb83c71f7 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -94,6 +94,10 @@ MgrStandby::MgrStandby(int argc, const char **argv) :
+ }
+ 
+ MgrStandby::~MgrStandby() {
++  if (active_mgr) {
++    active_mgr->shutdown();
++    active_mgr.reset();
++  }
+   if (asok_hook) {
+     g_ceph_context->get_admin_socket()->unregister_commands(asok_hook.get());
+     asok_hook.reset();

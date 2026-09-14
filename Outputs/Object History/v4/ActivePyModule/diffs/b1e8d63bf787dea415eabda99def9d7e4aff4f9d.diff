@@ -1,0 +1,34 @@
+commit b1e8d63bf787dea415eabda99def9d7e4aff4f9d
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Apr 23 17:15:22 2018 -0400
+
+    mgr: handle commands sent to unavailable modules
+    
+    There are some up-front checks in DaemonServer
+    but it shouldn't assume that its checks are
+    necessarily going to match the choices about
+    how ActivePyModules composes its ::modules member,
+    so let's have some extra checks to avoid
+    risk of crashing mgr on commands sent to
+    unhealthy/unloaded modules.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/ActivePyModule.cc b/src/mgr/ActivePyModule.cc
+index 185ef445428..2f52dd62262 100644
+--- a/src/mgr/ActivePyModule.cc
++++ b/src/mgr/ActivePyModule.cc
+@@ -110,6 +110,13 @@ int ActivePyModule::handle_command(
+   assert(ss != nullptr);
+   assert(ds != nullptr);
+ 
++  if (pClassInstance == nullptr) {
++    // Not the friendliest error string, but we could only
++    // hit this in quite niche cases, if at all.
++    *ss << "Module not instantiated";
++    return -EINVAL;
++  }
++
+   Gil gil(py_module->pMyThreadState, true);
+ 
+   PyFormatter f;

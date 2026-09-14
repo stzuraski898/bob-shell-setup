@@ -1,0 +1,51 @@
+commit 4718b7cb2fac65b2ac7014f42ba1a10181350f0b
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Jul 6 17:20:32 2018 +0800
+
+    common,rbd,rgw,osd: extract config values into ConfigValues
+    
+    this change introduce three classes: ConfigValues, ConfigProxy and
+    ConfigReader. in seastar port of OSD, each CPU shard will hold its own
+    reference of configuration, and upon changes of settings, each
+    shard will be updated with the new setting in async. so this forces us
+    to be able to keep two set of configuration at the same time. so we
+    need to extract the changeable part of md_config_t out. so we can
+    replace the old one with new one on demand, and let different shards
+    share the same unchanged part, amon the other things, the Options map
+    and the lookup tables. that's why we need ConfigValues. we will add
+    a policy template for this class, so we can specialize for Seastar
+    implementation to allow different ConfigProxy instances to point
+    md_config_impl<> to different ConfigValues.
+    
+    because the observer interface is still using md_config_t, to minimise
+    the impact of this change, handle_conf_change() and
+    handle_subsys_change() are not changed. but as it accepts a `const
+    md_config_t`, which cannot be used to create/reference the ConfigProxy
+    holding it, we need to introduce ConfigReader for reading the updated
+    setting from md_config_t in a simpler way, without exposing the
+    internal "values" member variable.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 036d8247179..ebb01a5c5b2 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -46,7 +46,7 @@ void PyModuleRegistry::init()
+   Py_SetProgramName(const_cast<char*>(PYTHON_EXECUTABLE));
+ #endif
+   // Add more modules
+-  if (g_conf->get_val<bool>("daemonize")) {
++  if (g_conf().get_val<bool>("daemonize")) {
+     PyImport_AppendInittab("ceph_logger", PyModule::init_ceph_logger);
+   }
+   PyImport_AppendInittab("ceph_module", PyModule::init_ceph_module);
+@@ -257,7 +257,7 @@ void PyModuleRegistry::shutdown()
+ 
+ std::set<std::string> PyModuleRegistry::probe_modules() const
+ {
+-  std::string path = g_conf->get_val<std::string>("mgr_module_path");
++  std::string path = g_conf().get_val<std::string>("mgr_module_path");
+ 
+   DIR *dir = opendir(path.c_str());
+   if (!dir) {

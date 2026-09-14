@@ -1,0 +1,21 @@
+commit 550c81022840cfdd83b626ea37bb8e142946222b
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Thu Mar 28 20:42:49 2019 -0400
+
+    mgr: Update DaemonHealthMetric.h to work without using namespace
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/DaemonHealthMetric.h b/src/mgr/DaemonHealthMetric.h
+index 4719fa188b9..ad3ea29efd4 100644
+--- a/src/mgr/DaemonHealthMetric.h
++++ b/src/mgr/DaemonHealthMetric.h
+@@ -65,7 +65,7 @@ public:
+     DENC_FINISH(p);
+   }
+ 
+-  friend ostream& operator<<(ostream& out, const DaemonHealthMetric& m) {
++  friend std::ostream& operator<<(std::ostream& out, const DaemonHealthMetric& m) {
+     return out << daemon_metric_name(m.get_type()) << "("
+ 	       << m.get_n() << "|(" << m.get_n1() << "," << m.get_n2() << "))";
+   }

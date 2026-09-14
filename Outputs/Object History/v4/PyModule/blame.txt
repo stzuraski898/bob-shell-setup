@@ -1,0 +1,1060 @@
+# git blame -w -M -C src/mgr/PyModule.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman     2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/PyModule.cc                      (Edwin Rodriguez    2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+c8c1019d1962 src/mgr/PyModule.cc                      (Edwin Rodriguez    2025-10-02 15:31:35 -0400   3) 
+9718896c8b84 src/mgr/PyModuleRegistry.h               (John Spray         2017-08-14 06:31:18 -0400   4) /*
+9718896c8b84 src/mgr/PyModuleRegistry.h               (John Spray         2017-08-14 06:31:18 -0400   5)  * Ceph - scalable distributed file system
+9718896c8b84 src/mgr/PyModuleRegistry.h               (John Spray         2017-08-14 06:31:18 -0400   6)  *
+9718896c8b84 src/mgr/PyModuleRegistry.h               (John Spray         2017-08-14 06:31:18 -0400   7)  * Copyright (C) 2017 John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray         2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray         2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray         2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray         2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray         2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray         2016-06-30 14:05:02 +0100  13)  */
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray         2016-06-30 14:05:02 +0100  14) 
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500  15) #include "BaseMgrModule.h"
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500  16) #include "BaseMgrStandbyModule.h"
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500  17) #include "PyOSDMap.h"
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400  18) #include "MgrContext.h"
+845ca9c10df7 src/mgr/PyModule.cc                      (Sage Weil          2019-08-23 12:14:24 -0500  19) #include "PyUtil.h"
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500  20) 
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500  21) #include "PyModule.h"
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500  22) 
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400  23) #include "include/stringify.h"
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400  24) #include "common/BackTrace.h"
+3ab70dd3e115 src/mgr/PyModule.cc                      (Max Kellermann     2024-10-16 17:34:06 +0200  25) #include "common/JSONFormatter.h"
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000  26) #include "common/split.h"
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400  27) #include "global/signal_handler.h"
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400  28) 
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500  29) #include "common/debug.h"
+abca98058926 src/mgr/PyModule.cc                      (Kefu Chai          2018-07-05 14:51:21 +0800  30) #include "common/errno.h"
+b9182564c716 src/mgr/MgrPyModule.cc                   (Adam C. Emerson    2016-11-16 12:38:08 -0500  31) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray         2016-06-30 14:05:02 +0100  32) #define dout_subsys ceph_subsys_mgr
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800  33) 
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800  34) #undef dout_prefix
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800  35) #define dout_prefix *_dout << "mgr[py] "
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800  36) 
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400  37) // definition for non-const static member
+3bafb5e57168 src/mgr/PyModule.cc                      (Sage Weil          2021-02-16 18:27:08 -0500  38) std::string PyModule::mgr_store_prefix = "mgr/";
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400  39) 
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500  40) // Courtesy of http://stackoverflow.com/questions/1418015/how-to-get-python-exception-text
+5c95e2210969 src/mgr/PyModule.cc                      (Adam C. Emerson    2020-07-16 20:31:33 -0400  41) #define BOOST_BIND_GLOBAL_PLACEHOLDERS
+5c95e2210969 src/mgr/PyModule.cc                      (Adam C. Emerson    2020-07-16 20:31:33 -0400  42) // Boost apparently can't be bothered to fix its own usage of its own
+5c95e2210969 src/mgr/PyModule.cc                      (Adam C. Emerson    2020-07-16 20:31:33 -0400  43) // deprecated features.
+d44b2227cdc6 src/mgr/PyModule.cc                      (Adam C. Emerson    2025-01-06 21:01:49 -0500  44) 
+d44b2227cdc6 src/mgr/PyModule.cc                      (Adam C. Emerson    2025-01-06 21:01:49 -0500  45) // Fix instances of "'BOOST_PP_ITERATION_02' was not declared in this scope; did
+d44b2227cdc6 src/mgr/PyModule.cc                      (Adam C. Emerson    2025-01-06 21:01:49 -0500  46) // you mean 'BOOST_PP_ITERATION_05'" and related macro error bullshit that spans
+d44b2227cdc6 src/mgr/PyModule.cc                      (Adam C. Emerson    2025-01-06 21:01:49 -0500  47) // 300 lines of errors
+d44b2227cdc6 src/mgr/PyModule.cc                      (Adam C. Emerson    2025-01-06 21:01:49 -0500  48) //
+d44b2227cdc6 src/mgr/PyModule.cc                      (Adam C. Emerson    2025-01-06 21:01:49 -0500  49) // Apparently you can't include boost/python stuff _and_ have this header
+d44b2227cdc6 src/mgr/PyModule.cc                      (Adam C. Emerson    2025-01-06 21:01:49 -0500  50) // defined
+d44b2227cdc6 src/mgr/PyModule.cc                      (Adam C. Emerson    2025-01-06 21:01:49 -0500  51) //
+d44b2227cdc6 src/mgr/PyModule.cc                      (Adam C. Emerson    2025-01-06 21:01:49 -0500  52) // Thanks to the ceph-aur folks for the fix at:
+d44b2227cdc6 src/mgr/PyModule.cc                      (Adam C. Emerson    2025-01-06 21:01:49 -0500  53) // https://github.com/bazaah/aur-ceph/commit/8c5cc7d8deec002f7596b6d0860859a0a718f12b 
+d44b2227cdc6 src/mgr/PyModule.cc                      (Adam C. Emerson    2025-01-06 21:01:49 -0500  54) #undef BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS
+d44b2227cdc6 src/mgr/PyModule.cc                      (Adam C. Emerson    2025-01-06 21:01:49 -0500  55) 
+24e57a211b6b src/mgr/PyModule.cc                      (Kefu Chai          2020-11-16 16:16:38 +0800  56) #include <boost/python/extract.hpp>
+24e57a211b6b src/mgr/PyModule.cc                      (Kefu Chai          2020-11-16 16:16:38 +0800  57) #include <boost/python/import.hpp>
+24e57a211b6b src/mgr/PyModule.cc                      (Kefu Chai          2020-11-16 16:16:38 +0800  58) #include <boost/python/object.hpp>
+5c95e2210969 src/mgr/PyModule.cc                      (Adam C. Emerson    2020-07-16 20:31:33 -0400  59) #undef BOOST_BIND_GLOBAL_PLACEHOLDERS
+78e884dfb042 src/mgr/PyModule.cc                      (Mohamad Gebai      2018-02-28 09:20:44 -0500  60) #include <boost/algorithm/string/predicate.hpp>
+5009d9ecc692 src/mgr/PyModule.cc                      (Brad Hubbard       2018-09-14 14:22:00 +1000  61) #include "include/ceph_assert.h"  // boost clobbers this
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400  62) 
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400  63) 
+c63ecb602e59 src/mgr/PyModule.cc                      (Kefu Chai          2021-08-11 11:48:33 +0800  64) using std::string;
+c63ecb602e59 src/mgr/PyModule.cc                      (Kefu Chai          2021-08-11 11:48:33 +0800  65) 
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500  66) // decode a Python exception into a string
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400  67) std::string handle_pyerror(
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400  68)   bool crash_dump,
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400  69)   std::string module,
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400  70)   std::string caller)
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  71) {
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  72)   using namespace boost::python;
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  73)   using namespace boost;
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  74) 
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  75)   PyObject *exc, *val, *tb;
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  76)   object formatted_list, formatted;
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  77)   PyErr_Fetch(&exc, &val, &tb);
+dee598087a37 src/mgr/PyModule.cc                      (Tim Serong         2020-04-02 16:46:57 +1100  78)   PyErr_NormalizeException(&exc, &val, &tb);
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  79)   handle<> hexc(exc), hval(allow_null(val)), htb(allow_null(tb));
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400  80) 
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  81)   object traceback(import("traceback"));
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  82)   if (!tb) {
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  83)     object format_exception_only(traceback.attr("format_exception_only"));
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000  84)     try {
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  85)       formatted_list = format_exception_only(hexc, hval);
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000  86)     } catch (error_already_set const &) {
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000  87)       // error while processing exception object
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000  88)       // returning only the exception string value
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000  89)       PyObject *name_attr = PyObject_GetAttrString(exc, "__name__");
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000  90)       std::stringstream ss;
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800  91)       ss << PyUnicode_AsUTF8(name_attr) << ": " << PyUnicode_AsUTF8(val);
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000  92)       Py_XDECREF(name_attr);
+dee598087a37 src/mgr/PyModule.cc                      (Tim Serong         2020-04-02 16:46:57 +1100  93)       ss << "\nError processing exception object: " << peek_pyerror();
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000  94)       return ss.str();
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000  95)     }
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  96)   } else {
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  97)     object format_exception(traceback.attr("format_exception"));
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000  98)     try {
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500  99)       formatted_list = format_exception(hexc, hval, htb);
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000 100)     } catch (error_already_set const &) {
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000 101)       // error while processing exception object
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000 102)       // returning only the exception string value
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000 103)       PyObject *name_attr = PyObject_GetAttrString(exc, "__name__");
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000 104)       std::stringstream ss;
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 105)       ss << PyUnicode_AsUTF8(name_attr) << ": " << PyUnicode_AsUTF8(val);
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000 106)       Py_XDECREF(name_attr);
+dee598087a37 src/mgr/PyModule.cc                      (Tim Serong         2020-04-02 16:46:57 +1100 107)       ss << "\nError processing exception object: " << peek_pyerror();
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000 108)       return ss.str();
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000 109)     }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 110)   }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 111)   formatted = str("").join(formatted_list);
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 112) 
+18c4e08ccddd src/mgr/PyModule.cc                      (Sebastian Marschke 2026-08-11 07:07:05 +0000 113)   if (crash_dump && !module.empty()) {
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 114)     std::list<std::string> bt_strings;
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 115)     std::map<std::string, std::string> extra;
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 116)     
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 117)     extra["mgr_module"] = module;
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 118)     extra["mgr_module_caller"] = caller;
+072699d863e5 src/mgr/PyModule.cc                      (Ricardo Dias       2018-03-22 12:07:24 +0000 119)     PyObject *name_attr = PyObject_GetAttrString(exc, "__name__");
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 120)     extra["mgr_python_exception"] = stringify(PyUnicode_AsUTF8(name_attr));
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 121)     Py_XDECREF(name_attr);
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 122) 
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 123)     PyObject *l = get_managed_object(formatted_list, boost::python::tag);
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 124)     if (PyList_Check(l)) {
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 125)       // skip first line, which is: "Traceback (most recent call last):\n"
+1ecda507eb35 src/mgr/PyModule.cc                      (Sage Weil          2021-06-19 12:56:18 -0400 126)       for (unsigned i = 1; i < PyList_Size(l); ++i) {
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 127) 	PyObject *val = PyList_GET_ITEM(l, i);
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 128) 	std::string s = PyUnicode_AsUTF8(val);
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 129) 	s.resize(s.size() - 1);  // strip off newline character
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 130) 	bt_strings.push_back(s);
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 131)       }
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 132)     }
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 133)     PyBackTrace bt(bt_strings);
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 134)     
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 135)     char crash_path[PATH_MAX];
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 136)     generate_crash_dump(crash_path, bt, &extra);
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 137)   }
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 138)   
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 139)   return extract<std::string>(formatted);
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 140) }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 141) 
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 142) /**
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 143)  * Get the single-line exception message, without clearing any
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 144)  * exception state.
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 145)  */
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 146) std::string peek_pyerror()
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 147) {
+f4763c32fa84 src/mgr/PyModuleRunner.cc                (John Spray         2017-11-01 12:08:03 -0400 148)   PyObject *ptype, *pvalue, *ptraceback;
+f4763c32fa84 src/mgr/PyModuleRunner.cc                (John Spray         2017-11-01 12:08:03 -0400 149)   PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson    2018-08-23 11:25:51 -0400 150)   ceph_assert(ptype);
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson    2018-08-23 11:25:51 -0400 151)   ceph_assert(pvalue);
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 152)   PyObject *pvalue_str = PyObject_Str(pvalue);
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 153)   std::string exc_msg = PyUnicode_AsUTF8(pvalue_str);
+f4763c32fa84 src/mgr/PyModuleRunner.cc                (John Spray         2017-11-01 12:08:03 -0400 154)   Py_DECREF(pvalue_str);
+f4763c32fa84 src/mgr/PyModuleRunner.cc                (John Spray         2017-11-01 12:08:03 -0400 155)   PyErr_Restore(ptype, pvalue, ptraceback);
+f4763c32fa84 src/mgr/PyModuleRunner.cc                (John Spray         2017-11-01 12:08:03 -0400 156) 
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 157)   return exc_msg;
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 158) }
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 159) 
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 160) std::span<std::byte const> py_bytes_as_span(PyObject *bytes)
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 161) {
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 162)   assert(bytes);
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 163)   assert(PyBytes_CheckExact(bytes));
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 164)   Py_ssize_t length;
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 165)   char *buf;
+d3c8d3fc6566 src/mgr/PyModule.cc                      (Sun Yuechi         2026-06-16 03:41:34 +0800 166)   [[maybe_unused]] int r = PyBytes_AsStringAndSize(
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 167)     bytes, &buf, &length);
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 168)   assert(r == 0);
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 169)   return std::span<std::byte const>((const std::byte*)buf, size_t(length));
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 170) }
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 171) 
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 172) PyObject *py_bytes_from_span(std::span<std::byte const> s)
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 173) {
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 174)   auto ret = PyBytes_FromStringAndSize(
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 175)     reinterpret_cast<const char*>(s.data()), s.size_bytes());
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 176)   assert(ret);
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 177)   return ret;
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 178) }
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 179) 
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 180) std::vector<std::byte> py_bytes_as_vec(PyObject *bytes)
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 181) {
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 182)   assert(bytes);
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 183)   assert(PyBytes_CheckExact(bytes));
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 184)   Py_ssize_t length;
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 185)   char *buf;
+d3c8d3fc6566 src/mgr/PyModule.cc                      (Sun Yuechi         2026-06-16 03:41:34 +0800 186)   [[maybe_unused]] int r = PyBytes_AsStringAndSize(
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 187)     bytes, &buf, &length);
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 188)   assert(r == 0);
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 189)   return std::vector<std::byte>{
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 190)     reinterpret_cast<const std::byte*>(buf),
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 191)     reinterpret_cast<const std::byte*>(buf) + size_t(length)};
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 192) }
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 193) 
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 194) PyObject *py_bytes_from_vec(const std::vector<std::byte> &s)
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 195) {
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 196)   auto ret = PyBytes_FromStringAndSize(
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 197)     reinterpret_cast<const char *>(s.data()), s.size());
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 198)   assert(ret);
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 199)   return ret;
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 200) }
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 201) 
+dc15cd6075a8 src/mgr/PyModules.cc                     (Dan Mick           2017-05-04 14:19:35 -0700 202) 
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 203) namespace {
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 204)   PyObject* log_write(PyObject*, PyObject* args) {
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 205)     char* m = nullptr;
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 206)     if (PyArg_ParseTuple(args, "s", &m)) {
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 207)       auto len = strlen(m);
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 208)       if (len && m[len-1] == '\n') {
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 209) 	m[len-1] = '\0';
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 210)       }
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 211)       dout(4) << m << dendl;
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 212)     }
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 213)     Py_RETURN_NONE;
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 214)   }
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 215) 
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 216)   PyObject* log_flush(PyObject*, PyObject*){
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 217)     Py_RETURN_NONE;
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 218)   }
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 219) 
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 220)   static PyMethodDef log_methods[] = {
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 221)     {"write", log_write, METH_VARARGS, "write stdout and stderr"},
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 222)     {"flush", log_flush, METH_VARARGS, "flush"},
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 223)     {nullptr, nullptr, 0, nullptr}
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 224)   };
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 225) 
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 226)   static PyModuleDef ceph_logger_module = {
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 227)     PyModuleDef_HEAD_INIT,
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 228)     "ceph_logger",
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 229)     nullptr,
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 230)     -1,
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 231)     log_methods,
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 232)   };
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 233) }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 234) 
+3193d40d0daf src/mgr/PyModule.cc                      (Rubab-Syed         2018-02-16 15:51:11 +0500 235) PyModuleConfig::PyModuleConfig() = default;  
+3193d40d0daf src/mgr/PyModule.cc                      (Rubab-Syed         2018-02-16 15:51:11 +0500 236) 
+3193d40d0daf src/mgr/PyModule.cc                      (Rubab-Syed         2018-02-16 15:51:11 +0500 237) PyModuleConfig::PyModuleConfig(PyModuleConfig &mconfig)
+3193d40d0daf src/mgr/PyModule.cc                      (Rubab-Syed         2018-02-16 15:51:11 +0500 238)   : config(mconfig.config)
+3193d40d0daf src/mgr/PyModule.cc                      (Rubab-Syed         2018-02-16 15:51:11 +0500 239) {}
+3193d40d0daf src/mgr/PyModule.cc                      (Rubab-Syed         2018-02-16 15:51:11 +0500 240) 
+3193d40d0daf src/mgr/PyModule.cc                      (Rubab-Syed         2018-02-16 15:51:11 +0500 241) PyModuleConfig::~PyModuleConfig() = default;
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 242) 
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 243) 
+75bbe6863f5f src/mgr/PyModule.cc                      (Kefu Chai          2021-02-22 12:38:13 +0800 244) std::pair<int, std::string> PyModuleConfig::set_config(
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 245)     MonClient *monc,
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 246)     const std::string &module_name,
+a41b62bd8568 src/mgr/PyModule.cc                      (Kefu Chai          2021-06-27 12:01:17 +0800 247)     const std::string &key, const std::optional<std::string>& val)
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 248) {
+b0a4bff845be src/mgr/PyModule.cc                      (Sage Weil          2021-02-16 18:26:01 -0500 249)   const std::string global_key = "mgr/" + module_name + "/" + key;
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 250)   Command set_cmd;
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 251)   {
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100 252)     std::ostringstream cmd_json;
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100 253)     JSONFormatter jf;
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100 254)     jf.open_object_section("cmd");
+868420e4219f src/mgr/PyModules.cc                     (Kefu Chai          2017-08-02 18:18:02 +0800 255)     if (val) {
+3bc9850e6f56 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:51:05 -0400 256)       jf.dump_string("prefix", "config set");
+3bc9850e6f56 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:51:05 -0400 257)       jf.dump_string("value", *val);
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 258)     } else {
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 259)       jf.dump_string("prefix", "config rm");
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 260)     }
+3bc9850e6f56 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:51:05 -0400 261)     jf.dump_string("who", "mgr");
+3bc9850e6f56 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:51:05 -0400 262)     jf.dump_string("name", global_key);
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 263)     jf.close_section();
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 264)     jf.flush(cmd_json);
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 265)     set_cmd.run(monc, cmd_json.str());
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 266)   }
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 267)   set_cmd.wait();
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 268) 
+0520ff571cfb src/mgr/PyModule.cc                      (Tim Serong         2019-11-22 20:25:19 +1100 269)   if (set_cmd.r == 0) {
+0520ff571cfb src/mgr/PyModule.cc                      (Tim Serong         2019-11-22 20:25:19 +1100 270)     std::lock_guard l(lock);
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 271)     if (val) {
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 272)       config[global_key] = *val;
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 273)     } else {
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 274)       config.erase(global_key);
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 275)     }
+75bbe6863f5f src/mgr/PyModule.cc                      (Kefu Chai          2021-02-22 12:38:13 +0800 276)     return {0, ""};
+0520ff571cfb src/mgr/PyModule.cc                      (Tim Serong         2019-11-22 20:25:19 +1100 277)   } else {
+0520ff571cfb src/mgr/PyModule.cc                      (Tim Serong         2019-11-22 20:25:19 +1100 278)     if (val) {
+3193d40d0daf src/mgr/ActivePyModules.cc               (Rubab-Syed         2018-02-16 15:51:11 +0500 279)       dout(0) << "`config set mgr " << global_key << " " << val << "` failed: "
+1dc66c4aebbf src/mgr/PyModules.cc                     (Tim Serong         2017-04-21 16:04:05 +1000 280)         << cpp_strerror(set_cmd.r) << dendl;
+0520ff571cfb src/mgr/PyModule.cc                      (Tim Serong         2019-11-22 20:25:19 +1100 281)     } else {
+0520ff571cfb src/mgr/PyModule.cc                      (Tim Serong         2019-11-22 20:25:19 +1100 282)       dout(0) << "`config rm mgr " << global_key << "` failed: "
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 283)         << cpp_strerror(set_cmd.r) << dendl;
+0520ff571cfb src/mgr/PyModule.cc                      (Tim Serong         2019-11-22 20:25:19 +1100 284)     }
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 285)     dout(0) << "mon returned " << set_cmd.r << ": " << set_cmd.outs << dendl;
+75bbe6863f5f src/mgr/PyModule.cc                      (Kefu Chai          2021-02-22 12:38:13 +0800 286)     return {set_cmd.r, set_cmd.outs};
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 287)   }
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 288) }
+37484af0b860 src/mgr/PyModule.cc                      (John Spray         2018-04-09 15:25:45 -0400 289) 
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 290)   PyModule::PyModule(const std::string &module_name_)
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 291)     : module_name(module_name_)
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 292)   { }
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 293) 
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 294) PyObject* PyModule::init_ceph_logger()
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 295) {
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 296)   auto py_logger = PyModule_Create(&ceph_logger_module);
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 297)   PySys_SetObject("stderr", py_logger);
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 298)   PySys_SetObject("stdout", py_logger);
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 299)   return py_logger;
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 300) }
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 301) 
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 302) // module-independent sink for the Python root-logger fallback; the Python
+e61de15ddb85 src/mgr/PyModule.cc                      (Kefu Chai          2026-07-12 22:50:00 +0800 303) // side maps the record's level to a ceph debug level, so the usual
+e61de15ddb85 src/mgr/PyModule.cc                      (Kefu Chai          2026-07-12 22:50:00 +0800 304) // subsystem gating applies per record
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 305) static PyObject*
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 306) ceph_mgr_log(PyObject *self, PyObject *args)
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 307) {
+e61de15ddb85 src/mgr/PyModule.cc                      (Kefu Chai          2026-07-12 22:50:00 +0800 308)   int level = 0;
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 309)   char *record = nullptr;
+e61de15ddb85 src/mgr/PyModule.cc                      (Kefu Chai          2026-07-12 22:50:00 +0800 310)   if (!PyArg_ParseTuple(args, "is:mgr_log", &level, &record)) {
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 311)     return nullptr;
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 312)   }
+e61de15ddb85 src/mgr/PyModule.cc                      (Kefu Chai          2026-07-12 22:50:00 +0800 313)   if (level < 0) {
+e61de15ddb85 src/mgr/PyModule.cc                      (Kefu Chai          2026-07-12 22:50:00 +0800 314)     level = 0;
+e61de15ddb85 src/mgr/PyModule.cc                      (Kefu Chai          2026-07-12 22:50:00 +0800 315)   }
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 316) #undef dout_prefix
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 317) #define dout_prefix *_dout
+e61de15ddb85 src/mgr/PyModule.cc                      (Kefu Chai          2026-07-12 22:50:00 +0800 318)   dout(ceph::dout::need_dynamic(level)) << record << dendl;
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 319) #undef dout_prefix
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai          2017-03-28 18:49:01 +0800 320) #define dout_prefix *_dout << "mgr[py] "
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 321)   Py_RETURN_NONE;
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 322) }
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 323) 
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 324) PyObject* PyModule::init_ceph_module()
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 325) {
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 326)   static PyMethodDef module_methods[] = {
+3705db897484 src/mgr/PyModule.cc                      (Kefu Chai          2026-06-24 14:03:06 +0800 327)     {"mgr_log", ceph_mgr_log, METH_VARARGS,
+e61de15ddb85 src/mgr/PyModule.cc                      (Kefu Chai          2026-07-12 22:50:00 +0800 328)      "log a preformatted record to the mgr daemon log at a debug level"},
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 329)     {nullptr, nullptr, 0, nullptr}
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 330)   };
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 331)   static PyModuleDef ceph_module_def = {
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 332)     PyModuleDef_HEAD_INIT,
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 333)     "ceph_module",
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 334)     nullptr,
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 335)     -1,
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 336)     module_methods,
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 337)     nullptr,
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 338)     nullptr,
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 339)     nullptr,
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 340)     nullptr
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 341)   };
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai          2018-01-24 01:13:50 +0800 342)   PyObject *ceph_module = PyModule_Create(&ceph_module_def);
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson    2018-08-23 11:25:51 -0400 343)   ceph_assert(ceph_module != nullptr);
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 344)   std::map<const char*, PyTypeObject*> classes{
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 345)     {{"BaseMgrModule", &BaseMgrModuleType},
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 346)      {"BaseMgrStandbyModule", &BaseMgrStandbyModuleType},
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 347)      {"BasePyOSDMap", &BasePyOSDMapType},
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 348)      {"BasePyOSDMapIncremental", &BasePyOSDMapIncrementalType},
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 349)      {"BasePyCRUSH", &BasePyCRUSHType}}
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 350)   };
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 351)   for (auto [name, type] : classes) {
+7e61f79f5d56 src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-13 11:31:22 -0400 352)     type->tp_new = PyType_GenericNew;
+7e61f79f5d56 src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-13 11:31:22 -0400 353)     if (PyType_Ready(type) < 0) {
+eb59c69674eb src/mgr/PyModule.cc                      (Adam C. Emerson    2018-08-23 16:27:11 -0400 354)       ceph_abort();
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 355)     }
+7e61f79f5d56 src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-13 11:31:22 -0400 356)     Py_INCREF(type);
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 357) 
+7e61f79f5d56 src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-13 11:31:22 -0400 358)     PyModule_AddObject(ceph_module, name, (PyObject *)type);
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 359)   }
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 360)   return ceph_module;
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 361) }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 362) 
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 363) int PyModule::load(PyThreadState *pMainThreadState)
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 364) {
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson    2018-08-23 11:25:51 -0400 365)   ceph_assert(pMainThreadState != nullptr);
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 366) 
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 367)   const auto subinterpreter_modules_opt = g_conf().get_val<std::string>(
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 368)     "mgr_subinterpreter_modules"
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 369)   );
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 370)   auto subinterpreter_modules = ceph::split(subinterpreter_modules_opt);
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 371)   use_main_interpreter = std::count(
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 372)     subinterpreter_modules.begin(), subinterpreter_modules.end(), "*"
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 373)   ) == 0 && std::count(
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 374)     subinterpreter_modules.begin(), subinterpreter_modules.end(), module_name
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 375)   ) == 0;
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 376) 
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 377)   if (use_main_interpreter) {
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 378)     // Use main interpreter
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 379)     derr << "Loading module " << module_name << " in main interpreter" << dendl;
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 380)     pMyThreadState.set(pMainThreadState);
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 381)   } else {
+410ce76f62c1 src/mgr/PyModule.cc                      (Kefu Chai          2018-02-08 19:01:19 +0800 382)     // Configure sub-interpreter
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 383)     derr << "Loading module " << module_name << " in sub-interpreter" << dendl;
+29193a47e6cf src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-16 10:51:34 -0400 384)     SafeThreadState sts(pMainThreadState);
+29193a47e6cf src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-16 10:51:34 -0400 385)     Gil gil(sts);
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 386) 
+29193a47e6cf src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-16 10:51:34 -0400 387)     auto thread_state = Py_NewInterpreter();
+29193a47e6cf src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-16 10:51:34 -0400 388)     if (thread_state == nullptr) {
+3e0d14912e55 src/mgr/MgrPyModule.cc                   (Tim Serong         2017-05-13 00:16:14 +1000 389)       derr << "Failed to create python sub-interpreter for '" << module_name << '"' << dendl;
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 390)       return -EINVAL;
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 391)     } else {
+29193a47e6cf src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-16 10:51:34 -0400 392)       pMyThreadState.set(thread_state);
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 393)     }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 394)   }
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 395) 
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 396)   // Environment is all good, import the external module
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 397)   {
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 398)     Gil gil(pMyThreadState);
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 399) 
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 400)     int r;
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 401) 
+a89074c6bee9 src/mgr/PyModule.cc                      (Kefu Chai          2026-03-29 14:23:31 +0800 402)     pPickleModule = PyImport_ImportModule("pickle");
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 403)     if (!pPickleModule) {
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 404)       derr << "Unable to load pickle" << dendl;
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 405)       return -EINVAL;
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 406)     }
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 407) 
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 408)     r = load_subclass_of("MgrModule", &pClass);
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 409)     if (r) {
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray         2016-06-30 14:05:02 +0100 410)       derr << "Class not found in module '" << module_name << "'" << dendl;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 411)       return r;
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 412)     }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 413) 
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 414)     r = load_commands();
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 415)     if (r != 0) {
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 416)       derr << "Missing or invalid COMMANDS attribute in module '"
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 417)           << module_name << "'" << dendl;
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 418)       error_string = "Missing or invalid COMMANDS attribute";
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 419)       return r;
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 420)     }
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 421) 
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 422)     register_options(pClass);
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 423)     r = load_options();
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 424)     if (r != 0) {
+641d9e42ba14 src/mgr/PyModule.cc                      (Sage Weil          2018-12-03 14:22:18 -0600 425)       derr << "Missing or invalid MODULE_OPTIONS attribute in module '"
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 426)           << module_name << "'" << dendl;
+641d9e42ba14 src/mgr/PyModule.cc                      (Sage Weil          2018-12-03 14:22:18 -0600 427)       error_string = "Missing or invalid MODULE_OPTIONS attribute";
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 428)       return r;
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 429)     }
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 430) 
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 431)     load_notify_types();
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 432) 
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 433)     // We've imported the module and found a MgrModule subclass, at this
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 434)     // point the module is considered loaded.  It might still not be
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 435)     // runnable though, can_run populated later...
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 436)     loaded = true;
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 437) 
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 438)     r = load_subclass_of("MgrStandbyModule", &pStandbyClass);
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 439)     if (!r) {
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-22 14:42:11 -0400 440)       dout(4) << "Standby mode available in module '" << module_name
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-22 14:42:11 -0400 441)               << "'" << dendl;
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 442)       register_options(pStandbyClass);
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-22 14:42:11 -0400 443)     } else {
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-22 14:42:11 -0400 444)       dout(4) << "Standby mode not provided by module '" << module_name
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-22 14:42:11 -0400 445)               << "'" << dendl;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 446)     }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 447) 
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 448)     // Populate can_run by interrogating the module's callback that
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 449)     // may check for dependencies etc
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 450)     PyObject *pCanRunTuple = PyObject_CallMethod(pClass,
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 451)       const_cast<char*>("can_run"), const_cast<char*>("()"));
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 452)     if (pCanRunTuple != nullptr) {
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 453)       if (PyTuple_Check(pCanRunTuple) && PyTuple_Size(pCanRunTuple) == 2) {
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 454)         PyObject *pCanRun = PyTuple_GetItem(pCanRunTuple, 0);
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 455)         PyObject *can_run_str = PyTuple_GetItem(pCanRunTuple, 1);
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 456)         if (!PyBool_Check(pCanRun) || !PyUnicode_Check(can_run_str)) {
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 457)           derr << "Module " << get_name()
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 458)                << " returned wrong type in can_run" << dendl;
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 459)           error_string = "wrong type returned from can_run";
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 460)           can_run = false;
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 461)         } else {
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 462)           can_run = (pCanRun == Py_True);
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 463)           if (!can_run) {
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 464)             error_string = PyUnicode_AsUTF8(can_run_str);
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 465)             dout(4) << "Module " << get_name()
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 466)                     << " reported that it cannot run: "
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 467)                     << error_string << dendl;
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 468)           }
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 469)         }
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 470)       } else {
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 471)         derr << "Module " << get_name()
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 472)              << " returned wrong type in can_run" << dendl;
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 473)         error_string = "wrong type returned from can_run";
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 474)         can_run = false;
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 475)       }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 476) 
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 477)       Py_DECREF(pCanRunTuple);
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 478)     } else {
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 479)       derr << "Exception calling can_run on " << get_name() << dendl;
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 480)       derr << handle_pyerror(true, get_name(), "PyModule::load") << dendl;
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 481)       can_run = false;
+712ad57d09a2 src/mgr/PyModule.cc                      (John Spray         2017-11-16 16:30:39 -0500 482)     }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 483)   }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 484)   return 0;
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 485) }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 486) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 487) int PyModule::walk_dict_list(
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 488)     const std::string &attr_name,
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 489)     std::function<int(PyObject*)> fn)
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 490) {
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 491)   PyObject *command_list = PyObject_GetAttrString(pClass, attr_name.c_str());
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 492)   if (command_list == nullptr) {
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 493)     derr << "Module " << get_name() << " has missing " << attr_name
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 494)          << " member" << dendl;
+7e61f79f5d56 src/mgr/ActivePyModule.cc                (John Spray         2017-10-13 11:31:22 -0400 495)     return -EINVAL;
+7e61f79f5d56 src/mgr/ActivePyModule.cc                (John Spray         2017-10-13 11:31:22 -0400 496)   }
+7e61f79f5d56 src/mgr/ActivePyModule.cc                (John Spray         2017-10-13 11:31:22 -0400 497)   if (!PyObject_TypeCheck(command_list, &PyList_Type)) {
+7e61f79f5d56 src/mgr/ActivePyModule.cc                (John Spray         2017-10-13 11:31:22 -0400 498)     // Relatively easy mistake for human to make, e.g. defining COMMANDS
+7e61f79f5d56 src/mgr/ActivePyModule.cc                (John Spray         2017-10-13 11:31:22 -0400 499)     // as a {} instead of a []
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 500)     derr << "Module " << get_name() << " has " << attr_name
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 501)          << " member of wrong type (should be a list)" << dendl;
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 502)     return -EINVAL;
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 503)   }
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 504) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 505)   // Invoke fn on each item in the list
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 506)   int r = 0;
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray         2016-06-30 14:05:02 +0100 507)   const size_t list_size = PyList_Size(command_list);
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray         2016-06-30 14:05:02 +0100 508)   for (size_t i = 0; i < list_size; ++i) {
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray         2016-06-30 14:05:02 +0100 509)     PyObject *command = PyList_GetItem(command_list, i);
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson    2018-08-23 11:25:51 -0400 510)     ceph_assert(command != nullptr);
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 511) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 512)     if (!PyDict_Check(command)) {
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 513)       derr << "Module " << get_name() << " has non-dict entry "
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 514)            << "in " << attr_name << " list" << dendl;
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 515)       return -EINVAL;
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 516)     }
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 517) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 518)     r = fn(command);
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 519)     if (r != 0) {
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 520)       break;
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 521)     }
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 522)   }
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 523)   Py_DECREF(command_list);
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 524) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 525)   return r;
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 526) }
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 527) 
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 528) int PyModule::register_options(PyObject *cls)
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 529) {
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 530)   PyObject *pRegCmd = PyObject_CallMethod(
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 531)     cls,
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 532)     const_cast<char*>("_register_options"), const_cast<char*>("(s)"),
+f4005ae06226 src/mgr/PyModule.cc                      (Ricardo Dias       2019-09-25 11:43:16 +0100 533)       module_name.c_str());
+a5e9eb018947 src/mgr/PyModule.cc                      (Ricardo Dias       2018-12-21 10:47:52 +0000 534)   if (pRegCmd != nullptr) {
+a5e9eb018947 src/mgr/PyModule.cc                      (Ricardo Dias       2018-12-21 10:47:52 +0000 535)     Py_DECREF(pRegCmd);
+a5e9eb018947 src/mgr/PyModule.cc                      (Ricardo Dias       2018-12-21 10:47:52 +0000 536)   } else {
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 537)     derr << "Exception calling _register_options on " << get_name()
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 538)          << dendl;
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 539)     derr << handle_pyerror(true, module_name, "PyModule::register_options") << dendl;
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 540)   }
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 541)   return 0;
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 542) }
+3eeaefddb98b src/mgr/PyModule.cc                      (Sage Weil          2020-03-11 12:14:59 -0500 543) 
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 544) int PyModule::load_notify_types()
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 545) {
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 546)   PyObject *ls = PyObject_GetAttrString(pClass, "NOTIFY_TYPES");
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 547)   if (ls == nullptr) {
+18cb6bf5ad94 src/mgr/PyModule.cc                      (Kefu Chai          2025-12-04 16:05:27 +0800 548)     // NOTIFY_TYPES is optional - clear expected AttributeError
+18cb6bf5ad94 src/mgr/PyModule.cc                      (Kefu Chai          2025-12-04 16:05:27 +0800 549)     if (PyErr_ExceptionMatches(PyExc_AttributeError)) {
+18cb6bf5ad94 src/mgr/PyModule.cc                      (Kefu Chai          2025-12-04 16:05:27 +0800 550)       PyErr_Clear();
+4589c4d8ac52 src/mgr/PyModule.cc                      (John Mulligan      2024-04-26 10:53:33 -0400 551)       dout(10) << "Module " << get_name() << " has no NOTIFY_TYPES member" << dendl;
+4589c4d8ac52 src/mgr/PyModule.cc                      (John Mulligan      2024-04-26 10:53:33 -0400 552)       return 0;
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 553)     }
+18cb6bf5ad94 src/mgr/PyModule.cc                      (Kefu Chai          2025-12-04 16:05:27 +0800 554)     // Unexpected error - report it
+18cb6bf5ad94 src/mgr/PyModule.cc                      (Kefu Chai          2025-12-04 16:05:27 +0800 555)     derr << "Error getting NOTIFY_TYPES from " << get_name() << ": "
+18cb6bf5ad94 src/mgr/PyModule.cc                      (Kefu Chai          2025-12-04 16:05:27 +0800 556)          << handle_pyerror(true, module_name, "load_notify_types") << dendl;
+18cb6bf5ad94 src/mgr/PyModule.cc                      (Kefu Chai          2025-12-04 16:05:27 +0800 557)     return -EINVAL;
+18cb6bf5ad94 src/mgr/PyModule.cc                      (Kefu Chai          2025-12-04 16:05:27 +0800 558)   }
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 559)   if (!PyObject_TypeCheck(ls, &PyList_Type)) {
+7e61f79f5d56 src/mgr/ActivePyModule.cc                (John Spray         2017-10-13 11:31:22 -0400 560)     // Relatively easy mistake for human to make, e.g. defining COMMANDS
+7e61f79f5d56 src/mgr/ActivePyModule.cc                (John Spray         2017-10-13 11:31:22 -0400 561)     // as a {} instead of a []
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 562)     derr << "Module " << get_name() << " has NOTIFY_TYPES that is not a list" << dendl;
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 563)     return -EINVAL;
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 564)   }
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 565) 
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 566)   const size_t list_size = PyList_Size(ls);
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 567)   for (size_t i = 0; i < list_size; ++i) {
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 568)     PyObject *notify_type = PyList_GetItem(ls, i);
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 569)     ceph_assert(notify_type != nullptr);
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 570) 
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 571)     if (!PyObject_TypeCheck(notify_type, &PyUnicode_Type)) {
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 572)       derr << "Module " << get_name() << " has non-string entry in NOTIFY_TYPES list"
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 573) 	   << dendl;
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 574)       return -EINVAL;
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 575)     }
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 576) 
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 577)     notify_types.insert(PyUnicode_AsUTF8(notify_type));
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 578)   }
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 579)   Py_DECREF(ls);
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 580)   dout(10) << "Module " << get_name() << " notify_types " << notify_types << dendl;
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 581) 
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 582)   return 0;
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 583) }
+ee4e3ecd6e07 src/mgr/PyModule.cc                      (Sage Weil          2021-12-02 10:23:45 -0500 584) 
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 585) int PyModule::load_commands()
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 586) {
+a5e9eb018947 src/mgr/PyModule.cc                      (Ricardo Dias       2018-12-21 10:47:52 +0000 587)   PyObject *pRegCmd = PyObject_CallMethod(pClass,
+f4005ae06226 src/mgr/PyModule.cc                      (Ricardo Dias       2019-09-25 11:43:16 +0100 588)       const_cast<char*>("_register_commands"), const_cast<char*>("(s)"),
+f4005ae06226 src/mgr/PyModule.cc                      (Ricardo Dias       2019-09-25 11:43:16 +0100 589)       module_name.c_str());
+a5e9eb018947 src/mgr/PyModule.cc                      (Ricardo Dias       2018-12-21 10:47:52 +0000 590)   if (pRegCmd != nullptr) {
+a5e9eb018947 src/mgr/PyModule.cc                      (Ricardo Dias       2018-12-21 10:47:52 +0000 591)     Py_DECREF(pRegCmd);
+a5e9eb018947 src/mgr/PyModule.cc                      (Ricardo Dias       2018-12-21 10:47:52 +0000 592)   } else {
+a5e9eb018947 src/mgr/PyModule.cc                      (Ricardo Dias       2018-12-21 10:47:52 +0000 593)     derr << "Exception calling _register_commands on " << get_name()
+a5e9eb018947 src/mgr/PyModule.cc                      (Ricardo Dias       2018-12-21 10:47:52 +0000 594)          << dendl;
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 595)     derr << handle_pyerror(true, module_name, "PyModule::load_commands") << dendl;
+a5e9eb018947 src/mgr/PyModule.cc                      (Ricardo Dias       2018-12-21 10:47:52 +0000 596)   }
+a5e9eb018947 src/mgr/PyModule.cc                      (Ricardo Dias       2018-12-21 10:47:52 +0000 597) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 598)   int r = walk_dict_list("COMMANDS", [this](PyObject *pCommand) -> int {
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 599)     ModuleCommand command;
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 600) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 601)     PyObject *pCmd = PyDict_GetItemString(pCommand, "cmd");
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson    2018-08-23 11:25:51 -0400 602)     ceph_assert(pCmd != nullptr);
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 603)     command.cmdstring = PyUnicode_AsUTF8(pCmd);
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 604) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 605)     dout(20) << "loaded command " << command.cmdstring << dendl;
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 606) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 607)     PyObject *pDesc = PyDict_GetItemString(pCommand, "desc");
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson    2018-08-23 11:25:51 -0400 608)     ceph_assert(pDesc != nullptr);
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 609)     command.helpstring = PyUnicode_AsUTF8(pDesc);
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 610) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 611)     PyObject *pPerm = PyDict_GetItemString(pCommand, "perm");
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson    2018-08-23 11:25:51 -0400 612)     ceph_assert(pPerm != nullptr);
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 613)     command.perm = PyUnicode_AsUTF8(pPerm);
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 614) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 615)     command.polling = false;
+1453f0ff1f57 src/mgr/PyModule.cc                      (Kefu Chai          2021-01-17 09:16:36 +0800 616)     if (PyObject *pPoll = PyDict_GetItemString(pCommand, "poll");
+1453f0ff1f57 src/mgr/PyModule.cc                      (Kefu Chai          2021-01-17 09:16:36 +0800 617) 	pPoll && PyObject_IsTrue(pPoll)) {
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 618)       command.polling = true;
+78e884dfb042 src/mgr/PyModule.cc                      (Mohamad Gebai      2018-02-28 09:20:44 -0500 619)     }
+78e884dfb042 src/mgr/PyModule.cc                      (Mohamad Gebai      2018-02-28 09:20:44 -0500 620) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 621)     command.module_name = module_name;
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 622) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 623)     commands.push_back(std::move(command));
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 624) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 625)     return 0;
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 626)   });
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 627) 
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 628)   dout(10) << "loaded " << commands.size() << " commands" << dendl;
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 629) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 630)   return r;
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 631) }
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 632) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 633) int PyModule::load_options()
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 634) {
+641d9e42ba14 src/mgr/PyModule.cc                      (Sage Weil          2018-12-03 14:22:18 -0600 635)   int r = walk_dict_list("MODULE_OPTIONS", [this](PyObject *pOption) -> int {
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 636)     MgrMap::ModuleOption option;
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 637)     PyObject *p;
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 638)     p = PyDict_GetItemString(pOption, "name");
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 639)     ceph_assert(p != nullptr);
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 640)     option.name = PyUnicode_AsUTF8(p);
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 641)     option.type = Option::TYPE_STR;
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 642)     p = PyDict_GetItemString(pOption, "type");
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 643)     if (p && PyObject_TypeCheck(p, &PyUnicode_Type)) {
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 644)       std::string s = PyUnicode_AsUTF8(p);
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 645)       int t = Option::str_to_type(s);
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 646)       if (t >= 0) {
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 647) 	option.type = t;
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 648)       }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 649)     }
+0d94eebb0dd1 src/mgr/PyModule.cc                      (Patrick Donnelly   2024-04-19 14:31:09 -0400 650)     p = PyDict_GetItemString(pOption, "level");
+0d94eebb0dd1 src/mgr/PyModule.cc                      (Patrick Donnelly   2024-04-19 14:31:09 -0400 651)     if (p && PyLong_Check(p)) {
+0d94eebb0dd1 src/mgr/PyModule.cc                      (Patrick Donnelly   2024-04-19 14:31:09 -0400 652)       long v = PyLong_AsLong(p);
+0d94eebb0dd1 src/mgr/PyModule.cc                      (Patrick Donnelly   2024-04-19 14:31:09 -0400 653)       option.level = static_cast<Option::level_t>(v);
+0d94eebb0dd1 src/mgr/PyModule.cc                      (Patrick Donnelly   2024-04-19 14:31:09 -0400 654)     } else {
+0d94eebb0dd1 src/mgr/PyModule.cc                      (Patrick Donnelly   2024-04-19 14:31:09 -0400 655)       option.level = Option::level_t::LEVEL_ADVANCED;
+0d94eebb0dd1 src/mgr/PyModule.cc                      (Patrick Donnelly   2024-04-19 14:31:09 -0400 656)     }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 657)     p = PyDict_GetItemString(pOption, "desc");
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 658)     if (p && PyObject_TypeCheck(p, &PyUnicode_Type)) {
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 659)       option.desc = PyUnicode_AsUTF8(p);
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 660)     }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 661)     p = PyDict_GetItemString(pOption, "long_desc");
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 662)     if (p && PyObject_TypeCheck(p, &PyUnicode_Type)) {
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 663)       option.long_desc = PyUnicode_AsUTF8(p);
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 664)     }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 665)     p = PyDict_GetItemString(pOption, "default");
+0f814f38e5d8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 15:06:49 -0600 666)     if (p) {
+0f814f38e5d8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 15:06:49 -0600 667)       auto q = PyObject_Str(p);
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 668)       option.default_value = PyUnicode_AsUTF8(q);
+0f814f38e5d8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 15:06:49 -0600 669)       Py_DECREF(q);
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 670)     }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 671)     p = PyDict_GetItemString(pOption, "min");
+0f814f38e5d8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 15:06:49 -0600 672)     if (p) {
+0f814f38e5d8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 15:06:49 -0600 673)       auto q = PyObject_Str(p);
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 674)       option.min = PyUnicode_AsUTF8(q);
+0f814f38e5d8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 15:06:49 -0600 675)       Py_DECREF(q);
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 676)     }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 677)     p = PyDict_GetItemString(pOption, "max");
+0f814f38e5d8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 15:06:49 -0600 678)     if (p) {
+0f814f38e5d8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 15:06:49 -0600 679)       auto q = PyObject_Str(p);
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 680)       option.max = PyUnicode_AsUTF8(q);
+0f814f38e5d8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 15:06:49 -0600 681)       Py_DECREF(q);
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 682)     }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 683)     p = PyDict_GetItemString(pOption, "enum_allowed");
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 684)     if (p && PyObject_TypeCheck(p, &PyList_Type)) {
+52d1473f13eb src/mgr/PyModule.cc                      (Kefu Chai          2021-05-08 20:59:07 +0800 685)       for (Py_ssize_t i = 0; i < PyList_Size(p); ++i) {
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 686) 	auto q = PyList_GetItem(p, i);
+0f814f38e5d8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 15:06:49 -0600 687) 	if (q) {
+0f814f38e5d8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 15:06:49 -0600 688) 	  auto r = PyObject_Str(q);
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 689) 	  option.enum_allowed.insert(PyUnicode_AsUTF8(r));
+0f814f38e5d8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 15:06:49 -0600 690) 	  Py_DECREF(r);
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 691) 	}
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 692)       }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 693)     }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 694)     p = PyDict_GetItemString(pOption, "see_also");
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 695)     if (p && PyObject_TypeCheck(p, &PyList_Type)) {
+52d1473f13eb src/mgr/PyModule.cc                      (Kefu Chai          2021-05-08 20:59:07 +0800 696)       for (Py_ssize_t i = 0; i < PyList_Size(p); ++i) {
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 697) 	auto q = PyList_GetItem(p, i);
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 698) 	if (q && PyObject_TypeCheck(q, &PyUnicode_Type)) {
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 699) 	  option.see_also.insert(PyUnicode_AsUTF8(q));
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 700) 	}
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 701)       }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 702)     }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 703)     p = PyDict_GetItemString(pOption, "tags");
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 704)     if (p && PyObject_TypeCheck(p, &PyList_Type)) {
+52d1473f13eb src/mgr/PyModule.cc                      (Kefu Chai          2021-05-08 20:59:07 +0800 705)       for (Py_ssize_t i = 0; i < PyList_Size(p); ++i) {
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 706) 	auto q = PyList_GetItem(p, i);
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 707) 	if (q && PyObject_TypeCheck(q, &PyUnicode_Type)) {
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 708) 	  option.tags.insert(PyUnicode_AsUTF8(q));
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 709) 	}
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 710)       }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 711)     }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 712)     p = PyDict_GetItemString(pOption, "runtime");
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 713)     if (p && PyObject_TypeCheck(p, &PyBool_Type)) {
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 714)       if (p == Py_True) {
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 715) 	option.flags |= Option::FLAG_RUNTIME;
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 716)       }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 717)       if (p == Py_False) {
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 718) 	option.flags &= ~Option::FLAG_RUNTIME;
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 719)       }
+1f3e9d4811b8 src/mgr/PyModule.cc                      (Sage Weil          2018-12-17 14:22:33 -0600 720)     }
+641d9e42ba14 src/mgr/PyModule.cc                      (Sage Weil          2018-12-03 14:22:18 -0600 721)     dout(20) << "loaded module option " << option.name << dendl;
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 722)     options[option.name] = std::move(option);
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 723)     return 0;
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 724)   });
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 725) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 726)   dout(10) << "loaded " << options.size() << " options" << dendl;
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 727) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 728)   return r;
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 729) }
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 730) 
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 731) bool PyModule::is_option(const std::string &option_name)
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 732) {
+948635a8b213 src/mgr/PyModule.cc                      (Sage Weil          2018-10-16 14:11:33 -0500 733)   std::lock_guard l(lock);
+6c8fba975831 src/mgr/PyModule.cc                      (John Spray         2018-04-16 10:49:57 -0400 734)   return options.count(option_name) > 0;
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 735) }
+834bc2794050 src/mgr/PyModule.cc                      (John Spray         2017-11-23 08:01:33 -0500 736) 
+2e8f9e690141 src/mgr/PyModule.cc                      (Sage Weil          2018-12-18 14:11:30 -0600 737) PyObject *PyModule::get_typed_option_value(const std::string& name,
+2e8f9e690141 src/mgr/PyModule.cc                      (Sage Weil          2018-12-18 14:11:30 -0600 738) 					   const std::string& value)
+2e8f9e690141 src/mgr/PyModule.cc                      (Sage Weil          2018-12-18 14:11:30 -0600 739) {
+c4e2965a4b83 src/mgr/PyModule.cc                      (Sage Weil          2019-02-14 18:21:38 -0600 740)   // we don't need to hold a lock here because these MODULE_OPTIONS
+c4e2965a4b83 src/mgr/PyModule.cc                      (Sage Weil          2019-02-14 18:21:38 -0600 741)   // are set up exactly once during startup.
+2e8f9e690141 src/mgr/PyModule.cc                      (Sage Weil          2018-12-18 14:11:30 -0600 742)   auto p = options.find(name);
+2e8f9e690141 src/mgr/PyModule.cc                      (Sage Weil          2018-12-18 14:11:30 -0600 743)   if (p != options.end()) {
+845ca9c10df7 src/mgr/PyModule.cc                      (Sage Weil          2019-08-23 12:14:24 -0500 744)     return get_python_typed_option_value((Option::type_t)p->second.type, value);
+2e8f9e690141 src/mgr/PyModule.cc                      (Sage Weil          2018-12-18 14:11:30 -0600 745)   }
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 746)   return PyUnicode_FromString(value.c_str());
+2e8f9e690141 src/mgr/PyModule.cc                      (Sage Weil          2018-12-18 14:11:30 -0600 747) }
+2e8f9e690141 src/mgr/PyModule.cc                      (Sage Weil          2018-12-18 14:11:30 -0600 748) 
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 749) int PyModule::load_subclass_of(const char* base_class, PyObject** py_class)
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 750) {
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 751)   // load the base class
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 752)   PyObject *mgr_module = PyImport_ImportModule("mgr_module");
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 753)   if (!mgr_module) {
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 754)     error_string = peek_pyerror();
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 755)     derr << "Module not found: 'mgr_module'" << dendl;
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 756)     derr << handle_pyerror(true, module_name, "PyModule::load_subclass_of") << dendl;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 757)     return -EINVAL;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 758)   }
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 759)   auto mgr_module_type = PyObject_GetAttrString(mgr_module, base_class);
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 760)   Py_DECREF(mgr_module);
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 761)   if (!mgr_module_type) {
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 762)     error_string = peek_pyerror();
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 763)     derr << "Unable to import MgrModule from mgr_module" << dendl;
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 764)     derr << handle_pyerror(true, module_name, "PyModule::load_subclass_of") << dendl;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 765)     return -EINVAL;
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 766)   }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 767) 
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 768)   // find the sub class
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 769)   PyObject *plugin_module = PyImport_ImportModule(module_name.c_str());
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 770)   if (!plugin_module) {
+7c80548dba38 src/mgr/PyModule.cc                      (John Spray         2018-03-15 12:28:17 +0000 771)     error_string = peek_pyerror();
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 772)     derr << "Module not found: '" << module_name << "'" << dendl;
+719d5e1836c9 src/mgr/PyModule.cc                      (Sage Weil          2021-06-18 17:02:40 -0400 773)     derr << handle_pyerror(true, module_name, "PyModule::load_subclass_of") << dendl;
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 774)     Py_DECREF(mgr_module_type);
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 775)     return -ENOENT;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 776)   }
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 777)   auto locals = PyModule_GetDict(plugin_module);
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 778)   Py_DECREF(plugin_module);
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 779)   PyObject *key, *value;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 780)   Py_ssize_t pos = 0;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 781)   *py_class = nullptr;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 782)   while (PyDict_Next(locals, &pos, &key, &value)) {
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 783)     if (!PyType_Check(value)) {
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 784)       continue;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 785)     }
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 786)     if (!PyObject_IsSubclass(value, mgr_module_type)) {
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 787)       continue;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 788)     }
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 789)     if (PyObject_RichCompareBool(value, mgr_module_type, Py_EQ)) {
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 790)       continue;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 791)     }
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai          2019-12-18 19:03:29 +0800 792)     auto class_name = PyUnicode_AsUTF8(key);
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 793)     if (*py_class) {
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 794)       derr << __func__ << ": ignoring '"
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 795) 	   << module_name << "." << class_name << "'"
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 796) 	   << ": only one '" << base_class
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 797) 	   << "' class is loaded from each plugin" << dendl;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 798)       continue;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 799)     }
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 800)     *py_class = value;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 801)     dout(4) << __func__ << ": found class: '"
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 802) 	    << module_name << "." << class_name << "'" << dendl;
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 803)   }
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 804)   Py_DECREF(mgr_module_type);
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 805) 
+345c14438e01 src/mgr/PyModuleRegistry.cc              (Bhavishya Gopesh   2017-10-09 11:10:41 +0530 806)   return *py_class ? 0 : -EINVAL;
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 807) }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray         2017-08-14 06:31:18 -0400 808) 
+29193a47e6cf src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-16 10:51:34 -0400 809) PyModule::~PyModule()
+29193a47e6cf src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-16 10:51:34 -0400 810) {
+29193a47e6cf src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-16 10:51:34 -0400 811)   if (pMyThreadState.ts != nullptr) {
+29193a47e6cf src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-16 10:51:34 -0400 812)     Gil gil(pMyThreadState, true);
+29193a47e6cf src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-16 10:51:34 -0400 813)     Py_XDECREF(pClass);
+29193a47e6cf src/mgr/PyModuleRegistry.cc              (John Spray         2017-10-16 10:51:34 -0400 814)     Py_XDECREF(pStandbyClass);
+f69069e114ea src/mgr/PyModule.cc                      (Samuel Just        2025-10-24 03:00:45 +0000 815)     Py_XDECREF(pPickleModule);
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 816)     if (use_main_interpreter) {
+3366ef5153f3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2025-02-09 07:14:55 +0000 817)       Py_EndInterpreter(pMyThreadState.ts);
+239b0dc8a9c4 src/mgr/PyModule.cc                      (Samuel Just        2025-11-07 23:56:14 +0000 818)     }
+3366ef5153f3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2025-02-09 07:14:55 +0000 819)     pMyThreadState.ts = nullptr;
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 820)   }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 821) }
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray         2017-11-16 06:45:45 -0500 822) 
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 823) int PyModule::perf_counter_build(CephContext *cct) {
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 824)   ceph_assert(perfcounter == nullptr);
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 825)   PerfCountersBuilder pcb(cct, "mgr_module_" + get_name(), l_pym_first, l_pym_last);
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 826)   pcb.add_u64_avg(l_pym_notify_avg_usec, "notify_avg_usec", "Average time spent in notify calls", "nsec", 0);
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 827)   pcb.add_u64_avg(l_pym_cmd_avg_usec, "cmd_avg_usec", "Average time spent in command calls", "csec", 0);
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 828)   pcb.add_u64(l_pym_alive, "alive", "Is the module alive?", "aliv", 0, uint64_t(1));
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 829)   pcb.add_u64(l_pym_cpu_usage, "cpu_usage", "CPU usage in percent", "cpu", 0, uint64_t(100));
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 830)   pcb.add_u64(l_pym_mem_rss_change, "mem_rss_change", "Memory RSS change in bytes", "", 0);
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 831)   pcb.add_u64(l_pym_mem_rss_current, "mem_rss_current", "Memory RSS current in bytes", "", 0);
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 832)   pcb.add_u64(l_pym_serve_cpu_usage, "serve_cpu_usage", "Serve thread CPU usage in percent", "cpu", 0, uint64_t(100));
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 833)   perfcounter = std::unique_ptr<PerfCounters>(pcb.create_perf_counters());
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 834)   cct->get_perfcounters_collection()->add(perfcounter.get());
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 835) 
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 836)   return 0;
+95a90f7da8a3 src/mgr/PyModule.cc                      (Nitzan Mordechai   2024-12-08 18:08:39 +0000 837) }
+
+# git blame -w -M -C src/mgr/PyModule.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng       2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/PyModule.h                                         (Edwin Rodriguez     2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/PyModule.h                                         (Edwin Rodriguez     2025-10-02 15:34:08 -0400   3) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray          2017-08-14 06:31:18 -0400   4) /*
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray          2017-08-14 06:31:18 -0400   5)  * Ceph - scalable distributed file system
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray          2017-08-14 06:31:18 -0400   6)  *
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray          2017-08-14 06:31:18 -0400   7)  * Copyright (C) 2017 John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray          2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray          2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray          2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray          2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray          2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray          2016-06-30 14:05:02 +0100  13)  */
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray          2016-06-30 14:05:02 +0100  14) 
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  15) #pragma once
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  16) 
+2df0a50e0794 src/mgr/PyModule.h                                         (Kefu Chai           2018-06-26 15:09:28 +0800  17) #include <map>
+2df0a50e0794 src/mgr/PyModule.h                                         (Kefu Chai           2018-06-26 15:09:28 +0800  18) #include <memory>
+2df0a50e0794 src/mgr/PyModule.h                                         (Kefu Chai           2018-06-26 15:09:28 +0800  19) #include <string>
+9d68af58ce95 src/mgr/PyModule.h                                         (Willem Jan Withagen 2018-06-28 10:24:15 +0200  20) #include <vector>
+37484af0b860 src/mgr/PyModule.h                                         (John Spray          2018-04-09 15:25:45 -0400  21) #include <boost/optional.hpp>
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000  22) #include "common/ceph_context.h"
+c93dc8849145 src/mgr/PyModule.h                                         (Kefu Chai           2019-07-07 11:14:49 +0800  23) #include "common/ceph_mutex.h"
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000  24) #include "common/perf_counters.h"
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  25) #include "Python.h"
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  26) #include "Gil.h"
+1f3e9d4811b8 src/mgr/PyModule.h                                         (Sage Weil           2018-12-17 14:22:33 -0600  27) #include "mon/MgrMap.h"
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  28) 
+37484af0b860 src/mgr/PyModule.h                                         (John Spray          2018-04-09 15:25:45 -0400  29) 
+37484af0b860 src/mgr/PyModule.h                                         (John Spray          2018-04-09 15:25:45 -0400  30) class MonClient;
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  31) 
+719d5e1836c9 src/mgr/PyModule.h                                         (Sage Weil           2021-06-18 17:02:40 -0400  32) std::string handle_pyerror(bool generate_crash_dump = false,
+719d5e1836c9 src/mgr/PyModule.h                                         (Sage Weil           2021-06-18 17:02:40 -0400  33) 			   std::string module = {},
+719d5e1836c9 src/mgr/PyModule.h                                         (Sage Weil           2021-06-18 17:02:40 -0400  34) 			   std::string caller = {});
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  35) 
+7c80548dba38 src/mgr/PyModule.h                                         (John Spray          2018-03-15 12:28:17 +0000  36) std::string peek_pyerror();
+7c80548dba38 src/mgr/PyModule.h                                         (John Spray          2018-03-15 12:28:17 +0000  37) 
+f69069e114ea src/mgr/PyModule.h                                         (Samuel Just         2025-10-24 03:00:45 +0000  38) std::span<std::byte const> py_bytes_as_span(PyObject*);
+f69069e114ea src/mgr/PyModule.h                                         (Samuel Just         2025-10-24 03:00:45 +0000  39) PyObject *py_bytes_from_span(std::span<std::byte const>);
+f69069e114ea src/mgr/PyModule.h                                         (Samuel Just         2025-10-24 03:00:45 +0000  40) 
+f69069e114ea src/mgr/PyModule.h                                         (Samuel Just         2025-10-24 03:00:45 +0000  41) std::vector<std::byte> py_bytes_as_vec(PyObject*);
+f69069e114ea src/mgr/PyModule.h                                         (Samuel Just         2025-10-24 03:00:45 +0000  42) PyObject *py_bytes_from_vec(const std::vector<std::byte> &);
+f69069e114ea src/mgr/PyModule.h                                         (Samuel Just         2025-10-24 03:00:45 +0000  43) 
+f69069e114ea src/mgr/PyModule.h                                         (Samuel Just         2025-10-24 03:00:45 +0000  44) 
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray          2016-06-30 14:05:02 +0100  45) /**
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray          2016-06-30 14:05:02 +0100  46)  * A Ceph CLI command description provided from a Python module
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray          2016-06-30 14:05:02 +0100  47)  */
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray          2016-06-30 14:05:02 +0100  48) class ModuleCommand {
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray          2016-06-30 14:05:02 +0100  49) public:
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray          2016-06-30 14:05:02 +0100  50)   std::string cmdstring;
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray          2016-06-30 14:05:02 +0100  51)   std::string helpstring;
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray          2016-06-30 14:05:02 +0100  52)   std::string perm;
+78e884dfb042 src/mgr/PyModule.h                                         (Mohamad Gebai       2018-02-28 09:20:44 -0500  53)   bool polling;
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500  54) 
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500  55)   // Call the ActivePyModule of this name to handle the command
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500  56)   std::string module_name;
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500  57) };
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500  58) 
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  59) class PyModule
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  60) {
+c93dc8849145 src/mgr/PyModule.h                                         (Kefu Chai           2019-07-07 11:14:49 +0800  61)   mutable ceph::mutex lock = ceph::make_mutex("PyModule::lock");
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  62) private:
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  63)   const std::string module_name;
+345c14438e01 src/mgr/PyModuleRegistry.h                                 (Bhavishya Gopesh    2017-10-09 11:10:41 +0530  64)   int load_subclass_of(const char* class_name, PyObject** py_class);
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  65) 
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  66)   // Did the MgrMap identify this module as one that should run?
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  67)   bool enabled = false;
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  68) 
+18f253aa3f1b src/mgr/PyModule.h                                         (Noah Watkins        2018-09-04 10:17:22 -0700  69)   // Did the MgrMap flag this module as always on?
+18f253aa3f1b src/mgr/PyModule.h                                         (Noah Watkins        2018-09-04 10:17:22 -0700  70)   bool always_on = false;
+18f253aa3f1b src/mgr/PyModule.h                                         (Noah Watkins        2018-09-04 10:17:22 -0700  71) 
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  72)   // Did we successfully import this python module and look up symbols?
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  73)   // (i.e. is it possible to instantiate a MgrModule subclass instance?)
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  74)   bool loaded = false;
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  75) 
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  76)   // Did the module identify itself as being able to run?
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  77)   // (i.e. should we expect instantiating and calling serve() to work?)
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  78)   bool can_run = false;
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  79) 
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  80)   // Did the module encounter an unexpected error while running?
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  81)   // (e.g. throwing an exception from serve())
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  82)   bool failed = false;
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500  83) 
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500  84)   // Populated if loaded, can_run or failed indicates a problem
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500  85)   std::string error_string;
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500  86) 
+641d9e42ba14 src/mgr/PyModule.h                                         (Sage Weil           2018-12-03 14:22:18 -0600  87)   // Helper for loading MODULE_OPTIONS and COMMANDS members
+6c8fba975831 src/mgr/PyModule.h                                         (John Spray          2018-04-16 10:49:57 -0400  88)   int walk_dict_list(
+6c8fba975831 src/mgr/PyModule.h                                         (John Spray          2018-04-16 10:49:57 -0400  89)       const std::string &attr_name,
+6c8fba975831 src/mgr/PyModule.h                                         (John Spray          2018-04-16 10:49:57 -0400  90)       std::function<int(PyObject*)> fn);
+6c8fba975831 src/mgr/PyModule.h                                         (John Spray          2018-04-16 10:49:57 -0400  91) 
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500  92)   int load_commands();
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500  93)   std::vector<ModuleCommand> commands;
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500  94) 
+3eeaefddb98b src/mgr/PyModule.h                                         (Sage Weil           2020-03-11 12:14:59 -0500  95)   int register_options(PyObject *cls);
+6c8fba975831 src/mgr/PyModule.h                                         (John Spray          2018-04-16 10:49:57 -0400  96)   int load_options();
+1f3e9d4811b8 src/mgr/PyModule.h                                         (Sage Weil           2018-12-17 14:22:33 -0600  97)   std::map<std::string, MgrMap::ModuleOption> options;
+6c8fba975831 src/mgr/PyModule.h                                         (John Spray          2018-04-16 10:49:57 -0400  98) 
+ee4e3ecd6e07 src/mgr/PyModule.h                                         (Sage Weil           2021-12-02 10:23:45 -0500  99)   int load_notify_types();
+ee4e3ecd6e07 src/mgr/PyModule.h                                         (Sage Weil           2021-12-02 10:23:45 -0500 100)   std::set<std::string> notify_types;
+ee4e3ecd6e07 src/mgr/PyModule.h                                         (Sage Weil           2021-12-02 10:23:45 -0500 101) 
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500 102) public:
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 103)   std::unique_ptr<PerfCounters> perfcounter;
+3bafb5e57168 src/mgr/PyModule.h                                         (Sage Weil           2021-02-16 18:27:08 -0500 104)   static std::string mgr_store_prefix;
+37484af0b860 src/mgr/PyModule.h                                         (John Spray          2018-04-09 15:25:45 -0400 105) 
+29193a47e6cf src/mgr/PyModuleRegistry.h                                 (John Spray          2017-10-16 10:51:34 -0400 106)   SafeThreadState pMyThreadState;
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray          2017-08-14 06:31:18 -0400 107)   PyObject *pClass = nullptr;
+c1471c750194 src/mgr/PyModuleRegistry.h                                 (John Spray          2017-08-22 14:42:11 -0400 108)   PyObject *pStandbyClass = nullptr;
+f69069e114ea src/mgr/PyModule.h                                         (Samuel Just         2025-10-24 03:00:45 +0000 109)   PyObject *pPickleModule = nullptr;
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500 110) 
+239b0dc8a9c4 src/mgr/PyModule.h                                         (Samuel Just         2025-11-07 23:56:14 +0000 111)   // true unless module in mgr_subinterpreter_modules
+239b0dc8a9c4 src/mgr/PyModule.h                                         (Samuel Just         2025-11-07 23:56:14 +0000 112)   bool use_main_interpreter = true;
+239b0dc8a9c4 src/mgr/PyModule.h                                         (Samuel Just         2025-11-07 23:56:14 +0000 113) 
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 114)   explicit PyModule(const std::string &module_name_);
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500 115) 
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500 116)   ~PyModule();
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500 117) 
+6c8fba975831 src/mgr/PyModule.h                                         (John Spray          2018-04-16 10:49:57 -0400 118)   bool is_option(const std::string &option_name);
+1f3e9d4811b8 src/mgr/PyModule.h                                         (Sage Weil           2018-12-17 14:22:33 -0600 119)   const std::map<std::string,MgrMap::ModuleOption>& get_options() const {
+1f3e9d4811b8 src/mgr/PyModule.h                                         (Sage Weil           2018-12-17 14:22:33 -0600 120)     return options;
+1f3e9d4811b8 src/mgr/PyModule.h                                         (Sage Weil           2018-12-17 14:22:33 -0600 121)   }
+6c8fba975831 src/mgr/PyModule.h                                         (John Spray          2018-04-16 10:49:57 -0400 122) 
+2e8f9e690141 src/mgr/PyModule.h                                         (Sage Weil           2018-12-18 14:11:30 -0600 123)   PyObject *get_typed_option_value(
+2e8f9e690141 src/mgr/PyModule.h                                         (Sage Weil           2018-12-18 14:11:30 -0600 124)     const std::string& option,
+2e8f9e690141 src/mgr/PyModule.h                                         (Sage Weil           2018-12-18 14:11:30 -0600 125)     const std::string& value);
+2e8f9e690141 src/mgr/PyModule.h                                         (Sage Weil           2018-12-18 14:11:30 -0600 126) 
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500 127)   int load(PyThreadState *pMainThreadState);
+410ce76f62c1 src/mgr/PyModule.h                                         (Kefu Chai           2018-02-08 19:01:19 +0800 128)   static PyObject* init_ceph_logger();
+410ce76f62c1 src/mgr/PyModule.h                                         (Kefu Chai           2018-02-08 19:01:19 +0800 129)   static PyObject* init_ceph_module();
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500 130) 
+810369b0cc0e src/mgr/PyModule.h                                         (John Spray          2018-02-05 16:06:09 +0100 131)   void set_enabled(const bool enabled_)
+810369b0cc0e src/mgr/PyModule.h                                         (John Spray          2018-02-05 16:06:09 +0100 132)   {
+810369b0cc0e src/mgr/PyModule.h                                         (John Spray          2018-02-05 16:06:09 +0100 133)     enabled = enabled_;
+810369b0cc0e src/mgr/PyModule.h                                         (John Spray          2018-02-05 16:06:09 +0100 134)   }
+810369b0cc0e src/mgr/PyModule.h                                         (John Spray          2018-02-05 16:06:09 +0100 135) 
+18f253aa3f1b src/mgr/PyModule.h                                         (Noah Watkins        2018-09-04 10:17:22 -0700 136)   void set_always_on(const bool always_on_) {
+18f253aa3f1b src/mgr/PyModule.h                                         (Noah Watkins        2018-09-04 10:17:22 -0700 137)     always_on = always_on_;
+18f253aa3f1b src/mgr/PyModule.h                                         (Noah Watkins        2018-09-04 10:17:22 -0700 138)   }
+18f253aa3f1b src/mgr/PyModule.h                                         (Noah Watkins        2018-09-04 10:17:22 -0700 139) 
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500 140)   /**
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500 141)    * Extend `out` with the contents of `this->commands`
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500 142)    */
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500 143)   void get_commands(std::vector<ModuleCommand> *out) const
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500 144)   {
+948635a8b213 src/mgr/PyModule.h                                         (Sage Weil           2018-10-16 14:11:33 -0500 145)     std::lock_guard l(lock);
+ab23c5069647 src/mgr/PyModule.h                                         (Adam C. Emerson     2018-08-23 11:25:51 -0400 146)     ceph_assert(out != nullptr);
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500 147)     out->insert(out->end(), commands.begin(), commands.end());
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500 148)   }
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500 149) 
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500 150) 
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 151)   /**
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 152)    * Mark the module as failed, recording the reason in the error
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 153)    * string.
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 154)    */
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 155)   void fail(const std::string &reason)
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 156)   {
+948635a8b213 src/mgr/PyModule.h                                         (Sage Weil           2018-10-16 14:11:33 -0500 157)     std::lock_guard l(lock);
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 158)     failed = true;
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 159)     error_string = reason;
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 160)   }
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 161) 
+cf292dfa8f92 src/mgr/PyModule.h                                         (Noah Watkins        2018-07-16 22:24:48 -0700 162)   bool is_enabled() const {
+948635a8b213 src/mgr/PyModule.h                                         (Sage Weil           2018-10-16 14:11:33 -0500 163)     std::lock_guard l(lock);
+cf292dfa8f92 src/mgr/PyModule.h                                         (Noah Watkins        2018-07-16 22:24:48 -0700 164)     return enabled || always_on;
+cf292dfa8f92 src/mgr/PyModule.h                                         (Noah Watkins        2018-07-16 22:24:48 -0700 165)   }
+cf292dfa8f92 src/mgr/PyModule.h                                         (Noah Watkins        2018-07-16 22:24:48 -0700 166) 
+948635a8b213 src/mgr/PyModule.h                                         (Sage Weil           2018-10-16 14:11:33 -0500 167)   bool is_failed() const { std::lock_guard l(lock) ; return failed; }
+948635a8b213 src/mgr/PyModule.h                                         (Sage Weil           2018-10-16 14:11:33 -0500 168)   bool is_loaded() const { std::lock_guard l(lock) ; return loaded; }
+948635a8b213 src/mgr/PyModule.h                                         (Sage Weil           2018-10-16 14:11:33 -0500 169)   bool is_always_on() const { std::lock_guard l(lock) ; return always_on; }
+834bc2794050 src/mgr/PyModule.h                                         (John Spray          2017-11-23 08:01:33 -0500 170) 
+ee4e3ecd6e07 src/mgr/PyModule.h                                         (Sage Weil           2021-12-02 10:23:45 -0500 171)   bool should_notify(const std::string& notify_type) const {
+ee4e3ecd6e07 src/mgr/PyModule.h                                         (Sage Weil           2021-12-02 10:23:45 -0500 172)     return notify_types.count(notify_type);
+ee4e3ecd6e07 src/mgr/PyModule.h                                         (Sage Weil           2021-12-02 10:23:45 -0500 173)   }
+ee4e3ecd6e07 src/mgr/PyModule.h                                         (Sage Weil           2021-12-02 10:23:45 -0500 174) 
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 175)   const std::string &get_name() const {
+2cdb67c2fe1c src/mgr/PyModule.h                                         (Max Kellermann      2024-10-11 12:32:11 +0200 176)     return module_name;
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 177)   }
+92aa60e99960 src/mgr/PyModule.h                                         (Max Kellermann      2024-10-11 12:32:11 +0200 178)   std::string get_error_string() const {
+948635a8b213 src/mgr/PyModule.h                                         (Sage Weil           2018-10-16 14:11:33 -0500 179)     std::lock_guard l(lock) ; return error_string;
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 180)   }
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 181)   bool get_can_run() const {
+948635a8b213 src/mgr/PyModule.h                                         (Sage Weil           2018-10-16 14:11:33 -0500 182)     std::lock_guard l(lock) ; return can_run;
+712ad57d09a2 src/mgr/PyModule.h                                         (John Spray          2017-11-16 16:30:39 -0500 183)   }
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 184) 
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 185)   enum PerfModuleCounters {
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 186)     l_pym_first = 10000,
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 187)     l_pym_notify_avg_usec,
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 188)     l_pym_cmd_avg_usec,
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 189)     l_pym_alive,
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 190)     l_pym_cpu_usage,
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 191)     l_pym_mem_rss_change,
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 192)     l_pym_mem_rss_current,
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 193)     l_pym_serve_cpu_usage,
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 194)     l_pym_last
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 195)   };
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 196) 
+95a90f7da8a3 src/mgr/PyModule.h                                         (Nitzan Mordechai    2024-12-08 18:08:39 +0000 197)   int perf_counter_build(CephContext *cct);
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500 198) };
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500 199) 
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500 200) typedef std::shared_ptr<PyModule> PyModuleRef;
+6a8da7ca7347 src/mgr/PyModule.h                                         (John Spray          2017-11-16 06:45:45 -0500 201) 
+3193d40d0daf src/mgr/PyModule.h                                         (Rubab-Syed          2018-02-16 15:51:11 +0500 202) class PyModuleConfig {
+3193d40d0daf src/mgr/PyModule.h                                         (Rubab-Syed          2018-02-16 15:51:11 +0500 203) public:
+c93dc8849145 src/mgr/PyModule.h                                         (Kefu Chai           2019-07-07 11:14:49 +0800 204)   mutable ceph::mutex lock = ceph::make_mutex("PyModuleConfig::lock");
+3193d40d0daf src/mgr/PyModule.h                                         (Rubab-Syed          2018-02-16 15:51:11 +0500 205)   std::map<std::string, std::string> config;
+3193d40d0daf src/mgr/PyModule.h                                         (Rubab-Syed          2018-02-16 15:51:11 +0500 206) 
+3193d40d0daf src/mgr/PyModule.h                                         (Rubab-Syed          2018-02-16 15:51:11 +0500 207)   PyModuleConfig();
+3193d40d0daf src/mgr/PyModule.h                                         (Rubab-Syed          2018-02-16 15:51:11 +0500 208)   
+3193d40d0daf src/mgr/PyModule.h                                         (Rubab-Syed          2018-02-16 15:51:11 +0500 209)   PyModuleConfig(PyModuleConfig &mconfig);
+3193d40d0daf src/mgr/PyModule.h                                         (Rubab-Syed          2018-02-16 15:51:11 +0500 210)   
+3193d40d0daf src/mgr/PyModule.h                                         (Rubab-Syed          2018-02-16 15:51:11 +0500 211)   ~PyModuleConfig();
+37484af0b860 src/mgr/PyModule.h                                         (John Spray          2018-04-09 15:25:45 -0400 212) 
+75bbe6863f5f src/mgr/PyModule.h                                         (Kefu Chai           2021-02-22 12:38:13 +0800 213)   std::pair<int, std::string> set_config(
+37484af0b860 src/mgr/PyModule.h                                         (John Spray          2018-04-09 15:25:45 -0400 214)     MonClient *monc,
+37484af0b860 src/mgr/PyModule.h                                         (John Spray          2018-04-09 15:25:45 -0400 215)     const std::string &module_name,
+a41b62bd8568 src/mgr/PyModule.h                                         (Kefu Chai           2021-06-27 12:01:17 +0800 216)     const std::string &key, const std::optional<std::string>& val);
+37484af0b860 src/mgr/PyModule.h                                         (John Spray          2018-04-09 15:25:45 -0400 217) 
+3193d40d0daf src/mgr/PyModule.h                                         (Rubab-Syed          2018-02-16 15:51:11 +0500 218) };

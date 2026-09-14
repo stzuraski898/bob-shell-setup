@@ -1,0 +1,23 @@
+commit c70a4f583c7bca7d240d13495b8c1571514847f2
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon May 24 15:17:58 2021 -0400
+
+    mgr: fix reweight-by-utilization cephbool flag
+    
+    This was broken, since it was trying to get a CephChoices as a bool.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ea41ba05887..479ea7a80cb 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1443,7 +1443,7 @@ bool DaemonServer::_handle_command(
+       return true;
+     }
+     bool no_increasing = false;
+-    cmd_getval(cmdctx->cmdmap, "no_increasing", no_increasing);
++    cmd_getval_compat_cephbool(cmdctx->cmdmap, "no_increasing", no_increasing);
+     string out_str;
+     mempool::osdmap::map<int32_t, uint32_t> new_weights;
+     r = cluster_state.with_osdmap_and_pgmap([&](const OSDMap &osdmap, const PGMap& pgmap) {

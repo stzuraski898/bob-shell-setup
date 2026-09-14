@@ -1,0 +1,45 @@
+commit 45d4dfed1ded628abcbb9f1c62dfb90095414f0d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 5 13:57:09 2018 -0500
+
+    mgr: load persistent device metadata on mgr stat
+    
+    Prune DeviceState when there is no persistent metadata and no daemon
+    references.  Load persistent metadata from config-key.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 690426ec47c..e8daf7dfd0e 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -50,7 +50,7 @@ void DaemonStateIndex::_erase(const DaemonKey& dmk)
+     auto d = _get_or_create_device(devid);
+     assert(d->daemons.count(dmk));
+     d->daemons.erase(dmk);
+-    if (d->daemons.empty()) {
++    if (d->empty()) {
+       _erase_device(d);
+     }
+   }
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 8dc1cf922c2..654c12beb7e 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -191,7 +191,16 @@ struct DeviceState : public RefCountedObject
+   std::string server;
+   std::set<DaemonKey> daemons;
+ 
++  std::map<string,string> metadata;  ///< persistent metadata
++
+   DeviceState(const std::string& n) : devid(n) {}
++
++  void set_metadata(map<string,string>&& m);
++
++  /// true of we can be safely forgotten/removed from memory
++  bool empty() const {
++    return daemons.empty() && metadata.empty();
++  }
+ };
+ 
+ typedef boost::intrusive_ptr<DeviceState> DeviceStateRef;

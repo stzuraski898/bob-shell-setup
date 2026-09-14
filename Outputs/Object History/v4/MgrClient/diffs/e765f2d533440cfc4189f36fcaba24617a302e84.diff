@@ -1,0 +1,48 @@
+commit e765f2d533440cfc4189f36fcaba24617a302e84
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Tue Nov 5 19:51:17 2019 -0800
+
+    mds: establish session with mgr only after added to FSMap
+    
+    Note that we now sub to the mgrmap after init because the MgrClient
+    connection to the mgr is driven by receipt of the MgrMap.
+    
+    This is important so that the MDS does not have metadata with the mgr
+    when the mons are ignoring the MDS otherwise due to CompatSet
+    incompatibilities.
+    
+    Fixes: https://tracker.ceph.com/issues/41538
+    Fixes: https://tracker.ceph.com/issues/42635
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 976d297e639..0667d8c7273 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -55,6 +55,7 @@ void MgrClient::init()
+   ceph_assert(msgr != nullptr);
+ 
+   timer.init();
++  initialized = true;
+ }
+ 
+ void MgrClient::shutdown()
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 7e5272dbedb..e9053ccf1f0 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -168,10 +168,14 @@ public:
+     std::map<std::string,std::string> &&task_status);
+   void update_daemon_health(std::vector<DaemonHealthMetric>&& metrics);
+ 
++  bool is_initialized() const { return initialized; }
++
+ private:
+   void _send_stats();
+   void _send_pgstats();
+   void _send_report();
++
++  bool initialized = false;
+ };
+ 
+ #endif

@@ -1,0 +1,6 @@
+# Commit → function map for MgrMapCache
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+403340bcf8c2122afff708519f176baa6b646fc1 | (no functions)

@@ -1,0 +1,59 @@
+commit ff7ce8ce8075eec5bdd79bc38b73108c9c27d9f4
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Oct 9 19:10:44 2006 +0000
+
+    new object_t struct;
+    monitor work
+    
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@919 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/ceph/common/Clock.h b/ceph/common/Clock.h
+index b511c200a19..c1d9acf5271 100644
+--- a/ceph/common/Clock.h
++++ b/ceph/common/Clock.h
+@@ -21,6 +21,7 @@
+ 
+ #include <sys/time.h>
+ #include <time.h>
++#include <math.h>
+ 
+ #include <list>
+ using namespace std;
+@@ -33,6 +34,10 @@ class utime_t {
+  private:
+   struct timeval tv;
+ 
++  struct timeval& timeval()  { return tv; }
++  friend class Clock;
++
++ public:
+   void normalize() {
+     if (tv.tv_usec > 1000*1000) {
+       tv.tv_sec += tv.tv_usec / (1000*1000);
+@@ -40,10 +45,6 @@ class utime_t {
+     }
+   }
+ 
+-  struct timeval& timeval()  { return tv; }
+-  friend class Clock;
+-
+- public:
+   // cons
+   utime_t() { tv.tv_sec = 0; tv.tv_usec = 0; normalize(); }
+   utime_t(time_t s, int u) { tv.tv_sec = s; tv.tv_usec = u; normalize(); }
+@@ -74,6 +75,14 @@ inline utime_t& operator+=(utime_t& l, const utime_t& r) {
+   l.usec_ref() %= 1000000L;
+   return l;
+ }
++inline utime_t& operator+=(utime_t& l, double f) {
++  double fs = trunc(f);
++  double us = (f - fs) / (double)1000000.0;
++  l.sec_ref() += (long)fs;
++  l.usec_ref() += (long)us;
++  l.normalize();
++  return l;
++}
+ 
+ inline utime_t operator-(const utime_t& l, const utime_t& r) {
+   return utime_t( l.sec() - r.sec() - (l.usec()<r.usec() ? 1:0),

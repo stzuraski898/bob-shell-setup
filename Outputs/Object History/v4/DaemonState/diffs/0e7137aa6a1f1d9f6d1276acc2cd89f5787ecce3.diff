@@ -1,0 +1,105 @@
+commit 0e7137aa6a1f1d9f6d1276acc2cd89f5787ecce3
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri May 5 15:39:39 2017 +0800
+
+    mgr: optimize DaemonStateIndex::cull() a little bit
+    
+    if the size of the cluster is quite large, we don't need to walk through
+    all daemons to do the cull.
+    
+    * smaller scope protected by the lock
+    * check smaller range in "all"
+    * use vector<string> for holding victims: all of them are of
+      "daemon_type".
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index f83f9749de6..290fde65134 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -30,18 +30,20 @@ void DaemonStateIndex::insert(DaemonStatePtr dm)
+   all[dm->key] = dm;
+ }
+ 
+-void DaemonStateIndex::_erase(DaemonKey dmk)
++void DaemonStateIndex::_erase(const DaemonKey& dmk)
+ {
+   assert(lock.is_locked_by_me());
+ 
+-  const auto dm = all.at(dmk);
++  const auto to_erase = all.find(dmk);
++  assert(to_erase != all.end());
++  const auto dm = to_erase->second;
+   auto &server_collection = by_server[dm->hostname];
+   server_collection.erase(dm->key);
+   if (server_collection.empty()) {
+     by_server.erase(dm->hostname);
+   }
+ 
+-  all.erase(dmk);
++  all.erase(to_erase);
+ }
+ 
+ DaemonStateCollection DaemonStateIndex::get_by_type(uint8_t type) const
+@@ -85,25 +87,25 @@ DaemonStatePtr DaemonStateIndex::get(const DaemonKey &key)
+ }
+ 
+ void DaemonStateIndex::cull(entity_type_t daemon_type,
+-                               std::set<std::string> names_exist)
++			    const std::set<std::string>& names_exist)
+ {
+-  Mutex::Locker l(lock);
+-
+-  std::set<DaemonKey> victims;
+-
+-  for (const auto &i : all) {
+-    if (i.first.first != daemon_type) {
+-      continue;
+-    }
++  std::vector<string> victims;
+ 
+-    if (names_exist.count(i.first.second) == 0) {
+-      victims.insert(i.first);
++  Mutex::Locker l(lock);
++  auto begin = all.lower_bound({daemon_type, ""});
++  auto end = all.end();
++  for (auto &i = begin; i != end; ++i) {
++    const auto& daemon_key = i->first;
++    if (daemon_key.first != daemon_type)
++      break;
++    if (names_exist.count(daemon_key.second) == 0) {
++      victims.push_back(daemon_key.second);
+     }
+   }
+ 
+-  for (const auto &i : victims) {
++  for (auto &i : victims) {
+     dout(4) << "Removing data for " << i << dendl;
+-    _erase(i);
++    _erase({daemon_type, i});
+   }
+ }
+ 
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 78fd036525f..91160d7f082 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -141,7 +141,7 @@ class DaemonStateIndex
+   PerfCounterTypes types;
+ 
+   void insert(DaemonStatePtr dm);
+-  void _erase(DaemonKey dmk);
++  void _erase(const DaemonKey& dmk);
+ 
+   bool exists(const DaemonKey &key) const;
+   DaemonStatePtr get(const DaemonKey &key);
+@@ -164,7 +164,7 @@ class DaemonStateIndex
+    * a cluster map and want to ensure that anything absent in the map
+    * is also absent in this class.
+    */
+-  void cull(entity_type_t daemon_type, std::set<std::string> names_exist);
++  void cull(entity_type_t daemon_type, const std::set<std::string>& names_exist);
+ };
+ 
+ #endif

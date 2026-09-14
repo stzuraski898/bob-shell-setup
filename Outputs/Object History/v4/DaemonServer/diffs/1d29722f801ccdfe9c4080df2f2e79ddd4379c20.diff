@@ -1,0 +1,41 @@
+commit 1d29722f801ccdfe9c4080df2f2e79ddd4379c20
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jan 21 10:22:26 2019 -0600
+
+    switch monc, daemons to use new msgr2 auth frame exchange
+    
+    - MonClient implements AuthClient to authenticate as a client
+    - MonClient implements AuthServer to allow daemons to verify authorizers
+    - Monitor implements AuthServer to allow clients to authenticate with
+      an exchange of msgr2 frames
+    - Monitor implements AuthClient to authenticate with other monitors
+    
+    After this change ProtocolV1 and SimpleMessenger still use all of the
+    old Dispatcher-based callbacks, but ProtocolV2 doesn't need them at
+    all (except for ms_handle_authentication when we finish).
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index a05dd37c8be..1298f64f0ac 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -111,6 +111,8 @@ int DaemonServer::init(uint64_t gid, entity_addrvec_t client_addrs)
+ 			   getpid(), 0);
+   msgr->set_default_policy(Messenger::Policy::stateless_server(0));
+ 
++  msgr->set_auth_client(monc);
++
+   // throttle clients
+   msgr->set_policy_throttlers(entity_name_t::TYPE_CLIENT,
+ 			      client_byte_throttler.get(),
+@@ -145,6 +147,9 @@ int DaemonServer::init(uint64_t gid, entity_addrvec_t client_addrs)
+   msgr->start();
+   msgr->add_dispatcher_tail(this);
+ 
++  msgr->set_auth_server(monc);
++  monc->set_handle_authentication_dispatcher(this);
++
+   started_at = ceph_clock_now();
+ 
+   std::lock_guard l(lock);

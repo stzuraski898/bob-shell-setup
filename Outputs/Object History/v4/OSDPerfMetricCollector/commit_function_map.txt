@@ -1,0 +1,16 @@
+# Commit → function map for OSDPerfMetricCollector
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+d8141f4302ad7631a3a068e5017e9b018d6cb741 | OSDPerfMetricCollector
+7523aef6e8656952418d17227c877952f9370f95 | process_reports
+efcebe1eb4ae16ea9c633436e3e105add4a2662c | (no functions)
+c93dc8849145c1630058e4c0e527f404929216ff | (no functions)
+b1f12671184a8da25c1b0059f23bf366483e395f | process_reports
+438a3f7bc40c66b14b7f61959f8dd691ea0b5220 | process_reports
+f495b8cce9014d3459f41691ad5eb7ca1fc9d153 | (no functions)
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f | OSDPerfMetricCollector
+a6c3390834759e3f953962d46cc7c840c9970046 | (no functions)

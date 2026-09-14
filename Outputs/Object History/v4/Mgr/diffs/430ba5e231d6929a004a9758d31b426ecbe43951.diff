@@ -1,0 +1,85 @@
+commit 430ba5e231d6929a004a9758d31b426ecbe43951
+Author: Xinying Song <songxinyingftd@gmail.com>
+Date:   Sun Dec 30 11:49:58 2018 +0800
+
+    mgr: request mon metadata when receiving a report msg from an unknown monitor
+    
+    * Mgr needs to issue an metadata request when receiving a report message
+      from a monitor who hasn't been in the mgr's daemon_state. Otherwise the
+      connection between mgr and monitor cannot be established.
+    
+    Fixes: http://tracker.ceph.com/issues/37753
+    Signed-off-by: Xinying Song <songxinying@sensetime.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 571bc486b8a..e4c83c4e152 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -70,7 +70,8 @@ void MetadataUpdate::finish(int r)
+ {
+   daemon_state.clear_updating(key);
+   if (r == 0) {
+-    if (key.first == "mds" || key.first == "osd" || key.first == "mgr") {
++    if (key.first == "mds" || key.first == "osd" || 
++        key.first == "mgr" || key.first == "mon") {
+       json_spirit::mValue json_result;
+       bool read_ok = json_spirit::read(
+           outbl.to_str(), json_result);
+@@ -94,7 +95,7 @@ void MetadataUpdate::finish(int r)
+       DaemonStatePtr state;
+       if (daemon_state.exists(key)) {
+         state = daemon_state.get(key);
+-        if (key.first == "mds" || key.first == "mgr") {
++        if (key.first == "mds" || key.first == "mgr" || key.first == "mon") {
+           daemon_meta.erase("name");
+         } else if (key.first == "osd") {
+           daemon_meta.erase("id");
+@@ -111,7 +112,7 @@ void MetadataUpdate::finish(int r)
+         state->key = key;
+         state->hostname = daemon_meta.at("hostname").get_str();
+ 
+-        if (key.first == "mds" || key.first == "mgr") {
++        if (key.first == "mds" || key.first == "mgr" || key.first == "mon") {
+           daemon_meta.erase("name");
+         } else if (key.first == "osd") {
+           daemon_meta.erase("id");
+@@ -496,6 +497,19 @@ void Mgr::handle_service_map(MServiceMap *m)
+   server.got_service_map();
+ }
+ 
++void Mgr::handle_mon_map()
++{
++  dout(20) << __func__ << dendl;
++  assert(lock.is_locked_by_me());
++  std::set<std::string> names_exist;
++  cluster_state.with_monmap([&] (auto &monmap) {
++    for (unsigned int i = 0; i < monmap.size(); i++) {
++      names_exist.insert(monmap.get_name(i));
++    }
++  });
++  daemon_state.cull("mon", names_exist);
++}
++
+ bool Mgr::ms_dispatch(Message *m)
+ {
+   dout(4) << *m << dendl;
+@@ -507,6 +521,7 @@ bool Mgr::ms_dispatch(Message *m)
+       break;
+     case CEPH_MSG_MON_MAP:
+       py_module_registry->notify_all("mon_map", "");
++      handle_mon_map();
+       m->put();
+       break;
+     case CEPH_MSG_FS_MAP:
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index e5739c8c9a7..0248c9df61e 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -85,6 +85,7 @@ public:
+   void handle_osd_map();
+   void handle_log(MLog *m);
+   void handle_service_map(MServiceMap *m);
++  void handle_mon_map();
+ 
+   bool got_mgr_map(const MgrMap& m);
+ 

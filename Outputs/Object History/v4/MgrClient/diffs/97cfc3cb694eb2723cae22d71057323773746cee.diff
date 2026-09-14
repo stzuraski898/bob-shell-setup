@@ -1,0 +1,155 @@
+commit 97cfc3cb694eb2723cae22d71057323773746cee
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jun 26 13:22:17 2017 -0400
+
+    mgr: allow/track service registrations
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index c7774959d22..624fc0f4f60 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -140,12 +140,15 @@ void MgrClient::reconnect()
+   session.reset(new MgrSessionState());
+   session->con = msgr->get_connection(inst);
+ 
++  if (service_daemon) {
++    daemon_dirty_status = true;
++  }
++
+   // Don't send an open if we're just a client (i.e. doing
+   // command-sending, not stats etc)
+-  if (g_conf && !g_conf->name.is_client()) {
+-    auto open = new MMgrOpen();
+-    open->daemon_name = g_conf->name.get_id();
+-    session->con->send_message(open);
++  if ((g_conf && !g_conf->name.is_client()) ||
++      service_daemon) {
++    _send_open();
+   }
+ 
+   // resend any pending commands
+@@ -157,6 +160,24 @@ void MgrClient::reconnect()
+   }
+ }
+ 
++void MgrClient::_send_open()
++{
++  if (session && session->con) {
++    auto open = new MMgrOpen();
++    if (!service_name.empty()) {
++      open->service_name = service_name;
++      open->daemon_name = daemon_name;
++    } else {
++      open->daemon_name = g_conf->name.get_id();
++    }
++    if (service_daemon) {
++      open->service_daemon = service_daemon;
++      open->daemon_metadata = daemon_metadata;
++    }
++    session->con->send_message(open);
++  }
++}
++
+ bool MgrClient::handle_mgr_map(MMgrMap *m)
+ {
+   assert(lock.is_locked_by_me());
+@@ -250,7 +271,17 @@ void MgrClient::send_report()
+ 
+   ldout(cct, 20) << "encoded " << report->packed.length() << " bytes" << dendl;
+ 
+-  report->daemon_name = g_conf->name.get_id();
++  if (daemon_name.size()) {
++    report->daemon_name = daemon_name;
++  } else {
++    report->daemon_name = g_conf->name.get_id();
++  }
++  report->service_name = service_name;
++
++  if (daemon_dirty_status) {
++    report->daemon_status = daemon_status;
++    daemon_dirty_status = false;
++  }
+ 
+   session->con->send_message(report);
+ 
+@@ -354,3 +385,44 @@ bool MgrClient::handle_command_reply(MCommandReply *m)
+   return true;
+ }
+ 
++int MgrClient::service_daemon_register(
++  const std::string& service,
++  const std::string& name,
++  const std::map<std::string,std::string>& metadata)
++{
++  Mutex::Locker l(lock);
++  if (name == "osd" ||
++      name == "mds" ||
++      name == "client" ||
++      name == "mon" ||
++      name == "mgr") {
++    // normal ceph entity types are not allowed!
++    return -EINVAL;
++  }
++  if (service_daemon) {
++    return -EEXIST;
++  }
++  ldout(cct,1) << service << "." << name << " metadata " << metadata << dendl;
++  service_daemon = true;
++  service_name = service;
++  daemon_name = name;
++  daemon_metadata = metadata;
++  daemon_dirty_status = true;
++
++  // late register?
++  if (g_conf->name.is_client() && session && session->con) {
++    _send_open();
++  }
++
++  return 0;
++}
++
++int MgrClient::service_daemon_update_status(
++  const std::map<std::string,std::string>& status)
++{
++  Mutex::Locker l(lock);
++  ldout(cct,10) << status << dendl;
++  daemon_status = status;
++  daemon_dirty_status = true;
++  return 0;
++}
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 87df28650a2..09fe831b394 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -72,7 +72,15 @@ protected:
+   // our reports (hook for use by OSD)
+   std::function<MPGStats*()> pgstats_cb;
+ 
++  // for service registration and beacon
++  bool service_daemon = false;
++  bool daemon_dirty_status = false;
++  std::string service_name, daemon_name;
++  std::map<std::string,std::string> daemon_metadata;
++  std::map<std::string,std::string> daemon_status;
++
+   void reconnect();
++  void _send_open();
+ 
+ public:
+   MgrClient(CephContext *cct_, Messenger *msgr_);
+@@ -103,6 +111,13 @@ public:
+   int start_command(const vector<string>& cmd, const bufferlist& inbl,
+ 		    bufferlist *outbl, string *outs,
+ 		    Context *onfinish);
++
++  int service_daemon_register(
++    const std::string& service,
++    const std::string& name,
++    const std::map<std::string,std::string>& metadata);
++  int service_daemon_update_status(
++    const std::map<std::string,std::string>& status);
+ };
+ 
+ #endif

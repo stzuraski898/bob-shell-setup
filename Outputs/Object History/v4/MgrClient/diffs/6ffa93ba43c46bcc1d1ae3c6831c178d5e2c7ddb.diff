@@ -1,0 +1,49 @@
+commit 6ffa93ba43c46bcc1d1ae3c6831c178d5e2c7ddb
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Feb 28 09:34:33 2017 -0600
+
+    mgr/MgrClient: remove unused cond signal helpers
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index a1dadc884fe..49d752054c1 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -255,22 +255,6 @@ bool MgrClient::handle_mgr_configure(MMgrConfigure *m)
+   return true;
+ }
+ 
+-void MgrClient::wait_on_list(list<Cond*>& ls)
+-{
+-  assert(lock.is_locked_by_me());
+-
+-  Cond cond;
+-  ls.push_back(&cond);
+-  cond.Wait(lock);
+-  ls.remove(&cond);
+-}
+-
+-void MgrClient::signal_cond_list(list<Cond*>& ls)
+-{
+-  for (list<Cond*>::iterator it = ls.begin(); it != ls.end(); ++it)
+-    (*it)->Signal();
+-}
+-
+ int MgrClient::start_command(const vector<string>& cmd, const bufferlist& inbl,
+                   bufferlist *outbl, string *outs,
+                   Context *onfinish)
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index a97de3c94db..4190a58ea79 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -63,9 +63,6 @@ protected:
+ 
+   CommandTable<MgrCommand> command_table;
+ 
+-  void wait_on_list(list<Cond*>& ls);
+-  void signal_cond_list(list<Cond*>& ls);
+-
+   Context *report_callback;
+ 
+   // If provided, use this to compose an MPGStats to send with

@@ -1,0 +1,22 @@
+commit 38fba24c03861179a8c3bf850038a1be006ae397
+Author: Casey Bodley <cbodley@redhat.com>
+Date:   Tue Apr 24 15:54:50 2018 -0400
+
+    mgrc: free MMgrClose in handle_mgr_close
+    
+    Fixes: http://tracker.ceph.com/issues/23846
+    
+    Signed-off-by: Casey Bodley <cbodley@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 1765e938b95..6e1e5391d8d 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -401,6 +401,7 @@ bool MgrClient::handle_mgr_close(MMgrClose *m)
+ {
+   service_daemon = false;
+   shutdown_cond.Signal();
++  m->put();
+   return true;
+ }
+ 

@@ -1,0 +1,32 @@
+commit b1f12671184a8da25c1b0059f23bf366483e395f
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Fri Nov 23 15:25:22 2018 +0200
+
+    mgr: add limit param to osd perf query
+    
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 72348ab23c5..09764afaf8c 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -79,7 +79,8 @@ protected:
+   // If provided, use this to compose an MPGStats to send with
+   // our reports (hook for use by OSD)
+   std::function<MPGStats*()> pgstats_cb;
+-  std::function<void(const std::list<OSDPerfMetricQuery> &)> set_perf_queries_cb;
++  std::function<void(const std::map<OSDPerfMetricQuery,
++                                    OSDPerfMetricLimits> &)> set_perf_queries_cb;
+   std::function<void(std::map<OSDPerfMetricQuery,
+                               OSDPerfMetricReport> *)> get_perf_report_cb;
+ 
+@@ -119,7 +120,8 @@ public:
+   bool handle_command_reply(MCommandReply *m);
+ 
+   void set_perf_metric_query_cb(
+-          std::function<void(const std::list<OSDPerfMetricQuery> &)> cb_set,
++    std::function<void(const std::map<OSDPerfMetricQuery,
++                                      OSDPerfMetricLimits> &)> cb_set,
+           std::function<void(std::map<OSDPerfMetricQuery,
+                                       OSDPerfMetricReport> *)> cb_get)
+   {

@@ -1,0 +1,65 @@
+commit ba3679c60b860358d1d471e6aa8a492fb5045132
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Sep 24 13:53:46 2018 -0500
+
+    mgr/DaemonServer: remove any upmaps on merging PGs
+    
+    Remove any pg_upmap[_items] on pgs that are merging to ensure that they
+    land on the same OSDs.
+    
+    This is a bit sloppy: we *could* set the source upmap to match the target
+    upmap (vs potentially moving both PGs to a third location, and/or then
+    having the balancer move the resulting PG somewhere else again), but for
+    now assume upmaps are not a common case and Keep It Simple.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 374fd4e1e63..95ffa032d09 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2229,6 +2229,7 @@ void DaemonServer::adjust_pgs()
+ 
+   map<string,unsigned> pg_num_to_set;
+   map<string,unsigned> pgp_num_to_set;
++  set<pg_t> upmaps_to_clear;
+   cluster_state.with_pgmap([&](const PGMap& pg_map) {
+       unsigned creating_or_unknown = 0;
+       for (auto& i : pg_map.num_pg_by_state) {
+@@ -2289,6 +2290,7 @@ void DaemonServer::adjust_pgs()
+ 			   << " pg_num " << p.get_pg_num()
+ 			   << " - merge target " << merge_target
+ 			   << " has upmap" << dendl;
++		  upmaps_to_clear.insert(merge_target);
+ 		  ok = false;
+ 		} else if (osdmap.have_pg_upmaps(merge_source)) {
+ 		  dout(10) << "pool " << i.first
+@@ -2296,6 +2298,7 @@ void DaemonServer::adjust_pgs()
+ 			   << " pg_num " << p.get_pg_num()
+ 			   << " - merge source " << merge_source
+ 			   << " has upmap" << dendl;
++		  upmaps_to_clear.insert(merge_source);
+ 		  ok = false;
+ 		}
+ 
+@@ -2506,6 +2509,20 @@ void DaemonServer::adjust_pgs()
+       "}";
+     monc->start_mon_command({cmd}, {}, nullptr, nullptr, nullptr);
+   }
++  for (auto pg : upmaps_to_clear) {
++    const string cmd =
++      "{"
++      "\"prefix\": \"osd rm-pg-upmap\", "
++      "\"pgid\": \"" + stringify(pg) + "\""
++      "}";
++    monc->start_mon_command({cmd}, {}, nullptr, nullptr, nullptr);
++    const string cmd2 =
++      "{"
++      "\"prefix\": \"osd rm-pg-upmap-items\", "
++      "\"pgid\": \"" + stringify(pg) + "\"" +
++      "}";
++    monc->start_mon_command({cmd2}, {}, nullptr, nullptr, nullptr);
++  }
+ }
+ 
+ void DaemonServer::got_service_map()

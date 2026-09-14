@@ -1,0 +1,29 @@
+# Non-merge commits touching src/mgr/PyModuleRunner.cc and/or src/mgr/PyModuleRunner.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+95a90f7da8a32dd2a5a1e3b381aaeacea378437b 2024-12-08 Nitzan Mordechai | mgr: Add per-module performance counters to mgr
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b 2025-10-02 Edwin Rodriguez | Add blank line after header block
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 2025-10-02 Edwin Rodriguez | Add missing blank line after comment block
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+719d5e1836c95bcbc446dbeb7d8f03adefd02a3e 2021-06-18 Sage Weil | mgr: generate crash dump for python exceptions
+48c4bc445fcacd7980e84b4f135a3115b88b05f1 2019-12-18 Kefu Chai | mgr: drop the compatibility with python2
+40c4b9ac9d8e2b2c17269affada304f5e1554974 2019-11-13 Patrick Donnelly | mgr: handle race with finisher after shutdown
+3e39413a222a9d649099b86e0338437a1c83257c 2019-10-17 Ricardo Dias | mgr: module file logger support
+58a7a6f5e0bf3334b7174c87a162bbc8247be1f9 2019-09-25 Ricardo Dias | mgr: use modules' log_level instead of mgr log level
+2e8f9e690141641c06a6dc8e62ec4c63a2efebe9 2018-12-18 Sage Weil | mgr: return options as appropriate python type
+ab23c506964753990f9fe23e314b9f3e2547a773 2018-08-23 Adam C. Emerson | mgr: Use ceph_assert for asserts.
+4718b7cb2fac65b2ac7014f42ba1a10181350f0b 2018-07-06 Kefu Chai | common,rbd,rgw,osd: extract config values into ConfigValues
+13bcddea23f834c520d86050d03a8fc2e8a21a6a 2018-05-15 John Spray | mgr: handle long-named mgr modules
+39ffec281af577c766c619d568f7a7051d108b00 2018-04-25 Danny Al-Gaaf | misc: mark constructors as explicit
+7c80548dba38a170ba33c964d3f6ad8dba49db4f 2018-03-15 John Spray | mgr: improve reporting on unloadable modules
+ce6e043a44e35144b038bc0236b5d244ffee1ca5 2018-03-27 Wilson E. Alvarez | src: Added const references to various function parameters
+1a3e935774b2ff02acfda9bb0ffea0b85ff3edbc 2018-02-12 Radoslaw Zarzynski | core: resurrect the old check on dout's levels where possible.
+46003075924bb16b41149e7c12f31e9a6b7a3f15 2018-01-24 Kefu Chai | mgr: be compatible with py3
+6a8da7ca734726315c06929635c25dbb88599654 2017-11-16 John Spray | mgr: load all modules (not just active ones)
+712ad57d09a2a96dc1e21cd245fbf1a6372867ba 2017-11-16 John Spray | mgr: evaluate `can_run` method on modules
+f4763c32fa84f57c93c559d742203fb3fd2985a8 2017-11-01 John Spray | mgr: emit cluster log message on serve() exception
+29193a47e6cf8297d9b1ceecc7695f2c85434999 2017-10-16 John Spray | mgr: update for SafeThreadState
+7e61f79f5d56b568103a067d9a1eb87af997ad61 2017-10-13 John Spray | mgr: refactor PyOSDMap etc implementation
+df8797320bed7ad9f121477e35d7e3862efd89bd 2017-10-06 John Spray | mgr: cut down duplication between active+standby

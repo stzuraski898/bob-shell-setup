@@ -1,0 +1,25 @@
+commit 3b6d6031ca2cba13f8010c83a56cfc904c6d37c9
+Author: Jos Collin <jcollin@redhat.com>
+Date:   Tue Oct 24 20:46:41 2017 +0530
+
+    mon,mgr,doc,test: standardize argument as role
+    
+    `ceph rmfailed` refers to its argument as "who" and `ceph repaired` refers to its argument as "rank". We should make these commands and others consistent by standardizing the argument as "role".
+    
+    Fixes: http://tracker.ceph.com/issues/21393
+    
+    Signed-off-by: Jos Collin <jcollin@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 2fe220b50b3..c4af8ec8a39 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -436,7 +436,7 @@ bool DaemonServer::handle_report(MMgrReport *m)
+ 
+       } else if (key.first == "mds") {
+         c->set_default("addr", stringify(m->get_source_addr()));
+-        oss << "{\"prefix\": \"mds metadata\", \"who\": \""
++        oss << "{\"prefix\": \"mds metadata\", \"role\": \""
+             << key.second << "\"}";
+  
+       } else {

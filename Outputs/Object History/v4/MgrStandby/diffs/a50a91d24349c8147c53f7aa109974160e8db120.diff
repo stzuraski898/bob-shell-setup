@@ -1,0 +1,66 @@
+commit a50a91d24349c8147c53f7aa109974160e8db120
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Apr 15 14:39:11 2019 +0800
+
+    mgr/{Mgr,MgrStandby}: use ref_t<M>
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 2b0715421e2..418a2114cd2 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -374,7 +374,7 @@ void MgrStandby::_update_log_config()
+   }
+ }
+ 
+-void MgrStandby::handle_mgr_map(MMgrMap* mmap)
++void MgrStandby::handle_mgr_map(ref_t<MMgrMap> mmap)
+ {
+   auto &map = mmap->get_map();
+   dout(4) << "received map epoch " << map.get_epoch() << dendl;
+@@ -429,19 +429,19 @@ void MgrStandby::handle_mgr_map(MMgrMap* mmap)
+   }
+ }
+ 
+-bool MgrStandby::ms_dispatch(Message *m)
++bool MgrStandby::ms_dispatch2(const ref_t<Message>& m)
+ {
+   std::lock_guard l(lock);
+   dout(4) << state_str() << " " << *m << dendl;
+ 
+   if (m->get_type() == MSG_MGR_MAP) {
+-    handle_mgr_map(static_cast<MMgrMap*>(m));
++    handle_mgr_map(ref_cast<MMgrMap>(m));
+   }
+   bool handled = false;
+   if (active_mgr) {
+     auto am = active_mgr;
+     lock.Unlock();
+-    handled = am->ms_dispatch(m);
++    handled = am->ms_dispatch2(m);
+     lock.Lock();
+   }
+   if (m->get_type() == MSG_MGR_MAP) {
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index 7adab68d701..8a7e633b1d7 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -61,7 +61,7 @@ protected:
+ 
+   std::string state_str();
+ 
+-  void handle_mgr_map(MMgrMap *m);
++  void handle_mgr_map(ceph::ref_t<MMgrMap> m);
+   void _update_log_config();
+   void send_beacon();
+ 
+@@ -71,7 +71,7 @@ public:
+   MgrStandby(int argc, const char **argv);
+   ~MgrStandby() override;
+ 
+-  bool ms_dispatch(Message *m) override;
++  bool ms_dispatch2(const ceph::ref_t<Message>& m) override;
+   bool ms_handle_reset(Connection *con) override { return false; }
+   void ms_handle_remote_reset(Connection *con) override {}
+   bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer) override;

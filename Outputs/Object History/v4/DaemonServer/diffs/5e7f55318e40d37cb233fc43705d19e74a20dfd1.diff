@@ -1,0 +1,29 @@
+commit 5e7f55318e40d37cb233fc43705d19e74a20dfd1
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jul 4 13:48:26 2021 +0800
+
+    mgr/DaemonServer: use "unsigned" to represent the pgp num
+    
+    as pgp num should alwayes be unsigned, and this change silences the
+    GCC warning like:
+    
+    ../src/mgr/DaemonServer.cc: In lambda function:
+    ../src/mgr/DaemonServer.cc:2862:15: warning: comparison of integer expressions of different signedness: 'int' and 'unsigned int' [-Wsign-compare]
+     2862 |      if (next != p.get_pgp_num()) {
+          |          ~~~~~^~~~~~~~~~~~~~~~~~
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index a9d785177c1..552f8322ff5 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2816,7 +2816,7 @@ void DaemonServer::adjust_pgs()
+ 	    // single adjustment that's more than half of the
+ 	    // max_misplaced, to somewhat limit the magnitude of
+ 	    // our potential error here.
+-	    int next;
++	    unsigned next;
+ 	    static constexpr unsigned MAX_NUM_OBJECTS_PER_PG_FOR_LEAP = 1;
+ 	    pool_stat_t s = pg_map.get_pg_pool_sum_stat(i.first);
+ 	    if (aggro ||

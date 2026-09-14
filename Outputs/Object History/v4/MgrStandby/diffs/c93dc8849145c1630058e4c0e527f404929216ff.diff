@@ -1,0 +1,54 @@
+commit c93dc8849145c1630058e4c0e527f404929216ff
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jul 7 11:14:49 2019 +0800
+
+    mgr: s/Mutex/ceph::mutex/
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index a40d02b1712..527dc042a74 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -52,7 +52,6 @@ MgrStandby::MgrStandby(int argc, const char **argv) :
+   log_client(g_ceph_context, client_messenger.get(), &monc.monmap, LogClient::NO_FLAGS),
+   clog(log_client.create_channel(CLOG_CHANNEL_CLUSTER)),
+   audit_clog(log_client.create_channel(CLOG_CHANNEL_AUDIT)),
+-  lock("MgrStandby::lock"),
+   finisher(g_ceph_context, "MgrStandby", "mgrsb-fin"),
+   timer(g_ceph_context, lock),
+   py_module_registry(clog),
+@@ -190,7 +189,7 @@ int MgrStandby::init()
+ 
+ void MgrStandby::send_beacon()
+ {
+-  ceph_assert(lock.is_locked_by_me());
++  ceph_assert(ceph_mutex_is_locked_by_me(lock));
+   dout(20) << state_str() << dendl;
+ 
+   std::list<PyModuleRef> modules = py_module_registry.get_modules();
+@@ -440,9 +439,9 @@ bool MgrStandby::ms_dispatch2(const ref_t<Message>& m)
+   bool handled = false;
+   if (active_mgr) {
+     auto am = active_mgr;
+-    lock.Unlock();
++    lock.unlock();
+     handled = am->ms_dispatch2(m);
+-    lock.Lock();
++    lock.lock();
+   }
+   if (m->get_type() == MSG_MGR_MAP) {
+     // let this pass through for mgrc
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index ae1d02e3328..98b9d0d22a7 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -49,7 +49,7 @@ protected:
+   LogClient log_client;
+   LogChannelRef clog, audit_clog;
+ 
+-  Mutex lock;
++  ceph::mutex lock = ceph::make_mutex("MgrStandby::lock");
+   Finisher finisher;
+   SafeTimer timer;
+ 

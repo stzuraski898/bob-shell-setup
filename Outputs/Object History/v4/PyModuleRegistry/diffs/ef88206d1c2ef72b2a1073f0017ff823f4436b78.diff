@@ -1,0 +1,28 @@
+commit ef88206d1c2ef72b2a1073f0017ff823f4436b78
+Author: Noah Watkins <nwatkins@redhat.com>
+Date:   Fri Aug 31 11:46:28 2018 -0700
+
+    mgr: remove dead code
+    
+    Signed-off-by: Noah Watkins <nwatkins@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 089044433ed..f2b143e4288 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -106,15 +106,6 @@ public:
+   void active_shutdown();
+   void shutdown();
+ 
+-  template<typename Callback, typename...Args>
+-  void with_active_modules(Callback&& cb, Args&&...args) const
+-  {
+-    Mutex::Locker l(lock);
+-    ceph_assert(active_modules != nullptr);
+-
+-    std::forward<Callback>(cb)(*active_modules, std::forward<Args>(args)...);
+-  }
+-
+   std::vector<MonCommand> get_commands() const;
+   std::vector<ModuleCommand> get_py_commands() const;
+ 

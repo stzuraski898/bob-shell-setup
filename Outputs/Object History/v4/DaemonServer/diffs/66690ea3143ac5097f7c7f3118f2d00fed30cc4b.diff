@@ -1,0 +1,38 @@
+commit 66690ea3143ac5097f7c7f3118f2d00fed30cc4b
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Dec 5 12:59:31 2019 -0600
+
+    mgr/DaemonServer: fix 'osd ok-to-stop' for EC pools
+    
+    We need to pay attention to account for CRUSH_ITEM_NONE entries in the
+    EC PG acting set.
+    
+    Fixes: https://tracker.ceph.com/issues/43151
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 7b81ffff027..2bc739157e0 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1588,7 +1588,9 @@ bool DaemonServer::_handle_command(
+ 		found = true;
+ 		continue;
+ 	      }
+-	      pg_acting.insert(anm.osd);
++	      if (anm.osd != CRUSH_ITEM_NONE) {
++		pg_acting.insert(anm.osd);
++	      }
+ 	    }
+ 	  } else {
+ 	    for (auto& a : q.second.acting) {
+@@ -1596,7 +1598,9 @@ bool DaemonServer::_handle_command(
+ 		found = true;
+ 		continue;
+ 	      }
+-	      pg_acting.insert(a);
++	      if (a != CRUSH_ITEM_NONE) {
++		pg_acting.insert(a);
++	      }
+ 	    }
+ 	  }
+ 	  if (!found) {

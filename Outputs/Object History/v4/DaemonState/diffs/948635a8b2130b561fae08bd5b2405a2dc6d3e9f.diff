@@ -1,0 +1,21 @@
+commit 948635a8b2130b561fae08bd5b2405a2dc6d3e9f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Oct 16 14:11:33 2018 -0500
+
+    mgr: Mutex::Locker -> std::lock_guard
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 5732178390a..f706aab3080 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -333,7 +333,7 @@ public:
+ 			     std::set<std::string> *ls) {
+     auto m = get_by_server(server);
+     for (auto& i : m) {
+-      Mutex::Locker l(i.second->lock);
++      std::lock_guard l(i.second->lock);
+       for (auto& j : i.second->devices) {
+ 	ls->insert(j.first);
+       }

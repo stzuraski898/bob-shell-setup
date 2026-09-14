@@ -1,0 +1,44 @@
+commit ab23c506964753990f9fe23e314b9f3e2547a773
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Thu Aug 23 11:25:51 2018 -0400
+
+    mgr: Use ceph_assert for asserts.
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/PyFormatter.cc b/src/mgr/PyFormatter.cc
+index f2ef0de0b6f..4c71a2cb1de 100644
+--- a/src/mgr/PyFormatter.cc
++++ b/src/mgr/PyFormatter.cc
+@@ -39,14 +39,14 @@ void PyFormatter::open_object_section(const char *name)
+ void PyFormatter::dump_unsigned(const char *name, uint64_t u)
+ {
+   PyObject *p = PyLong_FromLongLong(u);
+-  assert(p);
++  ceph_assert(p);
+   dump_pyobject(name, p);
+ }
+ 
+ void PyFormatter::dump_int(const char *name, int64_t u)
+ {
+   PyObject *p = PyLong_FromLongLong(u);
+-  assert(p);
++  ceph_assert(p);
+   dump_pyobject(name, p);
+ }
+ 
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index 8b44916a047..9c7d54eebbc 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -76,8 +76,8 @@ public:
+   void open_object_section(const char *name) override;
+   void close_section() override
+   {
+-    assert(cursor != root);
+-    assert(!stack.empty());
++    ceph_assert(cursor != root);
++    ceph_assert(!stack.empty());
+     cursor = stack.top();
+     stack.pop();
+   }

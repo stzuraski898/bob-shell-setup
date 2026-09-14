@@ -1,0 +1,8 @@
+# Commit → function map for DaemonKey
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+aec62d9eb6f3308b9a2802dc9d2fa763ca8ec047 | (no functions)
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+5aac7eba36be99861eb8726872e339ff55360f47 | (no functions)

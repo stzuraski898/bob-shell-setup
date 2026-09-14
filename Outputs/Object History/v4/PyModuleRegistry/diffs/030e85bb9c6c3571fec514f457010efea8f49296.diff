@@ -1,0 +1,44 @@
+commit 030e85bb9c6c3571fec514f457010efea8f49296
+Author: Volker Theile <vtheile@suse.com>
+Date:   Thu Jan 3 17:02:52 2019 +0100
+
+    mgr: Allow modules to get/set other module options
+    
+    Add the _ceph_get_module_option_ex and _ceph_set_module_option_ex methods to the BaseMgrModule. This allows a module to get/set options from other modules, e.g. allow the Dashboard to set the telemetry module settings, either the other module is not enabled.
+    
+    Fixes: https://tracker.ceph.com/issues/37722
+    
+    Signed-off-by: Volker Theile <vtheile@suse.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 5446e06681f..5ef411a5d55 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -199,7 +199,8 @@ void PyModuleRegistry::active_start(
+ 
+   active_modules.reset(new ActivePyModules(
+               module_config, kv_store, ds, cs, mc,
+-              clog_, audit_clog_, objecter_, client_, f, server));
++              clog_, audit_clog_, objecter_, client_, f, server,
++              *this));
+ 
+   for (const auto &i : modules) {
+     // Anything we're skipping because of !can_run will be flagged
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 8c46ab2923d..6868aec65bc 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -122,6 +122,13 @@ public:
+     return modules.at(module_name);
+   }
+ 
++  bool module_exists(const std::string &module_name) const
++  {
++    std::lock_guard l(lock);
++    auto mod_iter = modules.find(module_name);
++    return mod_iter != modules.end();
++  }
++
+   /**
+    * Pass through command to the named module for execution.
+    *

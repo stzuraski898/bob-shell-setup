@@ -1,0 +1,28 @@
+commit 25b99ddecbd90e7b3456bd9a70f18c1d62cf5099
+Author: Ricardo Dias <rdias@suse.com>
+Date:   Mon Nov 4 16:30:35 2019 +0000
+
+    mgr/mgr_module: remove CLI commands to manage modules' logging
+    
+    We will use just the module options to manage the log_level and
+    log_to_file options by using the `config_update` handler.
+    
+    Signed-off-by: Ricardo Dias <rdias@suse.com>
+
+diff --git a/src/mgr/ActivePyModule.cc b/src/mgr/ActivePyModule.cc
+index 402c7cad3a0..bc70560ffa7 100644
+--- a/src/mgr/ActivePyModule.cc
++++ b/src/mgr/ActivePyModule.cc
+@@ -160,10 +160,10 @@ PyObject *ActivePyModule::dispatch_remote(
+ void ActivePyModule::config_notify()
+ {
+   Gil gil(py_module->pMyThreadState, true);
+-  dout(20) << "Calling " << py_module->get_name() << ".config_notify..."
++  dout(20) << "Calling " << py_module->get_name() << "._config_notify..."
+ 	   << dendl;
+   auto remoteResult = PyObject_CallMethod(pClassInstance,
+-					  const_cast<char*>("config_notify"),
++					  const_cast<char*>("_config_notify"),
+ 					  (char*)NULL);
+   if (remoteResult != nullptr) {
+     Py_DECREF(remoteResult);

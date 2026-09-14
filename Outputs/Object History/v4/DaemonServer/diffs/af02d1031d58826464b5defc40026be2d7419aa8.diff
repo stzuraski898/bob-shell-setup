@@ -1,0 +1,103 @@
+commit af02d1031d58826464b5defc40026be2d7419aa8
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Tue Mar 5 14:28:59 2019 +0800
+
+    mgr: 'osd df' by specified class or (crush) name
+    
+    For large clusters, we use device classes to isolate storage pools.
+    The existing 'osd df' output turns out to be too nosiy, say, if
+    you care about only single storage pool with osds possibly spanning over
+    all hosts.
+    
+    With this change you are now being able to do 'osd df' by class (or by pool,
+    if you simply use classes to separate different pools), or by a specified
+    crush bucket name you are currently interested in, which is much more
+    convenient.
+    
+    Some examples:
+    ```
+    $ bin/ceph osd df tree
+    ID CLASS WEIGHT  REWEIGHT SIZE   RAW USE DATA    OMAP META  AVAIL   %USE  VAR  PGS STATUS TYPE NAME
+    -1       0.05878        - 60 GiB 6.4 GiB  23 MiB  0 B 6 GiB  54 GiB 10.60 1.00   -        root default
+    -3       0.02939        - 30 GiB 3.2 GiB  12 MiB  0 B 3 GiB  27 GiB 10.60 1.00   -            host ceph11
+     3   aaa 0.00980  1.00000 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00  56     up         osd.3
+     4   bbb 0.00980  1.00000 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00  58     up         osd.4
+     5   ccc 0.00980  1.00000 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00  60     up         osd.5
+    -5       0.02939        - 30 GiB 3.2 GiB  12 MiB  0 B 3 GiB  27 GiB 10.60 1.00   -            host ceph12
+     0   aaa 0.00980  1.00000 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00  50     up         osd.0
+     1   bbb 0.00980  1.00000 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00  61     up         osd.1
+     2   ccc 0.00980  1.00000 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00  51     up         osd.2
+                        TOTAL 60 GiB 6.4 GiB  23 MiB  0 B 6 GiB  54 GiB 10.60
+    MIN/MAX VAR: 1.00/1.00  STDDEV: 0
+    
+    $ bin/ceph osd df tree class aaa
+    ID CLASS WEIGHT  REWEIGHT SIZE   RAW USE DATA    OMAP META  AVAIL   %USE  VAR  PGS STATUS TYPE NAME
+    -1       0.05878        - 20 GiB 2.1 GiB 7.8 MiB  0 B 2 GiB  18 GiB 10.60 1.00   -        root default
+    -3       0.02939        - 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00   -            host ceph11
+     3   aaa 0.00980  1.00000 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00  56     up         osd.3
+    -5       0.02939        - 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00   -            host ceph12
+     0   aaa 0.00980  1.00000 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00  50     up         osd.0
+                        TOTAL 20 GiB 2.1 GiB 7.8 MiB  0 B 2 GiB  18 GiB 10.60
+    MIN/MAX VAR: 1.00/1.00  STDDEV: 0
+    
+    $ bin/ceph osd df tree name ceph11
+    ID CLASS WEIGHT  REWEIGHT SIZE   RAW USE DATA    OMAP META  AVAIL   %USE  VAR  PGS STATUS TYPE NAME
+    -3       0.02939        - 30 GiB 3.2 GiB  12 MiB  0 B 3 GiB  27 GiB 10.60 1.00   -            host ceph11
+     3   aaa 0.00980  1.00000 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00  56     up         osd.3
+     4   bbb 0.00980  1.00000 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00  58     up         osd.4
+     5   ccc 0.00980  1.00000 10 GiB 1.1 GiB 3.9 MiB  0 B 1 GiB 9.0 GiB 10.60 1.00  60     up         osd.5
+                        TOTAL 30 GiB 3.2 GiB  12 MiB  0 B 3 GiB  27 GiB 10.60
+    MIN/MAX VAR: 1.00/1.00  STDDEV: 0
+    
+    ```
+    
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 534de149ade..7f5205c8d83 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1250,14 +1250,41 @@ bool DaemonServer::_handle_command(
+   } else if (prefix == "osd df") {
+     string method;
+     cmd_getval(g_ceph_context, cmdctx->cmdmap, "output_method", method);
++    string filter_by;
++    string filter;
++    cmd_getval(g_ceph_context, cmdctx->cmdmap, "filter_by", filter_by);
++    cmd_getval(g_ceph_context, cmdctx->cmdmap, "filter", filter);
++    if (filter_by.empty() != filter.empty()) {
++      cmdctx->reply(-EINVAL, "you must specify both 'filter_by' and 'filter'");
++      return true;
++    }
++    stringstream rs;
+     r = cluster_state.with_osdmap_and_pgmap([&](const OSDMap& osdmap, const PGMap& pgmap) {
++        string class_name;
++        string item_name;
++        // sanity check filter(s)
++        if (filter_by == "class") {
++          if (!osdmap.crush->class_exists(filter)) {
++            rs << "specified class '" << filter << "' does not exist";
++            return -EINVAL;
++          }
++          class_name = filter;
++        }
++        if (filter_by == "name") {
++          if (!osdmap.crush->name_exists(filter)) {
++            rs << "specified name '" << filter << "' does not exist";
++            return -EINVAL;
++          }
++          item_name = filter;
++        }
+ 	print_osd_utilization(osdmap, pgmap, ss,
+-			      f.get(), method == "tree");
++                              f.get(), method == "tree",
++                              class_name, item_name);
+ 	
+ 	cmdctx->odata.append(ss);
+ 	return 0;
+       });
+-    cmdctx->reply(r, "");
++    cmdctx->reply(r, rs);
+     return true;
+   } else if (prefix == "osd pool stats") {
+     string pool_name;

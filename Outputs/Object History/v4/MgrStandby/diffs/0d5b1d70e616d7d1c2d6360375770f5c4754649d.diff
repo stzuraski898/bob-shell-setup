@@ -1,0 +1,44 @@
+commit 0d5b1d70e616d7d1c2d6360375770f5c4754649d
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Oct 16 06:33:48 2017 -0400
+
+    mgr: fix py_module_registry shutdown
+    
+    Was calling way too early, which did a
+    Py_Finalize before the modules had been
+    joined.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index ef8be150b50..cd8ec2ca36c 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -194,7 +194,7 @@ void MgrStandby::tick()
+   dout(10) << __func__ << dendl;
+   send_beacon();
+ 
+-  if (active_mgr) {
++  if (active_mgr && active_mgr->is_initialized()) {
+     active_mgr->tick();
+   }
+ 
+@@ -220,8 +220,6 @@ void MgrStandby::shutdown()
+ 
+   dout(4) << "Shutting down" << dendl;
+ 
+-  py_module_registry.shutdown();
+-
+   // stop sending beacon first, i use monc to talk with monitors
+   timer.shutdown();
+   // client uses monc and objecter
+@@ -232,6 +230,9 @@ void MgrStandby::shutdown()
+   if (active_mgr) {
+     active_mgr->shutdown();
+   }
++
++  py_module_registry.shutdown();
++
+   // objecter is used by monc and active_mgr
+   objecter.shutdown();
+   // client_messenger is used by all of them, so stop it in the end

@@ -1,0 +1,36 @@
+commit 58dd3db0be62f67aa51f78357ceabb0979ccf6e1
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Sep 20 16:34:37 2016 +0100
+
+    mgr: update for Dispatcher::ms_handle_refused
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 8ba6f904665..f0be92a1a9d 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -117,6 +117,11 @@ bool DaemonServer::ms_get_authorizer(int dest_type,
+   return *authorizer != NULL;
+ }
+ 
++bool DaemonServer::ms_handle_refused(Connection *con)
++{
++  // do nothing for now
++  return false;
++}
+ 
+ bool DaemonServer::ms_dispatch(Message *m)
+ {
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 2540e38b1ec..52afefbcfa4 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -66,6 +66,7 @@ public:
+   bool ms_dispatch(Message *m);
+   bool ms_handle_reset(Connection *con) { return false; }
+   void ms_handle_remote_reset(Connection *con) {}
++  bool ms_handle_refused(Connection *con);
+   bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer,
+                          bool force_new);
+   bool ms_verify_authorizer(Connection *con,

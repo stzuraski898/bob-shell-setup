@@ -1,0 +1,91 @@
+commit f82ab1cbf242ca61c45ce31a756d8646710957eb
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Tue Aug 12 11:20:23 2025 +0200
+
+    mgr, mon, osdc: pass complex parameters by rvalue reference
+    
+    A non-trivial type is always passed by reference, even if the
+    parameter is declared as a value; in that case, the compiler must
+    allocate stack space and move the value there, and then really passes
+    a reference to this stack allocation.  This only adds overhead for no
+    reason.
+    
+    A side effect of this API change is that all callers that accidently
+    created temporary copies are now revealed by throwing a compiler
+    error.  This commit fixes all callers and reduces a good amount of
+    useless overhead by wrapping those parameters in std::move() instead
+    of copying temporaries.
+    
+    More temporaries are avoided by emplacing the std::string&& into the
+    std::vector.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index cb6cf95ce34..5ce677593fb 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -484,7 +484,7 @@ bool MgrClient::handle_mgr_close(ref_t<MMgrClose> m)
+   return true;
+ }
+ 
+-int MgrClient::start_command(const vector<string>& cmd, const bufferlist& inbl,
++int MgrClient::start_command(vector<string>&& cmd, bufferlist&& inbl,
+ 			     bufferlist *outbl, string *outs,
+ 			     Context *onfinish)
+ {
+@@ -498,8 +498,8 @@ int MgrClient::start_command(const vector<string>& cmd, const bufferlist& inbl,
+   }
+ 
+   auto &op = command_table.start_command();
+-  op.cmd = cmd;
+-  op.inbl = inbl;
++  op.cmd = std::move(cmd);
++  op.inbl = std::move(inbl);
+   op.outbl = outbl;
+   op.outs = outs;
+   op.on_finish = onfinish;
+@@ -518,8 +518,8 @@ int MgrClient::start_command(const vector<string>& cmd, const bufferlist& inbl,
+ }
+ 
+ int MgrClient::start_tell_command(
+-  const string& name,
+-  const vector<string>& cmd, const bufferlist& inbl,
++  string&& name,
++  vector<string>&& cmd, bufferlist&& inbl,
+   bufferlist *outbl, string *outs,
+   Context *onfinish)
+ {
+@@ -534,9 +534,9 @@ int MgrClient::start_tell_command(
+ 
+   auto &op = command_table.start_command();
+   op.tell = true;
+-  op.name = name;
+-  op.cmd = cmd;
+-  op.inbl = inbl;
++  op.name = std::move(name);
++  op.cmd = std::move(cmd);
++  op.inbl = std::move(inbl);
+   op.outbl = outbl;
+   op.outs = outs;
+   op.on_finish = onfinish;
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 65b94b8de4d..09f984441b6 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -147,12 +147,12 @@ public:
+   }
+ 
+   int start_command(
+-    const std::vector<std::string>& cmd, const ceph::buffer::list& inbl,
++    std::vector<std::string>&& cmd, ceph::buffer::list&& inbl,
+     ceph::buffer::list *outbl, std::string *outs,
+     Context *onfinish);
+   int start_tell_command(
+-    const std::string& name,
+-    const std::vector<std::string>& cmd, const ceph::buffer::list& inbl,
++    std::string&& name,
++    std::vector<std::string>&& cmd, ceph::buffer::list&& inbl,
+     ceph::buffer::list *outbl, std::string *outs,
+     Context *onfinish);
+ 

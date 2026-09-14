@@ -1,0 +1,70 @@
+commit 6afca3beb2a867195d971e0f37710aa3d6b5b4b8
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue May 23 12:02:02 2017 -0400
+
+    mgr/ClusterState: make pg stat filtering less fragile
+    
+    We want to drop updates for pgs for pools that don't exist.  Keep an
+    updated set of those pools instead of relying on the previous PGMap
+    having them instantiated.  (The previous map may drift due to bugs.)
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index b8d35d30453..3ca97499cd9 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -68,17 +68,20 @@ void ClusterState::ingest_pgstats(MPGStats *stats)
+ 
+     // In case we're hearing about a PG that according to last
+     // OSDMap update should not exist
+-    if (pg_map.pg_stat.count(pgid) == 0) {
+-      dout(15) << " got " << pgid << " reported at " << pg_stats.reported_epoch << ":"
++    if (existing_pools.count(pgid.pool()) == 0) {
++      dout(15) << " got " << pgid
++	       << " reported at " << pg_stats.reported_epoch << ":"
+                << pg_stats.reported_seq
+                << " state " << pg_state_string(pg_stats.state)
+-               << " but DNE in pg_map; pool was probably deleted."
++               << " but pool not in " << existing_pools
+                << dendl;
+       continue;
+-     // In case we already heard about more recent stats from this PG
+-     // from another OSD
+-    } else if (pg_map.pg_stat[pgid].get_version_pair() > pg_stats.get_version_pair()) {
+-      dout(15) << " had " << pgid << " from " << pg_map.pg_stat[pgid].reported_epoch << ":"
++    }
++    // In case we already heard about more recent stats from this PG
++    // from another OSD
++    if (pg_map.pg_stat[pgid].get_version_pair() > pg_stats.get_version_pair()) {
++      dout(15) << " had " << pgid << " from "
++	       << pg_map.pg_stat[pgid].reported_epoch << ":"
+                << pg_map.pg_stat[pgid].reported_seq << dendl;
+       continue;
+     }
+@@ -105,6 +108,13 @@ void ClusterState::notify_osdmap(const OSDMap &osd_map)
+ 
+   PGMapUpdater::check_osd_map(g_ceph_context, osd_map, pg_map, &pending_inc);
+ 
++  // update our list of pools that exist, so that we can filter pg_map updates
++  // in synchrony with this OSDMap.
++  existing_pools.clear();
++  for (auto& p : osd_map.get_pools()) {
++    existing_pools.insert(p.first);
++  }
++
+   // brute force this for now (don't bother being clever by only
+   // checking osds that went up/down)
+   set<int> need_check_down_pg_osds;
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index 56ed080b829..b748c647574 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -38,6 +38,7 @@ protected:
+   FSMap fsmap;
+   mutable Mutex lock;
+ 
++  set<int64_t> existing_pools; ///< pools that exist, as of PGMap epoch
+   PGMap pg_map;
+   PGMap::Incremental pending_inc;
+ 

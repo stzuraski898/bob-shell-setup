@@ -1,0 +1,50 @@
+commit f20df2eb8545f2a4fc16acdde5edcb611868522e
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Thu Jan 30 17:08:07 2025 -0500
+
+    mgr: excise CephFS client from mgr C++ base
+    
+    Linking to the client causes two copies of the Client library to be linked in
+    the ceph-mgr when modules also dynamically link to libcephfs via the "cephfs"
+    python library. This creates problems with duplicate boost::locale.
+    
+    Instead, modules should just use the "cephfs" library to send commands to the
+    MDS.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@ibm.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 08501568a2c..42555289b4f 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -211,7 +211,7 @@ void PyModuleRegistry::active_start(
+             const std::map<std::string, std::string> &kv_store,
+ 	    bool mon_provides_kv_sub,
+             MonClient &mc, LogChannelRef clog_, LogChannelRef audit_clog_,
+-            Objecter &objecter_, Client &client_, Finisher &f,
++            Objecter &objecter_, Finisher &f,
+             DaemonServer &server)
+ {
+   std::lock_guard locker(lock);
+@@ -234,7 +234,7 @@ void PyModuleRegistry::active_start(
+       module_config,
+       kv_store, mon_provides_kv_sub,
+       ds, cs, mc,
+-      clog_, audit_clog_, objecter_, client_, f, server,
++      clog_, audit_clog_, objecter_, f, server,
+       *this));
+ 
+   for (const auto &i : modules) {
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 5224ab20400..a89ae6c380f 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -115,7 +115,7 @@ public:
+                 const std::map<std::string, std::string> &kv_store,
+ 		bool mon_provides_kv_sub,
+                 MonClient &mc, LogChannelRef clog_, LogChannelRef audit_clog_,
+-                Objecter &objecter_, Client &client_, Finisher &f,
++                Objecter &objecter_, Finisher &f,
+                 DaemonServer &server);
+   void standby_start(MonClient &mc, Finisher &f);
+ 

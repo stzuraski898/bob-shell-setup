@@ -1,0 +1,27 @@
+commit a54d0a90c06aed1ae26826d7d5317ba13e18c86e
+Author: Chunmei Liu <chunmei.liu@intel.com>
+Date:   Fri Jan 17 15:09:10 2020 -0800
+
+    crimson:common add TOPNSPC namespace for ceph and crimson
+    
+    some code coexist in crimson seastar environment and posix environment,
+    so add namespace to avoid same function conflict, for example add namespace
+    for CephContext, since the new namespace for classic ceph-osd,
+    need modify all files declare use CephContext by including "common_fwd.h"
+    which defined the namespace for each environment.
+    
+    Signed-off-by: Chunmei Liu <chunmei.liu@intel.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 06573211ba3..ac28339e953 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -43,7 +43,7 @@
+ #define dout_subsys ceph_subsys_mgr
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr.server " << __func__ << " "
+-
++using namespace TOPNSPC::common;
+ namespace {
+   template <typename Map>
+   bool map_compare(Map const &lhs, Map const &rhs) {

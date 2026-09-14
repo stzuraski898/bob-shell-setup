@@ -1,0 +1,687 @@
+# git blame -w -M -C src/mgr/DaemonState.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman  2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/DaemonState.cc                   (Edwin Rodriguez 2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+c8c1019d1962 src/mgr/DaemonState.cc                   (Edwin Rodriguez 2025-10-02 15:31:35 -0400   3) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100   4) /*
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100   5)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100   6)  *
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100   7)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100  13)  */
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100  14) 
+d9dfb436ea58 src/mgr/DaemonState.cc                   (John Spray      2016-07-03 19:45:28 +0100  15) #include "DaemonState.h"
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100  16) 
+5aac7eba36be src/mgr/DaemonState.cc                   (Kefu Chai       2019-09-29 17:28:28 +0800  17) #include <experimental/iterator>
+5aac7eba36be src/mgr/DaemonState.cc                   (Kefu Chai       2019-09-29 17:28:28 +0800  18) 
+dc415f1ae09a src/mgr/DaemonState.cc                   (John Spray      2017-09-23 11:55:55 -0400  19) #include "MgrSession.h"
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  20) #include "include/stringify.h"
+a17349b87afd src/mgr/DaemonState.cc                   (Max Kellermann  2025-08-12 21:06:17 +0200  21) #include "include/str_map.h"
+2d2982e74209 src/mgr/DaemonState.cc                   (Max Kellermann  2024-10-26 21:21:58 +0200  22) #include "common/Clock.h" // for ceph_clock_now()
+2d2982e74209 src/mgr/DaemonState.cc                   (Max Kellermann  2024-10-26 21:21:58 +0200  23) #include "common/debug.h"
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500  24) #include "common/Formatter.h"
+d2d4c7d3f865 src/mgr/DaemonState.cc                   (Max Kellermann  2025-08-14 13:55:25 +0200  25) #include "messages/MMgrReport.h"
+dc415f1ae09a src/mgr/DaemonState.cc                   (John Spray      2017-09-23 11:55:55 -0400  26) 
+b9182564c716 src/mgr/DaemonState.cc                   (Adam C. Emerson 2016-11-16 12:38:08 -0500  27) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100  28) #define dout_subsys ceph_subsys_mgr
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100  29) #undef dout_prefix
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100  30) #define dout_prefix *_dout << "mgr " << __func__ << " "
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100  31) 
+c63ecb602e59 src/mgr/DaemonState.cc                   (Kefu Chai       2021-08-11 11:48:33 +0800  32) using std::list;
+c63ecb602e59 src/mgr/DaemonState.cc                   (Kefu Chai       2021-08-11 11:48:33 +0800  33) using std::make_pair;
+c63ecb602e59 src/mgr/DaemonState.cc                   (Kefu Chai       2021-08-11 11:48:33 +0800  34) using std::map;
+c63ecb602e59 src/mgr/DaemonState.cc                   (Kefu Chai       2021-08-11 11:48:33 +0800  35) using std::ostream;
+c63ecb602e59 src/mgr/DaemonState.cc                   (Kefu Chai       2021-08-11 11:48:33 +0800  36) using std::ostringstream;
+c63ecb602e59 src/mgr/DaemonState.cc                   (Kefu Chai       2021-08-11 11:48:33 +0800  37) using std::string;
+c63ecb602e59 src/mgr/DaemonState.cc                   (Kefu Chai       2021-08-11 11:48:33 +0800  38) using std::stringstream;
+c63ecb602e59 src/mgr/DaemonState.cc                   (Kefu Chai       2021-08-11 11:48:33 +0800  39) using std::unique_ptr;
+c63ecb602e59 src/mgr/DaemonState.cc                   (Kefu Chai       2021-08-11 11:48:33 +0800  40) 
+e9abc5ce0bb7 src/mgr/DaemonState.cc                   (Max Kellermann  2025-08-14 14:54:51 +0200  41) DaemonState::DaemonState(PerfCounterTypes &types_)
+e9abc5ce0bb7 src/mgr/DaemonState.cc                   (Max Kellermann  2025-08-14 14:54:51 +0200  42)     : perf_counters(types_)
+e9abc5ce0bb7 src/mgr/DaemonState.cc                   (Max Kellermann  2025-08-14 14:54:51 +0200  43) {
+e9abc5ce0bb7 src/mgr/DaemonState.cc                   (Max Kellermann  2025-08-14 14:54:51 +0200  44) }
+e9abc5ce0bb7 src/mgr/DaemonState.cc                   (Max Kellermann  2025-08-14 14:54:51 +0200  45) 
+e9abc5ce0bb7 src/mgr/DaemonState.cc                   (Max Kellermann  2025-08-14 14:54:51 +0200  46) DaemonState::~DaemonState() noexcept = default;
+e9abc5ce0bb7 src/mgr/DaemonState.cc                   (Max Kellermann  2025-08-14 14:54:51 +0200  47) 
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  48) void DeviceState::set_metadata(map<string,string>&& m)
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  49) {
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  50)   metadata = std::move(m);
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  51)   auto p = metadata.find("life_expectancy_min");
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  52)   if (p != metadata.end()) {
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  53)     life_expectancy.first.parse(p->second);
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  54)   }
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  55)   p = metadata.find("life_expectancy_max");
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  56)   if (p != metadata.end()) {
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  57)     life_expectancy.second.parse(p->second);
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  58)   }
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  59)   p = metadata.find("life_expectancy_stamp");
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  60)   if (p != metadata.end()) {
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  61)     life_expectancy_stamp.parse(p->second);
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  62)   }
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600  63)   p = metadata.find("wear_level");
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600  64)   if (p != metadata.end()) {
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600  65)     wear_level = atof(p->second.c_str());
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600  66)   }
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  67) }
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  68) 
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  69) void DeviceState::set_life_expectancy(utime_t from, utime_t to, utime_t now)
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  70) {
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  71)   life_expectancy = make_pair(from, to);
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  72)   life_expectancy_stamp = now;
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  73)   if (from != utime_t()) {
+78b72b0be752 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 10:41:48 -0600  74)     metadata["life_expectancy_min"] = stringify(from);
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  75)   } else {
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  76)     metadata["life_expectancy_min"] = "";
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  77)   }
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  78)   if (to != utime_t()) {
+78b72b0be752 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 10:41:48 -0600  79)     metadata["life_expectancy_max"] = stringify(to);
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  80)   } else {
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  81)     metadata["life_expectancy_max"] = "";
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  82)   }
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  83)   if (now != utime_t()) {
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  84)     metadata["life_expectancy_stamp"] = stringify(now);
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  85)   } else {
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  86)     metadata["life_expectancy_stamp"] = "";
+a9b04900366d src/mgr/DaemonState.cc                   (Sage Weil       2018-10-12 08:40:30 -0500  87)   }
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  88) }
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  89) 
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  90) void DeviceState::rm_life_expectancy()
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  91) {
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  92)   life_expectancy = make_pair(utime_t(), utime_t());
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  93)   life_expectancy_stamp = utime_t();
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  94)   metadata.erase("life_expectancy_min");
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  95)   metadata.erase("life_expectancy_max");
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500  96)   metadata.erase("life_expectancy_stamp");
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  97) }
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500  98) 
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600  99) void DeviceState::set_wear_level(float wear)
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 100) {
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 101)   wear_level = wear;
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 102)   if (wear >= 0) {
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 103)     metadata["wear_level"] = stringify(wear);
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 104)   } else {
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 105)     metadata.erase("wear_level");
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 106)   }
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 107) }
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 108) 
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 109) string DeviceState::get_life_expectancy_str(utime_t now) const
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500 110) {
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500 111)   if (life_expectancy.first == utime_t()) {
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500 112)     return string();
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500 113)   }
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 114)   if (now >= life_expectancy.first) {
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 115)     return "now";
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 116)   }
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 117)   utime_t min = life_expectancy.first - now;
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 118)   utime_t max = life_expectancy.second - now;
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 119)   if (life_expectancy.second == utime_t()) {
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 120)     return string(">") + timespan_str(make_timespan(min));
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 121)   }
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 122)   string a = timespan_str(make_timespan(min));
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 123)   string b = timespan_str(make_timespan(max));
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 124)   if (a == b) {
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 125)     return a;
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 126)   }
+f222375cbced src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:48:19 -0500 127)   return a + " to " + b;
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500 128) }
+47abea157cf4 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:03:42 -0500 129) 
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 130) void DeviceState::dump(Formatter *f) const
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 131) {
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 132)   f->dump_string("devid", devid);
+6b6fe52aacf6 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-06 08:44:42 -0500 133)   f->open_array_section("location");
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 134)   for (auto& i : attachments) {
+6b6fe52aacf6 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-06 08:44:42 -0500 135)     f->open_object_section("attachment");
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 136)     f->dump_string("host", std::get<0>(i));
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 137)     f->dump_string("dev", std::get<1>(i));
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 138)     f->dump_string("path", std::get<2>(i));
+6b6fe52aacf6 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-06 08:44:42 -0500 139)     f->close_section();
+6b6fe52aacf6 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-06 08:44:42 -0500 140)   }
+6b6fe52aacf6 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-06 08:44:42 -0500 141)   f->close_section();
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 142)   f->open_array_section("daemons");
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 143)   for (auto& i : daemons) {
+5aac7eba36be src/mgr/DaemonState.cc                   (Kefu Chai       2019-09-29 17:28:28 +0800 144)     f->dump_stream("daemon") << i;
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 145)   }
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 146)   f->close_section();
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500 147)   if (life_expectancy.first != utime_t()) {
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500 148)     f->dump_stream("life_expectancy_min") << life_expectancy.first;
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500 149)     f->dump_stream("life_expectancy_max") << life_expectancy.second;
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500 150)     f->dump_stream("life_expectancy_stamp")
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500 151)       << life_expectancy_stamp;
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 152)   }
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 153)   if (wear_level >= 0) {
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 154)     f->dump_float("wear_level", wear_level);
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 155)   }
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 156) }
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 157) 
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 158) void DeviceState::print(ostream& out) const
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 159) {
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 160)   out << "device " << devid << "\n";
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 161)   for (auto& i : attachments) {
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 162)     out << "attachment " << std::get<0>(i) << " " << std::get<1>(i) << " "
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 163) 	<< std::get<2>(i) << "\n";
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 164)     out << "\n";
+6b6fe52aacf6 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-06 08:44:42 -0500 165)   }
+5aac7eba36be src/mgr/DaemonState.cc                   (Kefu Chai       2019-09-29 17:28:28 +0800 166)   std::copy(std::begin(daemons), std::end(daemons),
+5aac7eba36be src/mgr/DaemonState.cc                   (Kefu Chai       2019-09-29 17:28:28 +0800 167)             std::experimental::make_ostream_joiner(out, ","));
+5aac7eba36be src/mgr/DaemonState.cc                   (Kefu Chai       2019-09-29 17:28:28 +0800 168)   out << '\n';
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500 169)   if (life_expectancy.first != utime_t()) {
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500 170)     out << "life_expectancy " << life_expectancy.first << " to "
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500 171) 	<< life_expectancy.second
+4920bbd6cb49 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-07 21:22:47 -0500 172) 	<< " (as of " << life_expectancy_stamp << ")\n";
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 173)   }
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 174)   if (wear_level >= 0) {
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 175)     out << "wear_level " << wear_level << "\n";
+c52fcb51afb6 src/mgr/DaemonState.cc                   (Sage Weil       2021-02-08 12:53:51 -0600 176)   }
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 177) }
+46ab713e1f23 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 14:21:31 -0500 178) 
+6e1a6f0aa1fa src/mgr/DaemonState.cc                   (Kefu Chai       2021-12-19 14:48:07 +0800 179) void DaemonState::set_metadata(const std::map<std::string,std::string>& m)
+6e1a6f0aa1fa src/mgr/DaemonState.cc                   (Kefu Chai       2021-12-19 14:48:07 +0800 180) {
+c52fc7b5d34f src/mgr/DaemonState.h                    (Sage Weil       2018-10-18 17:24:24 -0500 181)   devices.clear();
+2c0fd7d86827 src/mgr/DaemonState.h                    (Sage Weil       2019-12-15 10:28:57 -0600 182)   devices_bypath.clear();
+67b5d3e343c5 src/mgr/DaemonState.h                    (Sage Weil       2018-06-05 08:46:41 -0500 183)   metadata = m;
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 184)   if (auto found = m.find("device_ids"); found != m.end()) {
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 185)     auto& device_ids = found->second;
+bb09a1d7e2c5 src/mgr/DaemonState.h                    (Ronen Friedman  2021-10-17 06:21:16 +0000 186)     std::map<std::string,std::string> paths; // devname -> id or path
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 187)     if (auto found = m.find("device_paths"); found != m.end()) {
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 188)       get_str_map(found->second, &paths, ",; ");
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 189)     }
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 190)     for_each_pair(
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 191)       device_ids, ",; ",
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 192)       [&paths, this](std::string_view devname, std::string_view id) {
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 193) 	// skip blank ids
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 194) 	if (id.empty()) {
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 195) 	  return;
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 196) 	}
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 197) 	// id -> devname
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 198) 	devices.emplace(id, devname);
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 199) 	if (auto path = paths.find(std::string(id)); path != paths.end()) {
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 200) 	  // id -> path
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 201) 	  devices_bypath.emplace(id, path->second);
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 202) 	}
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 203)       });
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 204)   }
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 205)   if (auto found = m.find("hostname"); found != m.end()) {
+95a96cffc300 src/mgr/DaemonState.h                    (Kefu Chai       2021-12-19 14:43:35 +0800 206)     hostname = found->second;
+ff6b3997caa4 src/mgr/DaemonState.h                    (Kefu Chai       2019-09-18 11:59:18 +0800 207)   }
+7add8da7b00a src/mgr/DaemonState.h                    (Sage Weil       2018-06-06 08:46:51 -0500 208) }
+67b5d3e343c5 src/mgr/DaemonState.h                    (Sage Weil       2018-06-05 08:46:41 -0500 209) 
+6e1a6f0aa1fa src/mgr/DaemonState.cc                   (Kefu Chai       2021-12-19 14:48:07 +0800 210) const std::map<std::string,std::string>& DaemonState::_get_config_defaults()
+6e1a6f0aa1fa src/mgr/DaemonState.cc                   (Kefu Chai       2021-12-19 14:48:07 +0800 211) {
+4af9c9677b00 src/mgr/DaemonState.h                    (Sage Weil       2018-01-08 18:47:26 -0600 212)   if (config_defaults.empty() &&
+4af9c9677b00 src/mgr/DaemonState.h                    (Sage Weil       2018-01-08 18:47:26 -0600 213)       config_defaults_bl.length()) {
+f146c6c514b7 src/mgr/DaemonState.h                    (Kefu Chai       2018-05-15 23:56:39 +0800 214)     auto p = config_defaults_bl.cbegin();
+4af9c9677b00 src/mgr/DaemonState.h                    (Sage Weil       2018-01-08 18:47:26 -0600 215)     try {
+e8b32359731b src/mgr/DaemonState.h                    (Sage Weil       2018-01-11 17:24:43 -0600 216)       decode(config_defaults, p);
+62382040ee9b src/mgr/DaemonState.h                    (Kefu Chai       2018-05-06 14:39:18 +0800 217)     } catch (buffer::error& e) {
+4af9c9677b00 src/mgr/DaemonState.h                    (Sage Weil       2018-01-08 18:47:26 -0600 218)     }
+4af9c9677b00 src/mgr/DaemonState.h                    (Sage Weil       2018-01-08 18:47:26 -0600 219)   }
+4af9c9677b00 src/mgr/DaemonState.h                    (Sage Weil       2018-01-08 18:47:26 -0600 220)   return config_defaults;
+4af9c9677b00 src/mgr/DaemonState.h                    (Sage Weil       2018-01-08 18:47:26 -0600 221) }
+6e1a6f0aa1fa src/mgr/DaemonState.cc                   (Kefu Chai       2021-12-19 14:48:07 +0800 222) 
+d2d4c7d3f865 src/mgr/DaemonState.cc                   (Max Kellermann  2025-08-14 13:55:25 +0200 223) DaemonStateIndex::DaemonStateIndex() = default;
+d2d4c7d3f865 src/mgr/DaemonState.cc                   (Max Kellermann  2025-08-14 13:55:25 +0200 224) DaemonStateIndex::~DaemonStateIndex() = default;
+d2d4c7d3f865 src/mgr/DaemonState.cc                   (Max Kellermann  2025-08-14 13:55:25 +0200 225) 
+d9dfb436ea58 src/mgr/DaemonState.cc                   (John Spray      2016-07-03 19:45:28 +0100 226) void DaemonStateIndex::insert(DaemonStatePtr dm)
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 227) {
+675606bf712e src/mgr/DaemonState.cc                   (Kefu Chai       2019-07-07 11:18:14 +0800 228)   std::unique_lock l{lock};
+8a2f4429b129 src/mgr/DaemonState.cc                   (Sage Weil       2018-10-18 17:33:46 -0500 229)   _insert(dm);
+8a2f4429b129 src/mgr/DaemonState.cc                   (Sage Weil       2018-10-18 17:33:46 -0500 230) }
+b7c9561accef src/mgr/DaemonMetadata.cc                (John Spray      2016-07-01 00:12:13 +0100 231) 
+8a2f4429b129 src/mgr/DaemonState.cc                   (Sage Weil       2018-10-18 17:33:46 -0500 232) void DaemonStateIndex::_insert(DaemonStatePtr dm)
+8a2f4429b129 src/mgr/DaemonState.cc                   (Sage Weil       2018-10-18 17:33:46 -0500 233) {
+b7c9561accef src/mgr/DaemonMetadata.cc                (John Spray      2016-07-01 00:12:13 +0100 234)   if (all.count(dm->key)) {
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 235)     _erase(dm->key);
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 236)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 237) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 238)   by_server[dm->hostname][dm->key] = dm;
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 239)   all[dm->key] = dm;
+38afbae02696 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 08:47:27 -0500 240) 
+6b6fe52aacf6 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-06 08:44:42 -0500 241)   for (auto& i : dm->devices) {
+6b6fe52aacf6 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-06 08:44:42 -0500 242)     auto d = _get_or_create_device(i.first);
+38afbae02696 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 08:47:27 -0500 243)     d->daemons.insert(dm->key);
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 244)     auto p = dm->devices_bypath.find(i.first);
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 245)     if (p != dm->devices_bypath.end()) {
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 246)       d->attachments.insert(std::make_tuple(dm->hostname, i.second, p->second));
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 247)     } else {
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 248)       d->attachments.insert(std::make_tuple(dm->hostname, i.second,
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 249) 					    std::string()));
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 250)     }
+38afbae02696 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 08:47:27 -0500 251)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 252) }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 253) 
+0e7137aa6a1f src/mgr/DaemonState.cc                   (Kefu Chai       2017-05-05 15:39:39 +0800 254) void DaemonStateIndex::_erase(const DaemonKey& dmk)
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 255) {
+c93dc8849145 src/mgr/DaemonState.cc                   (Kefu Chai       2019-07-07 11:14:49 +0800 256)   ceph_assert(ceph_mutex_is_wlocked(lock));
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 257) 
+0e7137aa6a1f src/mgr/DaemonState.cc                   (Kefu Chai       2017-05-05 15:39:39 +0800 258)   const auto to_erase = all.find(dmk);
+ab23c5069647 src/mgr/DaemonState.cc                   (Adam C. Emerson 2018-08-23 11:25:51 -0400 259)   ceph_assert(to_erase != all.end());
+0e7137aa6a1f src/mgr/DaemonState.cc                   (Kefu Chai       2017-05-05 15:39:39 +0800 260)   const auto dm = to_erase->second;
+38afbae02696 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 08:47:27 -0500 261) 
+6b6fe52aacf6 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-06 08:44:42 -0500 262)   for (auto& i : dm->devices) {
+6b6fe52aacf6 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-06 08:44:42 -0500 263)     auto d = _get_or_create_device(i.first);
+ab23c5069647 src/mgr/DaemonState.cc                   (Adam C. Emerson 2018-08-23 11:25:51 -0400 264)     ceph_assert(d->daemons.count(dmk));
+38afbae02696 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 08:47:27 -0500 265)     d->daemons.erase(dmk);
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 266)     auto p = dm->devices_bypath.find(i.first);
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 267)     if (p != dm->devices_bypath.end()) {
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 268)       d->attachments.erase(make_tuple(dm->hostname, i.second, p->second));
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 269)     } else {
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 270)       d->attachments.erase(make_tuple(dm->hostname, i.second, std::string()));
+2c0fd7d86827 src/mgr/DaemonState.cc                   (Sage Weil       2019-12-15 10:28:57 -0600 271)     }
+45d4dfed1ded src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 13:57:09 -0500 272)     if (d->empty()) {
+38afbae02696 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 08:47:27 -0500 273)       _erase_device(d);
+38afbae02696 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 08:47:27 -0500 274)     }
+38afbae02696 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 08:47:27 -0500 275)   }
+38afbae02696 src/mgr/DaemonState.cc                   (Sage Weil       2018-06-05 08:47:27 -0500 276) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 277)   auto &server_collection = by_server[dm->hostname];
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 278)   server_collection.erase(dm->key);
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 279)   if (server_collection.empty()) {
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 280)     by_server.erase(dm->hostname);
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 281)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 282) 
+0e7137aa6a1f src/mgr/DaemonState.cc                   (Kefu Chai       2017-05-05 15:39:39 +0800 283)   all.erase(to_erase);
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 284) }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 285) 
+a22b256bad1f src/mgr/DaemonState.cc                   (Sage Weil       2017-06-22 14:19:17 -0400 286) DaemonStateCollection DaemonStateIndex::get_by_service(
+a22b256bad1f src/mgr/DaemonState.cc                   (Sage Weil       2017-06-22 14:19:17 -0400 287)   const std::string& svc) const
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 288) {
+675606bf712e src/mgr/DaemonState.cc                   (Kefu Chai       2019-07-07 11:18:14 +0800 289)   std::shared_lock l{lock};
+b7c9561accef src/mgr/DaemonMetadata.cc                (John Spray      2016-07-01 00:12:13 +0100 290) 
+d9dfb436ea58 src/mgr/DaemonState.cc                   (John Spray      2016-07-03 19:45:28 +0100 291)   DaemonStateCollection result;
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 292) 
+5aac7eba36be src/mgr/DaemonState.cc                   (Kefu Chai       2019-09-29 17:28:28 +0800 293)   for (const auto& [key, state] : all) {
+5aac7eba36be src/mgr/DaemonState.cc                   (Kefu Chai       2019-09-29 17:28:28 +0800 294)     if (key.type == svc) {
+5aac7eba36be src/mgr/DaemonState.cc                   (Kefu Chai       2019-09-29 17:28:28 +0800 295)       result[key] = state;
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 296)     }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 297)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 298) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 299)   return result;
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 300) }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 301) 
+f236b5e78338 src/mgr/DaemonState.cc                   (Sage Weil       2017-07-19 17:28:48 -0400 302) DaemonStateCollection DaemonStateIndex::get_by_server(
+f236b5e78338 src/mgr/DaemonState.cc                   (Sage Weil       2017-07-19 17:28:48 -0400 303)   const std::string &hostname) const
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 304) {
+675606bf712e src/mgr/DaemonState.cc                   (Kefu Chai       2019-07-07 11:18:14 +0800 305)   std::shared_lock l{lock};
+b7c9561accef src/mgr/DaemonMetadata.cc                (John Spray      2016-07-01 00:12:13 +0100 306) 
+f9a11737ea5c src/mgr/DaemonState.cc                   (Kefu Chai       2020-08-28 13:39:54 +0800 307)   if (auto found = by_server.find(hostname); found != by_server.end()) {
+f9a11737ea5c src/mgr/DaemonState.cc                   (Kefu Chai       2020-08-28 13:39:54 +0800 308)     return found->second;
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 309)   } else {
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 310)     return {};
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 311)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 312) }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 313) 
+d9dfb436ea58 src/mgr/DaemonState.cc                   (John Spray      2016-07-03 19:45:28 +0100 314) bool DaemonStateIndex::exists(const DaemonKey &key) const
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 315) {
+675606bf712e src/mgr/DaemonState.cc                   (Kefu Chai       2019-07-07 11:18:14 +0800 316)   std::shared_lock l{lock};
+b7c9561accef src/mgr/DaemonMetadata.cc                (John Spray      2016-07-01 00:12:13 +0100 317) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 318)   return all.count(key) > 0;
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 319) }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 320) 
+d9dfb436ea58 src/mgr/DaemonState.cc                   (John Spray      2016-07-03 19:45:28 +0100 321) DaemonStatePtr DaemonStateIndex::get(const DaemonKey &key)
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 322) {
+675606bf712e src/mgr/DaemonState.cc                   (Kefu Chai       2019-07-07 11:18:14 +0800 323)   std::shared_lock l{lock};
+b7c9561accef src/mgr/DaemonMetadata.cc                (John Spray      2016-07-01 00:12:13 +0100 324) 
+f9a4ca07acec src/mgr/DaemonState.cc                   (John Spray      2017-09-08 11:33:02 -0400 325)   auto iter = all.find(key);
+f9a4ca07acec src/mgr/DaemonState.cc                   (John Spray      2017-09-08 11:33:02 -0400 326)   if (iter != all.end()) {
+f9a4ca07acec src/mgr/DaemonState.cc                   (John Spray      2017-09-08 11:33:02 -0400 327)     return iter->second;
+f9a4ca07acec src/mgr/DaemonState.cc                   (John Spray      2017-09-08 11:33:02 -0400 328)   } else {
+f9a4ca07acec src/mgr/DaemonState.cc                   (John Spray      2017-09-08 11:33:02 -0400 329)     return nullptr;
+f9a4ca07acec src/mgr/DaemonState.cc                   (John Spray      2017-09-08 11:33:02 -0400 330)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 331) }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 332) 
+a6832cb610ba src/mgr/DaemonState.cc                   (Sage Weil       2018-03-06 16:30:38 -0600 333) void DaemonStateIndex::rm(const DaemonKey &key)
+a6832cb610ba src/mgr/DaemonState.cc                   (Sage Weil       2018-03-06 16:30:38 -0600 334) {
+675606bf712e src/mgr/DaemonState.cc                   (Kefu Chai       2019-07-07 11:18:14 +0800 335)   std::unique_lock l{lock};
+8a2f4429b129 src/mgr/DaemonState.cc                   (Sage Weil       2018-10-18 17:33:46 -0500 336)   _rm(key);
+8a2f4429b129 src/mgr/DaemonState.cc                   (Sage Weil       2018-10-18 17:33:46 -0500 337) }
+8a2f4429b129 src/mgr/DaemonState.cc                   (Sage Weil       2018-10-18 17:33:46 -0500 338) 
+8a2f4429b129 src/mgr/DaemonState.cc                   (Sage Weil       2018-10-18 17:33:46 -0500 339) void DaemonStateIndex::_rm(const DaemonKey &key)
+8a2f4429b129 src/mgr/DaemonState.cc                   (Sage Weil       2018-10-18 17:33:46 -0500 340) {
+a6832cb610ba src/mgr/DaemonState.cc                   (Sage Weil       2018-03-06 16:30:38 -0600 341)   if (all.count(key)) {
+a6832cb610ba src/mgr/DaemonState.cc                   (Sage Weil       2018-03-06 16:30:38 -0600 342)     _erase(key);
+a6832cb610ba src/mgr/DaemonState.cc                   (Sage Weil       2018-03-06 16:30:38 -0600 343)   }
+a6832cb610ba src/mgr/DaemonState.cc                   (Sage Weil       2018-03-06 16:30:38 -0600 344) }
+a6832cb610ba src/mgr/DaemonState.cc                   (Sage Weil       2018-03-06 16:30:38 -0600 345) 
+a22b256bad1f src/mgr/DaemonState.cc                   (Sage Weil       2017-06-22 14:19:17 -0400 346) void DaemonStateIndex::cull(const std::string& svc_name,
+0e7137aa6a1f src/mgr/DaemonState.cc                   (Kefu Chai       2017-05-05 15:39:39 +0800 347) 			    const std::set<std::string>& names_exist)
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 348) {
+0e7137aa6a1f src/mgr/DaemonState.cc                   (Kefu Chai       2017-05-05 15:39:39 +0800 349)   std::vector<string> victims;
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 350) 
+675606bf712e src/mgr/DaemonState.cc                   (Kefu Chai       2019-07-07 11:18:14 +0800 351)   std::unique_lock l{lock};
+a22b256bad1f src/mgr/DaemonState.cc                   (Sage Weil       2017-06-22 14:19:17 -0400 352)   auto begin = all.lower_bound({svc_name, ""});
+0e7137aa6a1f src/mgr/DaemonState.cc                   (Kefu Chai       2017-05-05 15:39:39 +0800 353)   auto end = all.end();
+0e7137aa6a1f src/mgr/DaemonState.cc                   (Kefu Chai       2017-05-05 15:39:39 +0800 354)   for (auto &i = begin; i != end; ++i) {
+0e7137aa6a1f src/mgr/DaemonState.cc                   (Kefu Chai       2017-05-05 15:39:39 +0800 355)     const auto& daemon_key = i->first;
+5aac7eba36be src/mgr/DaemonState.cc                   (Kefu Chai       2019-09-29 17:28:28 +0800 356)     if (daemon_key.type != svc_name)
+0e7137aa6a1f src/mgr/DaemonState.cc                   (Kefu Chai       2017-05-05 15:39:39 +0800 357)       break;
+5aac7eba36be src/mgr/DaemonState.cc                   (Kefu Chai       2019-09-29 17:28:28 +0800 358)     if (names_exist.count(daemon_key.name) == 0) {
+5aac7eba36be src/mgr/DaemonState.cc                   (Kefu Chai       2019-09-29 17:28:28 +0800 359)       victims.push_back(daemon_key.name);
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 360)     }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 361)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 362) 
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 363)   for (auto &i : victims) {
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 364)     DaemonKey daemon_key{svc_name, i};
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 365)     dout(4) << "Removing data for " << daemon_key << dendl;
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 366)     _erase(daemon_key);
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 367)   }
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 368) }
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 369) 
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 370) void DaemonStateIndex::cull_services(const std::set<std::string>& types_exist)
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 371) {
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 372)   std::set<DaemonKey> victims;
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 373) 
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 374)   std::unique_lock l{lock};
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 375)   for (auto it = all.begin(); it != all.end(); ++it) {
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 376)     const auto& daemon_key = it->first;
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 377)     if (it->second->service_daemon &&
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 378)         types_exist.count(daemon_key.type) == 0) {
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 379)       victims.insert(daemon_key);
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 380)     }
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 381)   }
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 382) 
+0e7137aa6a1f src/mgr/DaemonState.cc                   (Kefu Chai       2017-05-05 15:39:39 +0800 383)   for (auto &i : victims) {
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 384)     dout(4) << "Removing data for " << i << dendl;
+7534737030b3 src/mgr/DaemonState.cc                   (Jason Dillaman  2019-11-27 12:01:39 -0500 385)     _erase(i);
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 386)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc                (John Spray      2016-06-30 14:05:02 +0100 387) }
+
+# git blame -w -M -C src/mgr/DaemonState.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng    2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/DaemonState.h                                      (Edwin Rodriguez  2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/DaemonState.h                                      (Edwin Rodriguez  2025-10-02 15:34:08 -0400   3) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100   4) /*
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100   5)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100   6)  *
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100   7)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  13)  */
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  14) 
+d9dfb436ea58 src/mgr/DaemonState.h                                      (John Spray       2016-07-03 19:45:28 +0100  15) #ifndef DAEMON_STATE_H_
+d9dfb436ea58 src/mgr/DaemonState.h                                      (John Spray       2016-07-03 19:45:28 +0100  16) #define DAEMON_STATE_H_
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  17) 
+1aef3773f3b5 src/mgr/DaemonState.h                                      (Max Kellermann   2025-09-12 08:41:38 +0200  18) #include <cstdint>
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  19) #include <map>
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  20) #include <string>
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  21) #include <memory>
+2d2982e74209 src/mgr/DaemonState.h                                      (Max Kellermann   2024-10-26 21:21:58 +0200  22) #include <shared_mutex> // for std::shared_lock
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  23) #include <set>
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  24) 
+a17349b87afd src/mgr/DaemonState.h                                      (Max Kellermann   2025-08-12 21:06:17 +0200  25) #include "common/ceph_mutex.h"
+a17349b87afd src/mgr/DaemonState.h                                      (Max Kellermann   2025-08-12 21:06:17 +0200  26) #include "common/RefCountedObj.h"
+a17349b87afd src/mgr/DaemonState.h                                      (Max Kellermann   2025-08-12 21:06:17 +0200  27) #include "include/utime.h"
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  28) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  29) #include "msg/msg_types.h"
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  30) 
+5aac7eba36be src/mgr/DaemonState.h                                      (Kefu Chai        2019-09-29 17:28:28 +0800  31) #include "DaemonKey.h"
+35f6dd06dd0b src/mgr/DaemonState.h                                      (Max Kellermann   2025-08-14 18:41:01 +0200  32) #include "DaemonPerfCounters.h"
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  33) 
+46ab713e1f23 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:21:31 -0500  34) namespace ceph {
+46ab713e1f23 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:21:31 -0500  35)   class Formatter;
+46ab713e1f23 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:21:31 -0500  36) }
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  37) 
+e9abc5ce0bb7 src/mgr/DaemonState.h                                      (Max Kellermann   2025-08-14 14:54:51 +0200  38) class DaemonHealthMetric;
+e9abc5ce0bb7 src/mgr/DaemonState.h                                      (Max Kellermann   2025-08-14 14:54:51 +0200  39) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  40) // The state that we store about one daemon
+d9dfb436ea58 src/mgr/DaemonState.h                                      (John Spray       2016-07-03 19:45:28 +0100  41) class DaemonState
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  42) {
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  43)   public:
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800  44)   ceph::mutex lock = ceph::make_mutex("DaemonState::lock");
+f236b5e78338 src/mgr/DaemonState.h                                      (Sage Weil        2017-07-19 17:28:48 -0400  45) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  46)   DaemonKey key;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  47) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  48)   // The hostname where daemon was last seen running (extracted
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  49)   // from the metadata)
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  50)   std::string hostname;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  51) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  52)   // The metadata (hostname, version, etc) sent from the daemon
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  53)   std::map<std::string, std::string> metadata;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  54) 
+6b6fe52aacf6 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-06 08:44:42 -0500  55)   /// device ids -> devname, derived from metadata[device_ids]
+6b6fe52aacf6 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-06 08:44:42 -0500  56)   std::map<std::string,std::string> devices;
+67b5d3e343c5 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:46:41 -0500  57) 
+2c0fd7d86827 src/mgr/DaemonState.h                                      (Sage Weil        2019-12-15 10:28:57 -0600  58)   /// device ids -> by-path, derived from metadata[device_ids]
+2c0fd7d86827 src/mgr/DaemonState.h                                      (Sage Weil        2019-12-15 10:28:57 -0600  59)   std::map<std::string,std::string> devices_bypath;
+2c0fd7d86827 src/mgr/DaemonState.h                                      (Sage Weil        2019-12-15 10:28:57 -0600  60) 
+7e7978732d20 src/mgr/DaemonState.h                                      (Kefu Chai        2017-11-01 23:17:57 +0800  61)   // TODO: this can be generalized to other daemons
+714ffe0d5f07 src/mgr/DaemonState.h                                      (Shanchun Lv      2018-03-13 14:41:14 +0800  62)   std::vector<DaemonHealthMetric> daemon_health_metrics;
+7e7978732d20 src/mgr/DaemonState.h                                      (Kefu Chai        2017-11-01 23:17:57 +0800  63) 
+97cfc3cb694e src/mgr/DaemonState.h                                      (Sage Weil        2017-06-26 13:22:17 -0400  64)   // Ephemeral state
+97cfc3cb694e src/mgr/DaemonState.h                                      (Sage Weil        2017-06-26 13:22:17 -0400  65)   bool service_daemon = false;
+97cfc3cb694e src/mgr/DaemonState.h                                      (Sage Weil        2017-06-26 13:22:17 -0400  66)   utime_t service_status_stamp;
+97cfc3cb694e src/mgr/DaemonState.h                                      (Sage Weil        2017-06-26 13:22:17 -0400  67)   std::map<std::string, std::string> service_status;
+97cfc3cb694e src/mgr/DaemonState.h                                      (Sage Weil        2017-06-26 13:22:17 -0400  68)   utime_t last_service_beacon;
+97cfc3cb694e src/mgr/DaemonState.h                                      (Sage Weil        2017-06-26 13:22:17 -0400  69) 
+d8450574cf48 src/mgr/DaemonState.h                                      (Sage Weil        2017-12-04 16:51:33 -0600  70)   // running config
+d8450574cf48 src/mgr/DaemonState.h                                      (Sage Weil        2017-12-04 16:51:33 -0600  71)   std::map<std::string,std::map<int32_t,std::string>> config;
+d8450574cf48 src/mgr/DaemonState.h                                      (Sage Weil        2017-12-04 16:51:33 -0600  72) 
+926ec5b4c505 src/mgr/DaemonState.h                                      (Sage Weil        2018-01-10 17:06:56 -0600  73)   // mon config values we failed to set
+926ec5b4c505 src/mgr/DaemonState.h                                      (Sage Weil        2018-01-10 17:06:56 -0600  74)   std::map<std::string,std::string> ignored_mon_config;
+926ec5b4c505 src/mgr/DaemonState.h                                      (Sage Weil        2018-01-10 17:06:56 -0600  75) 
+86cf85e0a2c5 src/mgr/DaemonState.h                                      (Sage Weil        2018-01-05 17:44:56 -0600  76)   // compiled-in config defaults (rarely used, so we leave them encoded!)
+86cf85e0a2c5 src/mgr/DaemonState.h                                      (Sage Weil        2018-01-05 17:44:56 -0600  77)   bufferlist config_defaults_bl;
+86cf85e0a2c5 src/mgr/DaemonState.h                                      (Sage Weil        2018-01-05 17:44:56 -0600  78)   std::map<std::string,std::string> config_defaults;
+86cf85e0a2c5 src/mgr/DaemonState.h                                      (Sage Weil        2018-01-05 17:44:56 -0600  79) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  80)   // The perf counters received in MMgrReport messages
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  81)   DaemonPerfCounters perf_counters;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  82) 
+e9abc5ce0bb7 src/mgr/DaemonState.h                                      (Max Kellermann   2025-08-14 14:54:51 +0200  83)   explicit DaemonState(PerfCounterTypes &types_);
+e9abc5ce0bb7 src/mgr/DaemonState.h                                      (Max Kellermann   2025-08-14 14:54:51 +0200  84)   ~DaemonState() noexcept;
+e9abc5ce0bb7 src/mgr/DaemonState.h                                      (Max Kellermann   2025-08-14 14:54:51 +0200  85) 
+6e1a6f0aa1fa src/mgr/DaemonState.h                                      (Kefu Chai        2021-12-19 14:48:07 +0800  86)   void set_metadata(const std::map<std::string,std::string>& m);
+6e1a6f0aa1fa src/mgr/DaemonState.h                                      (Kefu Chai        2021-12-19 14:48:07 +0800  87)   const std::map<std::string,std::string>& _get_config_defaults();
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  88) };
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  89) 
+d9dfb436ea58 src/mgr/DaemonState.h                                      (John Spray       2016-07-03 19:45:28 +0100  90) typedef std::shared_ptr<DaemonState> DaemonStatePtr;
+d9dfb436ea58 src/mgr/DaemonState.h                                      (John Spray       2016-07-03 19:45:28 +0100  91) typedef std::map<DaemonKey, DaemonStatePtr> DaemonStateCollection;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  92) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100  93) 
+38afbae02696 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:27 -0500  94) struct DeviceState : public RefCountedObject
+38afbae02696 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:27 -0500  95) {
+38afbae02696 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:27 -0500  96)   std::string devid;
+2c0fd7d86827 src/mgr/DaemonState.h                                      (Sage Weil        2019-12-15 10:28:57 -0600  97)   /// (server,devname,path)
+2c0fd7d86827 src/mgr/DaemonState.h                                      (Sage Weil        2019-12-15 10:28:57 -0600  98)   std::set<std::tuple<std::string,std::string,std::string>> attachments;
+38afbae02696 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:27 -0500  99)   std::set<DaemonKey> daemons;
+38afbae02696 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:27 -0500 100) 
+c63ecb602e59 src/mgr/DaemonState.h                                      (Kefu Chai        2021-08-11 11:48:33 +0800 101)   std::map<std::string,std::string> metadata;  ///< persistent metadata
+45d4dfed1ded src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 13:57:09 -0500 102) 
+c63ecb602e59 src/mgr/DaemonState.h                                      (Kefu Chai        2021-08-11 11:48:33 +0800 103)   std::pair<utime_t,utime_t> life_expectancy;  ///< when device failure is expected
+4920bbd6cb49 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-07 21:22:47 -0500 104)   utime_t life_expectancy_stamp;          ///< when life expectency was recorded
+c52fcb51afb6 src/mgr/DaemonState.h                                      (Sage Weil        2021-02-08 12:53:51 -0600 105)   float wear_level = -1;                  ///< SSD wear level (negative if unknown)
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 106) 
+c63ecb602e59 src/mgr/DaemonState.h                                      (Kefu Chai        2021-08-11 11:48:33 +0800 107)   void set_metadata(std::map<std::string,std::string>&& m);
+45d4dfed1ded src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 13:57:09 -0500 108) 
+4920bbd6cb49 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-07 21:22:47 -0500 109)   void set_life_expectancy(utime_t from, utime_t to, utime_t now);
+4920bbd6cb49 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-07 21:22:47 -0500 110)   void rm_life_expectancy();
+4920bbd6cb49 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-07 21:22:47 -0500 111) 
+c52fcb51afb6 src/mgr/DaemonState.h                                      (Sage Weil        2021-02-08 12:53:51 -0600 112)   void set_wear_level(float wear);
+c52fcb51afb6 src/mgr/DaemonState.h                                      (Sage Weil        2021-02-08 12:53:51 -0600 113) 
+c63ecb602e59 src/mgr/DaemonState.h                                      (Kefu Chai        2021-08-11 11:48:33 +0800 114)   std::string get_life_expectancy_str(utime_t now) const;
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 115) 
+45d4dfed1ded src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 13:57:09 -0500 116)   /// true of we can be safely forgotten/removed from memory
+45d4dfed1ded src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 13:57:09 -0500 117)   bool empty() const {
+45d4dfed1ded src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 13:57:09 -0500 118)     return daemons.empty() && metadata.empty();
+45d4dfed1ded src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 13:57:09 -0500 119)   }
+46ab713e1f23 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:21:31 -0500 120) 
+46ab713e1f23 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:21:31 -0500 121)   void dump(Formatter *f) const;
+c63ecb602e59 src/mgr/DaemonState.h                                      (Kefu Chai        2021-08-11 11:48:33 +0800 122)   void print(std::ostream& out) const;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 123) 
+517bdca529db src/mgr/DaemonState.h                                      (Patrick Donnelly 2019-02-06 14:48:57 -0800 124) private:
+517bdca529db src/mgr/DaemonState.h                                      (Patrick Donnelly 2019-02-06 14:48:57 -0800 125)   FRIEND_MAKE_REF(DeviceState);
+517bdca529db src/mgr/DaemonState.h                                      (Patrick Donnelly 2019-02-06 14:48:57 -0800 126)   DeviceState(const std::string& n) : devid(n) {}
+517bdca529db src/mgr/DaemonState.h                                      (Patrick Donnelly 2019-02-06 14:48:57 -0800 127) };
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 128) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 129) /**
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 130)  * Fuse the collection of per-daemon metadata from Ceph into
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 131)  * a view that can be queried by service type, ID or also
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 132)  * by server (aka fqdn).
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 133)  */
+d9dfb436ea58 src/mgr/DaemonState.h                                      (John Spray       2016-07-03 19:45:28 +0100 134) class DaemonStateIndex
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 135) {
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 136) private:
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 137)   mutable ceph::shared_mutex lock =
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 138)     ceph::make_shared_mutex("DaemonStateIndex", true, true, true);
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 139) 
+d9dfb436ea58 src/mgr/DaemonState.h                                      (John Spray       2016-07-03 19:45:28 +0100 140)   std::map<std::string, DaemonStateCollection> by_server;
+d9dfb436ea58 src/mgr/DaemonState.h                                      (John Spray       2016-07-03 19:45:28 +0100 141)   DaemonStateCollection all;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 142)   std::set<DaemonKey> updating;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 143) 
+517bdca529db src/mgr/DaemonState.h                                      (Patrick Donnelly 2019-02-06 14:48:57 -0800 144)   std::map<std::string,ceph::ref_t<DeviceState>> devices;
+38afbae02696 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:27 -0500 145) 
+0e7137aa6a1f src/mgr/DaemonState.h                                      (Kefu Chai        2017-05-05 15:39:39 +0800 146)   void _erase(const DaemonKey& dmk);
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 147) 
+517bdca529db src/mgr/DaemonState.h                                      (Patrick Donnelly 2019-02-06 14:48:57 -0800 148)   ceph::ref_t<DeviceState> _get_or_create_device(const std::string& dev) {
+517bdca529db src/mgr/DaemonState.h                                      (Patrick Donnelly 2019-02-06 14:48:57 -0800 149)     auto em = devices.try_emplace(dev, nullptr);
+517bdca529db src/mgr/DaemonState.h                                      (Patrick Donnelly 2019-02-06 14:48:57 -0800 150)     auto& d = em.first->second;
+517bdca529db src/mgr/DaemonState.h                                      (Patrick Donnelly 2019-02-06 14:48:57 -0800 151)     if (em.second) {
+517bdca529db src/mgr/DaemonState.h                                      (Patrick Donnelly 2019-02-06 14:48:57 -0800 152)       d = ceph::make_ref<DeviceState>(dev);
+38afbae02696 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:27 -0500 153)     }
+517bdca529db src/mgr/DaemonState.h                                      (Patrick Donnelly 2019-02-06 14:48:57 -0800 154)     return d;
+38afbae02696 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:27 -0500 155)   }
+517bdca529db src/mgr/DaemonState.h                                      (Patrick Donnelly 2019-02-06 14:48:57 -0800 156)   void _erase_device(const ceph::ref_t<DeviceState>& d) {
+38afbae02696 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:27 -0500 157)     devices.erase(d->devid);
+38afbae02696 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:27 -0500 158)   }
+38afbae02696 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:27 -0500 159) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 160) public:
+d2d4c7d3f865 src/mgr/DaemonState.h                                      (Max Kellermann   2025-08-14 13:55:25 +0200 161)   DaemonStateIndex();
+d2d4c7d3f865 src/mgr/DaemonState.h                                      (Max Kellermann   2025-08-14 13:55:25 +0200 162)   ~DaemonStateIndex();
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 163) 
+d9dfb436ea58 src/mgr/DaemonState.h                                      (John Spray       2016-07-03 19:45:28 +0100 164)   // FIXME: shouldn't really be public, maybe construct DaemonState
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 165)   // objects internally to avoid this.
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 166)   PerfCounterTypes types;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 167) 
+d9dfb436ea58 src/mgr/DaemonState.h                                      (John Spray       2016-07-03 19:45:28 +0100 168)   void insert(DaemonStatePtr dm);
+8a2f4429b129 src/mgr/DaemonState.h                                      (Sage Weil        2018-10-18 17:33:46 -0500 169)   void _insert(DaemonStatePtr dm);
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 170)   bool exists(const DaemonKey &key) const;
+d9dfb436ea58 src/mgr/DaemonState.h                                      (John Spray       2016-07-03 19:45:28 +0100 171)   DaemonStatePtr get(const DaemonKey &key);
+a6832cb610ba src/mgr/DaemonState.h                                      (Sage Weil        2018-03-06 16:30:38 -0600 172)   void rm(const DaemonKey &key);
+8a2f4429b129 src/mgr/DaemonState.h                                      (Sage Weil        2018-10-18 17:33:46 -0500 173)   void _rm(const DaemonKey &key);
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 174) 
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 175)   // Note that these return by value rather than reference to avoid
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 176)   // callers needing to stay in lock while using result.  Callers must
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 177)   // still take the individual DaemonState::lock on each entry though.
+d9dfb436ea58 src/mgr/DaemonState.h                                      (John Spray       2016-07-03 19:45:28 +0100 178)   DaemonStateCollection get_by_server(const std::string &hostname) const;
+a22b256bad1f src/mgr/DaemonState.h                                      (Sage Weil        2017-06-22 14:19:17 -0400 179)   DaemonStateCollection get_by_service(const std::string &svc_name) const;
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 180)   DaemonStateCollection get_all() const {return all;}
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 181) 
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 182)   template<typename Callback, typename...Args>
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 183)   auto with_daemons_by_server(Callback&& cb, Args&&... args) const ->
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 184)     decltype(cb(by_server, std::forward<Args>(args)...)) {
+b4304d521f61 src/mgr/DaemonState.h                                      (Brad Hubbard     2025-07-31 09:12:23 +1000 185)     const decltype(by_server) by_server_copy = [&] {
+b4304d521f61 src/mgr/DaemonState.h                                      (Brad Hubbard     2025-07-31 09:12:23 +1000 186)       // Don't hold the lock any longer than necessary
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 187)       std::shared_lock l{lock};
+b4304d521f61 src/mgr/DaemonState.h                                      (Brad Hubbard     2025-07-31 09:12:23 +1000 188)       return by_server;
+b4304d521f61 src/mgr/DaemonState.h                                      (Brad Hubbard     2025-07-31 09:12:23 +1000 189)     }();
+b4304d521f61 src/mgr/DaemonState.h                                      (Brad Hubbard     2025-07-31 09:12:23 +1000 190)     return std::forward<Callback>(cb)(by_server_copy, std::forward<Args>(args)...);
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 191)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 192) 
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 193)   template<typename Callback, typename...Args>
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 194)   bool with_device(const std::string& dev,
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 195) 		   Callback&& cb, Args&&... args) const {
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 196)     std::shared_lock l{lock};
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 197)     auto p = devices.find(dev);
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 198)     if (p == devices.end()) {
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 199)       return false;
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 200)     }
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 201)     std::forward<Callback>(cb)(*p->second, std::forward<Args>(args)...);
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 202)     return true;
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 203)   }
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 204) 
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 205)   template<typename Callback, typename...Args>
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 206)   bool with_device_write(const std::string& dev,
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 207) 			 Callback&& cb, Args&&... args) {
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 208)     std::unique_lock l{lock};
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 209)     auto p = devices.find(dev);
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 210)     if (p == devices.end()) {
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 211)       return false;
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 212)     }
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 213)     std::forward<Callback>(cb)(*p->second, std::forward<Args>(args)...);
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 214)     if (p->second->empty()) {
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 215)       _erase_device(p->second);
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 216)     }
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 217)     return true;
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 218)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 219) 
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 220)   template<typename Callback, typename...Args>
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 221)   void with_device_create(const std::string& dev,
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 222) 			  Callback&& cb, Args&&... args) {
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 223)     std::unique_lock l{lock};
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 224)     auto d = _get_or_create_device(dev);
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 225)     std::forward<Callback>(cb)(*d, std::forward<Args>(args)...);
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 226)   }
+47abea157cf4 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 14:03:42 -0500 227) 
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 228)   template<typename Callback, typename...Args>
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 229)   void with_devices(Callback&& cb, Args&&... args) const {
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 230)     std::shared_lock l{lock};
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 231)     for (auto& i : devices) {
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 232)       std::forward<Callback>(cb)(*i.second, std::forward<Args>(args)...);
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 233)     }
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 234)   }
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 235) 
+dac649753bcb src/mgr/DaemonState.h                                      (Sage Weil        2019-01-18 09:24:34 -0600 236)   template<typename CallbackInitial, typename Callback, typename...Args>
+dac649753bcb src/mgr/DaemonState.h                                      (Sage Weil        2019-01-18 09:24:34 -0600 237)   void with_devices2(CallbackInitial&& cbi,  // with lock taken
+dac649753bcb src/mgr/DaemonState.h                                      (Sage Weil        2019-01-18 09:24:34 -0600 238) 		     Callback&& cb,          // for each device
+dac649753bcb src/mgr/DaemonState.h                                      (Sage Weil        2019-01-18 09:24:34 -0600 239) 		     Args&&... args) const {
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 240)     std::shared_lock l{lock};
+dac649753bcb src/mgr/DaemonState.h                                      (Sage Weil        2019-01-18 09:24:34 -0600 241)     cbi();
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 242)     for (auto& i : devices) {
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 243)       std::forward<Callback>(cb)(*i.second, std::forward<Args>(args)...);
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 244)     }
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 245)   }
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 246) 
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 247)   void list_devids_by_server(const std::string& server,
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 248) 			     std::set<std::string> *ls) {
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 249)     auto m = get_by_server(server);
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 250)     for (auto& i : m) {
+948635a8b213 src/mgr/DaemonState.h                                      (Sage Weil        2018-10-16 14:11:33 -0500 251)       std::lock_guard l(i.second->lock);
+6b6fe52aacf6 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-06 08:44:42 -0500 252)       for (auto& j : i.second->devices) {
+6b6fe52aacf6 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-06 08:44:42 -0500 253) 	ls->insert(j.first);
+6b6fe52aacf6 src/mgr/DaemonState.h                                      (Sage Weil        2018-06-06 08:44:42 -0500 254)       }
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 255)     }
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 256)   }
+946e1803453a src/mgr/DaemonState.h                                      (Sage Weil        2018-06-05 08:47:45 -0500 257) 
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 258)   void notify_updating(const DaemonKey &k) {
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 259)     std::unique_lock l{lock};
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 260)     updating.insert(k);
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 261)   }
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 262)   void clear_updating(const DaemonKey &k) {
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 263)     std::unique_lock l{lock};
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 264)     updating.erase(k);
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 265)   }
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 266)   bool is_updating(const DaemonKey &k) {
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 267)     std::shared_lock l{lock};
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 268)     return updating.count(k) > 0;
+806f10847cef src/mgr/DaemonState.h                                      (John Spray       2017-08-24 12:53:24 -0400 269)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 270) 
+8a2f4429b129 src/mgr/DaemonState.h                                      (Sage Weil        2018-10-18 17:33:46 -0500 271)   void update_metadata(DaemonStatePtr state,
+c63ecb602e59 src/mgr/DaemonState.h                                      (Kefu Chai        2021-08-11 11:48:33 +0800 272) 		       const std::map<std::string,std::string>& meta) {
+8a2f4429b129 src/mgr/DaemonState.h                                      (Sage Weil        2018-10-18 17:33:46 -0500 273)     // remove and re-insert in case the device metadata changed
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 274)     std::unique_lock l{lock};
+8a2f4429b129 src/mgr/DaemonState.h                                      (Sage Weil        2018-10-18 17:33:46 -0500 275)     _rm(state->key);
+8a2f4429b129 src/mgr/DaemonState.h                                      (Sage Weil        2018-10-18 17:33:46 -0500 276)     {
+675606bf712e src/mgr/DaemonState.h                                      (Kefu Chai        2019-07-07 11:18:14 +0800 277)       std::lock_guard l2{state->lock};
+8a2f4429b129 src/mgr/DaemonState.h                                      (Sage Weil        2018-10-18 17:33:46 -0500 278)       state->set_metadata(meta);
+8a2f4429b129 src/mgr/DaemonState.h                                      (Sage Weil        2018-10-18 17:33:46 -0500 279)     }
+8a2f4429b129 src/mgr/DaemonState.h                                      (Sage Weil        2018-10-18 17:33:46 -0500 280)     _insert(state);
+8a2f4429b129 src/mgr/DaemonState.h                                      (Sage Weil        2018-10-18 17:33:46 -0500 281)   }
+8a2f4429b129 src/mgr/DaemonState.h                                      (Sage Weil        2018-10-18 17:33:46 -0500 282) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 283)   /**
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 284)    * Remove state for all daemons of this type whose names are
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 285)    * not present in `names_exist`.  Use this function when you have
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 286)    * a cluster map and want to ensure that anything absent in the map
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 287)    * is also absent in this class.
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 288)    */
+a22b256bad1f src/mgr/DaemonState.h                                      (Sage Weil        2017-06-22 14:19:17 -0400 289)   void cull(const std::string& svc_name,
+a22b256bad1f src/mgr/DaemonState.h                                      (Sage Weil        2017-06-22 14:19:17 -0400 290) 	    const std::set<std::string>& names_exist);
+7534737030b3 src/mgr/DaemonState.h                                      (Jason Dillaman   2019-11-27 12:01:39 -0500 291)   void cull_services(const std::set<std::string>& types_exist);
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 292) };
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 293) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 294) #endif
+ac30e6cee2b2 src/mgr/DaemonMetadata.h                                   (John Spray       2016-06-30 14:05:02 +0100 295) 

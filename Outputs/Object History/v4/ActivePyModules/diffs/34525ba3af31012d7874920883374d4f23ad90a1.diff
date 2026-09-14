@@ -1,0 +1,50 @@
+commit 34525ba3af31012d7874920883374d4f23ad90a1
+Author: Volker Theile <vtheile@suse.com>
+Date:   Fri Sep 28 14:55:32 2018 +0200
+
+    Relocate cluster_log(). Only active modules can use it.
+    
+    Signed-off-by: Volker Theile <vtheile@suse.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 7e22775bac7..cb635ab1221 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -377,7 +377,7 @@ int ActivePyModules::start_one(PyModuleRef py_module)
+ 
+   ceph_assert(modules.count(py_module->get_name()) == 0);
+ 
+-  modules[py_module->get_name()].reset(new ActivePyModule(py_module, clog, audit_clog));
++  modules[py_module->get_name()].reset(new ActivePyModule(py_module, clog));
+   auto active_module = modules.at(py_module->get_name()).get();
+ 
+   int r = active_module->load(this);
+@@ -904,3 +904,15 @@ void ActivePyModules::remove_osd_perf_query(OSDPerfMetricQueryID query_id)
+             << cpp_strerror(r) << dendl;
+   }
+ }
++
++void ActivePyModules::cluster_log(const std::string &channel, clog_type prio,
++  const std::string &message)
++{
++  Mutex::Locker l(lock);
++
++  if (channel == "audit") {
++    audit_clog->do_log(prio, message);
++  } else {
++    clog->do_log(prio, message);
++  }
++}
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 48302d63ac5..16f781e03a7 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -157,5 +157,8 @@ public:
+   void dump_server(const std::string &hostname,
+                    const DaemonStateCollection &dmc,
+                    Formatter *f);
++
++  void cluster_log(const std::string &channel, clog_type prio,
++    const std::string &message);
+ };
+ 

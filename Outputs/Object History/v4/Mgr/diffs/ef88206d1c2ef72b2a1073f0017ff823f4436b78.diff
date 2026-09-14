@@ -1,0 +1,20 @@
+commit ef88206d1c2ef72b2a1073f0017ff823f4436b78
+Author: Noah Watkins <nwatkins@redhat.com>
+Date:   Fri Aug 31 11:46:28 2018 -0700
+
+    mgr: remove dead code
+    
+    Signed-off-by: Noah Watkins <nwatkins@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index eb60ee24538..cab7731beb1 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -24,7 +24,6 @@
+ #include "mgr/MgrContext.h"
+ 
+ #include "DaemonServer.h"
+-#include "messages/MMgrBeacon.h"
+ #include "messages/MMgrDigest.h"
+ #include "messages/MCommand.h"
+ #include "messages/MCommandReply.h"

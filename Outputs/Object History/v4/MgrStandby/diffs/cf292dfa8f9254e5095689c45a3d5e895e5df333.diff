@@ -1,0 +1,34 @@
+commit cf292dfa8f9254e5095689c45a3d5e895e5df333
+Author: Noah Watkins <nwatkins@redhat.com>
+Date:   Mon Jul 16 22:24:48 2018 -0700
+
+    mgr: create always_on class of modules
+    
+    support an 'always on' class of ceph-mgr modules. the purpose of an
+    always-on module is to behave as built-in / non-optional functionality.
+    this is accomplished by treating always-on modules as enabled
+    irregardless of the enabled set produced by the manager monitor.
+    always-on modules that fail to load are reported as health errors.
+    
+    always-on modules are intended to satisfy important dependencies in a
+    cluster. as such, the set of always-on modules is specified statically,
+    as opposed to a property on the Python class, to enable robust error
+    reporting of always on modules that fail to load.
+    
+    Signed-off-by: Noah Watkins <nwatkins@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 57ceaeeb8da..d2f4a9ceb65 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -188,6 +188,10 @@ void MgrStandby::send_beacon()
+   // which we will transmit to the monitor.
+   std::vector<MgrMap::ModuleInfo> module_info;
+   for (const auto &module : modules) {
++    // do not announce always_on modules to the monitor
++    if (module->is_always_on()) {
++      continue;
++    }
+     MgrMap::ModuleInfo info;
+     info.name = module->get_name();
+     info.error_string = module->get_error_string();

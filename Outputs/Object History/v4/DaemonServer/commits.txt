@@ -1,0 +1,357 @@
+# Non-merge commits touching src/mgr/DaemonServer.cc and/or src/mgr/DaemonServer.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+ffd759b34b940830b982bf0525e7f3a299b77298 2025-07-21 Patrick Donnelly | msg: constify getter
+a996144cb35051567a0ca9e2dd81a978598ba505 2026-07-21 Sunnatillo | mgr/DaemonServer: erase daemon_connections ref on reset for all peer types
+1cd0421b01cfa962a8ba4ef212b97d1674efd1dc 2026-08-07 Kefu Chai | mgr: drop the duplicate heap asok command from DaemonServer
+fd4d4ce58b8616a8d87e244bb5f3c367dd20cf63 2026-05-21 Steven Zuraski | mgr/DaemonServer: add explicit DaemonServer shutdown handling
+460b2c8b09fe6bcbb6ce722d29804c10ea85b26e 2026-05-14 Laura Flores | mgr, osd: remove pg_upmap_primary mappings for PG merge targets
+afd0b924e2173bce863571f17dfb7d21ab3e1cfd 2026-07-20 Sridhar Seshasayee | mgr/DaemonServer: Make an ok-to-upgrade error message more generic
+948de224df12b8b383460b86ba520b191dc275bc 2026-06-08 Nitzan Mordechai | mgr: fix dispatch throttle bottleneck causing OSD connection timeouts
+6761549c5a719f541a850f243318a1212b76c0a6 2026-05-06 Sridhar Seshasayee | mgr/DaemonServer: Aggregate and globally sort OSDs for ok-to-upgrade
+e8e47abef6cd7f9de46ce603c675b6bc478eb0e5 2026-05-17 Nitzan Mordechai | mgr/DaemonServer: add heap command to mgr
+dd7f8af9d643e03d4b2ea5504a5e20c53e86b661 2026-05-06 Sridhar Seshasayee | mgr/DaemonServer: clarify ok-to-upgrade error message for CRUSH buckets
+dcd9c5bac5e2670efd726e1ae89bc264bd404671 2026-05-27 senol.colak | mgr: override OSD hostname with CRUSH physical host in all metadata paths
+027a609a8274b932e55e3aa529f33217de31a15b 2025-09-18 Nitzan Mordechai | mgr/DaemonServer: auto-tune stats period when message queue gets backed up
+f18093fc09bfedbb02cbe7967fc85b2dea9ff71f 2026-03-25 Sridhar Seshasayee | mgr/DaemonServer: Limit search for OSDs to upgrade within the crush bucket.
+fdc072f15da7ec4c918a1ebff439f6ce4922f33f 2025-09-12 Laura Flores | mgr, qa: clarify module checks in DaemonServer
+8177e48e5c800e8bdcebd46fcaa51fbe5ea126cc 2026-02-13 Sridhar Seshasayee | mgr/DaemonServer: Re-order OSDs in crush bucket to maximize OSDs for upgrade
+c63b188a9fb1431827b2299c5dfa2074c078854a 2025-10-27 Sridhar Seshasayee | mgr/DaemonServer: Implement ok-to-upgrade command
+cf54988c504a7819c88bbd78d1a7f766b705ca43 2026-02-02 Sridhar Seshasayee | mgr/DaemonServer: Modify offline_pg_report to handle set or vector types
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b 2025-10-02 Edwin Rodriguez | Add blank line after header block
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 2025-10-02 Edwin Rodriguez | Add missing blank line after comment block
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+f82ab1cbf242ca61c45ce31a756d8646710957eb 2025-08-12 Max Kellermann | mgr, mon, osdc: pass complex parameters by rvalue reference
+3ab70dd3e1150b2b3f66cbbee329ea95618747a5 2024-10-16 Max Kellermann | common/Formatter: move {JSON,Table,XML}Formatter to separate files
+a17349b87afd4b4e66dfe50796e1594b47b13aba 2025-08-12 Max Kellermann | mgr: add missing includes
+d8141f4302ad7631a3a068e5017e9b018d6cb741 2025-04-25 Kefu Chai | mgr: migrate from boost::variant to std::variant
+2d4b4235fc255fd2a9b114627d9697718795790b 2025-02-25 Ronen Friedman | mon,mgr: replace obsolete get_tracked_conf_keys()
+c9d0913f53b0c4d632746075c05c2f2187d77c02 2025-02-18 Patrick Donnelly | msg: add alternate statuses for ms_dispatch2 handling
+706b2be416246dd5923478d8a7ee015246f03e95 2025-01-30 Patrick Donnelly | mgr: use std namespace
+edd96f9b05e6e665c5228ba28741568ca9d2ca6c 2025-02-17 Max Kellermann | include/unordered_{map,set}: remove, use `std` directly instead
+6e7e13e07b6afb2d453fcac52ce0f569e315292e 2024-10-29 Max Kellermann | mgr/DaemonServer: include cleanup
+618025908cc0389bbf0d237e0b124240e3c13aa4 2024-12-05 Konstantin Shalygin | mgr/DaemonServer: fixed mistype for mgr_osd_messages
+bfbfbbfed6c02a913d0fcfd6a97071acafb95378 2023-08-10 Patrick Donnelly | mon/MonClient: handle ms_handle_fast_authentication return
+66efcaae7a05abaefb12758239b0e1ad5cbd85c9 2023-12-21 Prashant D | mgr: integrate optracker in ceph-mgr
+2af36160b01ee1b6ceead47096ea7cc97c4e9501 2024-02-27 Samuel Just | mgr/DaemonServer: decouple adjust_pgs max from mon_osd_max_creating_pgs
+37b6ed2775fddae670200f4c7427a5204efe128f 2024-02-27 Samuel Just | mgr/DaemonServer: fix debug message typo (max->max_misplaced)
+dd9f9e268b5562bae8972bce03ec0970f353ae14 2023-11-02 Ramana Raja | mgr/Mgr: remove shutdown() and handle_signal()
+b88cecdc7c3dc048550f634ecadc04f661f0fabc 2022-09-06 Aishwarya Mathuria | DaemonServer.cc: fix config show command for RGW daemons
+28c666eb80100cb2964239ac59ec339225fef3ee 2023-07-20 ericqzhao | mgr: add throttle policy for DaemonServer This commit fix the throttle parameter of osd does not take effect for mgr Fixes: https://tracker.ceph.com/issues/61942
+3e2075103a0ab6b7ced5800db1d44d13b1c8b7e6 2023-07-10 Patrick Donnelly | msg: indicate ms_handle_authentication is fast
+69980823e62f67d502c4045e15c41c5c44cd5127 2023-07-02 Patrick Donnelly | mgr: register OSDs in ms_handle_accept
+e27f6c6a856d6ba7cad08bb933ec84e226aae6ad 2023-03-01 Radoslaw Zarzynski | msg: always generate random nonce; don't try to reuse PID
+46de6431603a56fa9ca2a7c7c9c795f126d16452 2022-10-17 Kotresh Hiremath Ravishankar | mgr: Add one finisher thread per module
+5a2b7c25b68f2c955356640041e4c7ed72416d4e 2022-11-11 Pere Diaz Bou | mgr/prometheus: expose daemon health metrics
+dd05ee3379913668528583991456806bb56f5590 2022-07-07 Radoslaw Zarzynski | mgr: fix a race condition in DaemonServer::handle_report()
+241393d1c31d2de4d788331f1ff36a4415ea2354 2022-06-20 Matan Breizman | osd: MOSDScrub cleanup
+6540937a6d1865642dd799b4996d85d2ee9a99ad 2022-06-24 Prashant D | mgr: Remove service_daemon handling from MMgrUpdate
+10d2d2e2dd613badd0801763b0586d524dfc2121 2022-06-21 Kamoltat Sirivadhna | src/mgr/DaemonServer.cc: fix typo in output gap >= max_pg_num_change
+cc2721ccdb33248a732abd1919df808ef8a1f80f 2022-04-21 Mykola Golub | mgr: relax "pending_service_map.epoch > service_map.epoch" assert
+1a065043b964f8c014ebb5bc890a243c398ff07c 2022-03-28 Prashant D | mgr, mon: Keep upto date metadata with mgr for MONs
+c2470f271cce4d512f2cf00552c9b753e4c69f71 2021-06-29 Jos Collin | mgr, pybind/mgr, mgr/stats: be resilient to offline rank0 MDS
+d3c8f171e9aaa9cbf970b6dadda5837ca9b030c7 2021-12-02 Sage Weil | mgr: stop issuing events that no modules consume
+3b2a11249aff6ee608efc95212d6723df180cd07 2021-11-30 Sage Weil | mgr: limit changes to pg_num
+c63ecb602e5916d5e0beed137787fdfc67707f15 2021-08-11 Kefu Chai | mgr: build without "using namespace std"
+5e7f55318e40d37cb233fc43705d19e74a20dfd1 2021-07-04 Kefu Chai | mgr/DaemonServer: use "unsigned" to represent the pgp num
+3f15749de0d550a124f8c6afbd457f17ef020963 2021-06-29 Dan van der Ster | mgr/DaemonServer: skip redundant update of pgp_num_actual
+c70a4f583c7bca7d240d13495b8c1571514847f2 2021-05-24 Sage Weil | mgr: fix reweight-by-utilization cephbool flag
+b4316d257e928b3789b818054927c2e98bb3c0d6 2021-05-28 Cory Snyder | mgr/DaemonServer.cc: prevent integer underflow that is triggered by large increases to pg_num/pgp_num
+e29f1a5ec16c00f70c7b505769fbefe98db03d1b 2021-05-20 Kefu Chai | common/cmdparse: return cmd option using return value
+bb56c30167bed615db86aff5290550a887b3731a 2021-03-19 Patrick Donnelly | mgr: add debug output for commands dispatched
+4d447092c3542bf57dfb4942db766adf2923c069 2021-03-18 Sage Weil | mon/MgrStatMonitor: ignore MMgrReport from non-active mgr
+2cce16537c9f9e92bf0a8fce746d0364cbb2d15d 2021-03-04 Sage Weil | mgr/DaemonServer: osd ok-to-stop: return json when there are unknown PGs
+fb778a3205801a49e4f9c4d3bd24e07dfb410a44 2021-02-26 Sage Weil | mgr/DaemonServer: make warning language a bit friendlier
+79beb0362764e280c01bea8ca9cf9a0fc48e7706 2021-02-19 Kefu Chai | mgr/DaemonServer: do not support osd < octopus
+791952cc01201010f298033003ba52374cc0159f 2021-02-20 Sage Weil | mgr/DaemonServer: include details in 'osd ok-to-stop' output
+722f57dee1306007c9059711a93b445bbd9079ec 2021-02-20 Sage Weil | mgr: add --max <n> to 'osd ok-to-stop' command
+2f28fc58eb63e20c2a869f5407516cf8044dbc41 2021-02-07 Xuehan Xu | mgr: relax osd ok-to-stop condition on degraded pgs
+8f93e3b55351df0bc8308e0cace482aabb15e8c8 2021-02-08 Sage Weil | mgr/DaemonServer: show wear level in 'device ls' output
+e947fac485ad2a569cca6259162bd24e5530b54a 2020-11-21 haoyixing | mgr: fix "ceph pg dump_json/dump_pools_json" format error
+0e7e036aa7656b005e0ffc1f3d7d11d149b3dda2 2020-11-23 haoyixing | doc/dev: use http://docs.ceph.com/en/latest/ instead of /docs/master/ for docs
+7523aef6e8656952418d17227c877952f9370f95 2019-08-26 Venky Shankar | mgr/stats: mds performance stats module
+4d6b678736e9afee3a0a2556ec5af874e32078bf 2020-09-17 Liu Changcheng | messenger: remove unused variable
+b9edfbd55f897ebaaad56dc67c15887f57ab61ad 2020-09-02 Mykola Golub | mgr: don't update pending service map epoch on receiving map from mon
+87c86e9b77d32a0a274cd02d6dae7723e36524b0 2020-07-14 Kefu Chai | mgr/DaemonServer: pass task_status instead of a message
+bebc2ae1cbf45d8c58146b41d8f7cf2cd496955c 2020-07-14 Kefu Chai | mgr/DaemonServer: keep daemon in service map when it has no tasks
+5a7d0632d989536e09b2d916b5ea9713dc8dbea5 2020-04-23 Venky Shankar | mds: send scrub status to ceph-mgr only when scrub is running
+3ca2c482e0fb5af9e8f13c212d60aaf55a033a94 2020-06-18 Neha Ojha | mgr/DaemonServer.cc: make 'config show' on fsid work
+f6ba1eea4cde2354e639518210a56d157081ecac 2019-09-10 Venky Shankar | mds: forward mds metrics to ceph manager w/ quering interfaces
+347003e13167c428187a5450517850f4d85e09ad 2020-05-04 Josh Durgin | mgr: require all caps for pre-octopus tell commands
+bccbf1fa03ed2fb02ad2e50e6aaf963b36d8bd30 2020-03-27 Venky Shankar | mgr: force purge normal ceph entities from service map
+c71ca663bdfd5b90cfc0b17740e2569b9d184d05 2020-03-30 Sage Weil | mgr/DaemonServer: add missing ceph_abort
+ea274a1988a0fb777d31316561cdcbf96e96b565 2020-03-28 Sage Weil | mgr/DaemonServer: fetch metadata for new daemons (e.g., mons)
+1700d181580f9ffc9a808ee29daf661f3776a901 2020-03-19 Sage Weil | mgr/DaemonServer: add explicit check that acting matches for merge
+ad0bbc8f78a632b1008f624ffb6090f86731a0e0 2020-02-28 Sage Weil | msg: add get_{pid,random}_nonce() helpers
+a54d0a90c06aed1ae26826d7d5317ba13e18c86e 2020-01-17 Chunmei Liu | crimson:common add TOPNSPC namespace for ceph and crimson
+563811a0f60ad225c0f38b7359f84667043c2017 2020-01-08 David Zafman | mgr/progress: Add pg_ready interface for python to get pgmap_ready state
+20139d12423fc6154b57499c576d1e4bb3f1eade 2020-02-07 Venky Shankar | mgr: filter out normal ceph services when processing service map
+d6ad0a255a27c5e3da20c7ae03066a692a6d49bb 2020-01-15 Venky Shankar | mgr: re-enable mds `scrub status` info in ceph status
+5d5b0f96df39fd0c7e7ae5998043d53cd785b18e 2020-01-31 Kefu Chai | src/: drop cct from cmd_getval()
+2c0fd7d86827aa76b8d923870018365cdae4a6ad 2019-12-15 Sage Weil | mgr: report device by-path paths too
+ce4e554ed66b45cb4a302ff7668d9e0beb6bd7d9 2019-09-02 Xie Xingguo | Revert "mgr/DaemonServer: safe-to-destroy - do not consider irrelevant pgs"
+efcebe1eb4ae16ea9c633436e3e105add4a2662c 2019-09-10 Venky Shankar | mgr: templatize/generalize metrics collection interface
+66690ea3143ac5097f7c7f3118f2d00fed30cc4b 2019-12-05 Sage Weil | mgr/DaemonServer: fix 'osd ok-to-stop' for EC pools
+7534737030b3b51e00f9ffc519574bcb10f6c950 2019-11-27 Jason Dillaman | mgr: cull service daemons when the last instance has been removed
+3e7bc80b35b43d495a56b9cb0e9e15f58381f77b 2019-11-27 Jason Dillaman | mgr: ensure new daemons are properly indexed by hostname
+16a1deb5b3f276efe7dd3904c26786e6d837ddee 2019-11-26 Patrick Donnelly | mgr: drop session with Ceph daemon when not ready
+9b71bbee55e16e8b81d896b46bab60ff8aa36271 2019-11-26 Patrick Donnelly | mgr: improve debug message information
+612747e97bdd4701d23dad07ad23751e9821d7cb 2019-11-07 Sage Weil | mgr/DaemonServer: warn when we reject reports
+282c31c383856b45caadcefb876a71e39fe4b219 2019-10-14 Jason Dillaman | mgr: python modules can now perform authorization tests
+3463613bd43d5fb7f8094c3b9b8a3163325ff196 2019-10-11 Jason Dillaman | mgr: add new 'allow module' cap to MgrCap
+6350bee5c873cb1cef0ca1345b89bff66817e0c1 2019-10-11 Jason Dillaman | mgr: stop re-using MonCap for handling MGR caps
+ef3c42cd6481a4c275b593bc60c8ee2142148e9f 2019-10-23 Sage Weil | auth: EACCES, not EPERM
+cda3eadbfbd3e3a8a057cc7ed042ba0a6d7fef11 2019-10-03 Venky Shankar | mgr: missing lock release in DaemonServer::handle_report()
+6f35d2835268eade059535b62378d6d407ef9e87 2019-09-27 Sage Weil | mgr,mgr/MgrClient: use fsid to signal mon-mgr vs cli MCommands
+42823a092c9568d07c1188930aa0828db359876b 2019-09-06 Sage Weil | mgr/DaemonServer: route MCommand (for octopus+) to asok commands
+5aac7eba36be99861eb8726872e339ff55360f47 2019-09-29 Kefu Chai | mgr: use a struct for DaemonKey
+12d301a1994e7893c17015d1c5ac3b6c2d026a06 2019-09-18 Kefu Chai | mgr: pass MessageRef to monc.send_mon_message()
+ff6b3997caa43d3eac0fc462f3be9ec4fa5ae6ed 2019-09-18 Kefu Chai | mgr: set hostname in DeviceState::set_metadata()
+517bdca529db390e7ebc4e596570f80522060485 2019-02-06 Patrick Donnelly | common/RefCountedObj: cleanup con/des
+489b30844e86dab102f768796251783b6e4a5f8f 2019-08-14 Patrick Donnelly | include: convert FunctionContext usage to generic LambdaContext
+4878509652ab2ef7df1d35a8269e9265c6d71204 2019-09-04 Sage Weil | mgr: accept MMgrCommand[Reply] messages (in addition to MCommand[Reply])
+39f15bb2bed35dda91b1b94c26b23c8951fedac5 2019-09-03 Xie Xingguo | mgr/DaemonServer: skip adjusting pgp_num when merging is in-progress
+3e65551d0ab4acafaf4012601987b3391b2411ed 2019-08-25 Kefu Chai | mgr/ServiceMap: use plain gid
+5d3c1856415f8b66e31361a0a7b9c75edc46e49e 2019-07-09 David Zafman | mgr: Add "dump_osd_network" mgr admin request to get a sorted report
+5c25a018643b10aa78db8270cae1476f71d8f4f4 2019-07-02 Venky Shankar | mgr, mon: allow normal ceph services to register with manager
+c93dc8849145c1630058e4c0e527f404929216ff 2019-07-07 Kefu Chai | mgr: s/Mutex/ceph::mutex/
+ca830c95a6f795393c19ab391b8b55837d88ce8c 2019-07-25 Sebastian Wagner | mgr: Reduce logging noise when handling commands
+dffce107fb68e21cd85938d67115bdafe4e697eb 2019-07-22 Sebastian Wagner | mgr: cleanup idle debug log at level 4.
+ec27a162def53fc4fbef02076a1070e9cef4a421 2019-06-18 Xie Xingguo | mgr, osd: 'ceph osd df' by pool
+4c90cee20473aa51c04731f4ef2d286b2a2abf44 2019-06-18 Xie Xingguo | osd/OSDMap: pass filter directly to the OSDUtilizationDumper
+ba8dd78236eec2c70b9bdc335d847c5762d4b6d4 2019-05-05 Xie Xingguo | mgr/DaemonServer: safe-to-destroy - do not consider irrelevant pgs
+df771861f1b9fbb1e1e5a60e4afddadff5b67c69 2019-04-29 Kefu Chai | src/: define ceph_release_t and use it
+e5968ec38a4402cdb63210c3255833259f251fb1 2019-04-30 Kefu Chai | mgr/DaemonServer: add a coefficient to improve the readability
+14aacd2d19f7e3ede0949dcfeae07f4770e05545 2019-04-30 Kefu Chai | mgr/DaemonServer: refactor pgp_num changes throttling
+a0d63c1a1fc673f094bb309635e98ab4c11354e9 2019-04-29 Sage Weil | mgr/DaemonServer: Fix pgp_num throttling min
+c7c2d18da5058ffbe1f71e66a8d4c1dcfd8eacdb 2019-04-29 Sage Weil | mgr/DaemonServer: allow pgp_num increases to be fast if pool is empty(ish)
+e6113c172523906ee2f5a317ddb358e215d0a448 2019-04-29 Sage Weil | mgr: fix pgp_num vs merge pacer
+69eaaaadd00f190f3013abbf8c713b47c0b3e7bc 2019-04-17 David Zafman | mon, mgr: Improve PG count by changing up to up_no_acting in pg_count
+9750061d5d4236aaba156d60790e0b8bcd7cfb64 2019-04-13 David Zafman | mgr: Improve ok-to-stop by using the avail_no_missing for recovery
+97f3b7c2e93f72223ae2c9a904e38bbb30e275da 2019-04-17 David Zafman | mgr: If the requested OSD is down don't trust osd_stat info
+91c6016dd9e0c6997ca0e8b7f946864d66987bec 2019-04-12 Sage Weil | msg: remove old ms_* auth methods from Dispatcher interface
+868b47e65a051daa942622b106f08fca2afa9918 2019-04-14 Kefu Chai | src/: use make_message<Foo> instead of Foo::create()
+9b6aa95ff4013e3f09f92f5dae5b6ca85403ffc8 2019-04-15 Kefu Chai | mgr/DaemonState: pass const by reference
+a075639ce746fe12cde1a3df8ad7b13c3fd9baf6 2019-04-15 Kefu Chai | mgr/DaemonServer: use ref_t<M>
+76503a1438fa1f166d2c230c73ca8d7b67e6468d 2019-04-09 Sage Weil | mgr/DaemonServer: prevent pgp_num reductions from outpacing pg_num merges
+a929a5a01508e661fc7f3cea52822320d39983d2 2019-03-26 Xie Xingguo | mgr/DaemonServer: handle_conf_change - fix broken locking
+e4a3475574dcc541dab58ac363b8b15368b5fefc 2019-03-12 Xie Xingguo | mgr/DaemonServer: handle caps more carefully
+af02d1031d58826464b5defc40026be2d7419aa8 2019-03-05 Xie Xingguo | mgr: 'osd df' by specified class or (crush) name
+fa98f096747c1f4b1f19511eb5d0babd6944c6db 2019-02-20 Xie Xingguo | mgr: add per pool force-recovery/backfill commands
+97d55fd1134f4a68dbdbf76b9200ccdd7d748879 2019-02-20 Xie Xingguo | mgr: add per pool scrub commands
+10522b9d92790d06eb79f050b087a3cdb7e6748d 2019-01-30 Sage Weil | mgr/DaemonServer: use a luminous-compatible 'mgr metadata' command
+5ac9e85a213017322e0fbdc604a9fc26f157a815 2019-01-25 Volker Theile | mgr: Improve ActivePyModules::get_typed_config implementation
+08d1a6fc3c57ccbeb6dff8fce1aae429edca97f3 2019-02-05 Sage Weil | mgr: send progress events to mon
+1d29722f801ccdfe9c4080df2f2e79ddd4379c20 2019-01-21 Sage Weil | switch monc, daemons to use new msgr2 auth frame exchange
+fa7c83f6dcdb318b8a06c47cda8a367b865f6778 2019-01-21 Sage Weil | osd,mgr,mds: remove unused authorize registries
+f64a69e5054fb319e9f717bbcb7ddd8541e01c6f 2019-01-23 Neha Ojha | mgr/DaemonServer: log pgmap usage to cluster log
+e62f45d1baa976bc64525ecb3bb49b777d6a0990 2019-01-16 Sage Weil | msg/Dispatcher: remove force_new arg from ms_get_authorizer()
+430ba5e231d6929a004a9758d31b426ecbe43951 2018-12-30 Xinying Song | mgr: request mon metadata when receiving a report msg from an unknown monitor
+3ce61e40fa7dfe21b8966879528bc76256a60118 2019-01-08 Xie Xingguo | osd, mgr, mds: make timeout of updating rotating keys configurable
+4518c4052525624da7a4a2657fa5fc8c19a8819a 2018-12-19 Xie Xingguo | mgr/DaemonServer: merge pg upmap check into status check too
+3f945585e96ea7c14fdc2fe640d4f56602973455 2018-12-18 Xie Xingguo | mgr/DaemonServer: allow merge only if merge participants are active+clean
+515c0fa0f8254e445ef28b11fcc9938219f29c34 2018-12-18 Xie Xingguo | mgr/DaemonServer: *merge* pg-merge source and target status check
+9545a15b07455e81474c414a0fd02c55d0ac2e85 2018-12-18 Xie Xingguo | mgr/DaemonServer: cancel upmap for merge source and target simultaneously
+b1f12671184a8da25c1b0059f23bf366483e395f 2018-11-23 Mykola Golub | mgr: add limit param to osd perf query
+8010d919603f2631637f85bef600bf926ca436fc 2018-11-29 Kefu Chai | mgr: don't write to output if EOPNOTSUPP
+8a65b2a76d6c9f13a9d2ca2d68361686f0306696 2018-11-28 Mykola Golub | mgr/DaemonState: fix get_config_defaults locking
+b8362d904a710c10ab72f15c78fdafc3ff21f020 2018-11-14 Mykola Golub | mgr: make dynamic osd perf counters accessible from modules
+e10cb8d2aefbc250f025cb0275698ddd1eb0a6aa 2018-11-15 Sage Weil | mgr/DaemonServer: use with_osdmap_and_pgmap instead of nested calls
+a3a3eb5f84e9b616d4059f6be010ab7848ab6e35 2018-11-08 Sage Weil | mgr/DaemonServer: fix session leak
+432f19435523d455ecd4f386e58ee1f033cf97e2 2018-10-29 Xie Xingguo | mgr/DaemonServer: add js-output for "ceph osd safe-to-destroy"
+f495b8cce9014d3459f41691ad5eb7ca1fc9d153 2018-09-23 Mykola Golub | osd: collect client perf stats when query is enabled
+98c2511334be591b04db0e325f75132b7538c2ef 2018-11-01 John Spray | mon: convert remaining confirmation flags to CephBool
+525623b6cd335ce4dd84879567bde214668c38de 2018-10-31 John Spray | ceph_argparse: introduce CephBool arguments
+7734e9fa887293d8262d895d6277bd98ca9bc79e 2018-09-27 John Spray | common: remove unused 'avail' field from commands
+9f53d1bab374f23f23bb355b7d77aa5fd6351aeb 2018-11-01 Mykola Golub | mgr: race between daemon state and service map in 'service status'
+1c2bc53df73d9891330cf0b18f5193167d64df61 2018-10-17 Sage Weil | mgr/DaemonState: fix get_config_defaults locking
+6289e7211677654850c41d08c6c9685b327f8d74 2018-10-23 Xie Xingguo | mgr/DaemonServer: "osd safe-to-destroy" - more verbose output
+550dcd53bb6db4f6b9d3b941f101332ac17a0168 2018-09-24 Sage Weil | mgr/DaemonServer: prevent merge if either pg is remapped|upmap
+5bb9820b2d2b054dcd2309b63296d33c2538b54f 2018-09-20 Sage Weil | mgr/DaemonServer: move pending merge check for more consistent code
+70ec5bda233dae482aae1b7453990f2c01872651 2018-09-19 Sage Weil | mgr/DaemonServer: add option to bypass careful throttling for thrasher
+ba3679c60b860358d1d471e6aa8a492fb5045132 2018-09-24 Sage Weil | mgr/DaemonServer: remove any upmaps on merging PGs
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f 2018-10-16 Sage Weil | mgr: Mutex::Locker -> std::lock_guard
+155d9a2c00e116408e9312706c9e4dced6acfa39 2018-09-19 Sage Weil | mgr/DaemonServer: adjust_pgs(): cosmetic change to debug output
+1617473f10f1b523aaa881b9b2b192c7d419fd2b 2018-09-19 Sage Weil | mgr/DaemonServer: throttle pgp_num changes based on misplaced %
+3365c5d40b93f3886175d3e7c07e66db9f6dcead 2018-09-19 Sage Weil | mgr/DaemonServer: remove stale/misleading check
+b4c17cca15d3079b223be0110ac6cfa49bb68cee 2018-09-19 Sage Weil | mgr/DaemonServer: allow pg_num increases that abort pending merges
+d6022dd87b62ffb04a2a62153220c6af5371fbfe 2018-09-19 Sage Weil | mgr/DaemonServer: block pg_num decrease(merge) until pgp_num is reduced
+1e3517a31eae221b216f95fe2224f6edea8544ae 2018-09-13 Sage Weil | msg: remove unused ms_verify_authorizer
+28debec0f366dd6ead8ae2e263a6683c71f86d4c 2018-09-21 Sage Weil | mgr/DaemonServer: add missing return
+f2f4493b26debbc0ce956c0de0f5da43627d035d 2018-09-13 Sage Weil | mgr/DaemonServer: expose keyring for authenticator verification
+873c6a69bb39338b6f71b60f1eb876a47e2511bb 2018-09-13 Sage Weil | mgr/DaemonServer: move session setup into ms_handle_authentication
+a6c3390834759e3f953962d46cc7c840c9970046 2018-10-03 Mykola Golub | mgr: create shell OSD performance query class
+7757ddd146f7e7e31630b54f633e1b89b6e5a6f8 2018-09-17 Julien Collet | mgr: add optional OSD perf queries to MMgrConfigure message
+95b7d2340c04dc7cf90085c89606b8c85a8f2803 2018-08-22 Ren Huanwen | mgr: add pg_state_ready for pgs show in unknown state
+4b10ed10351b2e8c23d2e85f1f79684eeb63ba60 2018-09-10 Xie Xingguo | mgr/DaemonServer: split should respect inflight creating pgs
+101671d95a506d4bf3166a6331c9abd0330711a1 2018-04-06 Sage Weil | mgr: do not adjust pg_num until FLAG_CREATING removed from pool
+a5274c75e263dd61d9569cfb9dd730cf7921d1e6 2018-04-06 Sage Weil | mgr: add simple controller to adjust pg[p]_num_actual
+9cad299aaa940a33c1f3db2bcf2ccb46b8be19ea 2018-08-13 Sage Weil | mgr/DaemonServer: catch cmd_bad_get
+3752b67ec9d0e90e80c78b81bec5c218bad5c35e 2018-08-12 Sage Weil | auth: remove auid args from handle_request and verify_authorizer
+ab23c506964753990f9fe23e314b9f3e2547a773 2018-08-23 Adam C. Emerson | mgr: Use ceph_assert for asserts.
+eb59c69674eb5de18f8054c7ddc3cd76d795512c 2018-08-23 Adam C. Emerson | cleanup: Replace always-false assertions with abort
+2b2f05fea3df031941f1bb7f2bd6728fc0775282 2018-08-15 Kefu Chai | auth: switch to LockPolicy templatized alternatives
+1081e5f691bc67f0e48a15b6c7c8138b927b9d44 2018-07-05 Sage Weil | mon/MonCap: take addr for MonCap::is_capable
+53d7c46cf54d010210f89e18ebc3ef9010a2512e 2018-08-07 Noah Watkins | mgr: add locked assertion
+6dbbb4e522264bcafa572da31d1e7617d2de3c3f 2018-08-03 Kefu Chai | mgr: silence -Wunused-lambda-capture warning
+d445147603ca16126cd99dccc2034ed4aefad16f 2018-07-30 Sage Weil | mgr/DaemonServer: osd purge: accept --yes-i-really-mean-it too
+26fe2ab6f0881b4793839f9b408d5373c200c398 2018-06-26 Sage Weil | mon,mgr: guard 'osd purge' with safe-to-destroy check
+d2b41d4095074447df247907934626f4287cd91b 2018-06-26 Sage Weil | mon,mgr: guard 'osd destroy' with 'osd safe-to-destroy' check
+3068c4290166076093119d1dc08a2c0fada8235f 2018-07-26 Noah Watkins | mgr: report health check changes immediately
+f528475d92524328ef3e12dfec036461395338c0 2018-07-06 Kefu Chai | common: move ConfigValues out of md_config_t
+4718b7cb2fac65b2ac7014f42ba1a10181350f0b 2018-07-06 Kefu Chai | common,rbd,rgw,osd: extract config values into ConfigValues
+e48353bbdd52a4288e9839d2a99fec1ef95147f3 2018-07-03 John Spray | mgr: reduce log spam
+f30843581d0809d7b11d6e6d91d85ea6fd7fe8d6 2018-06-12 Sage Weil | mgr: myaddr -> myaddrs
+f43731fd344cd3747c0fd7b10b1a694cacf530c4 2018-06-12 Sage Weil | msg: make set_addr_unknowns take an addrvec
+700fd00322dbe09d2c0b2f0db68e838a1f35ba8c 2018-06-01 Sage Weil | mgr/DaemonServer: use new bindv() and pick_addresses()
+2df0a50e07947f42d37b3c54d7dbba96f1ccbad9 2018-06-26 Kefu Chai | common: add LockPolicy to md_config_t
+0d60c26318e59c8c459be439c1ed7aa23d5ae1b3 2018-03-28 Gu Zhongyan | src: no 'dne' acronym in user cmd output
+97ef5a85100d3166910fc401465950c59a6664f1 2018-06-25 Sage Weil | mgr/DaemonServer: avoid dereferencing end() iterator
+140761f8a2df10c45eb02041fad5e8237bf57c20 2018-06-19 Dan Mick | mgr, pybind/mgr: pass inbuf (ceph -i <file>) to modules
+3030fb8512bc8db0da5c37e1944c56c1b15e246b 2018-06-07 Sage Weil | mgr: allow open-ended life expectancy
+4920bbd6cb49290122eaa0542b7a81ffaa0f4aed 2018-06-07 Sage Weil | mgr: "predicted failure" -> "life expectancy", and as a range
+6b6fe52aacf645ce3cac08c8bd540691fcc15f8a 2018-06-06 Sage Weil | mgr: track and report device names too
+adfd1ef610cf75a2a799de7a0aa336d28e2779b2 2018-06-06 Sage Weil | mgr: detailed output for 'ceph device ...'
+f222375cbced5efecb4d52ef4955701a7ba38474 2018-06-07 Sage Weil | mgr: use prettified durations for life expectancy
+46ab713e1f237d8b4c41b0731a14a98e0c11f771 2018-06-05 Sage Weil | mgr: move dump/print to DeviceState
+47abea157cf415a132d9a35311e5b5362708b8d3 2018-06-05 Sage Weil | mgr: implement 'device {set,rm}-predicted-failure' commands
+67b5d3e343c51c9015d55a7c03e6dcc32f4c89e2 2018-06-05 Sage Weil | mgr: parse out devids from daemon metadata
+946e1803453a08db7f78962a8bf8c40fac5a0dcc 2018-06-05 Sage Weil | mgr: implement 'device {ls,ls-by-daemon,ls-by-host,info}' commands
+7f787704cdcd55df18d204c5251cdd6a3cedd604 2018-05-29 Sage Weil | mgr: use entity_addrvec_t for MgrMap
+72883956c26fdc4345324e9b27b45c3dfac17fa2 2018-05-29 Kefu Chai | mds,osd,mon,msg: use intrusive_ptr for holding Connection::priv
+17803c91a6a19ee6d481095bfe0a66d09c52acb0 2018-05-29 Kefu Chai | src: balance std::hex and std::dec manipulators
+f80b848d3f830eb6dba50123e04385173fa4540b 2018-05-24 Sage Weil | auth/cephx: add authorizer challenge
+705e4566eebcb26530f5b7a5d2f1920719b50d14 2018-05-18 Kefu Chai | mgr: fix typo in variable name and cleanups
+f146c6c514b7f1ab8a2420edb5f7b64702bc9639 2018-05-15 Kefu Chai | core: use const_iterator for decode
+39ffec281af577c766c619d568f7a7051d108b00 2018-04-25 Danny Al-Gaaf | misc: mark constructors as explicit
+adc480e3b31f49d7d8a7aac8bf38bd0a29322d24 2018-04-30 Sage Weil | mgr: print daemon_health_metrics to debug log
+bee466cd1cff33aa309974747ca6678c3242a85a 2018-04-09 Sage Weil | mgr/DaemonServer: use helper to get DaemonKey
+007eae7dd2cb754fbf00e9ce6b2dbf6efe867eeb 2018-01-16 Chang Liu | mon, mgr: move "osd pool stats" command to mgr
+8b3b2fa392c703431f5f0e6a1e6e0b6cfd821b5f 2018-03-13 Sage Weil | mgr/DaemonServer: handle MMgrClose
+5c9db7200eb0274e1d87c4ce0ab5ca32e090f1ea 2018-03-13 Jan Fajerski | mgr: add mgr daemon to DaemonStateIndex with metadata (hostname)
+ce6e043a44e35144b038bc0236b5d244ffee1ca5 2018-03-27 Wilson E. Alvarez | src: Added const references to various function parameters
+60ea5e87b61b8ac4aa3d39119b31cc5da36ef5cd 2018-01-04 Sage Weil | osd: new MOSDScrub2 message with spg_t, fast dispatch
+fe5e36146744922d25b448a64a74fe4ad02e7558 2018-01-18 Sage Weil | osd: use peering events for forced recovery
+349f54360351c4229a16022eeb9f5adc5508c313 2018-03-28 Gu Zhongyan | mgr/DaemonServer: add overrides value to 'config show'
+056ad808db744f8713ef2de0d75f351e0d7a0bbd 2018-03-13 Shanchun Lv | mgr: summarize mon metrics in MMgrReport and sent it
+714ffe0d5f078e4106ddbd8b57918ae2a0c899af 2018-03-13 Shanchun Lv | mgr,osd: make osd_metric more popular
+7c25de3799da8cdb12f0eaf28b187c5ea9ba5803 2018-02-13 Kefu Chai | common/config: specialize the settings for size
+4af9c9677b0091ad3a5f99289230b83ebd42b53a 2018-01-08 Sage Weil | mgr: 'config show <who> <key>'
+5d818acf18cc412ebf601e900f36cc95b4689914 2018-01-10 Sage Weil | mgr/DaemonServer: add IGNORES column to 'config show'
+926ec5b4c505bbef1f9574d6df5548b470f3bf57 2018-01-10 Sage Weil | common/config: report failed mon config values to mgr
+e8b32359731be7e8ac5c50f125e5ad10c254aeca 2018-01-11 Sage Weil | common/config,mgr: fix config for new encode/decode syntax
+86cf85e0a2c5086df63ee8fc287502cb901b1073 2018-01-05 Sage Weil | mgr: get config defaults on session open
+a95cf66dac2c010f4aa3b146b16075de07b04556 2018-01-05 Sage Weil | mgr/DaemonServer: make 'config show' indicate duplicate overrides
+a9a619748ad631bd9356b213824e867898438cc3 2018-01-05 Sage Weil | mgr/DaemonServer: 'ceph config show-with-defaults'
+cf68ce511f31d3746ca1cb13a9d3b39c25bb06a8 2018-01-05 Sage Weil | mgr: have MgrStandby send mgr reports to active mgr (even self!)
+d3dac3d2807b5d5ad47f316a8c1da472b1840432 2017-12-04 Sage Weil | mgr/DaemonServer: 'config show <who>'
+d8450574cf4884f5d45ef09fce99b7ad24b332a6 2017-12-04 Sage Weil | mgr/MgrClient: report running config to mgr
+ed77b096ecc595ab0647d65806bbddb00f4bfb70 2018-01-05 Sage Weil | mgr/DaemonServer: fix daemon registration
+f8d4e5b5e9e540b16a0ed1e5617986046a7b2d25 2017-12-01 Sage Weil | common/config: rewrite (╯°□°)╯︵ ┻━┻
+bc9ab73704f7bc94e3a7fa0105936b340dde7478 2018-01-29 Adam C. Emerson | common/admin_socket: Copy fewer strings
+834bc27940507737f064bca7362b4c7f4cd54c98 2017-11-23 John Spray | mgr: load command definitions earlier
+86ee30c33a06a13e6bb360b80dd1e41ba928147b 2018-01-23 John Spray | mgr: apply auth_service_required to client conns
+e1af667314b9ba48631fcefc6678d86fdb4c0177 2018-01-18 John Spray | mgr: remove a few junk lines
+4042bec19dbb477d032a9b964da949aa952cc6d1 2018-01-11 Patrick Donnelly | mon: revert mds metadata argument name change
+156c941ad0d27c3cd487a085e04df9faeeffa768 2017-12-25 Adam C. Emerson | mgr: Use unqualified encode/decode
+78b7f10d298070515418f5a71931d6235498c87f 2018-01-03 Sage Weil | mgr/DaemonServer: fix error string
+3283ed588393756af3309d0ab913f61445f125bc 2017-12-14 John Spray | mgr: fix "access denied" message
+3b6d6031ca2cba13f8010c83a56cfc904c6d37c9 2017-10-24 Jos Collin | mon,mgr,doc,test: standardize argument as role
+86f0b811882de334f0d7e577b6c47bef6aba2422 2017-10-12 Sage Weil | mon/PGMap: add purged_snaps map to PGMapDigest
+e1b4c9de677a9041ba9dfba37d1b37999842789a 2017-11-04 Shinobu Kinjo | mgr/DaemonServer: [Cleanup] Remove redundant code
+c97cca13ab066ed2306708986ff387d903b2486a 2017-11-30 Jason Dillaman | mgr: disconnect unregistered service daemon when report received
+7e7978732d20c506eca581f2b153ede70ceefa3d 2017-11-01 Kefu Chai | mgr: summarize osd metrics in MMgrReport and sent it to mon
+a39813837ca84434e57afa47138973268ff366d3 2017-10-21 Chang Liu | mgr: request daemon's metadata when receiving a report message from an unknown server
+4f8d5ef6808ab2ddcbdedf1699ada99328a76eff 2017-11-04 Shinobu Kinjo | mgr/DaemonServer.cc: [Cleanup] Change to using  get_val template function
+9718896c8b844db2f3c07df1d344636da4605e61 2017-08-14 John Spray | mgr: refactor python module management
+31a34946f7aa0ad2b9848cbc808d209394a9ad44 2017-09-21 Sage Weil | osd: PG_STATE_BACKFILL -> PG_STATE_BACKFILLING
+ec09a7abc515f802451bf7ef3d22ce8ee6c6c7b3 2017-08-30 John Spray | mgr: remove old-style config opt usage
+d20915741d985e080a723cd6563bc6f4a657276f 2017-09-18 John Spray | mgr: make pgmap_ready atomic to avoid taking lock
+64af9d3da0fceff9ad0ff668f60d272c46912f34 2017-08-28 John Spray | mgr/DaemonServer: handle MMgrReports in parallel
+806f10847cefe5c7a78fc319b1b130d372197dd3 2017-08-24 John Spray | mgr: clean up DaemonStateIndex locking
+29080134339e5e64d50af1db9fe50df7ea55c1d0 2017-08-24 Chang Liu | mgr: kill MgrSession when MMgrReport come from daemon without metadata info
+1dcab1c770b07f523f15870d5bef201a93546acc 2017-08-28 Sage Weil | mon: drop PGMapStatService
+057b73d641decb9403aba50caae9d139f3a34dd4 2017-08-31 John Spray | mgr: runtime adjustment of perf counter threshold
+bdc775fdd8acdad5c58ff3065a21396f80ce5db4 2017-07-31 John Spray | mgr: apply a threshold to perf counter prios
+bf9380457bba5a834ffa2927c73165e0f1960332 2017-08-10 Sage Weil | mgr: implement 'osd safe-to-destroy' and 'ok-to-stop' commands
+7f336f23668757ddb2768c78f208607b3d2b247e 2017-08-10 Yanhu Cao | mgr/DaemonServer.cc: add 'is_valid=false' when decode caps error
+e51be85c24d36cb3f50f98f7c401f352fd1cd7e4 2017-07-21 Sage Weil | mgr: keep per-module checks, and report them back to the mon
+d7ba56f4214148a2378adcf47da9916a752bc7a0 2017-07-22 Sage Weil | mgr/DaemonServer: fix lock cycle
+f236b5e78338f85a0ac82440ae44cdf4db83a04f 2017-07-19 Sage Weil | mgr/DaemonState: add per DaemonState lock
+f159a093ecab4aa53693ec106c00d5ecb383c467 2017-07-20 Sage Weil | osd,mds,mgr: do not dereference null rotating_keys
+de0566f6044052cff28837838ac041c1fc76a2f1 2017-02-16 Piotr Dałek | Mgr: implement force-recovery/backfill commands
+5c3846306b6bf7864327265bbac9607295f46cfc 2017-06-29 John Spray | mgr: transmit command descriptions to mgr in activating beacon
+9efacf2a77e9a526bb1fa63fd3f340358e991bcb 2017-06-28 John Spray | mgr: use MonCommand for command descriptions
+c86c8b717e1850410c59f7c6c708b20619c60a6c 2017-07-18 Sage Weil | mgr: move mgr_commands to separate compilation unit
+f0e9dcda0c1c0cdd5616560ea6814ba523fd67ae 2017-07-11 Dan Mick | mgr/DaemonServer: add perf_schema_update notification for Py modules
+d260368e5be2f261bbc15ffa055aac301d7e6159 2017-06-22 John Spray | mgr: fix spurious PG health messages on mgr restart
+8d1d6a065073cd5c93b67bd4e9f3f1d1c1ed90a5 2017-06-29 Sage Weil | mgr/DaemonServer: debug log health checks
+ad7a4c803fb072ac76ef49a74876bf72df04f391 2017-06-13 Sage Weil | mon,mgr: pass new-style health checks from mgr's PGMap
+2f720a42fca22ec0023e6085276193b0ca822a1c 2017-06-26 John Spray | mgr: set hostname propery on ServiceMap services
+ab9a661eaacd7d2cce17def1c28523817e564fa6 2017-06-26 Sage Weil | mgr: implement 'service dump' and 'service status'
+97cfc3cb694eb2723cae22d71057323773746cee 2017-06-26 Sage Weil | mgr: allow/track service registrations
+a22b256bad1f6a4fcb9ffc10015b17bab7216afb 2017-06-22 Sage Weil | mgr: index daemon state by string service type
+722b27cd12ece9fef4681a8844e7814848a26f61 2017-07-03 Xie Xingguo | mon/OSDMonitor: add more wildcards support for scrub and fix description
+455589906c76715681ad8cdb71975f5684b18970 2017-06-24 Yan Jun | mgr: use readable errno strings
+b0d75495db829e623fb2cb54254f0748b0f02211 2017-06-24 Yan Jun | mgr: remove repeated function log
+6846f4830c61c5e79888d255a25970229921d551 2017-06-14 Greg Farnum | mgr: print a more helpful error message for when users lack mgr cephx caps
+1afcf4e9427a6ba4300c5d62c4ae9c913f2ecbdb 2017-06-16 Sage Weil | mgr/DaemonServer: print PGMapDigest summary on send
+19810df09e0b4a3752d0ab138fe2263bd3afb569 2017-06-13 Greg Farnum | mon: mgr: enable "osd df" on the manager
+8f1146aad251da78d70ffdf686f9e1a6289d6a30 2017-06-08 John Spray | mgr: don't let TYPE_CLIENT entities send stats
+28c83737345e9b9547a87105ab4d32b6f636bd4b 2017-06-08 Kefu Chai | msg,common: do not include assert.h everywhere to clobber <assert.h>
+0384acea9d44acca78b770a0136311c97a1dad6a 2017-06-07 Dan Mick | mgr/DaemonServer.cc: log daemon type string as well as id
+6a4f651140096971af060e35350ff43c616ba283 2017-06-05 Sage Weil | mgr/DaemonServer: stop spamming log with pg stats
+c93daaf92b643a06a822558973d377733dbd9d85 2017-05-24 Jesse Williamson | compile fixups for dout
+8b164903bebd2248816ed6fcb83913fd99d9093c 2017-05-31 Greg Farnum | mon: mgr: pgstats: do available-space calculations on mgr instead of mon
+dcc4c52ee8a8c33fabd4d56a42b9667658ed730c 2017-05-23 Sage Weil | mgr/DaemonServer: log pgmap usage to cluster log
+d6d1db62edeb4c40a774fcb56e7619b2997ff2d0 2017-05-23 Sage Weil | mgr: apply PGMap incremental at same interval as reports
+9fa1b382ef423c27d8a9f5f0162e8076b05b310d 2017-05-18 Sage Weil | mgr/DaemonServer: keep registry of osd sessions
+acfebf27d15e37372cb0592b3be6d22c04e02745 2017-05-19 Sage Weil | mgr,mon: move 'osd {scrub,deep-scrub,repair}' handling to mgr
+b01c0d36b6efb83be46f5e7699d1ae7938418a36 2017-05-31 Sage Weil | mgr/DaemonServer: use registered osd session to send scrub messages
+74752505bfc30de11821fc5c7e6a6631a1cba2b6 2017-05-17 Kefu Chai | mgr: add a command "mgr report"
+ff1258e7ef39f1f1a69ef6475445712c1dc6e037 2017-03-10 Greg Farnum | mgr: introduce tick() calls through the system
+568093687839c309ae446cb2d117714ffa67c6c7 2017-05-16 Chang Liu | tool/ceph: create "tell x help" command
+9988a564d816f8fb3768a382dd547519d8112f94 2017-03-05 John Spray | mgr: improve handle_command
+4b1d6b05d251a08c17105c310e2a3167c4be2891 2017-04-24 Sage Weil | osd/OSDMap: move to 'osdmap' mempool
+e12396cd7cc1dcf40237001a491945623cd29e7a 2017-04-12 Sage Weil | mgr/MgrSession: allow ref tracing, and fix ref leak
+4a8631e5b064cc48cced0a4ee2afbd58dcedb23d 2017-04-08 Kefu Chai | mgr/DaemonServer: move reweight-by-* to mgr
+63ab31987540e4f8c1ec948abf65625bd3266375 2017-04-08 Kefu Chai | mgr/DaemonServer: extract reply out of handle_command()
+c14b913bad3898e90630fcc7a4340783a985469f 2017-04-09 Kefu Chai | mgr/DaemonServer: always template the return value
+73c75b97c5451f3d2f2414bb848f2473e25df22f 2017-03-31 Kefu Chai | mgr: use OSDMap::get_pg_acting_primary() to get the primary
+2072fd97373f5ecf8481f3de07db8c88f8c97bf6 2017-03-21 Sage Weil | mgr/DaemonServer: debug on shutdown
+4085eb47532872003f7352d3175556e1046759ae 2017-03-14 Sage Weil | mgr/DaemonServer: log commands to cluster + audit logs
+69a4a8f6161f1693b5fc94089424bde7127da5fd 2017-03-14 Sage Weil | mgr/DaemonServer: whitespace
+d3a10d35120445bbf994b0a062f21af891a33440 2017-03-21 Sage Weil | mgr/MgrStandby: add LogClient
+20114e0e8278ddc3dc5544a529198fa8ec107ac1 2017-03-07 Sage Weil | mon/MonCap: pass entity type (mgr, mon) to is_capable
+21297a65a50fa2b81efa8f8fe3169f928eaf7011 2017-03-14 Sage Weil | mgr/Session: keep inst, not addr
+6a314cf420722e3701c1d8e6e1da29e496aaab57 2017-03-14 Sage Weil | mgr: move MgrSession to its own header
+23575077153ffe35787b5c8bd3619e0cd125e4f9 2017-03-07 Sage Weil | mgr/DaemonServer: enforce caps
+268d08dd305cc2cfd26d6247d2f14d236b6b7e17 2017-02-24 Sage Weil | mgr/DaemonServer: use stringstream ds in local scope
+5ad3244df44ceeab03dd9fdf43344d59ca00b4c6 2017-02-24 Sage Weil | mgr/DaemonServer: use process_pg_map_command helper for most things
+5c0d1f9d3323278e8ce690fbe373f20055d3d44e 2017-02-24 Sage Weil | mgr/DaemonServer: set messenger policy; set throttles
+909fdcacf709c34a613283d4dfddd3d920b11847 2017-02-24 Sage Weil | mgr/DaemonServer: implement 'pg [scrub|deep-scrub|repair] ...'
+e23420da21b656966c42acb5b54e5458be32b2ce 2017-03-07 Sage Weil | mgr/DaemonServer: attach MgrSession to connections
+f052a2c6f4be989a573d0e9209c2646c4feefb6f 2017-02-24 Sage Weil | mgr: don't crash on bad auth msg from client
+3faec244ca1d5642d8dad5646050687a4a006ffc 2017-02-24 Sage Weil | mgr: add generic Formatter for handle_command
+8aefec1612e52341f81a1e04b772dbc51966b4e6 2017-02-24 Sage Weil | mgr: include MgrCommands.h in mgr_commands
+e6755fa59678553b6b62cc4c05fd53177b179c76 2017-03-21 Chang Liu | common: convert ms_type option to SAFE_OPTION
+693132eb00b1803d5e97a79908521d5a6903e9f8 2017-03-05 Sage Weil | common: remove \n on clog messages
+ecbcd591b785009e8a28a41125868024d86c112d 2017-02-22 Chang Liu | mgr: add override in headers
+8e019f661cf5090f2f2046eecc2771fa2177908e 2016-10-09 Kefu Chai | mon/MonClient: remove unnecessary include
+a2eb6ae3fb57b09efdd4d7baac6871ca8dd8e79f 2016-09-14 Kefu Chai | mon/monclient: hunt for multiple monitor in parallel
+206942737a9ed44d28040e6c3cc046c0d32a3c9c 2017-02-08 Sarit Zubakov | msg: Fix calls to Messenger::create with new parameter
+d61de35ce13dc90ea62711312eb47b75b40c980f 2016-12-22 Sage Weil | mon/MonClient: use std::unique_ptr<>; fix leak
+66fd36d51fb456140d25cfe7a73b50ff899db6d6 2017-01-02 Chang Liu | mgr: Make stats period configurable
+b9182564c716fdfcb39cc77314ba295990dd4312 2016-11-16 Adam C. Emerson | dout: Use dout_context
+61fca96c29104683da74c913cfbf4005ba95cf77 2016-11-21 Sage Weil | assert(0) -> ceph_abort()
+61d63433dfdcc08ecc21ba4f645794da5e01823c 2016-10-11 Patrick Donnelly | mon: omit deprecated commands in desc
+b4a4a7a89b2178b04816f3532da7bb1fe5d26f6b 2016-10-11 Ren Huanwen | mgr: mgr::init() return when connection daemons failed
+0dbe8fd3987db1c38bb2fbeae7789a8084dd5489 2016-10-10 Sage Weil | msg: make loopback Connection feature accurate all the time
+58dd3db0be62f67aa51f78357ceabb0979ccf6e1 2016-09-20 John Spray | mgr: update for Dispatcher::ms_handle_refused
+0812669cf2a7247f9d056ff3aae831c95cce50b1 2016-08-04 John Spray | mgr: dispose of connections after handle_command
+fa147e3a591a4d74a7a8692b17add420ffc9bf98 2016-07-31 John Spray | mgr: handle PGStats with a PGMap
+9501bfdd711499c1314a3495549da24fbc02257e 2016-07-26 John Spray | mgr: store some counter history
+d9dfb436ea588a43be135a0808b28039d9ca2546 2016-07-03 John Spray | mgr: s/DaemonMetadata/DaemonState/g
+ac30e6cee2b2d3815438f1a392a951d511bddfd4 2016-06-30 John Spray | mgr: create ceph-mgr service

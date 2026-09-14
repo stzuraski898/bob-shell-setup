@@ -1,0 +1,44 @@
+commit bccbf1fa03ed2fb02ad2e50e6aaf963b36d8bd30
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Fri Mar 27 00:00:08 2020 -0400
+
+    mgr: force purge normal ceph entities from service map
+    
+    Normal ceph services can send task status updates to manager.
+    Task status is tracked in service map implying that normal
+    ceph services have entries in service map and daemon tracking
+    index (daemon state). But the manager prunes entries from daemon
+    state when it receives an updated map (fs, mon, etc...). This
+    causes periodic pruning of service map entries to fail for normal
+    ceph services (those which send task status updates) since it
+    expects a corresponding entry in daemon state.
+    
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index de0a99cb870..4b5f3316342 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2332,10 +2332,19 @@ void DaemonServer::_prune_pending_service_map()
+     while (q != p->second.daemons.end()) {
+       DaemonKey key{p->first, q->first};
+       if (!daemon_state.exists(key)) {
+-	derr << "missing key " << key << dendl;
+-	++q;
+-	continue;
++        if (ServiceMap::is_normal_ceph_entity(p->first)) {
++          dout(10) << "daemon " << key << " in service map but not in daemon state "
++                   << "index -- force pruning" << dendl;
++          q = p->second.daemons.erase(q);
++          pending_service_map_dirty = pending_service_map.epoch;
++        } else {
++          derr << "missing key " << key << dendl;
++          ++q;
++        }
++
++        continue;
+       }
++
+       auto daemon = daemon_state.get(key);
+       std::lock_guard l(daemon->lock);
+       if (daemon->last_service_beacon == utime_t()) {

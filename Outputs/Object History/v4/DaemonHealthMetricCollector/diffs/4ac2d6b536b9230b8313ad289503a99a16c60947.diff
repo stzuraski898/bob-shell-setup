@@ -1,0 +1,42 @@
+commit 4ac2d6b536b9230b8313ad289503a99a16c60947
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Tue Nov 5 00:29:51 2024 +0100
+
+    mgr/DaemonHealthMetricCollector: include cleanup
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/DaemonHealthMetricCollector.cc b/src/mgr/DaemonHealthMetricCollector.cc
+index bf206015aba..cf1aab2a219 100644
+--- a/src/mgr/DaemonHealthMetricCollector.cc
++++ b/src/mgr/DaemonHealthMetricCollector.cc
+@@ -1,8 +1,12 @@
++#include "DaemonHealthMetricCollector.h"
++
+ #include <fmt/format.h>
+ 
+ #include "include/health.h"
+ #include "include/types.h"
+-#include "DaemonHealthMetricCollector.h"
++
++#include <sstream>
++#include <vector>
+ 
+ namespace {
+ 
+diff --git a/src/mgr/DaemonHealthMetricCollector.h b/src/mgr/DaemonHealthMetricCollector.h
+index 558f4e334d3..b5312926a6a 100644
+--- a/src/mgr/DaemonHealthMetricCollector.h
++++ b/src/mgr/DaemonHealthMetricCollector.h
+@@ -1,9 +1,9 @@
+ #pragma once
+ 
++#include "DaemonHealthMetric.h"
++
+ #include <memory>
+-#include <string>
+ 
+-#include "DaemonHealthMetric.h"
+ #include "DaemonKey.h"
+ #include "mon/health_check.h"
+ 

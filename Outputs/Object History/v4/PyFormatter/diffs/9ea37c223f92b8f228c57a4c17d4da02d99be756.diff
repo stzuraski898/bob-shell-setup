@@ -1,0 +1,22 @@
+commit 9ea37c223f92b8f228c57a4c17d4da02d99be756
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Nov 14 00:04:16 2016 +0000
+
+    mgr: pass through cluster log to plugins
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index a1dbf182d67..4f273941ad8 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -38,6 +38,9 @@ class PyFormatter : public ceph::Formatter
+ public:
+   PyFormatter(bool pretty = false, bool array = false)
+   {
++    // It is forbidden to instantiate me outside of the GIL,
++    // because I construct python objects right away
++
+     // Initialise cursor to an empty dict
+     if (!array) {
+       root = cursor = PyDict_New();

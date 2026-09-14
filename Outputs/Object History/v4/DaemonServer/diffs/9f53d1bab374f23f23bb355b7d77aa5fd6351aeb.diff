@@ -1,0 +1,31 @@
+commit 9f53d1bab374f23f23bb355b7d77aa5fd6351aeb
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Thu Nov 1 14:05:23 2018 +0200
+
+    mgr: race between daemon state and service map in 'service status'
+    
+    If a daemon is removed from daemon_state it is still present in the
+    service map. So when 'service status' iterates daemons from service map,
+    it may not find it in daemon_state. Use pending_service_map instead
+    when building daemons lists, which is up ot date with daemon_state.
+    
+    Fixes: http://tracker.ceph.com/issues/36656
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 99ed41d7b0c..abe92d5af43 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -900,11 +900,7 @@ bool DaemonServer::_handle_command(
+       f.reset(Formatter::create("json-pretty"));
+     // only include state from services that are in the persisted service map
+     f->open_object_section("service_status");
+-    ServiceMap s;
+-    cluster_state.with_servicemap([&](const ServiceMap& service_map) {
+-	s = service_map;
+-      });
+-    for (auto& p : s.services) {
++    for (auto& p : pending_service_map.services) {
+       f->open_object_section(p.first.c_str());
+       for (auto& q : p.second.daemons) {
+ 	f->open_object_section(q.first.c_str());

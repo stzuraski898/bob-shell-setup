@@ -1,0 +1,32 @@
+commit a8a23747aa081d938c9b277ab42507dd506bf6c2
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Fri Oct 2 17:11:54 2020 -0700
+
+    osdc: add timeout configs for mons/osds
+    
+    Have the Objecter track the rados_(mon|osd)_op_timeout configs so that
+    it can be configured at runtime/startup. This is useful for the
+    MDS/ceph-fuse so that we can avoid waiting forever for a response from
+    the Monitors that will never come (statfs on a deleted file system's
+    pools).
+    
+    Also: make these configs take a time value rather than double. This is
+    simpler to deal with in the code and allows time units to be used (e.g.
+    "5m" for 5 minutes).
+    
+    Fixes: https://tracker.ceph.com/issues/47734
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 4c8334e4163..22e419a9eb2 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -45,7 +45,7 @@ MgrStandby::MgrStandby(int argc, const char **argv) :
+ 		     entity_name_t::MGR(),
+ 		     "mgr",
+ 		     Messenger::get_pid_nonce())),
+-  objecter{g_ceph_context, client_messenger.get(), &monc, poolctx, 0, 0},
++  objecter{g_ceph_context, client_messenger.get(), &monc, poolctx},
+   client{client_messenger.get(), &monc, &objecter},
+   mgrc(g_ceph_context, client_messenger.get(), &monc.monmap),
+   log_client(g_ceph_context, client_messenger.get(), &monc.monmap, LogClient::NO_FLAGS),

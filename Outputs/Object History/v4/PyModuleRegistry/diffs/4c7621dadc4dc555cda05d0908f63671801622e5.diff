@@ -1,0 +1,47 @@
+commit 4c7621dadc4dc555cda05d0908f63671801622e5
+Author: Nitzan Mordechai <nmordech@ibm.com>
+Date:   Mon Jun 1 11:29:31 2026 +0000
+
+    mgr/DaemonServer: include mgr module options in config show output
+    
+    'ceph config show/show-with-defaults mgr.<id>' omitted all mgr module
+    options because they are stored in PyModuleConfig, not in the daemon's
+    config map. This adds them to both commands.
+    Also adds an integration test to qa/workunits/mon/config.sh.
+    
+    Fixes: https://tracker.ceph.com/issues/24458
+    Signed-off-by: Nitzan Mordechai <nmordech@ibm.com>
+
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index d79183035a8..ae46eaac4bd 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -79,6 +79,28 @@ public:
+     active_modules->update_kv_data(prefix, incremental, data);
+   }
+ 
++  /**
++   * Look up a single mgr module config option by its full key ("mgr/<mod>/<opt>").
++   * Returns true and sets *val if found.
++   */
++  bool get_module_option(const std::string& key, std::string *val) const {
++    std::lock_guard l(module_config.lock);
++    auto it = module_config.config.find(key);
++    if (it == module_config.config.end()) {
++      return false;
++    }
++    *val = it->second;
++    return true;
++  }
++
++  /**
++   * Return a snapshot of the entire module config map.
++   */
++  std::map<std::string, std::string> get_module_config_snapshot() const {
++    std::lock_guard l(module_config.lock);
++    return module_config.config;
++  }
++
+   /**
+    * Get references to all modules (whether they have loaded and/or
+    * errored) or not.

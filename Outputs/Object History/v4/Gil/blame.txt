@@ -1,0 +1,260 @@
+# git blame -w -M -C src/mgr/Gil.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman  2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/Gil.cc                           (Edwin Rodriguez 2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+c8c1019d1962 src/mgr/Gil.cc                           (Edwin Rodriguez 2025-10-02 15:31:35 -0400   3) 
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000   4) /*
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000   5)  * Ceph - scalable distributed file system
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000   6)  *
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000   7)  * Copyright (C) 2017 SUSE LLC
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray      2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray      2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray      2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray      2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray      2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  13)  *
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  14)  */
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  15) 
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  16) 
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  17) #include "Python.h"
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  18) 
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  19) #include "common/debug.h"
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  20) 
+b9182564c716 src/mgr/MgrPyModule.cc                   (Adam C. Emerson 2016-11-16 12:38:08 -0500  21) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray      2016-06-30 14:05:02 +0100  22) #define dout_subsys ceph_subsys_mgr
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray      2016-06-30 14:05:02 +0100  23) #undef dout_prefix
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray      2016-06-30 14:05:02 +0100  24) #define dout_prefix *_dout << "mgr " << __func__ << " "
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray      2016-06-30 14:05:02 +0100  25) 
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  26) #include "Gil.h"
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  27) 
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  28) static void assert_gil()
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  29) {
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  30)   /* Using PyGILState_Check() isn't appropriate:
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  31)    *
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  32)    * https://docs.python.org/3/c-api/init.html#c.PyGILState_Check
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  33)    *
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  34)    * "Only if it has had its thread state initialized via PyGILState_Ensure()
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  35)    * will it return 1."
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  36)    *
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  37)    * We got away with it for a while due to:
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  38)    *
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  39)    * "Note: If the current Python process has ever created a subinterpreter,
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  40)    * this function will always return 1."
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  41)    *
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  42)    * Instead, use PyThreadState_Get() and use ts->thread_id to confirm that it's
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  43)    * the right thread (ts->thread_id isn't necessarily stable, and may need to
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  44)    * change in the future).  Once we no longer need to support python versions
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  45)    * prior to 3.13, this can be PyThreadState_GetUnchecked().
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  46)    */
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  47)   auto *ts = PyThreadState_Get();
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  48)   ceph_assert(ts != nullptr);
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  49)   ceph_assert(ts->thread_id == PyThread_get_thread_ident());
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  50) }
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000  51) 
+625e1b5cfb9b src/mgr/Gil.cc                           (John Spray      2017-10-03 08:16:10 -0400  52) SafeThreadState::SafeThreadState(PyThreadState *ts_)
+625e1b5cfb9b src/mgr/Gil.cc                           (John Spray      2017-10-03 08:16:10 -0400  53)     : ts(ts_)
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  54) {
+ab23c5069647 src/mgr/Gil.cc                           (Adam C. Emerson 2018-08-23 11:25:51 -0400  55)   ceph_assert(ts != nullptr);
+625e1b5cfb9b src/mgr/Gil.cc                           (John Spray      2017-10-03 08:16:10 -0400  56)   thread = pthread_self();
+625e1b5cfb9b src/mgr/Gil.cc                           (John Spray      2017-10-03 08:16:10 -0400  57) }
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  58) 
+625e1b5cfb9b src/mgr/Gil.cc                           (John Spray      2017-10-03 08:16:10 -0400  59) Gil::Gil(SafeThreadState &ts, bool new_thread) : pThreadState(ts)
+625e1b5cfb9b src/mgr/Gil.cc                           (John Spray      2017-10-03 08:16:10 -0400  60) {
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  61)   //
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  62)   // If called from a separate OS thread (i.e. a thread not created
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  63)   // by Python, that does't already have a python thread state that
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  64)   // was created when that thread was active), we need to manually
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  65)   // create and switch to a python thread state specifically for this
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  66)   // OS thread.
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  67)   //
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  68)   // Note that instead of requring the caller to set new_thread == true
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  69)   // when calling this from a separate OS thread, we could figure out
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  70)   // if this was necessary automatically, as follows:
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  71)   //
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  72)   //   if (pThreadState->thread_id != PyThread_get_thread_ident()) {
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  73)   //
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  74)   // However, this means we're accessing pThreadState->thread_id, but
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  75)   // the Python C API docs say that "The only public data member is
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  76)   // PyInterpreterState *interp", i.e. doing this would violate
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  77)   // something that's meant to be a black box.
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  78)   //
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  79)   if (new_thread) {
+625e1b5cfb9b src/mgr/Gil.cc                           (John Spray      2017-10-03 08:16:10 -0400  80)     pNewThreadState = PyThreadState_New(pThreadState.ts->interp);
+fb26bcd9865b src/mgr/Gil.cc                           (Samuel Just     2025-12-18 19:06:18 +0000  81)     PyEval_RestoreThread(pNewThreadState);
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  82)     dout(20) << "Switched to new thread state " << pNewThreadState << dendl;
+625e1b5cfb9b src/mgr/Gil.cc                           (John Spray      2017-10-03 08:16:10 -0400  83)   } else {
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  84)     // Acquire the GIL, set the current thread state
+625e1b5cfb9b src/mgr/Gil.cc                           (John Spray      2017-10-03 08:16:10 -0400  85)     PyEval_RestoreThread(pThreadState.ts);
+625e1b5cfb9b src/mgr/Gil.cc                           (John Spray      2017-10-03 08:16:10 -0400  86)     dout(25) << "GIL acquired for thread state " << pThreadState.ts << dendl;
+ab23c5069647 src/mgr/Gil.cc                           (Adam C. Emerson 2018-08-23 11:25:51 -0400  87)     ceph_assert(pthread_self() == pThreadState.thread);
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  88)   }
+fb26bcd9865b src/mgr/Gil.cc                           (Samuel Just     2025-12-18 19:06:18 +0000  89)   assert_gil();
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  90) }
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  91) 
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  92) Gil::~Gil()
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  93) {
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  94)   // Release the GIL, reset the thread state to NULL
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  95)   if (pNewThreadState != nullptr) {
+f36b0d9d4053 src/mgr/Gil.h                            (Tim Serong      2017-05-12 22:24:19 +1000  96)     dout(20) << "Destroying new thread state " << pNewThreadState << dendl;
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  97)     PyThreadState_Clear(pNewThreadState);
+fb26bcd9865b src/mgr/Gil.cc                           (Samuel Just     2025-12-18 19:06:18 +0000  98)     PyEval_SaveThread();
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400  99)     PyThreadState_Delete(pNewThreadState);
+fb26bcd9865b src/mgr/Gil.cc                           (Samuel Just     2025-12-18 19:06:18 +0000 100)   } else {
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400 101)     PyEval_SaveThread();
+fb26bcd9865b src/mgr/Gil.cc                           (Samuel Just     2025-12-18 19:06:18 +0000 102)   }
+625e1b5cfb9b src/mgr/Gil.cc                           (John Spray      2017-10-03 08:16:10 -0400 103)   dout(25) << "GIL released for thread state " << pThreadState.ts << dendl;
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400 104) }
+23c3a075ee1a src/mgr/Gil.cc                           (John Spray      2017-08-22 11:38:25 -0400 105) 
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 106) without_gil_t::without_gil_t()
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 107) {
+19a9981e8f64 src/mgr/Gil.cc                           (Samuel Just     2025-12-18 18:59:45 +0000 108)   assert_gil();
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 109)   release_gil();
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 110) }
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 111) 
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 112) without_gil_t::~without_gil_t()
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 113) {
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 114)   if (save) {
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 115)     acquire_gil();
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 116)   }
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 117) }
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 118) 
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 119) void without_gil_t::release_gil()
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 120) {
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 121)   save = PyEval_SaveThread();
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 122) }
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 123) 
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 124) void without_gil_t::acquire_gil()
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 125) {
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 126)   assert(save);
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 127)   PyEval_RestoreThread(save);
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 128)   save = nullptr;
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 129) }
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 130) 
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 131) with_gil_t::with_gil_t(without_gil_t& allow_threads)
+9c652fb305a3 src/mgr/ActivePyModules.cc               (Kefu Chai       2020-12-24 15:27:41 +0800 132)   : allow_threads{allow_threads}
+9c652fb305a3 src/mgr/ActivePyModules.cc               (Kefu Chai       2020-12-24 15:27:41 +0800 133) {
+9c652fb305a3 src/mgr/ActivePyModules.cc               (Kefu Chai       2020-12-24 15:27:41 +0800 134)   allow_threads.acquire_gil();
+9c652fb305a3 src/mgr/ActivePyModules.cc               (Kefu Chai       2020-12-24 15:27:41 +0800 135) }
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 136) 
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 137) with_gil_t::~with_gil_t()
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 138) {
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 139)   allow_threads.release_gil();
+88db7b190a97 src/mgr/Gil.cc                           (Kefu Chai       2021-02-18 12:11:24 +0800 140) }
+
+# git blame -w -M -C src/mgr/Gil.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng   2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/Gil.h                                              (Edwin Rodriguez 2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/Gil.h                                              (Edwin Rodriguez 2025-10-02 15:34:08 -0400   3) 
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000   4) /*
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000   5)  * Ceph - scalable distributed file system
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000   6)  *
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000   7)  * Copyright (C) 2017 SUSE LLC
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray      2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray      2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray      2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray      2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray      2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  13)  *
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  14)  */
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  15) 
+23c3a075ee1a src/mgr/Gil.h                                              (John Spray      2017-08-22 11:38:25 -0400  16) #pragma once
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  17) 
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800  18) #include <cassert>
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800  19) #include <functional>
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800  20) 
+23c3a075ee1a src/mgr/Gil.h                                              (John Spray      2017-08-22 11:38:25 -0400  21) struct _ts;
+23c3a075ee1a src/mgr/Gil.h                                              (John Spray      2017-08-22 11:38:25 -0400  22) typedef struct _ts PyThreadState;
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  23) 
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  24) #include <pthread.h>
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  25) 
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  26) 
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  27) /**
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  28)  * Wrap PyThreadState to carry a record of which POSIX thread
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  29)  * the thread state relates to.  This allows the Gil class to
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  30)  * validate that we're being used from the right thread.
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  31)  */
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  32) class SafeThreadState
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  33) {
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  34)   public:
+39ffec281af5 src/mgr/Gil.h                                              (Danny Al-Gaaf   2018-04-25 09:30:56 +0200  35)   explicit SafeThreadState(PyThreadState *ts_);
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  36) 
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  37)   SafeThreadState()
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  38)     : ts(nullptr), thread(0)
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  39)   {
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  40)   }
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  41) 
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  42)   PyThreadState *ts;
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  43)   pthread_t thread;
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  44) 
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  45)   void set(PyThreadState *ts_)
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  46)   {
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  47)     ts = ts_;
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  48)     thread = pthread_self();
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  49)   }
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  50) };
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  51) 
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  52) //
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  53) // Use one of these in any scope in which you need to hold Python's
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  54) // Global Interpreter Lock.
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  55) //
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  56) // Do *not* nest these, as a second GIL acquire will deadlock (see
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  57) // https://docs.python.org/2/c-api/init.html#c.PyEval_RestoreThread)
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  58) //
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  59) // If in doubt, explicitly put a scope around the block of code you
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  60) // know you need the GIL in.
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  61) //
+23c3a075ee1a src/mgr/Gil.h                                              (John Spray      2017-08-22 11:38:25 -0400  62) // See the comment in Gil::Gil for when to set new_thread == true
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  63) //
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  64) class Gil {
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  65) public:
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  66)   Gil(const Gil&) = delete;
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  67)   Gil& operator=(const Gil&) = delete;
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  68) 
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  69)   Gil(SafeThreadState &ts, bool new_thread = false);
+23c3a075ee1a src/mgr/Gil.h                                              (John Spray      2017-08-22 11:38:25 -0400  70)   ~Gil();
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  71) 
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  72) private:
+625e1b5cfb9b src/mgr/Gil.h                                              (John Spray      2017-10-03 08:16:10 -0400  73)   SafeThreadState &pThreadState;
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  74)   PyThreadState *pNewThreadState = nullptr;
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  75) };
+f36b0d9d4053 src/mgr/Gil.h                                              (Tim Serong      2017-05-12 22:24:19 +1000  76) 
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  77) // because the Python runtime could relinquish the GIL when performing GC
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  78) // and re-acquire it afterwards, we should enforce following locking policy:
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  79) // 1. do not acquire locks when holding the GIL, use a without_gil or
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  80) //    without_gil_t to guard the code which acquires non-gil locks.
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  81) // 2. always hold a GIL when calling python functions, for example, when
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  82) //    constructing a PyFormatter instance.
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  83) //
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  84) // a wrapper that provides a convenient RAII-style mechinary for acquiring
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  85) // and releasing GIL, like the macros of Py_BEGIN_ALLOW_THREADS and
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  86) // Py_END_ALLOW_THREADS.
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  87) struct without_gil_t {
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800  88)   without_gil_t();
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800  89)   ~without_gil_t();
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800  90)   void release_gil();
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800  91)   void acquire_gil();
+6469a9a6a14e src/mgr/Gil.h                                              (Sage Weil       2021-11-24 12:02:05 -0500  92) private:
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  93)   PyThreadState *save = nullptr;
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  94)   friend struct with_gil_t;
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800  95) };
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800  96) 
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800  97) struct with_gil_t {
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800  98)   with_gil_t(without_gil_t& allow_threads);
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800  99)   ~with_gil_t();
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800 100) private:
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800 101)   without_gil_t& allow_threads;
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800 102) };
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800 103) 
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800 104) // invoke func with GIL acquired
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800 105) template<typename Func>
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800 106) auto with_gil(without_gil_t& no_gil, Func&& func) {
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800 107)   with_gil_t gil{no_gil};
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800 108)   return std::invoke(std::forward<Func>(func));
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800 109) }
+88db7b190a97 src/mgr/Gil.h                                              (Kefu Chai       2021-02-18 12:11:24 +0800 110) 
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800 111) template<typename Func>
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800 112) auto without_gil(Func&& func) {
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800 113)   without_gil_t no_gil;
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800 114)   return std::invoke(std::forward<Func>(func));
+9c652fb305a3 src/mgr/ActivePyModules.cc                                 (Kefu Chai       2020-12-24 15:27:41 +0800 115) }

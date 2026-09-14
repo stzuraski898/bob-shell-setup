@@ -1,0 +1,30 @@
+commit 0612b716275403f2bd34846c6082654f35115847
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri May 19 17:56:11 2017 -0400
+
+    mgr: simplify handling of new pgs/pools
+    
+    Instantiate barebones pg records (creating+stale) in our PGMap when pgs
+    are created.  These will switch to 'creating' when the pgs is in the
+    process of creating, and peering etc.  The 'stale' is an indicator that
+    the mon may not have even asked the pg to create them yet.
+    
+    All of the old meticulous tracking in PGMap for mappings for creating
+    pgs is useless to us; OSDMonitor has new code to handle it.  This is
+    fast and simple.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index c2e7550fa5e..127ac06d4dc 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -99,8 +99,6 @@ void ClusterState::notify_osdmap(const OSDMap &osd_map)
+   pending_inc.version = pg_map.version + 1; // to make apply_incremental happy
+ 
+   PGMapUpdater::check_osd_map(g_ceph_context, osd_map, pg_map, &pending_inc);
+-  PGMapUpdater::update_creating_pgs(osd_map, pg_map, &pending_inc);
+-  PGMapUpdater::register_new_pgs(osd_map, pg_map, &pending_inc);
+ 
+   // brute force this for now (don't bother being clever by only
+   // checking osds that went up/down)

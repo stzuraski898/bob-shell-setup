@@ -1,0 +1,32 @@
+commit 60876ccce4e9de7e138dc04cfac056b29a607b4c
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Nov 15 16:26:48 2018 -0600
+
+    mgr/ClusterState: add with_osdmap_and_pgmap
+    
+    Several call sites need to lock both
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index 69fc92bfd02..c5d46fa1abf 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -127,6 +127,17 @@ public:
+     return objecter->with_osdmap(std::forward<Args>(args)...);
+   }
+ 
++  // call cb(osdmap, pg_map, ...args) with the appropriate locks
++  template <typename Callback, typename ...Args>
++  auto with_osdmap_and_pgmap(Callback&& cb, Args&& ...args) const {
++    ceph_assert(objecter != nullptr);
++    std::lock_guard l(lock);
++    return objecter->with_osdmap(
++      std::forward<Callback>(cb),
++      pg_map,
++      std::forward<Args>(args)...);
++  }
++
+ };
+ 
+ #endif

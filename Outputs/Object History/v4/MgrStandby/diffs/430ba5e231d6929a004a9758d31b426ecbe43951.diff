@@ -1,0 +1,29 @@
+commit 430ba5e231d6929a004a9758d31b426ecbe43951
+Author: Xinying Song <songxinyingftd@gmail.com>
+Date:   Sun Dec 30 11:49:58 2018 +0800
+
+    mgr: request mon metadata when receiving a report msg from an unknown monitor
+    
+    * Mgr needs to issue an metadata request when receiving a report message
+      from a monitor who hasn't been in the mgr's daemon_state. Otherwise the
+      connection between mgr and monitor cannot be established.
+    
+    Fixes: http://tracker.ceph.com/issues/37753
+    Signed-off-by: Xinying Song <songxinying@sensetime.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 70e504c7010..485d24339a0 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -161,6 +161,11 @@ int MgrStandby::init()
+     client_messenger->wait();
+     return r;
+   }
++  // only forward monmap updates after authentication finishes, otherwise
++  // monc.authenticate() will be waiting for MgrStandy::ms_dispatch()
++  // to acquire the lock forever, as it is already locked in the beginning of
++  // this method.
++  monc.set_passthrough_monmap();
+ 
+   client_t whoami = monc.get_global_id();
+   client_messenger->set_myname(entity_name_t::MGR(whoami.v));

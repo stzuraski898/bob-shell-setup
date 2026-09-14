@@ -1,0 +1,64 @@
+# Non-merge commits touching src/mgr/ActivePyModule.cc and/or src/mgr/ActivePyModule.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+42c4dfb40ceccd7a1ae98b360592456d8d67346e 2026-08-11 Nitzan Mordechai | mgr: don't log NotImplementedError from dispatch_remote as an error
+18c4e08ccddde9710cded2df7e0becc2dde7e56c 2026-08-11 Sebastian Marschke | mgr: don't record a crash dump for NotImplementedError from dispatch_remote
+8ae44f6a3753bf5a1681887bb41705f313c47ff9 2026-06-26 Kefu Chai | mgr: fix PyObject leak in the remote() pickle calls
+95a90f7da8a32dd2a5a1e3b381aaeacea378437b 2024-12-08 Nitzan Mordechai | mgr: Add per-module performance counters to mgr
+f69069e114ea8c785d6c27c57560a0b9bb8c16be 2025-10-24 Samuel Just | mgr: serialize python objects sent between subinterpreters via remote
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b 2025-10-02 Edwin Rodriguez | Add blank line after header block
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 2025-10-02 Edwin Rodriguez | Add missing blank line after comment block
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+62ade6b38d1a9ee9f853f165d7b8adfcad4ce53b 2024-10-10 Max Kellermann | mgr/ActivePyModule: build thread name with fmt
+f4bc4be0fa812a042ec93d08987290fa40ae41b3 2024-10-10 Max Kellermann | common/Finisher: add method get_thread_name()
+9d47b164afde3529d43f142356980e3d9853e07f 2024-10-10 Max Kellermann | mgr/ActivePyModule: return std::string_view instead of std::string copy
+46de6431603a56fa9ca2a7c7c9c795f126d16452 2022-10-17 Kotresh Hiremath Ravishankar | mgr: Add one finisher thread per module
+c63ecb602e5916d5e0beed137787fdfc67707f15 2021-08-11 Kefu Chai | mgr: build without "using namespace std"
+719d5e1836c95bcbc446dbeb7d8f03adefd02a3e 2021-06-18 Sage Weil | mgr: generate crash dump for python exceptions
+a54d0a90c06aed1ae26826d7d5317ba13e18c86e 2020-01-17 Chunmei Liu | crimson:common add TOPNSPC namespace for ceph and crimson
+d5e6db8c40607d1cf8aa0eed994ed46c82121d7f 2020-01-21 Radoslaw Zarzynski | *: switch trivial users of bufferlist::copy{_in} to iterators.
+48c4bc445fcacd7980e84b4f135a3115b88b05f1 2019-12-18 Kefu Chai | mgr: drop the compatibility with python2
+40c4b9ac9d8e2b2c17269affada304f5e1554974 2019-11-13 Patrick Donnelly | mgr: handle race with finisher after shutdown
+25b99ddecbd90e7b3456bd9a70f18c1d62cf5099 2019-11-04 Ricardo Dias | mgr/mgr_module: remove CLI commands to manage modules' logging
+282c31c383856b45caadcefb876a71e39fe4b219 2019-10-14 Jason Dillaman | mgr: python modules can now perform authorization tests
+c93dc8849145c1630058e4c0e527f404929216ff 2019-07-07 Kefu Chai | mgr: s/Mutex/ceph::mutex/
+a5e9eb018947bacc212b8b480ee149f8d6bf76d0 2018-12-21 Ricardo Dias | mgr/mgr_module: @CLICommand decorator for declaring CLI commands
+31654a2ba6b288c901ba387f3815a26066c779d3 2018-11-21 Kefu Chai | mgr: silence GCC warning
+f27a5dc6155440f0add91213d68bb690d8bf9cd7 2018-11-17 Sage Weil | mgr: call config_notify method when mgr's config has changed
+ab23c506964753990f9fe23e314b9f3e2547a773 2018-08-23 Adam C. Emerson | mgr: Use ceph_assert for asserts.
+3068c4290166076093119d1dc08a2c0fada8235f 2018-07-26 Noah Watkins | mgr: report health check changes immediately
+f02316adb4baf4dceaab79cc0ef4c2acdb544f3e 2017-12-14 John Spray | mgr: enable inter-module calls
+af8c2ce4ea2ad03b44ca1566a6095aee9adbd22b 2018-05-15 John Spray | mgr: improve logging on handle_command path
+140761f8a2df10c45eb02041fad5e8237bf57c20 2018-06-19 Dan Mick | mgr, pybind/mgr: pass inbuf (ceph -i <file>) to modules
+b1e8d63bf787dea415eabda99def9d7e4aff4f9d 2018-04-23 John Spray | mgr: handle commands sent to unavailable modules
+ce6e043a44e35144b038bc0236b5d244ffee1ca5 2018-03-27 Wilson E. Alvarez | src: Added const references to various function parameters
+6a8da7ca734726315c06929635c25dbb88599654 2017-11-16 John Spray | mgr: load all modules (not just active ones)
+834bc27940507737f064bca7362b4c7f4cd54c98 2017-11-23 John Spray | mgr: load command definitions earlier
+f4763c32fa84f57c93c559d742203fb3fd2985a8 2017-11-01 John Spray | mgr: emit cluster log message on serve() exception
+29193a47e6cf8297d9b1ceecc7695f2c85434999 2017-10-16 John Spray | mgr: update for SafeThreadState
+7e61f79f5d56b568103a067d9a1eb87af997ad61 2017-10-13 John Spray | mgr: refactor PyOSDMap etc implementation
+c1471c7501948004096581ee415ab4a1fa2d9379 2017-08-22 John Spray | mgr: standby modules come up and run now
+df8797320bed7ad9f121477e35d7e3862efd89bd 2017-10-06 John Spray | mgr: cut down duplication between active+standby
+70d45a6b93c92baf8d6a3b15765110a5384c5e60 2017-08-15 John Spray | mgr: clean up python source file naming
+9718896c8b844db2f3c07df1d344636da4605e61 2017-08-14 John Spray | mgr: refactor python module management
+a0183a63fa791954d14c57632e184858cefe893d 2017-07-27 John Spray | mgr: enable python modules to advertise their service URI
+563878ba217491dd0a6fbd588cd56d09e3456c14 2017-07-26 John Spray | mgr: refactor python interface
+625e1b5cfb9b8a5843dfe75e97826f70a57d6ebe 2017-10-03 John Spray | mgr: safety checks on pyThreadState usage
+2ef005196ba2eb49c34c32def624938c7a8beb03 2017-07-10 Sage Weil | mgr: add trivial OSDMap wrapper class
+e51be85c24d36cb3f50f98f7c401f352fd1cd7e4 2017-07-21 Sage Weil | mgr: keep per-module checks, and report them back to the mon
+3e0d14912e5560583800ca442e21458a1e2ba5f7 2017-05-13 Tim Serong | mgr: load modules in separate python sub-interpreters
+f36b0d9d4053e167f59b89286cc9378e8e1563f7 2017-05-12 Tim Serong | mgr: use new Gil class in place of PyGILState_*() API
+7ec86ca55e92e4d331ce1f19d67ff342a5aadf76 2017-04-26 Kefu Chai | mgr/MgrPyModule: no need to keep pClass and pModule around
+2005ce83adc8f321af97e813810ad30629956a3b 2017-04-21 Kefu Chai | mgr: release allocated PyString
+cef433eccb012d05fb1bd4d04478c61d6c9c02e0 2017-04-21 Kefu Chai | mgr: move handle_pyerror() from MgrPyModules to MgrPyModule
+3d3ee4bf768b4aaa3252f06c299cfee9fdb28148 2017-03-24 Tim Serong | mgr: log module name before PyErr_Print()
+71a985623392e43b8e793d7f2b7d973b6185e491 2017-04-11 Dan Mick | mgr/MgrPyModule.cc: get Python traceback in all CallMethod spots
+8c249e4b2b2228a1d24638199a9380acaac77de1 2017-04-11 Dan Mick | mgr/MgrPyModule::handle_command: order stringstreams to match intent
+4c59fedb482ad5b19bb15a3b503cf6f8688eb31f 2017-03-29 John Spray | mgr: fix MgrPyModule destruction
+9ea37c223f92b8f228c57a4c17d4da02d99be756 2016-11-14 John Spray | mgr: pass through cluster log to plugins
+b9182564c716fdfcb39cc77314ba295990dd4312 2016-11-16 Adam C. Emerson | dout: Use dout_context
+a22bb9cb75ccfbbb270f591f68a92f8258bf6f4a 2016-10-04 John Spray | mgr: squash compiler warnings
+c81e542b32815effe9d107da378e6010e8a0b415 2016-07-04 John Spray | mgr: enable multiple python modules
+ac30e6cee2b2d3815438f1a392a951d511bddfd4 2016-06-30 John Spray | mgr: create ceph-mgr service

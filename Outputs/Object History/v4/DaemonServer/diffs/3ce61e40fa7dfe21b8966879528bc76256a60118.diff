@@ -1,0 +1,22 @@
+commit 3ce61e40fa7dfe21b8966879528bc76256a60118
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Tue Jan 8 13:30:11 2019 +0800
+
+    osd, mgr, mds: make timeout of updating rotating keys configurable
+    
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index d4e5f802114..e240e98fa7b 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -227,7 +227,8 @@ bool DaemonServer::ms_get_authorizer(int dest_type,
+   }
+ 
+   if (force_new) {
+-    if (monc->wait_auth_rotating(10) < 0)
++    auto timeout = g_conf().get_val<int64_t>("rotating_keys_renewal_timeout");
++    if (monc->wait_auth_rotating(timeout) < 0)
+       return false;
+   }
+ 

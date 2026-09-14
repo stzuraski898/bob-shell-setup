@@ -1,0 +1,42 @@
+commit f528475d92524328ef3e12dfec036461395338c0
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Jul 6 23:08:00 2018 +0800
+
+    common: move ConfigValues out of md_config_t
+    
+    by moving ConfigValues out of md_config_t, we are able to point
+    md_config_t to a new ConfigValues instance at runtime, without
+    destroying the old one.
+    
+    also remove ConfigReader, because all md_config_obs_t will be updated
+    with ConfigProxy now. as md_config_t is not able to offer the *data*
+    anymore.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 57289b31f64..57ceaeeb8da 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -84,7 +84,7 @@ const char** MgrStandby::get_tracked_conf_keys() const
+ }
+ 
+ void MgrStandby::handle_conf_change(
+-  const md_config_t *conf,
++  const ConfigProxy& conf,
+   const std::set <std::string> &changed)
+ {
+   if (changed.count("clog_to_monitors") ||
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index bda41ffcefd..9b1071117ee 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -35,7 +35,7 @@ class MgrStandby : public Dispatcher,
+ public:
+   // config observer bits
+   const char** get_tracked_conf_keys() const override;
+-  void handle_conf_change(const md_config_t *conf,
++  void handle_conf_change(const ConfigProxy& conf,
+ 			  const std::set <std::string> &changed) override;
+ 
+ protected:

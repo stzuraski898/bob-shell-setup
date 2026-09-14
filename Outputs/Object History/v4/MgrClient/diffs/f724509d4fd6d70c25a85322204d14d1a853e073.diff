@@ -1,0 +1,31 @@
+commit f724509d4fd6d70c25a85322204d14d1a853e073
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Oct 23 11:50:24 2017 +0800
+
+    mgr/MgrClient: store registered event returned by add_event_after()
+    
+    to be consistent with other caller sites of add_event_after(). the
+    original intention of doing so, is to avoid double free of the callback
+    to be added if we are stopping and the timer refuses to add this
+    callback.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 25f365da361..26b27df7691 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -221,8 +221,11 @@ void MgrClient::send_stats()
+   send_report();
+   send_pgstats();
+   if (stats_period != 0) {
+-    report_callback = new FunctionContext([this](int){send_stats();});
+-    timer.add_event_after(stats_period, report_callback);
++    report_callback = timer.add_event_after(
++      stats_period,
++      new FunctionContext([this](int) {
++	  send_stats();
++	}));
+   }
+ }
+ 

@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/MgrOpRequest.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/MgrOpRequest.cc f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 3ed784c996415ad5cb24e108ccff5c8c20e363d8
+#
+# Rename chain for src/mgr/MgrOpRequest.h
+#
+src/mgr/MgrOpRequest.h 4adaf64d7187778965f1a0f6e7d04efc809a2a7b 66efcaae7a05abaefb12758239b0e1ad5cbd85c9

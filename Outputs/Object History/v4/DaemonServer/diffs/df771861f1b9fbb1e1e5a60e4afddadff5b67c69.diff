@@ -1,0 +1,78 @@
+commit df771861f1b9fbb1e1e5a60e4afddadff5b67c69
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Apr 29 17:04:26 2019 +0800
+
+    src/: define ceph_release_t and use it
+    
+    we have following pains when it comes to ceph release related
+    programming:
+    
+    * we use int, uint8_t, uint32_t, unsigned int for representing the ceph
+      release, i.e., jewel, luminous, nautilus, in different places in our
+      source tree.
+    * we always need to add a comment aside of `uint8_t release` to help
+      the folks to understand that it is CEPH_RELEASE_*.
+    * also we keep forgetting that "os << release" actually prints the
+      release as an ASCII.
+    * and it's painful to remember that we have to translate the release
+      number using `ceph_release_name()` before print it out in the human
+      readable format.
+    * we replicate the n+2 upgrade policy in multiple places
+    
+    in this change, `ceph_release_t` and some helper functions are
+    intruduced to alleviate the pains above.
+    
+    * add a scoped enum for representing ceph releases, so the release
+      is typed . which means that we can attach different function to
+      it. and in future, we can even replace `ceph_release_t` with
+      a class if we need to support more fancy features which cannot be
+      implemented using free functions.
+    * add `ostream<<()` operator for `ceph_release_t`, so we can simply
+      send it to `ostream`
+    * add `can_upgrade_from()` so we don't need to repeat ourselves.
+    * move ceph_release_from_name() to ceph_release.{h,cc}, as currently,
+      ceph_release.cc uses `ceph_release_name()` for implementing
+      `ostream<<()`, and after this change, `ceph_release_from_name()`
+      will return `ceph_release_t`, so if we keep `ceph_release_from_name()`
+      where it was, these two headers will be included by each other,
+      which is a no-go.
+    * reimplement `ceph_release_from_name()` using a loop. before this
+      change, `ceph_release_from_name()` was implemented using a manually
+      unrolled if-else structure, which is more performant, but the
+      downside is that, it replicates mapping between release number
+      and its name. so after this change, a loop is used instead.
+      as this function is not used in the critical path, so this change
+      should not have visible impact on the performance.
+    * always use ceph_release_t::unknown as the default value of the
+      "release" member variables. before this change, sometimes, we use
+      "0" and sometimes we use "1", after inspecting the code, i found that
+      "0" is good enough to cover all the use cases. and since "0" is a
+      magic number in this context, it is replaced using
+      `ceph_release_t::unknown`. to facilidate the checking against
+      `ceph_release_t::unknown`, `operator!()` is added.
+    * ceph::to_string() and ceph::to_integer<>() are added to help
+      to remove the asssumption of the underlying type of `ceph_release_t`,
+      ideally, users of `ceph_release_t` should not use `static_cast<>` to
+      cast it into integer types, instead, they should use
+      `ceph::to_integer<>()` to do this job. if, in future, we want to
+      use a `class` to represent `ceph_release_t`, we can get this done
+      with minimum change, if `ceph::to_string()` and `ceph::to_string()`
+      are used. we can not specialize them in `std` naming space. as
+      it's claimed that it's undefined behavior to do so. see
+      https://en.cppreference.com/w/cpp/language/extending_std .
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index e2dc616ab53..f598d4fa0da 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2317,7 +2317,7 @@ void DaemonServer::send_report()
+ 	  jf.dump_object("health_checks", m->health_checks);
+ 	  jf.flush(*_dout);
+ 	  *_dout << dendl;
+-          if (osdmap.require_osd_release >= CEPH_RELEASE_LUMINOUS) {
++          if (osdmap.require_osd_release >= ceph_release_t::luminous) {
+               clog->debug() << "pgmap v" << pg_map.version << ": " << pg_map;
+           }
+ 	});

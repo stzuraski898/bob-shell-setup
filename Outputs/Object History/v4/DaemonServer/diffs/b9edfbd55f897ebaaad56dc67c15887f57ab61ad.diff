@@ -1,0 +1,30 @@
+commit b9edfbd55f897ebaaad56dc67c15887f57ab61ad
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Wed Sep 2 14:19:54 2020 +0100
+
+    mgr: don't update pending service map epoch on receiving map from mon
+    
+    It may still be an older service map.
+    
+    Fixes: https://tracker.ceph.com/issues/47275
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 99f255ec2e6..502496ab456 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2809,12 +2809,13 @@ void DaemonServer::got_service_map()
+ 	// we just started up
+ 	dout(10) << "got initial map e" << service_map.epoch << dendl;
+ 	pending_service_map = service_map;
++	pending_service_map.epoch = service_map.epoch + 1;
+       } else {
+ 	// we we already active and therefore must have persisted it,
+ 	// which means ours is the same or newer.
+ 	dout(10) << "got updated map e" << service_map.epoch << dendl;
++	ceph_assert(pending_service_map.epoch > service_map.epoch);
+       }
+-      pending_service_map.epoch = service_map.epoch + 1;
+     });
+ 
+   // cull missing daemons, populate new ones

@@ -1,0 +1,76 @@
+commit 706b2be416246dd5923478d8a7ee015246f03e95
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Thu Jan 30 17:05:25 2025 -0500
+
+    mgr: use std namespace
+    
+    This C++ code was relying on the Client.h header to bring in these names from
+    the std:: namespace. A subsequent commit plans to remove that header so add
+    namespace qualifier now.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@ibm.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 0d10a275a10..c7b4db2d294 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -246,7 +246,7 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+   } else if (what == "modified_config_options") {
+     without_gil_t no_gil;
+     auto all_daemons = daemon_state.get_all();
+-    set<string> names;
++    std::set<string> names;
+     for (auto& [key, daemon] : all_daemons) {
+       std::lock_guard l(daemon->lock);
+       for (auto& [name, valmap] : daemon->config) {
+@@ -783,7 +783,7 @@ std::map<std::string, std::string> ActivePyModules::get_services() const
+ void ActivePyModules::update_kv_data(
+   const std::string prefix,
+   bool incremental,
+-  const map<std::string, std::optional<bufferlist>, std::less<>>& data)
++  const std::map<std::string, std::optional<bufferlist>, std::less<>>& data)
+ {
+   std::lock_guard l(lock);
+   bool do_config = false;
+@@ -1119,7 +1119,7 @@ PyObject *ActivePyModules::get_foreign_config(
+ 
+   std::map<std::string,std::string,std::less<>> config;
+   cluster_state.with_osdmap([&](const OSDMap &osdmap) {
+-      map<string,string> crush_location;
++      std::map<string,string> crush_location;
+       string device_class;
+       if (entity.is_osd()) {
+ 	osdmap.crush->get_full_location(who, &crush_location);
+@@ -1278,7 +1278,7 @@ void ActivePyModules::set_device_wear_level(const std::string& devid,
+ 					    float wear_level)
+ {
+   // update mgr state
+-  map<string,string> meta;
++  std::map<string,string> meta;
+   daemon_state.with_device(
+     devid,
+     [wear_level, &meta] (DeviceState& dev) {
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index d6ade4849f7..c48a06ce95e 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -33,6 +33,10 @@
+ #include "ClusterState.h"
+ #include "OSDPerfMetricTypes.h"
+ 
++#include <map>
++#include <set>
++#include <string>
++
+ class health_check_map_t;
+ class DaemonServer;
+ class MgrSession;
+@@ -179,7 +183,7 @@ public:
+   void update_kv_data(
+     const std::string prefix,
+     bool incremental,
+-    const map<std::string, std::optional<bufferlist>, std::less<>>& data);
++    const std::map<std::string, std::optional<bufferlist>, std::less<>>& data);
+   void _refresh_config_map();
+ 
+   // Public so that MonCommandCompletion can use it

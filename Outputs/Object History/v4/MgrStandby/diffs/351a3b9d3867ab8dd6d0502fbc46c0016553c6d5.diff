@@ -1,0 +1,22 @@
+commit 351a3b9d3867ab8dd6d0502fbc46c0016553c6d5
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Sep 4 14:08:14 2019 -0500
+
+    mon/MgrMap: include mgr_features in mgrmap
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 527dc042a74..35bbbfb4616 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -224,7 +224,8 @@ void MgrStandby::send_beacon()
+                                  addrs,
+                                  available,
+ 				 std::move(module_info),
+-				 std::move(metadata));
++				 std::move(metadata),
++				 CEPH_FEATURES_ALL);
+ 
+   if (available) {
+     if (!available_in_map) {

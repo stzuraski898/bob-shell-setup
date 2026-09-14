@@ -1,0 +1,38 @@
+commit 4085eb47532872003f7352d3175556e1046759ae
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 14 09:57:17 2017 -0400
+
+    mgr/DaemonServer: log commands to cluster + audit logs
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index efd453d9051..5237f93a5ed 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -458,17 +458,19 @@ bool DaemonServer::handle_command(MCommand *m)
+   if (!_allowed_command(session.get(), mgr_cmd->module, prefix, cmdmap,
+                         param_str_map, mgr_cmd)) {
+     dout(1) << __func__ << " access denied" << dendl;
+-#if 0
+-    // FIXME: audit_clog?
+-    clog->info() << "from='" << session->addr << "' "
+-		 << "entity='" << session->entity_name << "' "
+-		 << "cmd=" << m->cmd << ":  access denied";
+-#endif
++    audit_clog->info() << "from='" << session->inst << "' "
++		       << "entity='" << session->entity_name << "' "
++		       << "cmd=" << m->cmd << ":  access denied";
+     ss << "access denied";
+     r = -EACCES;
+     goto out;
+   }
+ 
++  audit_clog->debug()
++    << "from='" << session->inst << "' "
++    << "entity='" << session->entity_name << "' "
++    << "cmd=" << m->cmd << ": dispatch";
++
+   // -----------
+   // PG commands
+ 

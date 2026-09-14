@@ -1,0 +1,57 @@
+commit e51be85c24d36cb3f50f98f7c401f352fd1cd7e4
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jul 21 13:29:47 2017 -0400
+
+    mgr: keep per-module checks, and report them back to the mon
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 74628dbbf1c..e95bec8d75d 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -800,3 +800,21 @@ void PyModules::list_modules(std::set<std::string> *modules)
+ {
+   _list_modules(g_conf->mgr_module_path, modules);
+ }
++
++void PyModules::set_health_checks(const std::string& handle,
++				  health_check_map_t&& checks)
++{
++  Mutex::Locker l(lock);
++  auto p = modules.find(handle);
++  if (p != modules.end()) {
++    p->second->set_health_checks(std::move(checks));
++  }
++}
++
++void PyModules::get_health_checks(health_check_map_t *checks)
++{
++  Mutex::Locker l(lock);
++  for (auto& p : modules) {
++    p.second->get_health_checks(checks);
++  }
++}
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index 1c6751f4e51..431abec76f0 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -30,6 +30,7 @@
+ #include "ClusterState.h"
+ 
+ class ServeThread;
++class health_check_map_t;
+ 
+ class PyModules
+ {
+@@ -115,6 +116,10 @@ public:
+   void set_config(const std::string &handle,
+       const std::string &key, const std::string &val);
+ 
++  void set_health_checks(const std::string& handle,
++			 health_check_map_t&& checks);
++  void get_health_checks(health_check_map_t *checks);
++
+   void log(const std::string &handle,
+            int level, const std::string &record);
+ 

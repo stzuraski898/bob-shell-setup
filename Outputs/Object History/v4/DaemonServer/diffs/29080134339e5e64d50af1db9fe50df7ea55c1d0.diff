@@ -1,0 +1,39 @@
+commit 29080134339e5e64d50af1db9fe50df7ea55c1d0
+Author: Chang Liu <liuchang0812@gmail.com>
+Date:   Thu Aug 24 10:56:29 2017 +0800
+
+    mgr: kill MgrSession when MMgrReport come from daemon without metadata info
+    
+    Signed-off-by: liuchang0812 <liuchang0812@gmail.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index c5f31c8503a..48e0f9a4cca 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -390,14 +390,18 @@ bool DaemonServer::handle_report(MMgrReport *m)
+     dout(20) << "updating existing DaemonState for " << key << dendl;
+     daemon = daemon_state.get(key);
+   } else {
+-    dout(4) << "constructing new DaemonState for " << key << dendl;
+-    daemon = std::make_shared<DaemonState>(daemon_state.types);
+-    // FIXME: crap, we don't know the hostname at this stage.
+-    daemon->key = key;
+-    daemon_state.insert(daemon);
+-    // FIXME: we should avoid this case by rejecting MMgrReport from
+-    // daemons without sessions, and ensuring that session open
+-    // always contains metadata.
++    // we don't know the hostname at this stage, reject MMgrReport here.
++    dout(1) << "rejecting report from " << key << ", since we do not have its metadata now."
++	    << dendl;
++    // kill session
++    MgrSessionRef session(static_cast<MgrSession*>(m->get_connection()->get_priv()));
++    if (!session) {
++      return false;
++    }
++    m->get_connection()->mark_down();
++    session->put();
++
++    return false;
+   }
+   assert(daemon != nullptr);
+   auto &daemon_counters = daemon->perf_counters;

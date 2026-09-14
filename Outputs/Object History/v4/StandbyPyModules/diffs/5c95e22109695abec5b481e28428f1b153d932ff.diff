@@ -1,0 +1,26 @@
+commit 5c95e22109695abec5b481e28428f1b153d932ff
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Thu Jul 16 20:31:33 2020 -0400
+
+    {tools,rbd,rados,rgw}: Fix Boost.Bind placeholder warning
+    
+    Use of the Boost placeholders in the default namespace is
+    deprecated. Switching to <boost/bind/bind.hpp> defines them in
+    boost::placeholders and silences the warning.
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/StandbyPyModules.cc b/src/mgr/StandbyPyModules.cc
+index 8537cfde480..5d71f46949a 100644
+--- a/src/mgr/StandbyPyModules.cc
++++ b/src/mgr/StandbyPyModules.cc
+@@ -21,7 +21,9 @@
+ #include "mgr/Gil.h"
+ 
+ 
++#define BOOST_BIND_GLOBAL_PLACEHOLDERS
+ #include <boost/python.hpp>
++#undef BOOST_BIND_GLOBAL_PLACEHOLDERS
+ #include "include/ceph_assert.h"  // boost clobbers this
+ 
+ // For ::config_prefix

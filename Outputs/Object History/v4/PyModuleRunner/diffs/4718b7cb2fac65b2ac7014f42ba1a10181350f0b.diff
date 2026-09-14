@@ -1,0 +1,42 @@
+commit 4718b7cb2fac65b2ac7014f42ba1a10181350f0b
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Jul 6 17:20:32 2018 +0800
+
+    common,rbd,rgw,osd: extract config values into ConfigValues
+    
+    this change introduce three classes: ConfigValues, ConfigProxy and
+    ConfigReader. in seastar port of OSD, each CPU shard will hold its own
+    reference of configuration, and upon changes of settings, each
+    shard will be updated with the new setting in async. so this forces us
+    to be able to keep two set of configuration at the same time. so we
+    need to extract the changeable part of md_config_t out. so we can
+    replace the old one with new one on demand, and let different shards
+    share the same unchanged part, amon the other things, the Options map
+    and the lookup tables. that's why we need ConfigValues. we will add
+    a policy template for this class, so we can specialize for Seastar
+    implementation to allow different ConfigProxy instances to point
+    md_config_impl<> to different ConfigValues.
+    
+    because the observer interface is still using md_config_t, to minimise
+    the impact of this change, handle_conf_change() and
+    handle_subsys_change() are not changed. but as it accepts a `const
+    md_config_t`, which cannot be used to create/reference the ConfigProxy
+    holding it, we need to introduce ConfigReader for reading the updated
+    setting from md_config_t in a simpler way, without exposing the
+    internal "values" member variable.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index 88197b6d676..b0324d488d6 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -60,7 +60,7 @@ int PyModuleRunner::serve()
+     std::string exc_msg = peek_pyerror();
+     
+     clog->error() << "Unhandled exception from module '" << get_name()
+-                  << "' while running on mgr." << g_conf->name.get_id()
++                  << "' while running on mgr." << g_conf()->name.get_id()
+                   << ": " << exc_msg;
+     derr << get_name() << ".serve:" << dendl;
+     derr << handle_pyerror() << dendl;

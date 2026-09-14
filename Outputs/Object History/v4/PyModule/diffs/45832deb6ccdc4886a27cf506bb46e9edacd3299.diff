@@ -1,0 +1,148 @@
+commit 45832deb6ccdc4886a27cf506bb46e9edacd3299
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Sat Feb 3 21:09:27 2024 +0800
+
+    mgr: add site package paths in PyModuleRegistry
+    
+    before this change, we add the paths of site packages to sys.path
+    when starting subinterpretors for each of the mgr modules. this
+    works just fine. but in Python 3.11, it deprecates `PySys_SetPath()`
+    in favor of PyConfig machinary, which sets the module search paths
+    in PyConfig, before calling `Py_InitializeFromConfig()`. so, to
+    set the module search paths with the new machinary, we need to do
+    this in `PyModuleRegistry`, where we initialize the global Python
+    interpretor using the new PyConfig machinary. and since we've
+    switched to the new PyConfig machinary when compiling with Python 3.8
+    and up.
+    
+    in this change, to unify the implementation of pre and post Python 3.8,
+    we set the module search paths in PyModuleRegistry. because PyConfig
+    imports the site packages by default, and we are allowed to append
+    a new path to the existing search paths, we just append the configured
+    `mgr_module_path` when compiling with Python 3.8 and up. and when it
+    comes to lower versions of Python, the existing behavior is preserved.
+    
+    this change should silence the compiling warning like:
+    
+    ```
+    /var/ssd/ceph/src/mgr/PyModule.cc:368:20: warning: ‘void PySys_SetPath(const wchar_t*)’ is deprecated [-Wdeprecated-declarations]
+      368 |       PySys_SetPath(const_cast<wchar_t*>(sys_path.c_str()));
+          |       ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    /usr/include/python3.12/sysmodule.h:15:38: note: declared here
+       15 | Py_DEPRECATED(3.11) PyAPI_FUNC(void) PySys_SetPath(const wchar_t *);
+          |                                      ^~~~~~~~~~~~~
+    ```
+    
+    Signed-off-by: Kefu Chai <tchaikov@gmail.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index e27c3693f3c..02a40526f7b 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -47,7 +47,6 @@ std::string PyModule::mgr_store_prefix = "mgr/";
+ 
+ 
+ using std::string;
+-using std::wstring;
+ 
+ // decode a Python exception into a string
+ std::string handle_pyerror(
+@@ -231,72 +230,6 @@ std::pair<int, std::string> PyModuleConfig::set_config(
+   }
+ }
+ 
+-std::string PyModule::get_site_packages()
+-{
+-  std::stringstream site_packages;
+-
+-  // CPython doesn't auto-add site-packages dirs to sys.path for us,
+-  // but it does provide a module that we can ask for them.
+-  auto site_module = PyImport_ImportModule("site");
+-  ceph_assert(site_module);
+-
+-  auto site_packages_fn = PyObject_GetAttrString(site_module, "getsitepackages");
+-  if (site_packages_fn != nullptr) {
+-    auto site_packages_list = PyObject_CallObject(site_packages_fn, nullptr);
+-    ceph_assert(site_packages_list);
+-
+-    auto n = PyList_Size(site_packages_list);
+-    for (Py_ssize_t i = 0; i < n; ++i) {
+-      if (i != 0) {
+-        site_packages << ":";
+-      }
+-      site_packages << PyUnicode_AsUTF8(PyList_GetItem(site_packages_list, i));
+-    }
+-
+-    Py_DECREF(site_packages_list);
+-    Py_DECREF(site_packages_fn);
+-  } else {
+-    // Fall back to generating our own site-packages paths by imitating
+-    // what the standard site.py does.  This is annoying but it lets us
+-    // run inside virtualenvs :-/
+-
+-    auto site_packages_fn = PyObject_GetAttrString(site_module, "addsitepackages");
+-    ceph_assert(site_packages_fn);
+-
+-    auto known_paths = PySet_New(nullptr);
+-    auto pArgs = PyTuple_Pack(1, known_paths);
+-    PyObject_CallObject(site_packages_fn, pArgs);
+-    Py_DECREF(pArgs);
+-    Py_DECREF(known_paths);
+-    Py_DECREF(site_packages_fn);
+-
+-    auto sys_module = PyImport_ImportModule("sys");
+-    ceph_assert(sys_module);
+-    auto sys_path = PyObject_GetAttrString(sys_module, "path");
+-    ceph_assert(sys_path);
+-
+-    dout(1) << "sys.path:" << dendl;
+-    auto n = PyList_Size(sys_path);
+-    bool first = true;
+-    for (Py_ssize_t i = 0; i < n; ++i) {
+-      dout(1) << "  " << PyUnicode_AsUTF8(PyList_GetItem(sys_path, i)) << dendl;
+-      if (first) {
+-        first = false;
+-      } else {
+-        site_packages << ":";
+-      }
+-      site_packages << PyUnicode_AsUTF8(PyList_GetItem(sys_path, i));
+-    }
+-
+-    Py_DECREF(sys_path);
+-    Py_DECREF(sys_module);
+-  }
+-
+-  Py_DECREF(site_module);
+-
+-  return site_packages.str();
+-}
+-
+ PyObject* PyModule::init_ceph_logger()
+ {
+   auto py_logger = PyModule_Create(&ceph_logger_module);
+@@ -357,13 +290,6 @@ int PyModule::load(PyThreadState *pMainThreadState)
+       return -EINVAL;
+     } else {
+       pMyThreadState.set(thread_state);
+-      // Configure sys.path to include mgr_module_path
+-      string paths = (g_conf().get_val<std::string>("mgr_module_path") + ':' +
+-                      get_site_packages() + ':');
+-      wstring sys_path(wstring(begin(paths), end(paths)) + Py_GetPath());
+-      PySys_SetPath(const_cast<wchar_t*>(sys_path.c_str()));
+-      dout(10) << "Computed sys.path '"
+-	       << string(begin(sys_path), end(sys_path)) << "'" << dendl;
+     }
+   }
+   // Environment is all good, import the external module
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index 8d88ff94c62..177447c2cb3 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -51,7 +51,6 @@ class PyModule
+   mutable ceph::mutex lock = ceph::make_mutex("PyModule::lock");
+ private:
+   const std::string module_name;
+-  std::string get_site_packages();
+   int load_subclass_of(const char* class_name, PyObject** py_class);
+ 
+   // Did the MgrMap identify this module as one that should run?

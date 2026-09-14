@@ -1,0 +1,37 @@
+commit a46690c6230b868b3a17cf6720119067891a1620
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Mar 10 17:14:24 2017 -0500
+
+    mgr/MgrClient: cope with disappearing perf_counters
+    
+    Perfcounters can go away; deal with it.  This collapses
+    into a single loop, but it means that the mgr might
+    stop getting certain counters without explicit
+    notification.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 132f722947b..f83f9749de6 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -110,6 +110,8 @@ void DaemonStateIndex::cull(entity_type_t daemon_type,
+ void DaemonPerfCounters::update(MMgrReport *report)
+ {
+   dout(20) << "loading " << report->declare_types.size() << " new types, "
++	   << report->undeclare_types.size() << " old types, had "
++	   << types.size() << " types, got "
+            << report->packed.length() << " bytes of data" << dendl;
+ 
+   // Load any newly declared types
+@@ -117,6 +119,10 @@ void DaemonPerfCounters::update(MMgrReport *report)
+     types.insert(std::make_pair(t.path, t));
+     declared_types.insert(t.path);
+   }
++  // Remove any old types
++  for (const auto &t : report->undeclare_types) {
++    declared_types.erase(t);
++  }
+ 
+   const auto now = ceph_clock_now();
+ 

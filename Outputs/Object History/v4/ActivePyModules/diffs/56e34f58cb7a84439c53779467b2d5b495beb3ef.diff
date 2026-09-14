@@ -1,0 +1,47 @@
+commit 56e34f58cb7a84439c53779467b2d5b495beb3ef
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Mon Jan 13 08:36:39 2020 +0000
+
+    mgr: fix race between module load and notify
+    
+    When starting a module, there was a time window between we
+    registered the module in the module list and loaded it in the
+    finisher thread, when a notify could be delivered to not fully
+    initialized module.
+    
+    We can avoid this by delaying registering the module in the
+    module list until it is successfully initialized.
+    
+    Fixes: https://tracker.ceph.com/issues/41736
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index e30da4cb0dd..7a08ca7dc52 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -420,10 +420,7 @@ void ActivePyModules::start_one(PyModuleRef py_module)
+   std::lock_guard l(lock);
+ 
+   const auto name = py_module->get_name();
+-  auto em = modules.emplace(name,
+-      std::make_shared<ActivePyModule>(py_module, clog));
+-  ceph_assert(em.second); // actually inserted
+-  auto& active_module = em.first->second;
++  auto active_module = std::make_shared<ActivePyModule>(py_module, clog);
+ 
+   // Send all python calls down a Finisher to avoid blocking
+   // C++ code, and avoid any potential lock cycles.
+@@ -432,9 +429,11 @@ void ActivePyModules::start_one(PyModuleRef py_module)
+     if (r != 0) {
+       derr << "Failed to run module in active mode ('" << name << "')"
+            << dendl;
+-      std::lock_guard l(lock);
+-      modules.erase(name);
+     } else {
++      std::lock_guard l(lock);
++      auto em = modules.emplace(name, active_module);
++      ceph_assert(em.second); // actually inserted
++
+       dout(4) << "Starting thread for " << name << dendl;
+       active_module->thread.create(active_module->get_thread_name());
+     }

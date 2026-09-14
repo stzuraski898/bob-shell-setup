@@ -1,0 +1,47 @@
+commit f159a093ecab4aa53693ec106c00d5ecb383c467
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Jul 20 13:07:32 2017 -0400
+
+    osd,mds,mgr: do not dereference null rotating_keys
+    
+    Immediately after we bind to a port, but before we have set up our
+    auth infrastructure, we may get incoming connections.  Deny them.  Since
+    we are not yet advertising ourselves these are peers trying to connect
+    to old instances of daemons, not us.
+    
+    This triggers now because of bf4938567943c80345966f9c5a3bdc75a913175b.
+    Previously, the peer would see we were a different addr and drop the
+    connection.  Now, it continues.
+    
+    Fixes: http://tracker.ceph.com/issues/20667
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 6454c8da306..947d5651f0d 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -143,12 +143,18 @@ bool DaemonServer::ms_verify_authorizer(Connection *con,
+   s->inst.addr = con->get_peer_addr();
+   AuthCapsInfo caps_info;
+ 
+-  is_valid = handler->verify_authorizer(
+-    cct, monc->rotating_secrets.get(),
+-    authorizer_data,
+-    authorizer_reply, s->entity_name,
+-    s->global_id, caps_info,
+-    session_key);
++  RotatingKeyRing *keys = monc->rotating_secrets.get();
++  if (keys) {
++    is_valid = handler->verify_authorizer(
++      cct, keys,
++      authorizer_data,
++      authorizer_reply, s->entity_name,
++      s->global_id, caps_info,
++      session_key);
++  } else {
++    dout(10) << __func__ << " no rotating_keys (yet), denied" << dendl;
++    is_valid = false;
++  }
+ 
+   if (is_valid) {
+     if (caps_info.allow_all) {

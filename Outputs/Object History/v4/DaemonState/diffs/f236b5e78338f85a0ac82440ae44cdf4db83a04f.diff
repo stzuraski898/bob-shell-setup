@@ -1,0 +1,35 @@
+commit f236b5e78338f85a0ac82440ae44cdf4db83a04f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jul 19 17:28:48 2017 -0400
+
+    mgr/DaemonState: add per DaemonState lock
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 2c7f52f30fa..93fe130190e 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -62,7 +62,8 @@ DaemonStateCollection DaemonStateIndex::get_by_service(
+   return result;
+ }
+ 
+-DaemonStateCollection DaemonStateIndex::get_by_server(const std::string &hostname) const
++DaemonStateCollection DaemonStateIndex::get_by_server(
++  const std::string &hostname) const
+ {
+   Mutex::Locker l(lock);
+ 
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index e75b968425e..98853a2ec2c 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -93,6 +93,8 @@ class DaemonPerfCounters
+ class DaemonState
+ {
+   public:
++  Mutex lock = {"DaemonState::lock"};
++
+   DaemonKey key;
+ 
+   // The hostname where daemon was last seen running (extracted

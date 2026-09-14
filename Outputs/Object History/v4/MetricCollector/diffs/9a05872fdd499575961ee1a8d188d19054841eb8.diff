@@ -1,0 +1,24 @@
+commit 9a05872fdd499575961ee1a8d188d19054841eb8
+Author: Aswin Toni <aswin.toni@cern.ch>
+Date:   Fri Oct 1 16:12:22 2021 +0200
+
+    MetricCollector.h: Add check to prevent mgr from crashing
+    
+    Fixes: https://tracker.ceph.com/issues/52801
+    Signed-off-by: Aswin Toni <aswin.toni@cern.ch>
+
+diff --git a/src/mgr/MetricCollector.h b/src/mgr/MetricCollector.h
+index 19a3eed9b0a..65e71e276e4 100644
+--- a/src/mgr/MetricCollector.h
++++ b/src/mgr/MetricCollector.h
+@@ -42,7 +42,9 @@ public:
+       auto result_it = result.insert({query, {}}).first;
+       if (is_limited(limits)) {
+         for (auto& limit : limits) {
+-          result_it->second.insert(*limit.second);
++          if (limit.second) {
++            result_it->second.insert(*limit.second);
++          }
+         }
+       }
+     }

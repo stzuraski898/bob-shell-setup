@@ -1,0 +1,24 @@
+commit 926ec5b4c505bbef1f9574d6df5548b470f3bf57
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jan 10 17:06:56 2018 -0600
+
+    common/config: report failed mon config values to mgr
+    
+    If we can't set a mon config value, report that back to the mgr.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 9bd0ce2c6ab..8ff21144ff3 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -109,6 +109,9 @@ class DaemonState
+   // running config
+   std::map<std::string,std::map<int32_t,std::string>> config;
+ 
++  // mon config values we failed to set
++  std::map<std::string,std::string> ignored_mon_config;
++
+   // compiled-in config defaults (rarely used, so we leave them encoded!)
+   bufferlist config_defaults_bl;
+   std::map<std::string,std::string> config_defaults;

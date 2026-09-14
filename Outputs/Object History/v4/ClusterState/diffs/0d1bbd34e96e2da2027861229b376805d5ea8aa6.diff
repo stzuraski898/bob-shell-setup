@@ -1,0 +1,47 @@
+commit 0d1bbd34e96e2da2027861229b376805d5ea8aa6
+Author: David Zafman <dzafman@redhat.com>
+Date:   Thu Jul 11 21:24:12 2019 +0000
+
+    osd mgr mon: Add mon_warn_on_slow_ping_ratio config as 5% of osd_heartbeat_grace
+    
+    Compute network ping threshold based on ratio (5% of 20 seconds is 1 second)
+    Make the threshold value used part of dump_osd_network for osd and mgr
+    Keep mon_warn_on_slow_ping_time (default 0) to optionally override the ratio
+    
+    Signed-off-by: David Zafman <dzafman@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 5f7b224d1ed..dc8ed0904a3 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -223,6 +223,11 @@ bool ClusterState::asok_command(std::string_view admin_command, const cmdmap_t&
+     // Default to health warning level if nothing specified
+     if (!(cmd_getval(g_ceph_context, cmdmap, "value", value))) {
+       value = static_cast<int64_t>(g_ceph_context->_conf.get_val<uint64_t>("mon_warn_on_slow_ping_time"));
++      if (value == 0) {
++        double ratio = g_conf().get_val<double>("mon_warn_on_slow_ping_ratio");
++	value = g_conf().get_val<int64_t>("osd_heartbeat_grace");
++	value *= 1000000 * ratio; // Seconds of grace to microseconds at ratio
++      }
+     }
+     if (value < 0)
+       value = 0;
+@@ -284,7 +289,9 @@ bool ClusterState::asok_command(std::string_view admin_command, const cmdmap_t&
+     }
+ 
+     // Network ping times (1min 5min 15min)
+-    f->open_array_section("network_ping_times");
++    f->open_object_section("network_ping_times");
++    f->dump_int("threshold", value);
++    f->open_array_section("entries");
+     for (auto &sitem : boost::adaptors::reverse(sorted)) {
+       ceph_assert(!value || sitem.pingtime >= value);
+ 
+@@ -297,6 +304,7 @@ bool ClusterState::asok_command(std::string_view admin_command, const cmdmap_t&
+       f->dump_unsigned("15min", sitem.times[2]);
+       f->close_section(); // entry
+     }
++    f->close_section(); // entries
+     f->close_section(); // network_ping_times
+   } else {
+     ceph_abort_msg("broken asok registration");

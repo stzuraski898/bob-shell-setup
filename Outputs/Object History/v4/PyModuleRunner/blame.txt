@@ -1,0 +1,223 @@
+# git blame -w -M -C src/mgr/PyModuleRunner.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman   2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/PyModuleRunner.cc                (Edwin Rodriguez  2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+c8c1019d1962 src/mgr/PyModuleRunner.cc                (Edwin Rodriguez  2025-10-02 15:31:35 -0400   3) 
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray       2016-05-19 12:58:22 +0100   4) /*
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray       2016-05-19 12:58:22 +0100   5)  * Ceph - scalable distributed file system
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray       2016-05-19 12:58:22 +0100   6)  *
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray       2016-05-19 12:58:22 +0100   7)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil        2007-10-17 23:34:54 +0000   8)  *
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil        2007-10-17 23:34:54 +0000   9)  * This is free software; you can redistribute it and/or
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil        2007-10-17 23:34:54 +0000  10)  * modify it under the terms of the GNU Lesser General Public
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil        2007-10-17 23:34:54 +0000  11)  * License version 2.1, as published by the Free Software
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil        2007-10-17 23:34:54 +0000  12)  * Foundation.  See file COPYING.
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray       2016-05-19 12:58:22 +0100  13)  */
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray       2016-05-19 12:58:22 +0100  14) 
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  15) 
+ac30e6cee2b2 src/mgr/MgrPyModule.h                    (John Spray       2016-06-30 14:05:02 +0100  16) // Python.h comes first because otherwise it clobbers ceph's assert
+48c4bc445fca src/mgr/PyModuleRunner.cc                (Kefu Chai        2019-12-18 19:03:29 +0800  17) #include <Python.h>
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  18) 
+6a8da7ca7347 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-16 06:45:45 -0500  19) #include "PyModule.h"
+6a8da7ca7347 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-16 06:45:45 -0500  20) 
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  21) #include "common/debug.h"
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  22) #include "mgr/Gil.h"
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  23) 
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  24) #include "PyModuleRunner.h"
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray       2016-06-30 14:05:02 +0100  25) 
+b9182564c716 src/mgr/PyState.cc                       (Adam C. Emerson  2016-11-16 12:38:08 -0500  26) #define dout_context g_ceph_context
+f36b0d9d4053 src/mgr/PyState.cc                       (Tim Serong       2017-05-12 22:24:19 +1000  27) #define dout_subsys ceph_subsys_mgr
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  28) 
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  29) 
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  30) PyModuleRunner::~PyModuleRunner()
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  31) {
+6a8da7ca7347 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-16 06:45:45 -0500  32)   Gil gil(py_module->pMyThreadState, true);
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  33) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  34)   if (pClassInstance) {
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  35)     Py_XDECREF(pClassInstance);
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  36)     pClassInstance = nullptr;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  37)   }
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  38) }
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  39) 
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  40) int PyModuleRunner::serve()
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  41) {
+ab23c5069647 src/mgr/PyModuleRunner.cc                (Adam C. Emerson  2018-08-23 11:25:51 -0400  42)   ceph_assert(pClassInstance != nullptr);
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  43) 
+f36b0d9d4053 src/mgr/MgrPyModule.cc                   (Tim Serong       2017-05-12 22:24:19 +1000  44)   // This method is called from a separate OS thread (i.e. a thread not
+f36b0d9d4053 src/mgr/MgrPyModule.cc                   (Tim Serong       2017-05-12 22:24:19 +1000  45)   // created by Python), so tell Gil to wrap this in a new thread state.
+6a8da7ca7347 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-16 06:45:45 -0500  46)   Gil gil(py_module->pMyThreadState, true);
+95a90f7da8a3 src/mgr/PyModuleRunner.cc                (Nitzan Mordechai 2024-12-08 18:08:39 +0000  47)   if (py_module->perfcounter) {
+95a90f7da8a3 src/mgr/PyModuleRunner.cc                (Nitzan Mordechai 2024-12-08 18:08:39 +0000  48)     py_module->perfcounter->set(py_module->l_pym_alive, 1);
+95a90f7da8a3 src/mgr/PyModuleRunner.cc                (Nitzan Mordechai 2024-12-08 18:08:39 +0000  49)   }
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  50)   auto pValue = PyObject_CallMethod(pClassInstance,
+a22bb9cb75cc src/mgr/MgrPyModule.cc                   (John Spray       2016-10-04 14:07:50 +0100  51)       const_cast<char*>("serve"), nullptr);
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  52) 
+3d3ee4bf768b src/mgr/MgrPyModule.cc                   (Tim Serong       2017-03-24 14:36:27 +0100  53)   int r = 0;
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  54)   if (pValue != NULL) {
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  55)     Py_DECREF(pValue);
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  56)   } else {
+f4763c32fa84 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-01 12:08:03 -0400  57)     // This is not a very informative log message because it's an
+f4763c32fa84 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-01 12:08:03 -0400  58)     // unknown/unexpected exception that we can't say much about.
+f4763c32fa84 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-01 12:08:03 -0400  59) 
+7c80548dba38 src/mgr/PyModuleRunner.cc                (John Spray       2018-03-15 12:28:17 +0000  60) 
+7c80548dba38 src/mgr/PyModuleRunner.cc                (John Spray       2018-03-15 12:28:17 +0000  61)     // Get short exception message for the cluster log, before
+7c80548dba38 src/mgr/PyModuleRunner.cc                (John Spray       2018-03-15 12:28:17 +0000  62)     // dumping the full backtrace to the local log.
+7c80548dba38 src/mgr/PyModuleRunner.cc                (John Spray       2018-03-15 12:28:17 +0000  63)     std::string exc_msg = peek_pyerror();
+f4763c32fa84 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-01 12:08:03 -0400  64)     
+6a8da7ca7347 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-16 06:45:45 -0500  65)     clog->error() << "Unhandled exception from module '" << get_name()
+4718b7cb2fac src/mgr/PyModuleRunner.cc                (Kefu Chai        2018-07-06 17:20:32 +0800  66)                   << "' while running on mgr." << g_conf()->name.get_id()
+f4763c32fa84 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-01 12:08:03 -0400  67)                   << ": " << exc_msg;
+6a8da7ca7347 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-16 06:45:45 -0500  68)     derr << get_name() << ".serve:" << dendl;
+719d5e1836c9 src/mgr/PyModuleRunner.cc                (Sage Weil        2021-06-18 17:02:40 -0400  69)     derr << handle_pyerror(true, get_name(), "PyModuleRunner::serve") << dendl;
+712ad57d09a2 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-16 16:30:39 -0500  70) 
+712ad57d09a2 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-16 16:30:39 -0500  71)     py_module->fail(exc_msg);
+712ad57d09a2 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-16 16:30:39 -0500  72) 
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  73)     return -EINVAL;
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  74)   }
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  75) 
+95a90f7da8a3 src/mgr/PyModuleRunner.cc                (Nitzan Mordechai 2024-12-08 18:08:39 +0000  76)   if (py_module->perfcounter) {
+95a90f7da8a3 src/mgr/PyModuleRunner.cc                (Nitzan Mordechai 2024-12-08 18:08:39 +0000  77)     py_module->perfcounter->set(py_module->l_pym_alive, 0);
+95a90f7da8a3 src/mgr/PyModuleRunner.cc                (Nitzan Mordechai 2024-12-08 18:08:39 +0000  78)   }
+95a90f7da8a3 src/mgr/PyModuleRunner.cc                (Nitzan Mordechai 2024-12-08 18:08:39 +0000  79) 
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  80)   return r;
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  81) }
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  82) 
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  83) void PyModuleRunner::shutdown()
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  84) {
+ab23c5069647 src/mgr/PyModuleRunner.cc                (Adam C. Emerson  2018-08-23 11:25:51 -0400  85)   ceph_assert(pClassInstance != nullptr);
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  86) 
+6a8da7ca7347 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-16 06:45:45 -0500  87)   Gil gil(py_module->pMyThreadState, true);
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  88) 
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  89)   auto pValue = PyObject_CallMethod(pClassInstance,
+a22bb9cb75cc src/mgr/MgrPyModule.cc                   (John Spray       2016-10-04 14:07:50 +0100  90)       const_cast<char*>("shutdown"), nullptr);
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  91) 
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  92)   if (pValue != NULL) {
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  93)     Py_DECREF(pValue);
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  94)   } else {
+6a8da7ca7347 src/mgr/PyModuleRunner.cc                (John Spray       2017-11-16 06:45:45 -0500  95)     derr << "Failed to invoke shutdown() on " << get_name() << dendl;
+719d5e1836c9 src/mgr/PyModuleRunner.cc                (Sage Weil        2021-06-18 17:02:40 -0400  96)     derr << handle_pyerror(true, get_name(), "PyModuleRunner::shutdown") << dendl;
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400  97)   }
+95a90f7da8a3 src/mgr/PyModuleRunner.cc                (Nitzan Mordechai 2024-12-08 18:08:39 +0000  98)   if (py_module->perfcounter) {
+95a90f7da8a3 src/mgr/PyModuleRunner.cc                (Nitzan Mordechai 2024-12-08 18:08:39 +0000  99)     py_module->perfcounter->set(py_module->l_pym_alive, 0);
+95a90f7da8a3 src/mgr/PyModuleRunner.cc                (Nitzan Mordechai 2024-12-08 18:08:39 +0000 100)   }
+40c4b9ac9d8e src/mgr/PyModuleRunner.cc                (Patrick Donnelly 2019-11-13 11:00:44 -0800 101)   dead = true;
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400 102) }
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400 103) 
+58a7a6f5e0bf src/mgr/PyModuleRunner.cc                (Ricardo Dias     2019-09-25 11:45:38 +0100 104) void PyModuleRunner::log(const std::string &record)
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400 105) {
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400 106) #undef dout_prefix
+3e39413a222a src/mgr/PyModuleRunner.cc                (Ricardo Dias     2019-10-17 10:16:25 +0100 107) #define dout_prefix *_dout
+58a7a6f5e0bf src/mgr/PyModuleRunner.cc                (Ricardo Dias     2019-09-25 11:45:38 +0100 108)   dout(0) << record << dendl;
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai        2017-03-28 18:49:01 +0800 109) #undef dout_prefix
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray       2016-06-30 14:05:02 +0100 110) #define dout_prefix *_dout << "mgr " << __func__ << " "
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400 111) }
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 112) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 113) void* PyModuleRunner::PyModuleRunnerThread::entry()
+9718896c8b84 src/mgr/MgrPyModule.cc                   (John Spray       2017-08-14 06:31:18 -0400 114) {
+f36b0d9d4053 src/mgr/PyModules.cc                     (Tim Serong       2017-05-12 22:24:19 +1000 115)   // No need to acquire the GIL here; the module does it.
+c81e542b3281 src/mgr/PyModules.cc                     (John Spray       2016-07-04 15:22:27 +0100 116)   dout(4) << "Entering thread for " << mod->get_name() << dendl;
+95a90f7da8a3 src/mgr/PyModuleRunner.cc                (Nitzan Mordechai 2024-12-08 18:08:39 +0000 117)   runner_tid.store(ceph_gettid(), std::memory_order_release); 
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400 118)   mod->serve();
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400 119)   return nullptr;
+df8797320bed src/mgr/PyModuleRunner.cc                (John Spray       2017-10-06 11:02:44 -0400 120) }
+
+# git blame -w -M -C src/mgr/PyModuleRunner.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng     2020-04-08 10:35:40 +0800  1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/PyModuleRunner.h                                   (Edwin Rodriguez   2025-10-01 09:09:51 -0400  2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/PyModuleRunner.h                                   (Edwin Rodriguez   2025-10-02 15:34:08 -0400  3) 
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100  4) /*
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100  5)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100  6)  *
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100  7)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100  8)  *
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100  9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100 10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100 11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100 12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100 13)  */
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100 14) 
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100 15) 
+70d45a6b93c9 src/mgr/ActivePyModule.h                                   (John Spray        2017-08-15 06:53:18 -0400 16) #pragma once
+ac30e6cee2b2 src/mgr/MgrPyModule.h                                      (John Spray        2016-06-30 14:05:02 +0100 17) 
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 18) #include "common/Thread.h"
+f4763c32fa84 src/mgr/PyModuleRunner.h                                   (John Spray        2017-11-01 12:08:03 -0400 19) #include "common/LogClient.h"
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 20) #include "mgr/Gil.h"
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 21) 
+6a8da7ca7347 src/mgr/PyModuleRunner.h                                   (John Spray        2017-11-16 06:45:45 -0500 22) #include "PyModule.h"
+95a90f7da8a3 src/mgr/PyModuleRunner.h                                   (Nitzan Mordechai  2024-12-08 18:08:39 +0000 23) #include "mgr/ThreadMonitor.h"
+95a90f7da8a3 src/mgr/PyModuleRunner.h                                   (Nitzan Mordechai  2024-12-08 18:08:39 +0000 24) #include <future>
+6a8da7ca7347 src/mgr/PyModuleRunner.h                                   (John Spray        2017-11-16 06:45:45 -0500 25) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 26) /**
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 27)  * Implement the pattern of calling serve() on a module in a thread,
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 28)  * until shutdown() is called.
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 29)  */
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 30) class PyModuleRunner
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 31) {
+2e8f9e690141 src/mgr/PyModuleRunner.h                                   (Sage Weil         2018-12-18 14:11:30 -0600 32) public:
+6a8da7ca7347 src/mgr/PyModuleRunner.h                                   (John Spray        2017-11-16 06:45:45 -0500 33)   // Info about the module we're going to run
+6a8da7ca7347 src/mgr/PyModuleRunner.h                                   (John Spray        2017-11-16 06:45:45 -0500 34)   PyModuleRef py_module;
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 35) 
+2e8f9e690141 src/mgr/PyModuleRunner.h                                   (Sage Weil         2018-12-18 14:11:30 -0600 36) protected:
+6a8da7ca7347 src/mgr/PyModuleRunner.h                                   (John Spray        2017-11-16 06:45:45 -0500 37)   // Populated by descendent class
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 38)   PyObject *pClassInstance = nullptr;
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 39) 
+f4763c32fa84 src/mgr/PyModuleRunner.h                                   (John Spray        2017-11-01 12:08:03 -0400 40)   LogChannelRef clog;
+95a90f7da8a3 src/mgr/PyModuleRunner.h                                   (Nitzan Mordechai  2024-12-08 18:08:39 +0000 41)   pid_t m_native_tid = 0;
+95a90f7da8a3 src/mgr/PyModuleRunner.h                                   (Nitzan Mordechai  2024-12-08 18:08:39 +0000 42)   ThreadMonitor* m_thread_monitor = nullptr;
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 43)   class PyModuleRunnerThread : public Thread
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 44)   {
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 45)     PyModuleRunner *mod;
+95a90f7da8a3 src/mgr/PyModuleRunner.h                                   (Nitzan Mordechai  2024-12-08 18:08:39 +0000 46)     std::atomic<pid_t> runner_tid{0};
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 47)   public:
+39ffec281af5 src/mgr/PyModuleRunner.h                                   (Danny Al-Gaaf     2018-04-25 09:30:56 +0200 48)     explicit PyModuleRunnerThread(PyModuleRunner *mod_)
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 49)       : mod(mod_) {}
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 50) 
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 51)     void *entry() override;
+95a90f7da8a3 src/mgr/PyModuleRunner.h                                   (Nitzan Mordechai  2024-12-08 18:08:39 +0000 52)     pid_t get_tid() const { return runner_tid.load(); }
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 53)   };
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 54) 
+40c4b9ac9d8e src/mgr/PyModuleRunner.h                                   (Patrick Donnelly  2019-11-13 11:00:44 -0800 55)   bool is_dead() const { return dead; }
+40c4b9ac9d8e src/mgr/PyModuleRunner.h                                   (Patrick Donnelly  2019-11-13 11:00:44 -0800 56) 
+13bcddea23f8 src/mgr/PyModuleRunner.h                                   (John Spray        2018-05-15 15:40:00 +0100 57)   std::string thread_name;
+6a8da7ca7347 src/mgr/PyModuleRunner.h                                   (John Spray        2017-11-16 06:45:45 -0500 58) 
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 59) public:
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 60)   int serve();
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 61)   void shutdown();
+58a7a6f5e0bf src/mgr/PyModuleRunner.h                                   (Ricardo Dias      2019-09-25 11:45:38 +0100 62)   void log(const std::string &record);
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 63) 
+13bcddea23f8 src/mgr/PyModuleRunner.h                                   (John Spray        2018-05-15 15:40:00 +0100 64)   const char *get_thread_name() const
+13bcddea23f8 src/mgr/PyModuleRunner.h                                   (John Spray        2018-05-15 15:40:00 +0100 65)   {
+13bcddea23f8 src/mgr/PyModuleRunner.h                                   (John Spray        2018-05-15 15:40:00 +0100 66)     return thread_name.c_str();
+13bcddea23f8 src/mgr/PyModuleRunner.h                                   (John Spray        2018-05-15 15:40:00 +0100 67)   }
+13bcddea23f8 src/mgr/PyModuleRunner.h                                   (John Spray        2018-05-15 15:40:00 +0100 68) 
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 69)   PyModuleRunner(
+ce6e043a44e3 src/mgr/PyModuleRunner.h                                   (Wilson E. Alvarez 2018-03-27 22:45:14 -0400 70)       const PyModuleRef &py_module_,
+95a90f7da8a3 src/mgr/PyModuleRunner.h                                   (Nitzan Mordechai  2024-12-08 18:08:39 +0000 71)       LogChannelRef clog_,
+95a90f7da8a3 src/mgr/PyModuleRunner.h                                   (Nitzan Mordechai  2024-12-08 18:08:39 +0000 72)       ThreadMonitor* monitor_ = nullptr)
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 73)     : 
+6a8da7ca7347 src/mgr/PyModuleRunner.h                                   (John Spray        2017-11-16 06:45:45 -0500 74)       py_module(py_module_),
+f4763c32fa84 src/mgr/PyModuleRunner.h                                   (John Spray        2017-11-01 12:08:03 -0400 75)       clog(clog_),
+95a90f7da8a3 src/mgr/PyModuleRunner.h                                   (Nitzan Mordechai  2024-12-08 18:08:39 +0000 76)       m_thread_monitor(monitor_),
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 77)       thread(this)
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 78)   {
+13bcddea23f8 src/mgr/PyModuleRunner.h                                   (John Spray        2018-05-15 15:40:00 +0100 79)     // Shortened name for use as thread name, because thread names
+13bcddea23f8 src/mgr/PyModuleRunner.h                                   (John Spray        2018-05-15 15:40:00 +0100 80)     // required to be <16 chars
+13bcddea23f8 src/mgr/PyModuleRunner.h                                   (John Spray        2018-05-15 15:40:00 +0100 81)     thread_name = py_module->get_name().substr(0, 15);
+13bcddea23f8 src/mgr/PyModuleRunner.h                                   (John Spray        2018-05-15 15:40:00 +0100 82) 
+ab23c5069647 src/mgr/PyModuleRunner.h                                   (Adam C. Emerson   2018-08-23 11:25:51 -0400 83)     ceph_assert(py_module != nullptr);
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 84)   }
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 85) 
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 86)   ~PyModuleRunner();
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 87) 
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 88)   PyModuleRunnerThread thread;
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 89) 
+6a8da7ca7347 src/mgr/PyModuleRunner.h                                   (John Spray        2017-11-16 06:45:45 -0500 90)   std::string const &get_name() const { return py_module->get_name(); }
+95a90f7da8a3 src/mgr/PyModuleRunner.h                                   (Nitzan Mordechai  2024-12-08 18:08:39 +0000 91)   void set_native_tid(pid_t tid) { m_native_tid = tid; }
+95a90f7da8a3 src/mgr/PyModuleRunner.h                                   (Nitzan Mordechai  2024-12-08 18:08:39 +0000 92)   pid_t get_native_tid() const { return m_native_tid; }
+40c4b9ac9d8e src/mgr/PyModuleRunner.h                                   (Patrick Donnelly  2019-11-13 11:00:44 -0800 93) 
+40c4b9ac9d8e src/mgr/PyModuleRunner.h                                   (Patrick Donnelly  2019-11-13 11:00:44 -0800 94) private:
+40c4b9ac9d8e src/mgr/PyModuleRunner.h                                   (Patrick Donnelly  2019-11-13 11:00:44 -0800 95)   bool dead = false;
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 96) };
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 97) 
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray        2017-10-06 11:02:44 -0400 98) 

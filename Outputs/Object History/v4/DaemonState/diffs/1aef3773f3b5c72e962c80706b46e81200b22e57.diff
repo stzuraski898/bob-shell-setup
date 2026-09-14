@@ -1,0 +1,20 @@
+commit 1aef3773f3b5c72e962c80706b46e81200b22e57
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Fri Sep 12 08:41:38 2025 +0200
+
+    mgr: add missing includes
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 6df7be1327a..81081679f6a 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -15,6 +15,7 @@
+ #ifndef DAEMON_STATE_H_
+ #define DAEMON_STATE_H_
+ 
++#include <cstdint>
+ #include <map>
+ #include <string>
+ #include <memory>

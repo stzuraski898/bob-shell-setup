@@ -1,0 +1,105 @@
+commit 95a90f7da8a32dd2a5a1e3b381aaeacea378437b
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Sun Dec 8 18:08:39 2024 +0000
+
+    mgr: Add per-module performance counters to mgr
+    
+    This commit introduces performance counters for individual Ceph mgr modules.
+    These counters allow monitoring module behavior, debugging latency issues,
+    and identifying performance bottlenecks, all without modifying the modules themselves.
+    
+    The following counters are now exposed under:
+      > ceph daemon mgr.<id> perf dump
+    
+    Example structure:
+    "mgr_module_<module_name>": {
+        "notify_avg_usec": {     <- Average time spent handling notify events
+            "avgcount": 0,
+            "sum": 0
+        },
+        "cmd_avg_usec": {        <- Average time spent processing CLI/admin commands
+            "avgcount": 0,
+            "sum": 0
+        },
+        "serve_avg_usec": {      <- Average time spent in module serve loop (if applicable)
+            "avgcount": 0,
+            "sum": 0
+        },
+        "alive": 1               <- Module is alive (1 = running, 0 = exited)
+        "cpu_usage": 0,          <- CPU usage in percent
+        "mem_rss_change": 0,     <- Memory RSS change in bytes
+        "mem_rss_current": 490737664 <- Memory RSS current in bytes
+    
+    }
+    
+    Signed-off-by: Nitzan Mordechai <nmordech@ibm.com>
+    
+    Conflicts:
+      src/mgr/ActivePyModules.cc - finisher.queue changed by 63859, adding py_module to the parameter list
+      src/mgr/PyModuleRegistry.cc - check_all_modules_started added by 63859
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 6a8a59dcad1..67b14757746 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -99,6 +99,7 @@ void PyModuleRegistry::init()
+   ceph_assert(pMainThreadState != nullptr);
+ 
+   std::list<std::string> failed_modules;
++  thread_monitor->start_monitoring();
+ 
+   const std::string module_path = g_conf().get_val<std::string>("mgr_module_path");
+   auto module_names = probe_modules(module_path);
+@@ -118,7 +119,6 @@ void PyModuleRegistry::init()
+       failed_modules.push_back(module_name);
+       // Don't drop out here, load the other modules
+     }
+-
+     // Record the module even if the load failed, so that we can
+     // report its loading error
+     modules[module_name] = std::move(mod);
+@@ -236,7 +236,7 @@ void PyModuleRegistry::active_start(
+       kv_store, mon_provides_kv_sub,
+       ds, cs, mc,
+       clog_, audit_clog_, objecter_, f, server,
+-      *this));
++      *this, thread_monitor.get()));
+ 
+   for (const auto &i : modules) {
+     // Anything we're skipping because of !can_run will be flagged
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 069af5154b9..d79183035a8 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -50,6 +50,7 @@ private:
+ 
+   std::unique_ptr<ActivePyModules> active_modules;
+   std::unique_ptr<StandbyPyModules> standby_modules;
++  std::unique_ptr<ThreadMonitor> thread_monitor;
+ 
+   PyThreadState *pMainThreadState;
+ 
+@@ -64,6 +65,7 @@ private:
+   std::vector<std::string> probe_modules(const std::string &path) const;
+ 
+   PyModuleConfig module_config;
++  PyObject* process_obj = nullptr;
+ 
+ public:
+   void handle_config(const std::string &k, const std::string &v);
+@@ -93,9 +95,13 @@ public:
+   }
+ 
+   explicit PyModuleRegistry(LogChannelRef clog_)
+-    : clog(clog_)
+-  {}
++    : clog(clog_),
++      thread_monitor(std::make_unique<ThreadMonitor>(g_ceph_context))
++  { }
+ 
++  ~PyModuleRegistry() {
++    thread_monitor->stop_monitoring();
++  }
+   /**
+    * @return true if the mgrmap has changed such that the service needs restart
+    */

@@ -1,0 +1,22 @@
+commit 03a761c980a1171fe6adf7a463f3ab80ec6d4052
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Nov 15 16:27:18 2018 -0600
+
+    mgr: lock pg_map too for osd_pool_stats and notify_osdmap
+    
+    Fixes: http://tracker.ceph.com/issues/36766
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index ed741eeecf5..41afe079b3f 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -135,7 +135,7 @@ void ClusterState::update_delta_stats()
+ 
+ void ClusterState::notify_osdmap(const OSDMap &osd_map)
+ {
+-  std::lock_guard l(lock);
++  assert(ceph_mutex_is_locked(lock));
+ 
+   pending_inc.stamp = ceph_clock_now();
+   pending_inc.version = pg_map.version + 1; // to make apply_incremental happy

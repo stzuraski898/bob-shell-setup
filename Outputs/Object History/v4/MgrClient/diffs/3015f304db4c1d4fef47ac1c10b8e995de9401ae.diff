@@ -1,0 +1,36 @@
+commit 3015f304db4c1d4fef47ac1c10b8e995de9401ae
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Mar 22 11:36:01 2017 -0500
+
+    mgr/MgrClient: assume missing MgrMap means no acces to mgr at all
+    
+    If we get as far as authenticating and have no MgrMap that implies the
+    mon didn't provide us one (despite our request) and we have no access to
+    the mgr at all.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 5301253654f..e1fa439c2fd 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -289,7 +289,10 @@ int MgrClient::start_command(const vector<string>& cmd, const bufferlist& inbl,
+ 
+   ldout(cct, 20) << "cmd: " << cmd << dendl;
+ 
+-  assert(map.epoch > 0);
++  if (map.epoch == 0) {
++    ldout(cct,20) << " no MgrMap, assuming EACCES" << dendl;
++    return -EACCES;
++  }
+ 
+   auto &op = command_table.start_command();
+   op.cmd = cmd;
+@@ -303,7 +306,6 @@ int MgrClient::start_command(const vector<string>& cmd, const bufferlist& inbl,
+     MCommand *m = op.get_message({});
+     session->con->send_message(m);
+   }
+-
+   return 0;
+ }
+ 

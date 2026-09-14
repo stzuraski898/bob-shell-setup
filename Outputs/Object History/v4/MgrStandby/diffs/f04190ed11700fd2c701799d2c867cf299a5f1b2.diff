@@ -1,0 +1,33 @@
+commit f04190ed11700fd2c701799d2c867cf299a5f1b2
+Author: Gu Zhongyan <guzhongyan@360.cn>
+Date:   Wed Mar 14 15:08:05 2018 +0800
+
+    mgr: fix MSG_MGR_MAP handling
+    
+    ceph config show mgr.x doesn't work
+    root cause is mgr daemon's mgrc has no chance
+    to process MSG_MGR_MAP in the mgr daemon's
+    ms_dispatch.
+    
+    fix is let this message pass through for mgrc
+    
+    Signed-off-by: Gu Zhongyan <guzhongyan@360.cn>
+    Signed-off-by: yupeng chen chenyupeng-it@360.cn
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 361201db8ff..5fe51db26db 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -409,9 +409,9 @@ bool MgrStandby::ms_dispatch(Message *m)
+     handled = am->ms_dispatch(m);
+     lock.Lock();
+   }
+-  if (m->get_type() == MSG_MGR_MAP && !handled) {
+-    m->put();
+-    handled = true;
++  if (m->get_type() == MSG_MGR_MAP) {
++    // let this pass through for mgrc
++    handled = false;
+   }
+   return handled;
+ }

@@ -1,0 +1,25 @@
+commit 10522b9d92790d06eb79f050b087a3cdb7e6748d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jan 30 16:44:35 2019 -0600
+
+    mgr/DaemonServer: use a luminous-compatible 'mgr metadata' command
+    
+    In luminous it was 'id', in mimic it changed to 'who'.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index bd3b88b98db..00c3f7819aa 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2575,8 +2575,9 @@ void DaemonServer::got_mgr_map()
+       auto md_update = [&] (DaemonKey key) {
+         std::ostringstream oss;
+         auto c = new MetadataUpdate(daemon_state, key);
++	// FIXME remove post-nautilus: include 'id' for luminous mons
+         oss << "{\"prefix\": \"mgr metadata\", \"who\": \""
+-              << key.second << "\"}";
++	    << key.second << "\", \"id\": \"" << key.second << "\"}";
+         monc->start_mon_command({oss.str()}, {}, &c->outbl, &c->outs, c);
+       };
+       if (mgrmap.active_name.size()) {

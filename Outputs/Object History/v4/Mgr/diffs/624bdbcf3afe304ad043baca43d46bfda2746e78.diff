@@ -1,0 +1,23 @@
+commit 624bdbcf3afe304ad043baca43d46bfda2746e78
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Nov 9 19:52:03 2016 +0000
+
+    mgr: remove unnecessary C_StdFunction
+    
+    FunctionContext works fine and already existed.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 653f1314418..7b7f24e62ab 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -136,7 +136,7 @@ void Mgr::background_init()
+ 
+   finisher.start();
+ 
+-  finisher.queue(new C_StdFunction([this](){
++  finisher.queue(new FunctionContext([this](int r){
+     init();
+   }));
+ }

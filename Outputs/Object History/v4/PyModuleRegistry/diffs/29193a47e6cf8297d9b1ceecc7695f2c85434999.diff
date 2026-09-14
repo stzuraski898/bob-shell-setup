@@ -1,0 +1,92 @@
+commit 29193a47e6cf8297d9b1ceecc7695f2c85434999
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Oct 16 10:51:34 2017 -0400
+
+    mgr: update for SafeThreadState
+    
+    A bunch of the previous commits were done
+    before this class existed, so updating in
+    one go instead of trying to edit history
+    in fine detail.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 3f4e60b86d2..bab057c6c28 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -155,6 +155,7 @@ int PyModuleRegistry::init(const MgrMap &map)
+   // Drop the GIL and remember the main thread state (current
+   // thread state becomes NULL)
+   pMainThreadState = PyEval_SaveThread();
++  assert(pMainThreadState != nullptr);
+ 
+   std::list<std::string> failed_modules;
+ 
+@@ -191,14 +192,15 @@ int PyModule::load(PyThreadState *pMainThreadState)
+ 
+   // Configure sub-interpreter and construct C++-generated python classes
+   {
+-    Gil gil(pMainThreadState);
+-
+-    pMyThreadState = Py_NewInterpreter();
++    SafeThreadState sts(pMainThreadState);
++    Gil gil(sts);
+ 
+-    if (pMyThreadState == nullptr) {
++    auto thread_state = Py_NewInterpreter();
++    if (thread_state == nullptr) {
+       derr << "Failed to create python sub-interpreter for '" << module_name << '"' << dendl;
+       return -EINVAL;
+     } else {
++      pMyThreadState.set(thread_state);
+       // Some python modules do not cope with an unpopulated argv, so lets
+       // fake one.  This step also picks up site-packages into sys.path.
+       const char *argv[] = {"ceph-mgr"};
+@@ -289,6 +291,15 @@ int PyModule::load(PyThreadState *pMainThreadState)
+   return 0;
+ } 
+ 
++PyModule::~PyModule()
++{
++  if (pMyThreadState.ts != nullptr) {
++    Gil gil(pMyThreadState, true);
++    Py_XDECREF(pClass);
++    Py_XDECREF(pStandbyClass);
++  }
++}
++
+ void PyModuleRegistry::standby_start(MonClient *monc)
+ {
+   Mutex::Locker l(lock);
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 8249fc9e0d2..5564e7f1fa5 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -33,7 +33,7 @@ private:
+   std::string get_site_packages();
+ 
+ public:
+-  PyThreadState *pMyThreadState = nullptr;
++  SafeThreadState pMyThreadState;
+   PyObject *pClass = nullptr;
+   PyObject *pStandbyClass = nullptr;
+ 
+@@ -42,6 +42,8 @@ public:
+   {
+   }
+ 
++  ~PyModule();
++
+   int load(PyThreadState *pMainThreadState);
+ 
+   std::string get_name() const {
+@@ -68,7 +70,7 @@ private:
+   std::unique_ptr<ActivePyModules> active_modules;
+   std::unique_ptr<StandbyPyModules> standby_modules;
+ 
+-  PyThreadState *pMainThreadState = nullptr;
++  PyThreadState *pMainThreadState;
+ 
+   // We have our own copy of MgrMap, because we are constructed
+   // before ClusterState exists.

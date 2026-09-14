@@ -1,0 +1,26 @@
+commit b62520059767bbae2bd24d4edbedf3aa22eeea4c
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Feb 15 23:11:07 2019 +0800
+
+    mon/MonClient: drop my_addr
+    
+    the only consumer of this member variable is MgrStandby, and MgrStandby
+    does have access to the messenger. so let it get the IP address
+    directly.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index f055ce28837..a2767be7abd 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -216,7 +216,8 @@ void MgrStandby::send_beacon()
+   dout(10) << "sending beacon as gid " << monc.get_global_id() << dendl;
+ 
+   map<string,string> metadata;
+-  metadata["addr"] = monc.get_my_addr().ip_only_to_str();
++#warning fixme, report addrs instead
++  metadata["addr"] = client_messenger->get_myaddr_legacy().ip_only_to_str();
+   collect_sys_info(&metadata, g_ceph_context);
+ 
+   MMgrBeacon *m = new MMgrBeacon(monc.get_fsid(),

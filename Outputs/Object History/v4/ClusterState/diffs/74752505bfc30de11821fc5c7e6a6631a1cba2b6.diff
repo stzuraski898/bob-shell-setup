@@ -1,0 +1,50 @@
+commit 74752505bfc30de11821fc5c7e6a6631a1cba2b6
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed May 17 15:30:28 2017 +0800
+
+    mgr: add a command "mgr report"
+    
+    * extract send_report() out of tick() so it can be reused.
+    * add a commmand "mgr report-mon" for mgr, so we are able to flush the
+      the mgr stats to mon actively without waiting for the tick. this
+      could help with the tests.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 3ec59c17078..c40df895ef1 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -113,19 +113,3 @@ void ClusterState::notify_osdmap(const OSDMap &osd_map)
+   // that a cut-down set of functionality remains in PGMonitor
+   // while the full-blown PGMap lives only here.
+ }
+-
+-void ClusterState::tick(MMonMgrReport *m)
+-{
+-  dout(10) << __func__ << dendl;
+-  // FIXME: no easy way to get mon features here.  this will do for
+-  // now, though, as long as we don't make a backward-incompat change.
+-  pg_map.encode_digest(m->get_data(), CEPH_FEATURES_ALL);
+-
+-  // FIXME: reporting health detail here might be a bad idea?
+-  with_osdmap([&](const OSDMap& osdmap) {
+-      pg_map.get_health(g_ceph_context, osdmap,
+-			m->health_summary,
+-			&m->health_detail);
+-    });
+-  m->needs_send = true;
+-}
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index 72643dba20b..ca7deddaea1 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -58,8 +58,6 @@ public:
+ 
+   void notify_osdmap(const OSDMap &osd_map);
+ 
+-  void tick(MMonMgrReport *m);
+-
+   bool have_fsmap() const {
+     Mutex::Locker l(lock);
+     return fsmap.get_epoch() > 0;

@@ -1,0 +1,48 @@
+commit f8d4e5b5e9e540b16a0ed1e5617986046a7b2d25
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Dec 1 15:50:59 2017 -0600
+
+    common/config: rewrite (╯°□°)╯︵ ┻━┻
+    
+    This is too complete a rewrite to reasonably break down into small steps,
+    and even if I could, it would be harder to review that way than to simply
+    review the new implementation.  The semantics of the old one were so weird
+    that it's harder to reason about the change in behavior than to simply
+    review the new behavior.
+    
+    That's my story, at least, and I'm sticking to it!
+    
+    So, here are the highlights:
+    
+     - $foo meta expansions are evaluated at get_val() time.  This means the
+    weird bool arguments to set_val specifying whether things were expanded
+    are removed (they didn't make any sense unless you were thinking about the
+    old implementation).
+     - for every option, we track values from any inputs (config, mon,
+       override).  At get_val() time, we pick the highest priority one.
+     - diff() is rewritten to be simple and to show you all of the above.
+     - internal interfaces are simplified, and in terms of Option::value_t
+       whenever possible.
+     - unit tests simplified somewhat based on the above.
+    
+    Known issues:
+    
+     - legacy values get pushed out in select cases.  Notably if foo=$bar
+       and bar is updated, we do not update $foo (there is no dependency
+       tracking to do this efficiently).
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index a8ba11db6b8..090c2af9778 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -803,7 +803,7 @@ bool DaemonServer::handle_command(MCommand *m)
+     std::string val;
+     cmd_getval(cct, cmdctx->cmdmap, "key", key);
+     cmd_getval(cct, cmdctx->cmdmap, "value", val);
+-    r = cct->_conf->set_val(key, val, true, &ss);
++    r = cct->_conf->set_val(key, val, &ss);
+     if (r == 0) {
+       cct->_conf->apply_changes(nullptr);
+     }

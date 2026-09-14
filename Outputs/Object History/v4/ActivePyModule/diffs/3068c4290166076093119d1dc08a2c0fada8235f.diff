@@ -1,0 +1,37 @@
+commit 3068c4290166076093119d1dc08a2c0fada8235f
+Author: Noah Watkins <nwatkins@redhat.com>
+Date:   Thu Jul 26 10:52:34 2018 -0700
+
+    mgr: report health check changes immediately
+    
+    Currently beacons and reports are sent periodically, which means that
+    health check changes made by modules are only visible to the monitor
+    after a delay. This patch sends a health report immediately after a
+    change occurs.
+    
+    1. decouple scheduling of reports from beacons
+    2. moves report scheduling into DaemonServer
+    3. exposes a "send now" option
+    4. health check change detection triggers immediate report
+    
+    Signed-off-by: Noah Watkins <nwatkins@redhat.com>
+
+diff --git a/src/mgr/ActivePyModule.h b/src/mgr/ActivePyModule.h
+index 6b5eeda616c..149d297faf1 100644
+--- a/src/mgr/ActivePyModule.h
++++ b/src/mgr/ActivePyModule.h
+@@ -67,8 +67,13 @@ public:
+     std::stringstream *ss);
+ 
+ 
+-  void set_health_checks(health_check_map_t&& c) {
++  bool set_health_checks(health_check_map_t&& c) {
++    // when health checks change a report is immediately sent to the monitors.
++    // currently modules have static health check details, but this equality
++    // test could be made smarter if too much noise shows up in the future.
++    bool changed = health_checks != c;
+     health_checks = std::move(c);
++    return changed;
+   }
+   void get_health_checks(health_check_map_t *checks);
+ 

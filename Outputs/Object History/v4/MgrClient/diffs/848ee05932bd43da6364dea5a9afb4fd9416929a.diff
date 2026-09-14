@@ -1,0 +1,23 @@
+commit 848ee05932bd43da6364dea5a9afb4fd9416929a
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Oct 3 13:59:51 2016 -0400
+
+    mgr/MgrClient: fix ms_handle_reset
+    
+    Return false because we don't handle the reset.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index b6ece6c37ed..d1bd51d441e 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -166,7 +166,7 @@ bool MgrClient::ms_handle_reset(Connection *con)
+   }
+   return false;
+ #else
+-  return true;
++  return false;
+ #endif
+ }
+ 

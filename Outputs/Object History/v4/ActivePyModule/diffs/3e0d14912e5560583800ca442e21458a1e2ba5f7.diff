@@ -1,0 +1,236 @@
+commit 3e0d14912e5560583800ca442e21458a1e2ba5f7
+Author: Tim Serong <tserong@suse.com>
+Date:   Sat May 13 00:16:14 2017 +1000
+
+    mgr: load modules in separate python sub-interpreters
+    
+    This provides a reasonable amount of isolation between mgr
+    modules.  Notably, with this change, it's possible to have more
+    than one mgr module use cherrypy without conflicts.
+    
+    Each MgrPyModule gets its own python sub-interpreter.  The logger,
+    the ceph_state module and sys.path need to be set up separately
+    for each sub-interpreter, so all that happens in MgrPyModule's
+    constructor (previously this was done on the main interpreter
+    in PyModules::init()).
+    
+    Each sub-interpreter has its own python thread state.  The main
+    interpreter also has a python thread state, but that is almost
+    unused except for during setup and teardown of the whole beast.
+    
+    On top of that, an additional python thread state is necessary
+    for each OS thread that calls into python code (e.g. the serve()
+    method).
+    
+    Some care needs to be taken to ensure that the right thread state
+    is active at the right time; note how the call to handle_pyerror()
+    in PyModules::init() had to be moved inside MgrPyModle::load().
+    PyModules should be using the main thread state, and MgrPyModule
+    should usually be using its sub-interpreter thread state, except
+    for very early in its constructor (before the sub-interpreter has
+    been created), and in the serve() method where another python
+    thread state is created to map to the separate OS thread that is
+    responsible for invoking this method.
+    
+    The ceph_state module (PyState.cc) naturally has no idea what
+    context it's being run in, so uses PyThreadState_Get() when it
+    needs to know the python thread state.
+    
+    Signed-off-by: Tim Serong <tserong@suse.com>
+
+diff --git a/src/mgr/MgrPyModule.cc b/src/mgr/MgrPyModule.cc
+index fb3719f9acd..fda9bf6528d 100644
+--- a/src/mgr/MgrPyModule.cc
++++ b/src/mgr/MgrPyModule.cc
+@@ -11,6 +11,7 @@
+  * Foundation.  See file COPYING.
+  */
+ 
++#include "PyState.h"
+ #include "Gil.h"
+ 
+ #include "PyFormatter.h"
+@@ -47,27 +48,113 @@ std::string handle_pyerror()
+ 
+ #define dout_context g_ceph_context
+ #define dout_subsys ceph_subsys_mgr
++
++#undef dout_prefix
++#define dout_prefix *_dout << "mgr[py] "
++
++namespace {
++  PyObject* log_write(PyObject*, PyObject* args) {
++    char* m = nullptr;
++    if (PyArg_ParseTuple(args, "s", &m)) {
++      auto len = strlen(m);
++      if (len && m[len-1] == '\n') {
++	m[len-1] = '\0';
++      }
++      dout(4) << m << dendl;
++    }
++    Py_RETURN_NONE;
++  }
++
++  PyObject* log_flush(PyObject*, PyObject*){
++    Py_RETURN_NONE;
++  }
++
++  static PyMethodDef log_methods[] = {
++    {"write", log_write, METH_VARARGS, "write stdout and stderr"},
++    {"flush", log_flush, METH_VARARGS, "flush"},
++    {nullptr, nullptr, 0, nullptr}
++  };
++}
++
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ 
+-MgrPyModule::MgrPyModule(const std::string &module_name_, PyThreadState *main_ts_)
++MgrPyModule::MgrPyModule(const std::string &module_name_, const std::string &sys_path, PyThreadState *main_ts_)
+   : module_name(module_name_),
+     pClassInstance(nullptr),
+     pMainThreadState(main_ts_)
+ {
+   assert(pMainThreadState != nullptr);
++
++  Gil gil(pMainThreadState);
++
++  pMyThreadState = Py_NewInterpreter();
++  if (pMyThreadState == nullptr) {
++    derr << "Failed to create python sub-interpreter for '" << module_name << '"' << dendl;
++  } else {
++    // Some python modules do not cope with an unpopulated argv, so lets
++    // fake one.  This step also picks up site-packages into sys.path.
++    const char *argv[] = {"ceph-mgr"};
++    PySys_SetArgv(1, (char**)argv);
++
++    if (g_conf->daemonize) {
++      auto py_logger = Py_InitModule("ceph_logger", log_methods);
++#if PY_MAJOR_VERSION >= 3
++      PySys_SetObject("stderr", py_logger);
++      PySys_SetObject("stdout", py_logger);
++#else
++      PySys_SetObject(const_cast<char*>("stderr"), py_logger);
++      PySys_SetObject(const_cast<char*>("stdout"), py_logger);
++#endif
++    }
++    // Populate python namespace with callable hooks
++    Py_InitModule("ceph_state", CephStateMethods);
++
++    PySys_SetPath(const_cast<char*>(sys_path.c_str()));
++  }
+ }
+ 
+ MgrPyModule::~MgrPyModule()
+ {
+-  Gil gil(pMainThreadState);
+-
+-  Py_XDECREF(pClassInstance);
++  if (pMyThreadState != nullptr) {
++    Gil gil(pMyThreadState);
++
++    Py_XDECREF(pClassInstance);
++
++    //
++    // Ideally, now, we'd be able to do this:
++    //
++    //    Py_EndInterpreter(pMyThreadState);
++    //    PyThreadState_Swap(pMainThreadState);
++    //
++    // Unfortunately, if the module has any other *python* threads active
++    // at this point, Py_EndInterpreter() will abort with:
++    //
++    //    Fatal Python error: Py_EndInterpreter: not the last thread
++    //
++    // This can happen when using CherryPy in a module, becuase CherryPy
++    // runs an extra thread as a timeout monitor, which spends most of its
++    // life inside a time.sleep(60).  Unless you are very, very lucky with
++    // the timing calling this destructor, that thread will still be stuck
++    // in a sleep, and Py_EndInterpreter() will abort.
++    //
++    // This could of course also happen with a poorly written module which
++    // made no attempt to clean up any additional threads it created.
++    //
++    // The safest thing to do is just not call Py_EndInterpreter(), and
++    // let Py_Finalize() kill everything after all modules are shut down.
++    //
++  }
+ }
+ 
+ int MgrPyModule::load()
+ {
+-  Gil gil(pMainThreadState);
++  if (pMyThreadState == nullptr) {
++    derr << "No python sub-interpreter exists for module '" << module_name << "'" << dendl;
++    return -EINVAL;
++  }
++
++  Gil gil(pMyThreadState);
+ 
+   // Load the module
+   PyObject *pName = PyString_FromString(module_name.c_str());
+@@ -115,7 +202,7 @@ int MgrPyModule::serve()
+ 
+   // This method is called from a separate OS thread (i.e. a thread not
+   // created by Python), so tell Gil to wrap this in a new thread state.
+-  Gil gil(pMainThreadState, true);
++  Gil gil(pMyThreadState, true);
+ 
+   auto pValue = PyObject_CallMethod(pClassInstance,
+       const_cast<char*>("serve"), nullptr);
+@@ -137,7 +224,7 @@ void MgrPyModule::shutdown()
+ {
+   assert(pClassInstance != nullptr);
+ 
+-  Gil gil(pMainThreadState);
++  Gil gil(pMyThreadState);
+ 
+   auto pValue = PyObject_CallMethod(pClassInstance,
+       const_cast<char*>("shutdown"), nullptr);
+@@ -154,7 +241,7 @@ void MgrPyModule::notify(const std::string &notify_type, const std::string &noti
+ {
+   assert(pClassInstance != nullptr);
+ 
+-  Gil gil(pMainThreadState);
++  Gil gil(pMyThreadState);
+ 
+   // Execute
+   auto pValue = PyObject_CallMethod(pClassInstance,
+@@ -177,7 +264,7 @@ void MgrPyModule::notify_clog(const LogEntry &log_entry)
+ {
+   assert(pClassInstance != nullptr);
+ 
+-  Gil gil(pMainThreadState);
++  Gil gil(pMyThreadState);
+ 
+   // Construct python-ized LogEntry
+   PyFormatter f;
+@@ -247,7 +334,7 @@ int MgrPyModule::handle_command(
+   assert(ss != nullptr);
+   assert(ds != nullptr);
+ 
+-  Gil gil(pMainThreadState);
++  Gil gil(pMyThreadState);
+ 
+   PyFormatter f;
+   cmdmap_dump(cmdmap, &f);
+diff --git a/src/mgr/MgrPyModule.h b/src/mgr/MgrPyModule.h
+index ecb52310c0a..14be1566f06 100644
+--- a/src/mgr/MgrPyModule.h
++++ b/src/mgr/MgrPyModule.h
+@@ -45,13 +45,14 @@ private:
+   const std::string module_name;
+   PyObject *pClassInstance;
+   PyThreadState *pMainThreadState;
++  PyThreadState *pMyThreadState = nullptr;
+ 
+   std::vector<ModuleCommand> commands;
+ 
+   int load_commands();
+ 
+ public:
+-  MgrPyModule(const std::string &module_name, PyThreadState *main_ts);
++  MgrPyModule(const std::string &module_name, const std::string &sys_path, PyThreadState *main_ts);
+   ~MgrPyModule();
+ 
+   int load();

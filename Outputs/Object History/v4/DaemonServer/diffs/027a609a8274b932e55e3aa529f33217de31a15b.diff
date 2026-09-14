@@ -1,0 +1,220 @@
+commit 027a609a8274b932e55e3aa529f33217de31a15b
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Thu Sep 18 05:16:51 2025 +0000
+
+    mgr/DaemonServer: auto-tune stats period when message queue gets backed up
+    
+    The mgr can get overwhelmed when there's a lot of cluster activity and
+    daemons are sending stats reports faster than we can process them.
+    This commit adds logic to monitor the messenger queue depth and bump
+    up mgr_stats_period when things get congested. This reduces the
+    frequency of daemon stat reports, allowing the mgr to process existing
+    reports without being overwhelmed by new ones. The period automatically
+    scales back down when the queue clears up.
+    
+    Added mgr_stats_period_autotune (on by default) and a queue threshold
+    setting. Recovery happens automatically when the queue clears up.
+    Max period is capped at 60 seconds to prevent excessive stat delays.
+    
+    Fixes: https://tracker.ceph.com/issues/73151
+    Signed-off-by: Nitzan Mordechai <nmordech@ibm.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index a1203dc5d8a..210ff663208 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -125,7 +125,9 @@ DaemonServer::DaemonServer(MonClient *monc_,
+       mds_perf_metric_collector_listener(this),
+       mds_perf_metric_collector(mds_perf_metric_collector_listener),
+       op_tracker(g_ceph_context, g_ceph_context->_conf->mgr_enable_op_tracker,
+-                                 g_ceph_context->_conf->mgr_num_op_tracker_shard)
++                                 g_ceph_context->_conf->mgr_num_op_tracker_shard),
++      stats_autotuner(std::make_unique<StatsAutotuner>(
++        g_conf().get_val<int64_t>("mgr_stats_period")))
+ {
+   g_conf().add_observer(this);
+   /* define op size and time for mgr daemon */
+@@ -424,6 +426,14 @@ void DaemonServer::maybe_ready(int32_t osd_id)
+ void DaemonServer::tick()
+ {
+   dout(10) << dendl;
++  auto tick_period = g_conf().get_val<std::chrono::seconds>("mgr_tick_period").count();
++  utime_t now = ceph_clock_now();
++
++  if (g_conf().get_val<bool>("mgr_stats_period_autotune") &&
++      stats_autotuner->should_check_now(now, tick_period)) {
++    dout(20) << "checking whether to adjust stats period" << dendl;
++    maybe_adjust_stats_period();
++  }
+   send_report();
+   adjust_pgs();
+ 
+@@ -431,6 +441,29 @@ void DaemonServer::tick()
+     g_conf().get_val<std::chrono::seconds>("mgr_tick_period").count());
+ }
+ 
++void DaemonServer::maybe_adjust_stats_period() {
++  int64_t queue_depth = msgr->get_dispatch_queue_len();
++  int64_t current_period = g_conf().get_val<int64_t>("mgr_stats_period");
++  int64_t queue_threshold = g_conf().get_val<int64_t>("mgr_stats_period_autotune_queue_threshold");
++  auto result = stats_autotuner->evaluate_adjustment(queue_depth, current_period, queue_threshold);
++
++  if (result.new_period != current_period) {
++    dout(10) << "Adjusting mgr_stats_period from " << current_period
++      << " to " << result.new_period << " seconds ("
++      << result.reason_str()
++      << ")" << dendl;
++
++    std::stringstream ss;
++    int r = cct->_conf.set_val("mgr_stats_period", std::to_string(result.new_period), &ss);
++    if (r != 0) {
++      derr << "Failed to update mgr_stats_period: " << ss.str() << dendl;
++      return;
++    }
++    stats_autotuner->record_our_change(result.new_period);  // Track that we made this change
++    cct->_conf.apply_changes(nullptr);
++  }
++}
++
+ // Currently modules do not set health checks in response to events delivered to
+ // all modules (e.g. notify) so we do not risk a thundering hurd situation here.
+ // if this pattern emerges in the future, this scheduler could be modified to
+@@ -3685,6 +3718,12 @@ void DaemonServer::handle_conf_change(const ConfigProxy& conf,
+   if (changed.count("mgr_stats_threshold") || changed.count("mgr_stats_period")) {
+     dout(4) << "Updating stats threshold/period on "
+             << daemon_connections.size() << " clients" << dendl;
++    if (changed.count("mgr_stats_period")) {
++      int64_t new_period = g_conf().get_val<int64_t>("mgr_stats_period");
++      if (stats_autotuner->was_changed_by_user(new_period)) {
++        stats_autotuner->set_baseline_period(new_period); // user changed
++      }
++    }
+     // Send a fresh MMgrConfigure to all clients, so that they can follow
+     // the new policy for transmitting stats
+     finisher.queue(new LambdaContext([this](int r) {
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 5425cdd5f3f..51405047f07 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -20,6 +20,7 @@
+ #include <map>
+ #include <set>
+ #include <string>
++#include <string_view>
+ #include <unordered_map>
+ #include <vector>
+ 
+@@ -51,6 +52,7 @@ class MonClient;
+ class CommandContext;
+ struct OSDPerfMetricQuery;
+ struct MDSPerfMetricQuery;
++class StatsAutotuner;
+ 
+ 
+ struct offline_pg_report {
+@@ -245,6 +247,7 @@ private:
+   SafeTimer timer;
+   Context *tick_event;
+   void tick();
++  void maybe_adjust_stats_period();
+   void schedule_tick_locked(double delay_sec);
+ 
+   class OSDPerfMetricCollectorListener : public MetricListener {
+@@ -307,7 +310,7 @@ private:
+ private:
+   // -- op tracking --
+   OpTracker op_tracker;
+-
++  std::unique_ptr<StatsAutotuner> stats_autotuner;
+ public:
+   int init(uint64_t gid, entity_addrvec_t client_addrs);
+ 
+@@ -372,5 +375,88 @@ public:
+                     std::ostream& ss);
+ };
+ 
++class StatsAutotuner {
++private:
++  int64_t baseline_period;
++  int64_t changed_stats_period;
++  utime_t last_period_check;
++  
++  static constexpr int64_t MAX_PERIOD = 60;
++  static constexpr int64_t RECOVERY_THRESHOLD = 20;
++  static constexpr int64_t MIN_QUEUE_DEPTH = 5;
++  
++public:
++  explicit StatsAutotuner(int64_t baseline) 
++    : baseline_period(baseline), changed_stats_period(baseline) {}
++  
++  void set_baseline_period(int64_t period) { 
++    baseline_period = changed_stats_period = period; 
++  }
++
++  void record_our_change(int64_t new_period) {
++    changed_stats_period = new_period;  // We changed it
++  }
++
++  bool was_changed_by_user(int64_t current_period) const {
++    return changed_stats_period != current_period;
++  }
++  
++  bool should_check_now(utime_t now, double tick_period) {
++    if (now - last_period_check > tick_period * 5) {
++      last_period_check = now;
++      return true;
++    }
++    return false;
++  }
++
++
++  // Add enum reasons
++  enum class AdjustmentReason : uint8_t {
++    high_queue_depth = 0,
++    performance_recovered,
++    no_adjustment_needed
++  };
++  
++  struct AdjustmentResult {
++    int64_t new_period = 0;
++    AdjustmentReason reason_code = AdjustmentReason::no_adjustment_needed;
++
++    std::string_view reason_str() const {
++      switch (reason_code) {
++        case AdjustmentReason::high_queue_depth:
++          return "high_queue_depth";
++        case AdjustmentReason::performance_recovered:
++          return "performance_recovered";
++        case AdjustmentReason::no_adjustment_needed:
++          return "no_adjustment_needed";
++        default:
++          return "unknown_reason";
++      }
++    }
++  };
++
++  AdjustmentResult evaluate_adjustment(
++    int64_t queue_depth, 
++    int64_t current_period, 
++    int64_t queue_threshold) {
++
++    if (queue_depth > queue_threshold) {
++      int64_t increment = std::max(MIN_QUEUE_DEPTH, current_period / 4);
++      int64_t new_period = std::min(current_period + increment, MAX_PERIOD);
++      
++      if (new_period > current_period) {
++        return {new_period, AdjustmentReason::high_queue_depth};
++      }
++    } else if (current_period > baseline_period && queue_depth < RECOVERY_THRESHOLD) {
++      int64_t new_period = std::max(current_period / 2, baseline_period);
++      
++      if (new_period < current_period) {
++        return {new_period, AdjustmentReason::performance_recovered};
++      }
++    }
++    
++    return {current_period, AdjustmentReason::no_adjustment_needed};
++  }
++};
+ #endif
+ 

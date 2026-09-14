@@ -1,0 +1,34 @@
+commit 3db2b5767056762287dac6005f99338455f7361b
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Sun Sep 7 12:41:55 2025 +0000
+
+    mgr: remove health msgs from the metrics if osd destroyed
+    
+    clears daemon health metrics for destroyed osds alon with down and out OSDs
+    
+    Fixes: https://tracker.ceph.com/issues/72899
+    Signed-off-by: Nitzan Mordechai <nmordech@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 0225527c5ed..d024d78b20e 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -516,9 +516,15 @@ void Mgr::handle_osd_map()
+         
+       DaemonStatePtr daemon = daemon_state.get(k);
+         
+-      if (daemon && osd_map.is_out(osd_id) && osd_map.is_down(osd_id)) {
+-        std::lock_guard l(daemon->lock);
+-        daemon->daemon_health_metrics.clear();
++      if (daemon) {
++        bool clear_metrics = false;
++        clear_metrics |= (osd_map.is_out(osd_id) && osd_map.is_down(osd_id));
++        clear_metrics |= osd_map.is_destroyed(osd_id);
++        if (clear_metrics) {
++          // clear any health metrics for an OSD that is (out and down) or destroyed
++          std::lock_guard l(daemon->lock);
++          daemon->daemon_health_metrics.clear();
++        }
+       }
+ 
+       bool update_meta = false;

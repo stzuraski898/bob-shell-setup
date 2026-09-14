@@ -1,0 +1,25 @@
+commit c97cca13ab066ed2306708986ff387d903b2486a
+Author: Jason Dillaman <dillaman@redhat.com>
+Date:   Thu Nov 30 10:05:14 2017 -0500
+
+    mgr: disconnect unregistered service daemon when report received
+    
+    This will allow the service daemon to reconnect and re-register
+    itself as a service daemon without requiring the mgr client to
+    subscribe to MgrStats and detect its removal.
+    
+    Fixes: http://tracker.ceph.com/issues/22286
+    Signed-off-by: Jason Dillaman <dillaman@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 2fe220b50b3..dbffb3f7518 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -410,6 +410,7 @@ bool DaemonServer::handle_report(MMgrReport *m)
+     // themselves to be a daemon for some service.
+     dout(4) << "rejecting report from non-daemon client " << m->daemon_name
+ 	    << dendl;
++    m->get_connection()->mark_down();
+     m->put();
+     return true;
+   }

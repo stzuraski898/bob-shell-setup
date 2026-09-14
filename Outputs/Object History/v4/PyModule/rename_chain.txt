@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/PyModule.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/PyModule.cc 18c4e08ccddde9710cded2df7e0becc2dde7e56c 9718896c8b844db2f3c07df1d344636da4605e61
+#
+# Rename chain for src/mgr/PyModule.h
+#
+src/mgr/PyModule.h 95a90f7da8a32dd2a5a1e3b381aaeacea378437b 6a8da7ca734726315c06929635c25dbb88599654

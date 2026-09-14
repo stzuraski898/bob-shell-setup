@@ -1,0 +1,135 @@
+commit 3068c4290166076093119d1dc08a2c0fada8235f
+Author: Noah Watkins <nwatkins@redhat.com>
+Date:   Thu Jul 26 10:52:34 2018 -0700
+
+    mgr: report health check changes immediately
+    
+    Currently beacons and reports are sent periodically, which means that
+    health check changes made by modules are only visible to the monitor
+    after a delay. This patch sends a health report immediately after a
+    change occurs.
+    
+    1. decouple scheduling of reports from beacons
+    2. moves report scheduling into DaemonServer
+    3. exposes a "send now" option
+    4. health check change detection triggers immediate report
+    
+    Signed-off-by: Noah Watkins <nwatkins@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index d94e663ae1e..4ec42dc6942 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -84,7 +84,10 @@ DaemonServer::DaemonServer(MonClient *monc_,
+                       g_conf()->auth_service_required :
+                       g_conf()->auth_supported),
+       lock("DaemonServer"),
+-      pgmap_ready(false)
++      pgmap_ready(false),
++      timer(g_ceph_context, lock),
++      shutting_down(false),
++      tick_event(nullptr)
+ {
+   g_conf().add_observer(this);
+ }
+@@ -141,6 +144,12 @@ int DaemonServer::init(uint64_t gid, entity_addrvec_t client_addrs)
+ 
+   started_at = ceph_clock_now();
+ 
++  Mutex::Locker l(lock);
++  timer.init();
++
++  schedule_tick_locked(
++    g_conf().get_val<std::chrono::seconds>("mgr_tick_period").count());
++
+   return 0;
+ }
+ 
+@@ -341,12 +350,53 @@ void DaemonServer::maybe_ready(int32_t osd_id)
+   }
+ }
+ 
++void DaemonServer::tick()
++{
++  dout(10) << dendl;
++  send_report();
++
++  schedule_tick_locked(
++    g_conf().get_val<std::chrono::seconds>("mgr_tick_period").count());
++}
++
++// Currently modules do not set health checks in response to events delivered to
++// all modules (e.g. notify) so we do not risk a thundering hurd situation here.
++// if this pattern emerges in the future, this scheduler could be modified to
++// fire after all modules have had a chance to set their health checks.
++void DaemonServer::schedule_tick_locked(double delay_sec)
++{
++  if (tick_event) {
++    timer.cancel_event(tick_event);
++    tick_event = nullptr;
++  }
++
++  // on shutdown start rejecting explicit requests to send reports that may
++  // originate from python land which may still be running.
++  if (shutting_down)
++    return;
++
++  tick_event = timer.add_event_after(delay_sec,
++    new FunctionContext([this](int r) {
++      tick();
++  }));
++}
++
++void DaemonServer::schedule_tick(double delay_sec)
++{
++  Mutex::Locker l(lock);
++  schedule_tick_locked(delay_sec);
++}
++
+ void DaemonServer::shutdown()
+ {
+   dout(10) << "begin" << dendl;
+   msgr->shutdown();
+   msgr->wait();
+   dout(10) << "done" << dendl;
++
++  Mutex::Locker l(lock);
++  shutting_down = true;
++  timer.shutdown();
+ }
+ 
+ static DaemonKey key_from_service(
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 26554a47283..e7a7658cb71 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -21,6 +21,7 @@
+ 
+ #include "common/Mutex.h"
+ #include "common/LogClient.h"
++#include "common/Timer.h"
+ 
+ #include <msg/Messenger.h>
+ #include <mon/MonClient.h>
+@@ -103,6 +104,12 @@ private:
+   std::set<int32_t> reported_osds;
+   void maybe_ready(int32_t osd_id);
+ 
++  SafeTimer timer;
++  bool shutting_down;
++  Context *tick_event;
++  void tick();
++  void schedule_tick_locked(double delay_sec);
++
+ public:
+   int init(uint64_t gid, entity_addrvec_t client_addrs);
+   void shutdown();
+@@ -147,6 +154,8 @@ public:
+   virtual const char** get_tracked_conf_keys() const override;
+   virtual void handle_conf_change(const ConfigProxy& conf,
+                           const std::set <std::string> &changed) override;
++
++  void schedule_tick(double delay_sec);
+ };
+ 
+ #endif

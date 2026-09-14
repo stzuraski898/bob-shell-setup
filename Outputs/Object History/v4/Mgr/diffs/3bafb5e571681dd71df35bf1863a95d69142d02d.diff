@@ -1,0 +1,24 @@
+commit 3bafb5e571681dd71df35bf1863a95d69142d02d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Feb 16 18:27:08 2021 -0500
+
+    mgr: rename config_prefix -> mgr_store_prefix
+    
+    The prefix for module kv store is "mgr/", but it is not *config* (which
+    lives under /config/mgr/...).  Rename the constant.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 26422e150e7..91e5ed48269 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -179,7 +179,7 @@ std::map<std::string, std::string> Mgr::load_store()
+     
+     dout(20) << "saw key '" << key << "'" << dendl;
+ 
+-    const std::string store_prefix = PyModule::config_prefix;
++    const std::string store_prefix = PyModule::mgr_store_prefix;
+     const std::string device_prefix = "device/";
+ 
+     if (key.substr(0, device_prefix.size()) == device_prefix ||

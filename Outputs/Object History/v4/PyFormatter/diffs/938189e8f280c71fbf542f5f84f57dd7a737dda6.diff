@@ -1,0 +1,21 @@
+commit 938189e8f280c71fbf542f5f84f57dd7a737dda6
+Author: Jan Fajerski <jfajerski@suse.com>
+Date:   Fri Sep 7 10:20:43 2018 +0200
+
+    mgr: remove PyFormatter copy constructor; shouldn't be called
+    
+    Signed-off-by: Jan Fajerski <jfajerski@suse.com>
+
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index 9c7d54eebbc..c58aaef43aa 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -30,6 +30,8 @@
+ class PyFormatter : public ceph::Formatter
+ {
+ public:
++  PyFormatter (const PyFormatter&) = delete;
++  PyFormatter& operator= (const PyFormatter&) = delete;
+   PyFormatter(bool pretty = false, bool array = false)
+   {
+     // It is forbidden to instantiate me outside of the GIL,

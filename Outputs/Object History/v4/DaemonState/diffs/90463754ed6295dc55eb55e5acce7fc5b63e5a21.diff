@@ -1,0 +1,26 @@
+commit 90463754ed6295dc55eb55e5acce7fc5b63e5a21
+Author: Jan Fajerski <jfajerski@suse.com>
+Date:   Fri Sep 7 10:22:19 2018 +0200
+
+    mgr: remove PerfCounterInstance::get_current()
+    
+    This function was wrong (should return buffer.back().v) and unused.
+    
+    Signed-off-by: Jan Fajerski <jfajerski@suse.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 1dd314da2d3..8bae839c719 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -289,11 +289,6 @@ void DaemonPerfCounters::update(MMgrReport *report)
+   DECODE_FINISH(p);
+ }
+ 
+-uint64_t PerfCounterInstance::get_current() const
+-{
+-  return buffer.front().v;
+-}
+-
+ void PerfCounterInstance::push(utime_t t, uint64_t const &v)
+ {
+   buffer.push_back({t, v});

@@ -1,0 +1,172 @@
+commit a075639ce746fe12cde1a3df8ad7b13c3fd9baf6
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Apr 15 14:01:00 2019 +0800
+
+    mgr/DaemonServer: use ref_t<M>
+    
+    to avoid explicit use of RefCountedObj interface. and let
+    intrusive_ptr<> to take care of the life cycle of messages.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index de867c620d7..c8db6652e61 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -252,25 +252,24 @@ bool DaemonServer::ms_handle_refused(Connection *con)
+   return false;
+ }
+ 
+-bool DaemonServer::ms_dispatch(Message *m)
++bool DaemonServer::ms_dispatch2(const ref_t<Message>& m)
+ {
+   // Note that we do *not* take ::lock here, in order to avoid
+   // serializing all message handling.  It's up to each handler
+   // to take whatever locks it needs.
+   switch (m->get_type()) {
+     case MSG_PGSTATS:
+-      cluster_state.ingest_pgstats(static_cast<MPGStats*>(m));
++      cluster_state.ingest_pgstats(ref_cast<MPGStats>(m));
+       maybe_ready(m->get_source().num());
+-      m->put();
+       return true;
+     case MSG_MGR_REPORT:
+-      return handle_report(static_cast<MMgrReport*>(m));
++      return handle_report(ref_cast<MMgrReport>(m));
+     case MSG_MGR_OPEN:
+-      return handle_open(static_cast<MMgrOpen*>(m));
++      return handle_open(ref_cast<MMgrOpen>(m));
+     case MSG_MGR_CLOSE:
+-      return handle_close(static_cast<MMgrClose*>(m));
++      return handle_close(ref_cast<MMgrClose>(m));
+     case MSG_COMMAND:
+-      return handle_command(static_cast<MCommand*>(m));
++      return handle_command(ref_cast<MCommand>(m));
+     default:
+       dout(1) << "Unhandled message type " << m->get_type() << dendl;
+       return false;
+@@ -406,7 +405,7 @@ static bool key_from_string(
+   return true;
+ }
+ 
+-bool DaemonServer::handle_open(MMgrOpen *m)
++bool DaemonServer::handle_open(const ref_t<MMgrOpen>& m)
+ {
+   std::lock_guard l(lock);
+ 
+@@ -477,11 +476,10 @@ bool DaemonServer::handle_open(MMgrOpen *m)
+     daemon_connections.insert(m->get_connection());
+   }
+ 
+-  m->put();
+   return true;
+ }
+ 
+-bool DaemonServer::handle_close(MMgrClose *m)
++bool DaemonServer::handle_close(const ref_t<MMgrClose>& m)
+ {
+   std::lock_guard l(lock);
+ 
+@@ -503,11 +501,11 @@ bool DaemonServer::handle_close(MMgrClose *m)
+   }
+ 
+   // send same message back as a reply
+-  m->get_connection()->send_message(m);
++  m->get_connection()->send_message2(m);
+   return true;
+ }
+ 
+-bool DaemonServer::handle_report(MMgrReport *m)
++bool DaemonServer::handle_report(const ref_t<MMgrReport>& m)
+ {
+   DaemonKey key;
+   if (!m->service_name.empty()) {
+@@ -526,7 +524,6 @@ bool DaemonServer::handle_report(MMgrReport *m)
+     dout(4) << "rejecting report from non-daemon client " << m->daemon_name
+ 	    << dendl;
+     m->get_connection()->mark_down();
+-    m->put();
+     return true;
+   }
+ 
+@@ -635,7 +632,6 @@ bool DaemonServer::handle_report(MMgrReport *m)
+     osd_perf_metric_collector.process_reports(m->osd_perf_metric_reports);
+   }
+ 
+-  m->put();
+   return true;
+ }
+ 
+@@ -715,16 +711,12 @@ bool DaemonServer::_allowed_command(
+  */
+ class CommandContext {
+ public:
+-  MCommand *m;
++  ceph::ref_t<MCommand> m;
+   bufferlist odata;
+   cmdmap_t cmdmap;
+ 
+-  explicit CommandContext(MCommand *m_)
+-    : m(m_) {
+-  }
+-
+-  ~CommandContext() {
+-    m->put();
++  explicit CommandContext(ceph::ref_t<MCommand> m)
++    : m{std::move(m)} {
+   }
+ 
+   void reply(int r, const std::stringstream &ss) {
+@@ -772,10 +764,10 @@ public:
+   }
+ };
+ 
+-bool DaemonServer::handle_command(MCommand *m)
++bool DaemonServer::handle_command(const ref_t<MCommand>& m)
+ {
+   std::lock_guard l(lock);
+-  std::shared_ptr<CommandContext> cmdctx = std::make_shared<CommandContext>(m);
++  auto cmdctx = std::make_shared<CommandContext>(m);
+   try {
+     return _handle_command(m, cmdctx);
+   } catch (const bad_cmd_get& e) {
+@@ -785,7 +777,7 @@ bool DaemonServer::handle_command(MCommand *m)
+ }
+ 
+ bool DaemonServer::_handle_command(
+-  MCommand *m,
++  const ref_t<MCommand>& m,
+   std::shared_ptr<CommandContext>& cmdctx)
+ {
+   auto priv = m->get_connection()->get_priv();
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 310a030b1b5..b728fabad8d 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -137,7 +137,7 @@ public:
+ 	       LogChannelRef auditcl);
+   ~DaemonServer() override;
+ 
+-  bool ms_dispatch(Message *m) override;
++  bool ms_dispatch2(const ceph::ref_t<Message>& m) override;
+   int ms_handle_authentication(Connection *con) override;
+   bool ms_handle_reset(Connection *con) override;
+   void ms_handle_remote_reset(Connection *con) override {}
+@@ -145,11 +145,12 @@ public:
+   bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer) override;
+   KeyStore *ms_get_auth1_authorizer_keystore() override;
+ 
+-  bool handle_open(MMgrOpen *m);
+-  bool handle_close(MMgrClose *m);
+-  bool handle_report(MMgrReport *m);
+-  bool handle_command(MCommand *m);
+-  bool _handle_command(MCommand *m, std::shared_ptr<CommandContext>& cmdctx);
++  bool handle_open(const ceph::ref_t<MMgrOpen>& m);
++  bool handle_close(const ceph::ref_t<MMgrClose>& m);
++  bool handle_report(const ceph::ref_t<MMgrReport>& m);
++  bool handle_command(const ceph::ref_t<MCommand>& m);
++  bool _handle_command(const ceph::ref_t<MCommand>& m,
++		       std::shared_ptr<CommandContext>& cmdctx);
+   void send_report();
+   void got_service_map();
+   void got_mgr_map();

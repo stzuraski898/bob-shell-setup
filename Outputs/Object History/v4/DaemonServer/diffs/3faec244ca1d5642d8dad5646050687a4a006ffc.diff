@@ -1,0 +1,32 @@
+commit 3faec244ca1d5642d8dad5646050687a4a006ffc
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Feb 24 14:38:47 2017 -0500
+
+    mgr: add generic Formatter for handle_command
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 919082f78c9..88476cac79f 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -243,12 +243,19 @@ bool DaemonServer::handle_command(MCommand *m)
+   // block a messenger thread on python code.
+ 
+   ConnectionRef con = m->get_connection();
++  string format;
++  boost::scoped_ptr<Formatter> f;
+ 
+   if (!cmdmap_from_json(m->cmd, &cmdmap, ss)) {
+     r = -EINVAL;
+     goto out;
+   }
+ 
++  {
++    cmd_getval(g_ceph_context, cmdmap, "format", format, string("plain"));
++    f.reset(Formatter::create(format));
++  }
++
+   dout(4) << "decoded " << cmdmap.size() << dendl;
+   cmd_getval(cct, cmdmap, "prefix", prefix);
+ 

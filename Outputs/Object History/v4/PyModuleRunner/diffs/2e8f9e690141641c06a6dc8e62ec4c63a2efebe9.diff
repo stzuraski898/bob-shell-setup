@@ -1,0 +1,25 @@
+commit 2e8f9e690141641c06a6dc8e62ec4c63a2efebe9
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Dec 18 14:11:30 2018 -0600
+
+    mgr: return options as appropriate python type
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModuleRunner.h b/src/mgr/PyModuleRunner.h
+index fb58bf0c232..08c85a13263 100644
+--- a/src/mgr/PyModuleRunner.h
++++ b/src/mgr/PyModuleRunner.h
+@@ -26,10 +26,11 @@
+  */
+ class PyModuleRunner
+ {
+-protected:
++public:
+   // Info about the module we're going to run
+   PyModuleRef py_module;
+ 
++protected:
+   // Populated by descendent class
+   PyObject *pClassInstance = nullptr;
+ 

@@ -1,0 +1,40 @@
+commit ca830c95a6f795393c19ab391b8b55837d88ce8c
+Author: Sebastian Wagner <swagner@suse.com>
+Date:   Thu Jul 25 11:22:12 2019 +0200
+
+    mgr: Reduce logging noise when handling commands
+    
+    Signed-off-by: Sebastian Wagner <sebastian.wagner@suse.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 806f023d198..1145e27ca1b 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -711,7 +711,7 @@ public:
+     }
+ 
+     if (r == 0) {
+-      dout(4) << __func__ << " success" << dendl;
++      dout(20) << "success" << dendl;
+     } else {
+       derr << __func__ << " " << cpp_strerror(r) << " " << rs << dendl;
+     }
+@@ -787,8 +787,7 @@ bool DaemonServer::_handle_command(
+   string prefix;
+   cmd_getval(cct, cmdctx->cmdmap, "prefix", prefix);
+ 
+-  dout(4) << "decoded " << cmdctx->cmdmap.size() << dendl;
+-  dout(4) << "prefix=" << prefix << dendl;
++  dout(10) << "decoded-size=" << cmdctx->cmdmap.size() << " prefix=" << prefix  << dendl;
+ 
+   if (prefix == "get_command_descriptions") {
+     dout(10) << "reading commands from python modules" << dendl;
+@@ -2180,7 +2179,7 @@ bool DaemonServer::_handle_command(
+     return true;
+   }
+ 
+-  dout(4) << "passing through " << cmdctx->cmdmap.size() << dendl;
++  dout(10) << "passing through " << cmdctx->cmdmap.size() << dendl;
+   finisher.queue(new FunctionContext([this, cmdctx, handler_name, prefix](int r_) {
+     std::stringstream ss;
+ 

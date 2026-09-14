@@ -1,0 +1,24 @@
+commit 9b6aa95ff4013e3f09f92f5dae5b6ca85403ffc8
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Apr 15 14:02:33 2019 +0800
+
+    mgr/DaemonState: pass const by reference
+    
+    DaemonPerfCounters::update() does not change the `MMgrReport` message,
+    neither does it expect a nullptr. so pass by const reference.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index c8db6652e61..e6976cb3891 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -593,7 +593,7 @@ bool DaemonServer::handle_report(const ref_t<MMgrReport>& m)
+   {
+     std::lock_guard l(daemon->lock);
+     auto &daemon_counters = daemon->perf_counters;
+-    daemon_counters.update(m);
++    daemon_counters.update(*m.get());
+ 
+     auto p = m->config_bl.cbegin();
+     if (p != m->config_bl.end()) {

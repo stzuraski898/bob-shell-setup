@@ -1,0 +1,36 @@
+commit c928983340029f95227882d340b0be0d4ca343e9
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Apr 16 09:13:10 2018 -0400
+
+    mgr: fix up a couple of double-lookups
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 6df6cacffb6..9bb48e9f889 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -432,8 +432,9 @@ bool ActivePyModules::get_store(const std::string &module_name,
+ 
+   dout(4) << __func__ << " key: " << global_key << dendl;
+ 
+-  if (store_cache.count(global_key)) {
+-    *val = store_cache.at(global_key);
++  auto i = store_cache.find(global_key);
++  if (i != store_cache.end()) {
++    *val = i->second;
+     return true;
+   } else {
+     return false;
+@@ -454,8 +455,9 @@ bool ActivePyModules::get_config(const std::string &module_name,
+ 
+   Mutex::Locker lock(module_config.lock);
+   
+-  if (module_config.config.count(global_key)) {
+-    *val = module_config.config.at(global_key);
++  auto i = module_config.config.find(global_key);
++  if (i != module_config.config.end()) {
++    *val = i->second;
+     return true;
+   } else {
+     return false;

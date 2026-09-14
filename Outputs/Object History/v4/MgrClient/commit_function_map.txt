@@ -1,0 +1,110 @@
+# Commit → function map for MgrClient
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+7fd618c288952060658a7f39963d3fc4e65d7f37 | shutdown init ms_dispatch2
+24662ab60e6518d068b9b21abfff7aca24844a46 | _send_report
+119f9ad1980e938c5fe9d698bab8e143b9cec114 | MgrClient
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b | (no functions)
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+f82ab1cbf242ca61c45ce31a756d8646710957eb | start_tell_command start_command handle_mgr_close
+d8141f4302ad7631a3a068e5017e9b018d6cb741 | handle_mgr_configure
+f941025561ecd6e42b032980d77555ef2540aa70 | _send_report
+c9d0913f53b0c4d632746075c05c2f2187d77c02 | shutdown
+aeeb15ea7d67fa81ac518f089c127dd458dc8f1c | (no functions)
+d02d77f334d8d5f627bba6082bacb24edf0a2c72 | (no functions)
+4e89ce7e72095548dbbbfe470aa9ec2e8947535c | _send_report
+6540937a6d1865642dd799b4996d85d2ee9a99ad | _send_update update_daemon_metadata
+1a065043b964f8c014ebb5bc890a243c398ff07c | handle_command_reply _send_open
+704a759b31d839ddffcdaa78d1d73653b9519eb0 | (no functions)
+8b6f5ead1334ecece72401c89b1137ce5175d4e5 | _send_report
+c92ba33505ad98ed42ebb7fab486d8ef201a1ed3 | reconnect
+3fdfd606f1344317931207e3d3c123d62acb673b | handle_command_reply
+f6ba1eea4cde2354e639518210a56d157081ecac | (no functions)
+4ccebbfa2f27d08fbdf55c1017ef70cb42a0e2f9 | (no functions)
+efcebe1eb4ae16ea9c633436e3e105add4a2662c | _send_report handle_mgr_configure
+dd23fb4be3c31227aef6afb0afa611b101bb2cbe | reconnect
+e765f2d533440cfc4189f36fcaba24617a302e84 | init
+13198b133fadc88f6b030e762ae0581dd04b374f | service_daemon_register
+fc60989bf7a72c35b8f6b8fec2407b3080ad9bbd | reconnect service_daemon_register
+6f35d2835268eade059535b62378d6d407ef9e87 | start_tell_command start_command
+22b0a99de7071aacef1b6abc8eb24e6512c066d2 | start_tell_command reconnect
+1fb103da34bac70a2410d3a4d5bde0ead6a226ee | reconnect start_command
+489b30844e86dab102f768796251783b6e4a5f8f | reconnect _send_stats
+0019005e87a0f0f31fbd5351fc9e82d56689cdfd | reconnect start_command ms_dispatch2
+5c25a018643b10aa78db8270cae1476f71d8f4f4 | _send_report service_daemon_register service_daemon_update_status
+c93dc8849145c1630058e4c0e527f404929216ff | reconnect _send_open shutdown init start_command _send_stats handle_mgr_configure ms_dispatch2 _send_pgstats
+78e7d9051ae7000dcbb1f1f399fcda71cac0bf08 | handle_command_reply handle_mgr_map _send_open shutdown start_command handle_mgr_configure _send_pgstats
+868b47e65a051daa942622b106f08fca2afa9918 | reconnect _send_open _send_report
+78df867516dffbaa8de07034e73418c82b339d27 | handle_mgr_close
+a89a836acc49994e7cc900af2857f43f2a5299ba | start_command
+72afe87f82a4034b86c239ff585da71fe88d3935 | reconnect start_command
+b1f12671184a8da25c1b0059f23bf366483e395f | (no functions)
+f495b8cce9014d3459f41691ad5eb7ca1fc9d153 | _send_report handle_mgr_configure
+8bf92fb6f687f113193163c512419a13cb0dcd57 | _send_report
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f | handle_mgr_map shutdown init _send_report start_command MgrClient service_daemon_register service_daemon_update_status
+7757ddd146f7e7e31630b54f633e1b89b6e5a6f8 | _send_report handle_mgr_configure
+ab23c506964753990f9fe23e314b9f3e2547a773 | reconnect _send_open start_command _send_stats MgrClient _send_pgstats
+7c00ad212472113ce62348408a0710146f8afefc | start_command
+4996506a6b4ab309110039ea29a075f14d09a379 | service_daemon_update_status
+4718b7cb2fac65b2ac7014f42ba1a10181350f0b | reconnect _send_open shutdown _send_report
+7f787704cdcd55df18d204c5251cdd6a3cedd604 | reconnect handle_mgr_map
+bae47183c2621577ba564d29c82a0517ab8a7f54 | start_command
+39ffec281af577c766c619d568f7a7051d108b00 | (no functions)
+38fba24c03861179a8c3bf850038a1be006ae397 | handle_mgr_close
+082a700ac80a78c6a153dc7dc2eed6bc1d640889 | shutdown init handle_mgr_configure
+2e92ae2471b560af6f728dcbe404eea18868b38d | service_daemon_register
+ce6e043a44e35144b038bc0236b5d244ffee1ca5 | (no functions)
+714ffe0d5f078e4106ddbd8b57918ae2a0c899af | service_daemon_update_status
+b17ff3c54b38c37f715a8cd165eba2c6b79f8d70 | handle_mgr_configure ms_handle_refused
+8e2a30068accd74c4bb452852375e7e94e00c50b | _send_open
+86cf85e0a2c5086df63ee8fc287502cb901b1073 | _send_open
+d8450574cf4884f5d45ef09fce99b7ad24b332a6 | _send_open
+8fb421070473ea212302f790f7da8e8939011d35 | (no functions)
+156c941ad0d27c3cd487a085e04df9faeeffa768 | (no functions)
+6fed1d21be1adf1464b5834787c95fae205a91b5 | service_daemon_update_status
+5faf1787573bb4896a67889471b3c033dbeacf04 | handle_mgr_configure ms_handle_refused
+f0592e6e76540085ece61f216dda8144a4708118 | service_daemon_register
+f724509d4fd6d70c25a85322204d14d1a853e073 | (no functions)
+88163749b572ffd2bfe0850136fad5dbed2a9180 | (no functions)
+f304f84cfbc22c1a54d152cc38227077bc564a7e | (no functions)
+ec09a7abc515f802451bf7ef3d22ce8ee6c6c7b3 | reconnect
+bdc775fdd8acdad5c58ff3065a21396f80ce5db4 | handle_mgr_configure
+2449b3a5c365987746ada095fde30e3dc63ee0c7 | reconnect
+b9127e7e3e4e7b174baab2d9532cb02b12a91d9f | reconnect _send_open service_daemon_register
+97cfc3cb694eb2723cae22d71057323773746cee | handle_command_reply reconnect
+ebd4c4fa8ac11f9aafc5871de889b70de9b29ff8 | (no functions)
+28c83737345e9b9547a87105ab4d32b6f636bd4b | (no functions)
+c93daaf92b643a06a822558973d377733dbd9d85 | (no functions)
+b306e9e0ac1b7f885295f4302709eec5b020fc4f | (no functions)
+7a4ba15817f592a95986d1da347bda42f5a7de24 | (no functions)
+eb5c02df634b34ca45ecbf1eaf4440ccf806845f | shutdown
+83c45ad6a440046d8e4a41a60edd3ad5146e6bd1 | (no functions)
+2d15ba7d146f1a4c8f947c3d622ad93ea5580771 | shutdown
+3015f304db4c1d4fef47ac1c10b8e995de9401ae | start_command
+a46690c6230b868b3a17cf6720119067891a1620 | (no functions)
+58f51ad6717e8772a0ac10142beb5c4d4ef2824b | (no functions)
+8ca982f403b0c642fbd84a03250e316067bd9c5e | shutdown
+bc128e882a5b6b1ae1a5d5f46cdeee3f185410c3 | (no functions)
+d902e5b76ed5526a04be0b81a284c14791ba3b69 | reconnect
+6ff0857974ea91e83f4355b25a81198303907290 | reconnect
+6ffa93ba43c46bcc1d1ae3c6831c178d5e2c7ddb | handle_mgr_configure
+e19d4a0118f4e640d756bb76e854da9570adbe56 | reconnect start_command
+ecbcd591b785009e8a28a41125868024d86c112d | (no functions)
+4d1989dc229a7f0a5f83ff1faf9d766c20ab73a8 | reconnect handle_mgr_map shutdown start_command handle_mgr_configure
+624bdbcf3afe304ad043baca43d46bfda2746e78 | (no functions)
+f7a9a6f656bb271a6c5c816dd871a9f2df0278b0 | handle_mgr_map
+848ee05932bd43da6364dea5a9afb4fd9416929a | ms_handle_reset
+58dd3db0be62f67aa51f78357ceabb0979ccf6e1 | ms_handle_reset
+2210772ed87ca281a60549ec40b1a1abe271d6e7 | handle_command_reply handle_mgr_map start_command
+8db0137dc390790175e6f2a9073eda822ce4179c | handle_command_reply handle_mgr_map handle_mgr_configure
+c38d4915a98a2e096c85a4e379fb90c67bff0d80 | handle_mgr_map start_command
+ea46778e3681e5ed6b322f68ab40747b2e052433 | handle_command_reply
+803b66a3b48231f9ed1eff2df15df95c9850eba4 | (no functions)
+e3104862b84eb4e2971c0dab3fb0b7389e0e43fa | handle_mgr_map
+1643a7fc607477f1c554c17811e64f490a8ec752 | handle_mgr_map handle_mgr_configure MgrClient
+7845f8d757adf63390d6cb0ff56afbc088bc508b | handle_mgr_map init start_command
+88442d2391ad58f95eb6b9f1529d8652e88ba42d | (no functions)

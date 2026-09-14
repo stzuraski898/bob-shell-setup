@@ -1,0 +1,80 @@
+commit 95746ecce9215c8428a02f1745d03e10536a4129
+Author: Volker Theile <vtheile@suse.com>
+Date:   Mon Sep 24 12:18:56 2018 +0200
+
+    mgr: Add ability to trigger a cluster/audit log message from Python
+    
+    Fixes: https://tracker.ceph.com/issues/36194
+    
+    Signed-off-by: Volker Theile <vtheile@suse.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 3e96639e838..0f48d6bbd0e 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -141,7 +141,7 @@ void PyModuleRegistry::standby_start(MonClient &mc)
+   dout(4) << "Starting modules in standby mode" << dendl;
+ 
+   standby_modules.reset(new StandbyPyModules(
+-        mgr_map, module_config, clog, mc));
++        mgr_map, module_config, clog, audit_clog, mc));
+ 
+   std::set<std::string> failed_modules;
+   for (const auto &i : modules) {
+@@ -178,8 +178,9 @@ void PyModuleRegistry::standby_start(MonClient &mc)
+ void PyModuleRegistry::active_start(
+             DaemonStateIndex &ds, ClusterState &cs,
+             const std::map<std::string, std::string> &kv_store,
+-            MonClient &mc, LogChannelRef clog_, Objecter &objecter_,
+-            Client &client_, Finisher &f, DaemonServer &server)
++            MonClient &mc, LogChannelRef clog_, LogChannelRef audit_clog_,
++            Objecter &objecter_, Client &client_, Finisher &f,
++            DaemonServer &server)
+ {
+   Mutex::Locker locker(lock);
+ 
+@@ -198,7 +199,7 @@ void PyModuleRegistry::active_start(
+ 
+   active_modules.reset(new ActivePyModules(
+               module_config, kv_store, ds, cs, mc,
+-              clog_, objecter_, client_, f, server));
++              clog_, audit_clog_, objecter_, client_, f, server));
+ 
+   for (const auto &i : modules) {
+     // Anything we're skipping because of !can_run will be flagged
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 089044433ed..06e49b2e2ad 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -38,7 +38,7 @@ class PyModuleRegistry
+ {
+ private:
+   mutable Mutex lock{"PyModuleRegistry::lock"};
+-  LogChannelRef clog;
++  LogChannelRef clog, audit_clog;
+ 
+   std::map<std::string, PyModuleRef> modules;
+ 
+@@ -76,8 +76,8 @@ public:
+     return modules_out;
+   }
+ 
+-  explicit PyModuleRegistry(LogChannelRef clog_)
+-    : clog(clog_)
++  explicit PyModuleRegistry(LogChannelRef clog_, LogChannelRef audit_clog_)
++    : clog(clog_), audit_clog(audit_clog_)
+   {}
+ 
+   /**
+@@ -94,8 +94,9 @@ public:
+   void active_start(
+                 DaemonStateIndex &ds, ClusterState &cs,
+                 const std::map<std::string, std::string> &kv_store,
+-                MonClient &mc, LogChannelRef clog_, Objecter &objecter_,
+-                Client &client_, Finisher &f, DaemonServer &server);
++                MonClient &mc, LogChannelRef clog_, LogChannelRef audit_clog_,
++                Objecter &objecter_, Client &client_, Finisher &f,
++                DaemonServer &server);
+   void standby_start(MonClient &mc);
+ 
+   bool is_standby_running() const

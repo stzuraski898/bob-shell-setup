@@ -1,0 +1,81 @@
+commit 9ea37c223f92b8f228c57a4c17d4da02d99be756
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Nov 14 00:04:16 2016 +0000
+
+    mgr: pass through cluster log to plugins
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 090e0aa2f19..b8a731df2c2 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -28,6 +28,7 @@
+ #include "messages/MMgrDigest.h"
+ #include "messages/MCommand.h"
+ #include "messages/MCommandReply.h"
++#include "messages/MLog.h"
+ 
+ #include "Mgr.h"
+ 
+@@ -180,6 +181,7 @@ void Mgr::init()
+   // Subscribe to OSDMap update to pass on to ClusterState
+   objecter->maybe_request_map();
+ 
++  monc->sub_want("log-info", 0, 0);
+   monc->sub_want("mgrdigest", 0, 0);
+ 
+   // Prepare to receive FSMap and request it
+@@ -197,6 +199,7 @@ void Mgr::init()
+   waiting_for_fs_map = nullptr;
+   dout(4) << "Got FSMap." << dendl;
+ 
++
+   // Wait for MgrDigest...?
+   // TODO
+ 
+@@ -418,6 +421,13 @@ void Mgr::handle_osd_map()
+   daemon_state.cull(CEPH_ENTITY_TYPE_OSD, names_exist);
+ }
+ 
++void Mgr::handle_log(MLog *m)
++{
++  for (const auto &e : m->entries) {
++    py_modules.notify_all(e);
++  }
++}
++
+ bool Mgr::ms_dispatch(Message *m)
+ {
+   derr << *m << dendl;
+@@ -455,6 +465,10 @@ bool Mgr::ms_dispatch(Message *m)
+       objecter->maybe_request_map();
+       m->put();
+       break;
++    case MSG_LOG:
++      handle_log(static_cast<MLog *>(m));
++      m->put();
++      break;
+ 
+     default:
+       return false;
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index ffe1d1460c9..178df38e77f 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -38,6 +38,7 @@
+ 
+ class MCommand;
+ class MMgrDigest;
++class MLog;
+ class Objecter;
+ 
+ 
+@@ -78,6 +79,7 @@ public:
+   void handle_mgr_digest(MMgrDigest* m);
+   void handle_fs_map(MFSMap* m);
+   void handle_osd_map();
++  void handle_log(MLog *m);
+ 
+   bool ms_dispatch(Message *m);
+ 

@@ -1,0 +1,58 @@
+commit 7fd618c288952060658a7f39963d3fc4e65d7f37
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Wed Jul 8 14:19:54 2026 -0400
+
+    mgr/MgrClient: stop processing messages when shutdown
+    
+    The MgrClient will try to create a new session with the Mgr if it
+    receives a MgrMap. This can happen after MgrClient has shutdwon but
+    before the Messenger.
+    
+    Change-Id: e7907397-f0c1-40f5-8550-ee8cc26e3e1f
+    Signed-off-by: Patrick Donnelly <pdonnell@ibm.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 39ee742b3a0..b575766b37d 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -77,6 +77,7 @@ void MgrClient::init()
+ 
+   timer.init();
+   initialized = true;
++  dead = false;
+ }
+ 
+ void MgrClient::shutdown()
+@@ -84,6 +85,8 @@ void MgrClient::shutdown()
+   std::unique_lock l(lock);
+   ldout(cct, 10) << dendl;
+ 
++  dead = true;
++
+   if (connect_retry_callback) {
+     timer.cancel_event(connect_retry_callback);
+     connect_retry_callback = nullptr;
+@@ -117,6 +120,10 @@ Dispatcher::dispatch_result_t MgrClient::ms_dispatch2(const ref_t<Message>& m)
+ {
+   std::lock_guard l(lock);
+ 
++  if (dead) {
++    return false;
++  }
++
+   switch(m->get_type()) {
+   case MSG_MGR_MAP:
+     return handle_mgr_map(ref_cast<MMgrMap>(m));
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index ea4b049ad1e..99e7e02c7b6 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -63,6 +63,8 @@ protected:
+   Messenger *msgr;
+   MonMap *monmap;
+ 
++  bool dead = false;
++
+   std::unique_ptr<MgrSessionState> session;
+ 
+   ceph::mutex lock = ceph::make_mutex("MgrClient::lock");

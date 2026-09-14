@@ -1,0 +1,36 @@
+commit 74c2b732717ba5150e359a0462973da874f33e9e
+Author: David Zafman <dzafman@redhat.com>
+Date:   Fri Jan 10 23:42:19 2020 +0000
+
+    mon mgr osd: Add dump_osd_times interface for python
+    
+    The dump_osd_times interface is here for future use of a manager module.
+    The osd_stats and pg_dump python interfaces don't return network ping
+    information.
+    
+    User facing ping time information is formatted 3 decimal places
+    Use dump_float() (low overhead) for network ping times
+       used by python dump_osd_times and dump commands like
+       "ceph --formet=json pg dump osds" which for now yields output like
+       >>>> "1min": 0.61599999999999999,
+    
+    Signed-off-by: David Zafman <dzafman@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 6546711aa7a..cf1d5cf9087 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -394,6 +394,13 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+       pg_map.dump_osd_stats(&f, false);
+     });
+     return f.get();
++  } else if (what == "osd_ping_times") {
++    cluster_state.with_pgmap(
++        [&f, &tstate](const PGMap &pg_map) {
++      PyEval_RestoreThread(tstate);
++      pg_map.dump_osd_ping_times(&f);
++    });
++    return f.get();
+   } else if (what == "osd_pool_stats") {
+     int64_t poolid = -ENOENT;
+     cluster_state.with_osdmap_and_pgmap([&](const OSDMap& osdmap,

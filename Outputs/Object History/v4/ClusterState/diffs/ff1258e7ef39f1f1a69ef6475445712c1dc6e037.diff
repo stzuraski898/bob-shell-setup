@@ -1,0 +1,51 @@
+commit ff1258e7ef39f1f1a69ef6475445712c1dc6e037
+Author: Greg Farnum <gfarnum@redhat.com>
+Date:   Fri Mar 10 18:48:47 2017 -0800
+
+    mgr: introduce tick() calls through the system
+    
+    Still empty for the moment
+    
+    Signed-off-by: Greg Farnum <gfarnum@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 153dc34cdf3..d96d1e99e3b 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -12,6 +12,7 @@
+  */
+ 
+ #include "messages/MMgrDigest.h"
++#include "messages/MMonMgrReport.h"
+ #include "messages/MPGStats.h"
+ 
+ #include "mgr/ClusterState.h"
+@@ -113,3 +114,7 @@ void ClusterState::notify_osdmap(const OSDMap &osd_map)
+   // while the full-blown PGMap lives only here.
+ }
+ 
++void ClusterState::tick(MMonMgrReport *m)
++{
++  dout(0) << __func__ << dendl;
++}
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index fb967e17fc1..72643dba20b 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -22,6 +22,7 @@
+ #include "mon/PGMap.h"
+ 
+ class MMgrDigest;
++class MMonMgrReport;
+ class MPGStats;
+ 
+ 
+@@ -57,6 +58,8 @@ public:
+ 
+   void notify_osdmap(const OSDMap &osd_map);
+ 
++  void tick(MMonMgrReport *m);
++
+   bool have_fsmap() const {
+     Mutex::Locker l(lock);
+     return fsmap.get_epoch() > 0;

@@ -1,0 +1,11 @@
+# Function list for DaemonPerfCounters (via ctags)
+# Format: qualified_name | file:line
+#
+DaemonPerfCounters | src/mgr/DaemonPerfCounters.cc:26
+clear | src/mgr/DaemonPerfCounters.cc:83
+update | src/mgr/DaemonPerfCounters.cc:32
+~DaemonPerfCounters | src/mgr/DaemonPerfCounters.cc:30
+DaemonPerfCounters | src/mgr/DaemonPerfCounters.h:37
+clear | src/mgr/DaemonPerfCounters.h:44
+update | src/mgr/DaemonPerfCounters.h:42
+~DaemonPerfCounters | src/mgr/DaemonPerfCounters.h:38

@@ -1,0 +1,24 @@
+commit a41b62bd85688bec566a7760cea95341bcb7a953
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jun 27 12:01:17 2021 +0800
+
+    mgr,mon: s/boost::optional/std::optional/
+    
+    since the encoding schemes of boost::optional and std::optional are
+    identical, they can be used interchangeably.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 27590107bb7..19360b3fa2d 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -69,7 +69,7 @@ public:
+   void update_kv_data(
+     const std::string prefix,
+     bool incremental,
+-    const map<std::string, boost::optional<bufferlist>, std::less<>>& data) {
++    const map<std::string, std::optional<bufferlist>, std::less<>>& data) {
+     ceph_assert(active_modules);
+     active_modules->update_kv_data(prefix, incremental, data);
+   }

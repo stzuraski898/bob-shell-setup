@@ -1,0 +1,41 @@
+commit 39ffec281af577c766c619d568f7a7051d108b00
+Author: Danny Al-Gaaf <danny.al-gaaf@bisect.de>
+Date:   Wed Apr 25 09:30:56 2018 +0200
+
+    misc: mark constructors as explicit
+    
+    Set 218 constructors as explicit to avoid implicit usage.
+    
+    Fix for cppcheck warning:
+     Class has a constructor with 1 argument that is
+     not explicit. Such constructors should in general be explicit for
+     type safety reasons. Using the explicit keyword in the constructor
+     means some mistakes when using the class can be avoided.
+    
+     For more information check:
+      https://www.codeproject.com/Articles/28663/Explicit-Constructor-in-C
+    
+    Signed-off-by: Danny Al-Gaaf <danny.al-gaaf@bisect.de>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 3cbf8e52594..152210ba008 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -68,7 +68,7 @@ class DaemonPerfCounters
+   // The record of perf stat types, shared between daemons
+   PerfCounterTypes &types;
+ 
+-  DaemonPerfCounters(PerfCounterTypes &types_)
++  explicit DaemonPerfCounters(PerfCounterTypes &types_)
+     : types(types_)
+   {}
+ 
+@@ -119,7 +119,7 @@ class DaemonState
+   // The perf counters received in MMgrReport messages
+   DaemonPerfCounters perf_counters;
+ 
+-  DaemonState(PerfCounterTypes &types_)
++  explicit DaemonState(PerfCounterTypes &types_)
+     : perf_counters(types_)
+   {
+   }

@@ -1,0 +1,85 @@
+# Non-merge commits touching src/mgr/DaemonState.cc and/or src/mgr/DaemonState.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+35f6dd06dd0b3c78235e21ac309e4226aa733af1 2025-08-14 Max Kellermann | mgr/DaemonState: move PerfCounters classes to separate sources
+d2d4c7d3f865a69fd6ec0fb06fcc5e7150a77c00 2025-08-14 Max Kellermann | mgr/DaemonState: forward-declare types from MMgrReport.h
+e9abc5ce0bb784d2bdca887dfe8e7b003316eb38 2025-08-14 Max Kellermann | mgr/DaemonState: forward-declare class DaemonHealthMetric
+7bfbdb328a75cf36cc5e1fd0245cfbee914113bb 2025-08-14 Max Kellermann | mgr/DaemonState: include cleanup
+1aef3773f3b5c72e962c80706b46e81200b22e57 2025-09-12 Max Kellermann | mgr: add missing includes
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b 2025-10-02 Edwin Rodriguez | Add blank line after header block
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 2025-10-02 Edwin Rodriguez | Add missing blank line after comment block
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+a17349b87afd4b4e66dfe50796e1594b47b13aba 2025-08-12 Max Kellermann | mgr: add missing includes
+b4304d521f61b61515cade872824210e7d67f6db 2025-07-31 Brad Hubbard | mgr/DaemonState: Minimise time we hold the DaemonStateIndex lock
+2d2982e74209a28293d207c67a6f7d60360aa8b5 2024-10-26 Max Kellermann | mgr/DaemonState: add missing includes
+6e1a6f0aa1fa44ab8580444dc3ce5937248cd75e 2021-12-19 Kefu Chai | mgr: move DaemonState methods into .cc
+95a96cffc3007fe6ec7eec79ed997ff8c9e67e13 2021-12-19 Kefu Chai | mgr: refactor DaemonState::set_metadata()
+bb09a1d7e2c5dd29bbdfc70a24bd35ab5a0ce60a 2021-10-17 Ronen Friedman | common: hide internal logger configuration strings from clients
+c63ecb602e5916d5e0beed137787fdfc67707f15 2021-08-11 Kefu Chai | mgr: build without "using namespace std"
+a343f181861b8733c2a5abd40823cc4681305095 2021-03-10 Kefu Chai | mgr: do not include RWLock.h unless it is used
+c52fcb51afb6da2dccd6954a40f0f1c616324855 2021-02-08 Sage Weil | mgr/DaemonState: store optional wear_level for devices
+78b72b0be752fce855203b28b558133a0d47eba8 2021-02-08 Sage Weil | mgr/DaemonState: fix serialization/storage of device life expectancy min/max
+f9a11737ea5c37abcc2a11dbf67016d7d3057d58 2020-08-28 Kefu Chai | mgr/DaemonState: avoid searching for a daemon state twice
+d6ad0a255a27c5e3da20c7ae03066a692a6d49bb 2020-01-15 Venky Shankar | mgr: re-enable mds `scrub status` info in ceph status
+2c0fd7d86827aa76b8d923870018365cdae4a6ad 2019-12-15 Sage Weil | mgr: report device by-path paths too
+7534737030b3b51e00f9ffc519574bcb10f6c950 2019-11-27 Jason Dillaman | mgr: cull service daemons when the last instance has been removed
+5aac7eba36be99861eb8726872e339ff55360f47 2019-09-29 Kefu Chai | mgr: use a struct for DaemonKey
+ff6b3997caa43d3eac0fc462f3be9ec4fa5ae6ed 2019-09-18 Kefu Chai | mgr: set hostname in DeviceState::set_metadata()
+517bdca529db390e7ebc4e596570f80522060485 2019-02-06 Patrick Donnelly | common/RefCountedObj: cleanup con/des
+5c25a018643b10aa78db8270cae1476f71d8f4f4 2019-07-02 Venky Shankar | mgr, mon: allow normal ceph services to register with manager
+675606bf712ee2a22b6dbc6b568d79d9de05539f 2019-07-07 Kefu Chai | mds: s/Mutex/ceph::mutex/
+c93dc8849145c1630058e4c0e527f404929216ff 2019-07-07 Kefu Chai | mgr: s/Mutex/ceph::mutex/
+9b6aa95ff4013e3f09f92f5dae5b6ca85403ffc8 2019-04-15 Kefu Chai | mgr/DaemonState: pass const by reference
+dac649753bcb49bcbeafd70b5128349cfc6f6856 2019-01-18 Sage Weil | mgr/ActivePyModules: fix RestoreThread calls for get('devices')
+5b6037aeb43aff90111fdae08807ddda290bc570 2018-12-13 Mykola Golub | mgr: fix crash due to multiple sessions from daemons with same name
+0b14f926ec238ba2e0185bed87561cac38edec78 2018-11-08 Sage Weil | mgr/DeviceState: fix DeviceState initial refcount
+1c2bc53df73d9891330cf0b18f5193167d64df61 2018-10-17 Sage Weil | mgr/DaemonState: fix get_config_defaults locking
+8a2f4429b129a24a72fdbc374075bba954be5bd3 2018-10-18 Sage Weil | mgr: adjust DaemonState device index when daemon metadata is updated
+c52fc7b5d34f951bc10abbd86a8fb3553ef3a416 2018-10-18 Sage Weil | mgr/DaemonState: clear devices in set_metadata
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f 2018-10-16 Sage Weil | mgr: Mutex::Locker -> std::lock_guard
+a9b04900366d238ba78036e3c4b3e6bc77461059 2018-10-12 Sage Weil | mgr/DaemonState: clean up device life_expectancy values
+b421142b1c6fb0a6cbd2f76d007ee07502a8d689 2018-09-07 Jan Fajerski | mgr: add get_latest_counter() to C++ -> Python interface.
+90463754ed6295dc55eb55e5acce7fc5b63e5a21 2018-09-07 Jan Fajerski | mgr: remove PerfCounterInstance::get_current()
+ab23c506964753990f9fe23e314b9f3e2547a773 2018-08-23 Adam C. Emerson | mgr: Use ceph_assert for asserts.
+4920bbd6cb49290122eaa0542b7a81ffaa0f4aed 2018-06-07 Sage Weil | mgr: "predicted failure" -> "life expectancy", and as a range
+6b6fe52aacf645ce3cac08c8bd540691fcc15f8a 2018-06-06 Sage Weil | mgr: track and report device names too
+7add8da7b00a646e78948c647d3e19c2c6dcca88 2018-06-06 Sage Weil | mgr/DaemonState: skip blank device_ids
+f222375cbced5efecb4d52ef4955701a7ba38474 2018-06-07 Sage Weil | mgr: use prettified durations for life expectancy
+46ab713e1f237d8b4c41b0731a14a98e0c11f771 2018-06-05 Sage Weil | mgr: move dump/print to DeviceState
+47abea157cf415a132d9a35311e5b5362708b8d3 2018-06-05 Sage Weil | mgr: implement 'device {set,rm}-predicted-failure' commands
+45d4dfed1ded628abcbb9f1c62dfb90095414f0d 2018-06-05 Sage Weil | mgr: load persistent device metadata on mgr stat
+38afbae02696afdab973a5ec739c1e68cd45e4d1 2018-06-05 Sage Weil | mgr/DaemonState: populate DeviceState structures
+67b5d3e343c51c9015d55a7c03e6dcc32f4c89e2 2018-06-05 Sage Weil | mgr: parse out devids from daemon metadata
+946e1803453a08db7f78962a8bf8c40fac5a0dcc 2018-06-05 Sage Weil | mgr: implement 'device {ls,ls-by-daemon,ls-by-host,info}' commands
+72883956c26fdc4345324e9b27b45c3dfac17fa2 2018-05-29 Kefu Chai | mds,osd,mon,msg: use intrusive_ptr for holding Connection::priv
+1164ef2f32d81d4f35623c3f6a77af2b6871f962 2018-05-15 Boris Ranto | mgr: Expose avgcount for long running avgs
+f146c6c514b7f1ab8a2420edb5f7b64702bc9639 2018-05-15 Kefu Chai | core: use const_iterator for decode
+62382040ee9b655a68b15ccb43cebb39c9dc3a45 2018-05-06 Kefu Chai | common,filestore: silence GCC-8 warnings
+39ffec281af577c766c619d568f7a7051d108b00 2018-04-25 Danny Al-Gaaf | misc: mark constructors as explicit
+a6832cb610ba50fb634b45ff395b1b621ec5b92d 2018-03-06 Sage Weil | mgr/DaemonState: add rm()
+714ffe0d5f078e4106ddbd8b57918ae2a0c899af 2018-03-13 Shanchun Lv | mgr,osd: make osd_metric more popular
+4af9c9677b0091ad3a5f99289230b83ebd42b53a 2018-01-08 Sage Weil | mgr: 'config show <who> <key>'
+926ec5b4c505bbef1f9574d6df5548b470f3bf57 2018-01-10 Sage Weil | common/config: report failed mon config values to mgr
+e8b32359731be7e8ac5c50f125e5ad10c254aeca 2018-01-11 Sage Weil | common/config,mgr: fix config for new encode/decode syntax
+86cf85e0a2c5086df63ee8fc287502cb901b1073 2018-01-05 Sage Weil | mgr: get config defaults on session open
+d8450574cf4884f5d45ef09fce99b7ad24b332a6 2017-12-04 Sage Weil | mgr/MgrClient: report running config to mgr
+156c941ad0d27c3cd487a085e04df9faeeffa768 2017-12-25 Adam C. Emerson | mgr: Use unqualified encode/decode
+7e7978732d20c506eca581f2b153ede70ceefa3d 2017-11-01 Kefu Chai | mgr: summarize osd metrics in MMgrReport and sent it to mon
+dc415f1ae09a308bd448614934a4c168eb9cf07b 2017-09-23 John Spray | mgr: store declared_types in MgrSession
+806f10847cefe5c7a78fc319b1b130d372197dd3 2017-08-24 John Spray | mgr: clean up DaemonStateIndex locking
+f9a4ca07acecd15986cbce61a6e118a6cb05af29 2017-09-08 John Spray | mgr: fix py calls for dne service perf counters
+f236b5e78338f85a0ac82440ae44cdf4db83a04f 2017-07-19 Sage Weil | mgr/DaemonState: add per DaemonState lock
+97cfc3cb694eb2723cae22d71057323773746cee 2017-06-26 Sage Weil | mgr: allow/track service registrations
+a22b256bad1f6a4fcb9ffc10015b17bab7216afb 2017-06-22 Sage Weil | mgr: index daemon state by string service type
+28c83737345e9b9547a87105ab4d32b6f636bd4b 2017-06-08 Kefu Chai | msg,common: do not include assert.h everywhere to clobber <assert.h>
+c93daaf92b643a06a822558973d377733dbd9d85 2017-05-24 Jesse Williamson | compile fixups for dout
+0e7137aa6a1f1d9f6d1276acc2cd89f5787ecce3 2017-05-05 Kefu Chai | mgr: optimize DaemonStateIndex::cull() a little bit
+a46690c6230b868b3a17cf6720119067891a1620 2017-03-10 Sage Weil | mgr/MgrClient: cope with disappearing perf_counters
+750ad8340c827d2f8896e1251e45f921dddb9f30 2016-11-14 Adam C. Emerson | common: Unskew clock
+b9182564c716fdfcb39cc77314ba295990dd4312 2016-11-16 Adam C. Emerson | dout: Use dout_context
+9501bfdd711499c1314a3495549da24fbc02257e 2016-07-26 John Spray | mgr: store some counter history
+d9dfb436ea588a43be135a0808b28039d9ca2546 2016-07-03 John Spray | mgr: s/DaemonMetadata/DaemonState/g
+b7c9561accefb81dec73bdd1635ec808a9d23a1f 2016-07-01 John Spray | mgr: fix locking in DaemonMetadata
+ac30e6cee2b2d3815438f1a392a951d511bddfd4 2016-06-30 John Spray | mgr: create ceph-mgr service

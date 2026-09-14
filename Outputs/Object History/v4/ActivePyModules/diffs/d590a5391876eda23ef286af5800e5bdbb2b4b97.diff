@@ -1,0 +1,23 @@
+commit d590a5391876eda23ef286af5800e5bdbb2b4b97
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Nov 14 06:19:14 2018 -0500
+
+    mgr: drop GIL in get_config
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 6f75a7b6586..8e35353f778 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -503,10 +503,6 @@ PyObject *ActivePyModules::dispatch_remote(
+ bool ActivePyModules::get_config(const std::string &module_name,
+     const std::string &key, std::string *val) const
+ {
+-  PyThreadState *tstate = PyEval_SaveThread();
+-  std::lock_guard l(lock);
+-  PyEval_RestoreThread(tstate);
+-
+   const std::string global_key = PyModule::config_prefix
+     + module_name + "/" + key;
+ 

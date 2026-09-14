@@ -1,0 +1,26 @@
+commit 86cf85e0a2c5086df63ee8fc287502cb901b1073
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jan 5 17:44:56 2018 -0600
+
+    mgr: get config defaults on session open
+    
+    Leave them encoded until they are used, since usually we won't use them.
+    This is about 50k currently.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index dcbbde15802..7b0ef76c245 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -395,6 +395,10 @@ bool DaemonServer::handle_open(MMgrOpen *m)
+       ::decode(daemon->config, p);
+       dout(20) << " got config " << daemon->config << dendl;
+     }
++    daemon->config_defaults_bl = m->config_defaults_bl;
++    daemon->config_defaults.clear();
++    dout(20) << " got config_defaults_bl " << daemon->config_defaults_bl.length()
++	     << " bytes" << dendl;
+   }
+ 
+   if (m->get_connection()->get_peer_type() != entity_name_t::TYPE_CLIENT &&

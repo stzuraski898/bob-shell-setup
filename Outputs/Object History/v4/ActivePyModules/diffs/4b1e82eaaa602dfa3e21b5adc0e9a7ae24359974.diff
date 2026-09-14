@@ -1,0 +1,68 @@
+commit 4b1e82eaaa602dfa3e21b5adc0e9a7ae24359974
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Nov 16 17:48:27 2021 -0500
+
+    mon/ConfigMap: push kv parsing logic into add_option()
+    
+    Push shared code into ConfigMap from mon + mgr.  Pass in a function to
+    fetch the Option*, since in the mon case it may come from somewhere other
+    than g_conf.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+    (cherry picked from commit d8ccd221549cdd28702932deb148f075cb6d88b3)
+    
+    Fixed conflict: `mopt.localized_name = name;` is added to add_option()
+    (due to 3821722e5660437298a7c0f41e1061d363090103)
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 701b41bef8e..4f75670591a 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -866,42 +866,11 @@ void ActivePyModules::_refresh_config_map()
+     string who;
+     config_map.parse_key(key, &name, &who);
+ 
+-    const Option *opt = g_conf().find_option(name);
+-    if (!opt) {
+-      config_map.stray_options.push_back(
+-	std::unique_ptr<Option>(
+-	  new Option(name, Option::TYPE_STR, Option::LEVEL_UNKNOWN)));
+-      opt = config_map.stray_options.back().get();
+-    }
+-
+-    string err;
+-    int r = opt->pre_validate(&value, &err);
+-    if (r < 0) {
+-      dout(10) << __func__ << " pre-validate failed on '" << name << "' = '"
+-	       << value << "' for " << name << dendl;
+-    }
+-
+-    MaskedOption mopt(opt);
+-    mopt.raw_value = value;
+-    string section_name;
+-    if (who.size() &&
+-	!ConfigMap::parse_mask(who, &section_name, &mopt.mask)) {
+-      derr << __func__ << " invalid mask for key " << key << dendl;
+-    } else if (opt->has_flag(Option::FLAG_NO_MON_UPDATE)) {
+-      dout(10) << __func__ << " NO_MON_UPDATE option '"
+-	       << name << "' = '" << value << "' for " << name
+-	       << dendl;
+-    } else {
+-      Section *section = &config_map.global;;
+-      if (section_name.size() && section_name != "global") {
+-	if (section_name.find('.') != std::string::npos) {
+-	  section = &config_map.by_id[section_name];
+-	} else {
+-	  section = &config_map.by_type[section_name];
+-	}
+-      }
+-      section->options.insert(make_pair(name, std::move(mopt)));
+-    }
++    config_map.add_option(
++      g_ceph_context, name, who, value,
++      [&](const std::string& name) {
++	return  g_conf().find_option(name);
++      });
+   }
+ }
+ 

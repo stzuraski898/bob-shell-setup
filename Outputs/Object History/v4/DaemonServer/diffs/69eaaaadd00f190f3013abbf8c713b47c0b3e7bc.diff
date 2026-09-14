@@ -1,0 +1,37 @@
+commit 69eaaaadd00f190f3013abbf8c713b47c0b3e7bc
+Author: David Zafman <dzafman@redhat.com>
+Date:   Wed Apr 17 17:11:02 2019 -0700
+
+    mon, mgr: Improve PG count by changing up to up_no_acting in pg_count
+    
+    By not adding a field to pg_count, we don't have to worry about
+    versioning or backwards compatibility.  A mixed cluster won't
+    be any worse than before.
+    
+    Signed-off-by: David Zafman <dzafman@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 141d9b97761..0dd24c270e6 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1379,9 +1379,10 @@ bool DaemonServer::_handle_command(
+ 	  }
+ 	  auto q = pg_map.num_pg_by_osd.find(osd);
+ 	  if (q != pg_map.num_pg_by_osd.end()) {
+-	    if (q->second.acting > 0 || q->second.up > 0) {
++	    if (q->second.acting > 0 || q->second.up_not_acting > 0) {
+ 	      active_osds.insert(osd);
+-	      affected_pgs += q->second.acting + q->second.up;
++	      // XXX: For overlapping PGs, this counts them again
++	      affected_pgs += q->second.acting + q->second.up_not_acting;
+ 	      continue;
+ 	    }
+ 	  }
+@@ -1433,7 +1434,6 @@ bool DaemonServer::_handle_command(
+       if (!r) {
+         ss << "OSD(s) " << osds << " are safe to destroy without reducing data"
+            << " durability.";
+-        safe_to_destroy.swap(osds);
+       }
+       if (f) {
+         f->open_object_section("osd_status");

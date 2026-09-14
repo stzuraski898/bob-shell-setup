@@ -1,0 +1,21 @@
+commit ee14d9841ccea9362d1f2c3ca10a59545ae90b18
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Sep 15 21:53:31 2006 +0000
+
+    cleanup of osd failure recovery
+    
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@858 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/ceph/common/Clock.h b/ceph/common/Clock.h
+index 10543a41cee..1fed020eddf 100644
+--- a/ceph/common/Clock.h
++++ b/ceph/common/Clock.h
+@@ -127,6 +127,7 @@ class Clock {
+  public:
+   Clock() {
+ 	// set offset
++	tare();
+   }
+ 
+   // real time.

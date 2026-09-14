@@ -1,0 +1,61 @@
+commit dd05ee3379913668528583991456806bb56f5590
+Author: Radoslaw Zarzynski <rzarzynski@redhat.com>
+Date:   Thu Jul 7 08:39:07 2022 +0000
+
+    mgr: fix a race condition in DaemonServer::handle_report()
+    
+    The problem is that the `DaemonStateIndex::lock` is being freed
+    between the `exists()` check and the actual retrieval via `get()`
+    which allows the `all` container to be modified.
+    
+    ```cpp
+    bool DaemonStateIndex::exists(const DaemonKey &key) const
+    {
+      std::shared_lock l{lock};
+    
+      return all.count(key) > 0;
+    }
+    
+    DaemonStatePtr DaemonStateIndex::get(const DaemonKey &key)
+    {
+      std::shared_lock l{lock};
+    
+      auto iter = all.find(key);
+      if (iter != all.end()) {
+        return iter->second;
+      } else {
+        return nullptr;
+      }
+    }
+    ```
+    
+    The result was the following assertion failure:
+    
+    ```
+    2020-05-16T11:54:45.842 INFO:tasks.ceph.mgr.x.smithi083.stderr:/home/jenkins-build/build/workspace/ceph-dev-new-build/ARCH/x86_64/AVAILABLE_ARCH/x86_64/AVAILABLE_DIST/centos8/DIST/centos8/MACHINE_SIZE/gigantic/release/16.0.0-1640-g543315c9344/rpm/el8/BUILD/ceph-16.0.0-1640-g543315c9344/src/mgr/DaemonServer.cc: In function 'bool DaemonServer::handle_report(ceph::ref_t<MMgrReport>&)' thread 7fe985580700 time 2020-05-16T11:54:45.841099+0000
+    2020-05-16T11:54:45.842 INFO:tasks.ceph.mgr.x.smithi083.stderr:/home/jenkins-build/build/workspace/ceph-dev-new-build/ARCH/x86_64/AVAILABLE_ARCH/x86_64/AVAILABLE_DIST/centos8/DIST/centos8/MACHINE_SIZE/gigantic/release/16.0.0-1640-g543315c9344/rpm/el8/BUILD/ceph-16.0.0-1640-g543315c9344/src/mgr/DaemonServer.cc: 610: FAILED ceph_assert(daemon != nullptr)
+    2020-05-16T11:54:45.844 INFO:tasks.ceph.mgr.x.smithi083.stderr: ceph version 16.0.0-1640-g543315c9344 (543315c934420269aa12ef2f9dec2c9eadb4fa6f) pacific (dev)
+    2020-05-16T11:54:45.844 INFO:tasks.ceph.mgr.x.smithi083.stderr: 1: (ceph::__ceph_assert_fail(char const*, char const*, int, char const*)+0x158) [0x7fe9ab892d90]
+    2020-05-16T11:54:45.844 INFO:tasks.ceph.mgr.x.smithi083.stderr: 2: (()+0x275faa) [0x7fe9ab892faa]
+    2020-05-16T11:54:45.845 INFO:tasks.ceph.mgr.x.smithi083.stderr: 3: (DaemonServer::handle_report(boost::intrusive_ptr<MMgrReport> const&)+0x13fd) [0x557354eaa34d]
+    2020-05-16T11:54:45.845 INFO:tasks.ceph.mgr.x.smithi083.stderr: 4: (DaemonServer::ms_dispatch2(boost::intrusive_ptr<Message> const&)+0x177) [0x557354ec0e17]
+    ```
+    
+    Fixes: https://tracker.ceph.com/issues/45591
+    Signed-off-by: Radoslaw Zarzynski <rzarzyns@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index b8120a14a7e..9747ddf864f 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -647,9 +647,8 @@ bool DaemonServer::handle_report(const ref_t<MMgrReport>& m)
+ 
+     DaemonStatePtr daemon;
+     // Look up the DaemonState
+-    if (daemon_state.exists(key)) {
++    if (daemon = daemon_state.get(key); daemon != nullptr) {
+       dout(20) << "updating existing DaemonState for " << key << dendl;
+-      daemon = daemon_state.get(key);
+     } else {
+       locker.unlock();
+ 

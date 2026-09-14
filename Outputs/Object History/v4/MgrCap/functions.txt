@@ -1,0 +1,49 @@
+# Function list for MgrCap (via ctags)
+# Format: qualified_name | file:line
+#
+MgrCapParser | src/mgr/MgrCap.cc:414
+decode | src/mgr/MgrCap.cc:370
+dump | src/mgr/MgrCap.cc:379
+encode | src/mgr/MgrCap.cc:363
+expand_profile | src/mgr/MgrCap.cc:135
+generate_test_instances | src/mgr/MgrCap.cc:383
+get_allowed | src/mgr/MgrCap.cc:233
+is_allow_all | src/mgr/MgrCap.cc:291
+is_capable | src/mgr/MgrCap.cc:306
+is_not_alnum_space | src/mgr/MgrCap.cc:36
+maybe_quote_string | src/mgr/MgrCap.cc:40
+operator << | src/mgr/MgrCap.cc:79
+operator << | src/mgr/MgrCap.cc:61
+operator << | src/mgr/MgrCap.cc:48
+operator << | src/mgr/MgrCap.cc:278
+parse | src/mgr/MgrCap.cc:537
+parse_network | src/mgr/MgrCap.cc:130
+set_allow_all | src/mgr/MgrCap.cc:300
+validate_arguments | src/mgr/MgrCap.cc:196
+MgrCap | src/mgr/MgrCap.h:160
+MgrCap | src/mgr/MgrCap.h:161
+MgrCapGrant | src/mgr/MgrCap.h:111
+MgrCapGrant | src/mgr/MgrCap.h:112
+MgrCapGrantConstraint | src/mgr/MgrCap.h:49
+MgrCapGrantConstraint | src/mgr/MgrCap.h:50
+decode | src/mgr/MgrCap.h:196
+dump | src/mgr/MgrCap.h:197
+encode | src/mgr/MgrCap.h:195
+expand_profile | src/mgr/MgrCap.h:109
+generate_test_instances | src/mgr/MgrCap.h:198
+get_allowed | src/mgr/MgrCap.h:137
+get_str | src/mgr/MgrCap.h:163
+is_allow_all | src/mgr/MgrCap.h:145
+is_allow_all | src/mgr/MgrCap.h:167
+is_capable | src/mgr/MgrCap.h:186
+mgr_rwxa_t | src/mgr/MgrCap.h:25
+mgr_rwxa_t | src/mgr/MgrCap.h:24
+operator << | src/mgr/MgrCap.h:154
+operator << | src/mgr/MgrCap.h:55
+operator << | src/mgr/MgrCap.h:36
+operator = | src/mgr/MgrCap.h:27
+operator __u8 | src/mgr/MgrCap.h:31
+parse | src/mgr/MgrCap.h:169
+parse_network | src/mgr/MgrCap.h:101
+set_allow_all | src/mgr/MgrCap.h:168
+validate_arguments | src/mgr/MgrCap.h:123

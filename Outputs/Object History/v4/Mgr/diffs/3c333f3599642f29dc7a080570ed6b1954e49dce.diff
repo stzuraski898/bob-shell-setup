@@ -1,0 +1,26 @@
+commit 3c333f3599642f29dc7a080570ed6b1954e49dce
+Author: Xinying Song <songxinyingftd@gmail.com>
+Date:   Tue Jan 15 19:18:20 2019 +0800
+
+    mgr: Apply sanity check for daemon metadata
+    
+    Signed-off-by: Xinying Song <songxinying@sensetime.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index e4c83c4e152..24188518bfa 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -85,6 +85,13 @@ void MetadataUpdate::finish(int r)
+ 
+       json_spirit::mObject daemon_meta = json_result.get_obj();
+ 
++      // Skip daemon who doesn't have hostname yet
++      if (daemon_meta.count("hostname") == 0) {
++        dout(1) << "Skipping incomplete metadata entry for "
++                << key.first << "." << key.second << dendl;
++        return;
++      }
++
+       // Apply any defaults
+       for (const auto &i : defaults) {
+         if (daemon_meta.find(i.first) == daemon_meta.end()) {

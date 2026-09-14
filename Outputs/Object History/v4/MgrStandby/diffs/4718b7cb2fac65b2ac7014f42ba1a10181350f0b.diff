@@ -1,0 +1,69 @@
+commit 4718b7cb2fac65b2ac7014f42ba1a10181350f0b
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Jul 6 17:20:32 2018 +0800
+
+    common,rbd,rgw,osd: extract config values into ConfigValues
+    
+    this change introduce three classes: ConfigValues, ConfigProxy and
+    ConfigReader. in seastar port of OSD, each CPU shard will hold its own
+    reference of configuration, and upon changes of settings, each
+    shard will be updated with the new setting in async. so this forces us
+    to be able to keep two set of configuration at the same time. so we
+    need to extract the changeable part of md_config_t out. so we can
+    replace the old one with new one on demand, and let different shards
+    share the same unchanged part, amon the other things, the Options map
+    and the lookup tables. that's why we need ConfigValues. we will add
+    a policy template for this class, so we can specialize for Seastar
+    implementation to allow different ConfigProxy instances to point
+    md_config_impl<> to different ConfigValues.
+    
+    because the observer interface is still using md_config_t, to minimise
+    the impact of this change, handle_conf_change() and
+    handle_subsys_change() are not changed. but as it accepts a `const
+    md_config_t`, which cannot be used to create/reference the ConfigProxy
+    holding it, we need to introduce ConfigReader for reading the updated
+    setting from md_config_t in a simpler way, without exposing the
+    internal "values" member variable.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 22a7de3febe..57289b31f64 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -41,7 +41,7 @@ MgrStandby::MgrStandby(int argc, const char **argv) :
+   monc{g_ceph_context},
+   client_messenger(Messenger::create(
+ 		     g_ceph_context,
+-		     cct->_conf->get_val<std::string>("ms_type"),
++		     cct->_conf.get_val<std::string>("ms_type"),
+ 		     entity_name_t::MGR(),
+ 		     "mgr",
+ 		     getpid(),
+@@ -208,7 +208,7 @@ void MgrStandby::send_beacon()
+ 
+   MMgrBeacon *m = new MMgrBeacon(monc.get_fsid(),
+ 				 monc.get_global_id(),
+-                                 g_conf->name.get_id(),
++                                 g_conf()->name.get_id(),
+                                  addrs,
+                                  available,
+ 				 std::move(module_info),
+@@ -243,7 +243,7 @@ void MgrStandby::tick()
+   }
+ 
+   timer.add_event_after(
+-      g_conf->get_val<std::chrono::seconds>("mgr_tick_period").count(),
++      g_conf().get_val<std::chrono::seconds>("mgr_tick_period").count(),
+       new FunctionContext([this](int r){
+           tick();
+       }
+@@ -396,7 +396,7 @@ void MgrStandby::handle_mgr_map(MMgrMap* mmap)
+     derr << "I was active but no longer am" << dendl;
+     respawn();
+   } else {
+-    if (map.active_gid != 0 && map.active_name != g_conf->name.get_id()) {
++    if (map.active_gid != 0 && map.active_name != g_conf()->name.get_id()) {
+       // I am the standby and someone else is active, start modules
+       // in standby mode to do redirects if needed
+       if (!py_module_registry.is_standby_running()) {

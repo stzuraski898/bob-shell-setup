@@ -1,0 +1,249 @@
+commit c1471c7501948004096581ee415ab4a1fa2d9379
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Aug 22 14:42:11 2017 -0400
+
+    mgr: standby modules come up and run now
+    
+    ...they still don't have access to any config though.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index d2344ef4d35..117ee4bed8a 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -17,6 +17,7 @@
+ 
+ #include "BaseMgrModule.h"
+ #include "PyOSDMap.h"
++#include "BaseMgrStandbyModule.h"
+ #include "Gil.h"
+ 
+ #include "ActivePyModules.h"
+@@ -234,7 +235,7 @@ int PyModule::load(PyThreadState *pMainThreadState)
+     Py_InitModule("ceph_osdmap_incremental", OSDMapIncrementalMethods);
+     Py_InitModule("ceph_crushmap", CRUSHMapMethods);
+ 
+-    // Initialize base class
++    // Initialize base classes
+     BaseMgrModuleType.tp_new = PyType_GenericNew;
+     if (PyType_Ready(&BaseMgrModuleType) < 0) {
+         assert(0);
+@@ -243,6 +244,15 @@ int PyModule::load(PyThreadState *pMainThreadState)
+     Py_INCREF(&BaseMgrModuleType);
+     PyModule_AddObject(ceph_module, "BaseMgrModule",
+                        (PyObject *)&BaseMgrModuleType);
++
++    BaseMgrModuleType.tp_new = PyType_GenericNew;
++    if (PyType_Ready(&BaseMgrStandbyModuleType) < 0) {
++        assert(0);
++    }
++
++    Py_INCREF(&BaseMgrStandbyModuleType);
++    PyModule_AddObject(ceph_module, "BaseMgrStandbyModule",
++                       (PyObject *)&BaseMgrStandbyModuleType);
+   }
+ 
+   // Environment is all good, import the external module
+@@ -256,25 +266,72 @@ int PyModule::load(PyThreadState *pMainThreadState)
+     if (pModule == nullptr) {
+       derr << "Module not found: '" << module_name << "'" << dendl;
+       derr << handle_pyerror() << dendl;
+-
+-      assert(0);
+       return -ENOENT;
+     }
+ 
+     // Find the class
+     // TODO: let them call it what they want instead of just 'Module'
+     pClass = PyObject_GetAttrString(pModule, (const char*)"Module");
+-    Py_DECREF(pModule);
+     if (pClass == nullptr) {
+       derr << "Class not found in module '" << module_name << "'" << dendl;
+       derr << handle_pyerror() << dendl;
+       return -EINVAL;
+     }
++
++    pStandbyClass = PyObject_GetAttrString(pModule,
++                                           (const char*)"StandbyModule");
++    if (pStandbyClass) {
++      dout(4) << "Standby mode available in module '" << module_name
++              << "'" << dendl;
++    } else {
++      dout(4) << "Standby mode not provided by module '" << module_name
++              << "'" << dendl;
++      PyErr_Clear();
++    }
++
++    Py_DECREF(pModule);
+   }
+ 
+   return 0;
+ } 
+ 
++void PyModuleRegistry::standby_start(MonClient *monc)
++{
++  Mutex::Locker l(lock);
++  assert(active_modules == nullptr);
++  assert(standby_modules == nullptr);
++  assert(is_initialized());
++
++  dout(4) << "Starting modules in standby mode" << dendl;
++
++  standby_modules.reset(new StandbyPyModules(monc, mgr_map));
++
++  std::set<std::string> failed_modules;
++  for (const auto &i : modules) {
++    if (i.second->pStandbyClass) {
++      dout(4) << "starting module " << i.second->get_name() << dendl;
++      int r = standby_modules->start_one(i.first,
++              i.second->pStandbyClass,
++              i.second->pMyThreadState);
++      if (r != 0) {
++        derr << "failed to start module '" << i.second->get_name()
++             << "'" << dendl;;
++        failed_modules.insert(i.second->get_name());
++        // Continue trying to load any other modules
++      }
++    } else {
++      dout(4) << "skipping module '" << i.second->get_name() << "' because "
++                 "it does not implement a standby mode" << dendl;
++    }
++  }
++
++  if (!failed_modules.empty()) {
++    clog->error() << "Failed to execute ceph-mgr module(s) in standby mode: "
++        << joinify(failed_modules.begin(), failed_modules.end(),
++                   std::string(", "));
++  }
++}
++
+ void PyModuleRegistry::active_start(
+             PyModuleConfig &config_,
+             DaemonStateIndex &ds, ClusterState &cs, MonClient &mc,
+@@ -283,25 +340,46 @@ void PyModuleRegistry::active_start(
+ {
+   Mutex::Locker locker(lock);
+ 
++  dout(4) << "Starting modules in active mode" << dendl;
++
+   assert(active_modules == nullptr);
++  assert(is_initialized());
++
++  if (standby_modules != nullptr) {
++    standby_modules->shutdown();
++    standby_modules.reset();
++  }
+ 
+   active_modules.reset(new ActivePyModules(
+               config_, ds, cs, mc, clog_, objecter_, client_, f));
+ 
+   for (const auto &i : modules) {
+-    active_modules->start_one(i.first,
++    dout(4) << "Starting " << i.first << dendl;
++    int r = active_modules->start_one(i.first,
+             i.second->pClass,
+             i.second->pMyThreadState);
++    assert(r == 0); // TODO
+   }
+ }
+ 
+-void PyModuleRegistry::shutdown()
++void PyModuleRegistry::active_shutdown()
+ {
+   Mutex::Locker locker(lock);
++
+   if (active_modules != nullptr) {
+     active_modules->shutdown();
+     active_modules.reset();
+   }
++}
++
++void PyModuleRegistry::shutdown()
++{
++  Mutex::Locker locker(lock);
++
++  if (standby_modules != nullptr) {
++    standby_modules->shutdown();
++    standby_modules.reset();
++  }
+ 
+   modules.clear();
+ 
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 842e43f31ee..8249fc9e0d2 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -24,6 +24,7 @@
+ #include "common/LogClient.h"
+ 
+ #include "ActivePyModules.h"
++#include "StandbyPyModules.h"
+ 
+ class PyModule
+ {
+@@ -34,12 +35,18 @@ private:
+ public:
+   PyThreadState *pMyThreadState = nullptr;
+   PyObject *pClass = nullptr;
++  PyObject *pStandbyClass = nullptr;
+ 
+   PyModule(const std::string &module_name_)
+     : module_name(module_name_)
+   {
+   }
++
+   int load(PyThreadState *pMainThreadState);
++
++  std::string get_name() const {
++    return module_name;
++  }
+ };
+ 
+ /**
+@@ -52,13 +59,14 @@ public:
+ class PyModuleRegistry
+ {
+ private:
++  mutable Mutex lock{"PyModuleRegistry::lock"};
++
+   LogChannelRef clog;
+ 
+   std::map<std::string, std::unique_ptr<PyModule>> modules;
+ 
+   std::unique_ptr<ActivePyModules> active_modules;
+-
+-  mutable Mutex lock{"PyModuleRegistry::lock"};
++  std::unique_ptr<StandbyPyModules> standby_modules;
+ 
+   PyThreadState *pMainThreadState = nullptr;
+ 
+@@ -81,6 +89,11 @@ public:
+ 
+     bool modules_changed = mgr_map_.modules != mgr_map.modules;
+     mgr_map = mgr_map_;
++
++    if (standby_modules != nullptr) {
++      standby_modules->handle_mgr_map(mgr_map_);
++    }
++
+     return modules_changed;
+   }
+ 
+@@ -96,8 +109,15 @@ public:
+                 DaemonStateIndex &ds, ClusterState &cs, MonClient &mc,
+                 LogChannelRef clog_, Objecter &objecter_, Client &client_,
+                 Finisher &f);
+-  void standby_start();
++  void standby_start(
++      MonClient *monc);
++
++  bool is_standby_running() const
++  {
++    return standby_modules != nullptr;
++  }
+ 
++  void active_shutdown();
+   void shutdown();
+ 
+   template<typename Callback, typename...Args>

@@ -1,0 +1,25 @@
+commit e1a58442ea046f7ed786789793faf47e7b704081
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jan 30 03:12:38 2007 +0000
+
+    updates to build on darwin.  fuse untested.  need to edit Makefile to enable darwin cflags.
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@1050 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/trunk/ceph/common/Clock.h b/trunk/ceph/common/Clock.h
+index c1789dedc24..3cfe726ece8 100644
+--- a/trunk/ceph/common/Clock.h
++++ b/trunk/ceph/common/Clock.h
+@@ -55,8 +55,10 @@ class utime_t {
+   int           nsec() const { return tv.tv_usec*1000; }
+ 
+   // ref accessors/modifiers
+-  time_t&         sec_ref()  { return tv.tv_sec; } 
+-  long&           usec_ref() { return tv.tv_usec; }
++  time_t&         sec_ref()  { return tv.tv_sec; }
++  // FIXME: tv.tv_usec is a __darwin_suseconds_t on Darwin.
++  // is just casting it to long& OK? 
++  long&           usec_ref() { return (long&) tv.tv_usec; }
+ 
+   // cast to double
+   operator double() {

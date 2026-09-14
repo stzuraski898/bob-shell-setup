@@ -1,0 +1,117 @@
+commit 282c31c383856b45caadcefb876a71e39fe4b219
+Author: Jason Dillaman <dillaman@redhat.com>
+Date:   Mon Oct 14 10:39:54 2019 -0400
+
+    mgr: python modules can now perform authorization tests
+    
+    In cases where the python service or individual python modules are
+    enabled via caps, the module might want to perform finer grained
+    tests to ensure specific commands are allowed. An example of this is
+    the 'rbd_support' module limiting access by pools and namespaces.
+    
+    Signed-off-by: Jason Dillaman <dillaman@redhat.com>
+
+diff --git a/src/mgr/ActivePyModule.cc b/src/mgr/ActivePyModule.cc
+index b923862fb7b..402c7cad3a0 100644
+--- a/src/mgr/ActivePyModule.cc
++++ b/src/mgr/ActivePyModule.cc
+@@ -14,8 +14,10 @@
+ #include "PyFormatter.h"
+ 
+ #include "common/debug.h"
++#include "mon/MonCommand.h"
+ 
+ #include "ActivePyModule.h"
++#include "MgrSession.h"
+ 
+ 
+ #define dout_context g_ceph_context
+@@ -169,6 +171,8 @@ void ActivePyModule::config_notify()
+ }
+ 
+ int ActivePyModule::handle_command(
++  const ModuleCommand& module_command,
++  const MgrSession& session,
+   const cmdmap_t &cmdmap,
+   const bufferlist &inbuf,
+   std::stringstream *ds,
+@@ -192,10 +196,16 @@ int ActivePyModule::handle_command(
+   string instr;
+   inbuf.copy(0, inbuf.length(), instr);
+ 
++  ceph_assert(m_session == nullptr);
++  m_command_perms = module_command.perm;
++  m_session = &session;
++
+   auto pResult = PyObject_CallMethod(pClassInstance,
+       const_cast<char*>("_handle_command"), const_cast<char*>("s#O"),
+       instr.c_str(), instr.length(), py_cmd);
+ 
++  m_command_perms.clear();
++  m_session = nullptr;
+   Py_DECREF(py_cmd);
+ 
+   int r = 0;
+@@ -227,3 +237,20 @@ void ActivePyModule::get_health_checks(health_check_map_t *checks)
+   checks->merge(health_checks);
+ }
+ 
++bool ActivePyModule::is_authorized(
++    const std::map<std::string, std::string>& arguments) const {
++  if (m_session == nullptr) {
++    return false;
++  }
++
++  // No need to pass command prefix here since that would have already been
++  // tested before command invokation. Instead, only test for service/module
++  // arguments as defined by the module itself.
++  MonCommand mon_command {"", "", "", m_command_perms};
++  return m_session->caps.is_capable(nullptr, m_session->entity_name, "py",
++                                    py_module->get_name(), "", arguments,
++                                    mon_command.requires_perm('r'),
++                                    mon_command.requires_perm('w'),
++                                    mon_command.requires_perm('x'),
++                                    m_session->get_peer_addr());
++}
+diff --git a/src/mgr/ActivePyModule.h b/src/mgr/ActivePyModule.h
+index beafa629982..1cbf6d18ac2 100644
+--- a/src/mgr/ActivePyModule.h
++++ b/src/mgr/ActivePyModule.h
+@@ -32,6 +32,8 @@
+ 
+ class ActivePyModule;
+ class ActivePyModules;
++class MgrSession;
++class ModuleCommand;
+ 
+ class ActivePyModule : public PyModuleRunner
+ {
+@@ -41,6 +43,9 @@ private:
+   // Optional, URI exposed by plugins that implement serve()
+   std::string uri;
+ 
++  std::string m_command_perms;
++  const MgrSession* m_session = nullptr;
++
+ public:
+   ActivePyModule(const PyModuleRef &py_module_,
+       LogChannelRef clog_)
+@@ -60,6 +65,8 @@ public:
+       std::string *err);
+ 
+   int handle_command(
++    const ModuleCommand& module_command,
++    const MgrSession& session,
+     const cmdmap_t &cmdmap,
+     const bufferlist &inbuf,
+     std::stringstream *ds,
+@@ -86,6 +93,9 @@ public:
+   {
+     return uri;
+   }
++
++  bool is_authorized(const std::map<std::string, std::string>& arguments) const;
++
+ };
+ 
+ std::string handle_pyerror();

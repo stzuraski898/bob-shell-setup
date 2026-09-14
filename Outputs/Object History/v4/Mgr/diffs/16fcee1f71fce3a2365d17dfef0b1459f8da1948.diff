@@ -1,0 +1,60 @@
+commit 16fcee1f71fce3a2365d17dfef0b1459f8da1948
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 27 15:58:44 2017 -0400
+
+    mon,mgr: manage mgr module list in mgrmap
+    
+    Kill old mgr_modules option.
+    
+    Add new mgr_initial_modules option, on the mon, for the initial cluster
+    mgrmap.
+    
+    Add ls, enable, disable commands.
+    
+    Respawn mgr if the module list changes.  In the future we could enable
+    new modules without a full restart, but disabling probably requires (and
+    is best handled by) a respawn.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 0030fc706c5..ffc8e008ab0 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -568,11 +568,22 @@ void Mgr::handle_fs_map(MFSMap* m)
+   daemon_state.cull(CEPH_ENTITY_TYPE_MDS, names_exist);
+ }
+ 
+-void Mgr::got_mgr_map(const MgrMap& m)
++bool Mgr::got_mgr_map(const MgrMap& m)
+ {
+   Mutex::Locker l(lock);
+   dout(10) << m << dendl;
++
++  set<string> old_modules;
++  cluster_state.with_mgrmap([&](const MgrMap& m) {
++      old_modules = m.modules;
++    });
++  if (m.modules != old_modules) {
++    derr << "mgrmap module list changed to (" << m.modules << "), respawn"
++	 << dendl;
++    return true;
++  }
+   cluster_state.set_mgr_map(m);
++  return false;
+ }
+ 
+ void Mgr::handle_mgr_digest(MMgrDigest* m)
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index d6e7bc629a7..3638f5b1688 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -85,7 +85,7 @@ public:
+   void handle_osd_map();
+   void handle_log(MLog *m);
+ 
+-  void got_mgr_map(const MgrMap& m);
++  bool got_mgr_map(const MgrMap& m);
+ 
+   bool ms_dispatch(Message *m);
+ 

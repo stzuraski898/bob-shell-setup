@@ -1,0 +1,23 @@
+commit 377de7af5fec521642cc781ac67d555d98ea5e03
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Wed Apr 10 11:25:02 2019 +0800
+
+    mgr/ActivePyModules: handle_command - fix broken lock
+    
+    by unlocking properly when module is not available.
+    
+    Fixes: http://tracker.ceph.com/issues/39235
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 745a34e301b..f4fc0c173fc 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -909,6 +909,7 @@ int ActivePyModules::handle_command(
+   auto mod_iter = modules.find(module_name);
+   if (mod_iter == modules.end()) {
+     *ss << "Module '" << module_name << "' is not available";
++    lock.Unlock();
+     return -ENOENT;
+   }
+ 

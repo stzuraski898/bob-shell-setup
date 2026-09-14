@@ -1,0 +1,28 @@
+commit ff1258e7ef39f1f1a69ef6475445712c1dc6e037
+Author: Greg Farnum <gfarnum@redhat.com>
+Date:   Fri Mar 10 18:48:47 2017 -0800
+
+    mgr: introduce tick() calls through the system
+    
+    Still empty for the moment
+    
+    Signed-off-by: Greg Farnum <gfarnum@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index d94e3fd6865..a6b76643b73 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -159,8 +159,13 @@ void MgrStandby::send_beacon()
+ 
+ void MgrStandby::tick()
+ {
++  dout(0) << __func__ << dendl;
+   send_beacon();
+ 
++  if (active_mgr) {
++    active_mgr->tick();
++  }
++
+   timer.add_event_after(g_conf->mgr_tick_period, new FunctionContext(
+         [this](int r){
+           tick();

@@ -1,0 +1,21 @@
+commit ebd4c4fa8ac11f9aafc5871de889b70de9b29ff8
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jun 9 12:15:18 2017 -0400
+
+    mgr/MgrClient: skip sending stats if no session
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 282bd4f37ec..c7774959d22 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -264,7 +264,7 @@ void MgrClient::send_report()
+ 
+ void MgrClient::send_pgstats()
+ {
+-  if (pgstats_cb) {
++  if (pgstats_cb && session) {
+     session->con->send_message(pgstats_cb());
+   }
+ }

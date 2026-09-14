@@ -1,0 +1,71 @@
+commit 86ee30c33a06a13e6bb360b80dd1e41ba928147b
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Jan 23 07:43:12 2018 -0500
+
+    mgr: apply auth_service_required to client conns
+    
+    Previously was using auth_cluster_required for all
+    connections, which meant that if someone had
+    disabled client cephx, they'd get BADAUTHORIZER
+    from their CLI when it tried to load mgr
+    command descriptions.
+    
+    Disabling cephx on the admin CLI is odd, but the mon
+    tolerates it so the mgr should too.
+    
+    Fixes: https://tracker.ceph.com/issues/22096
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 0525d0abf25..49198ba76b3 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -72,10 +72,14 @@ DaemonServer::DaemonServer(MonClient *monc_,
+       py_modules(py_modules_),
+       clog(clog_),
+       audit_clog(audit_clog_),
+-      auth_registry(g_ceph_context,
++      auth_cluster_registry(g_ceph_context,
+                     g_conf->auth_supported.empty() ?
+                       g_conf->auth_cluster_required :
+                       g_conf->auth_supported),
++      auth_service_registry(g_ceph_context,
++                   g_conf->auth_supported.empty() ?
++                      g_conf->auth_service_required :
++                      g_conf->auth_supported),
+       lock("DaemonServer"),
+       pgmap_ready(false)
+ {
+@@ -145,7 +149,15 @@ bool DaemonServer::ms_verify_authorizer(Connection *con,
+     bool& is_valid,
+     CryptoKey& session_key)
+ {
+-  auto handler = auth_registry.get_handler(protocol);
++  AuthAuthorizeHandler *handler = nullptr;
++  if (peer_type == CEPH_ENTITY_TYPE_OSD ||
++      peer_type == CEPH_ENTITY_TYPE_MON ||
++      peer_type == CEPH_ENTITY_TYPE_MDS ||
++      peer_type == CEPH_ENTITY_TYPE_MGR) {
++    handler = auth_cluster_registry.get_handler(protocol);
++  } else {
++    handler = auth_service_registry.get_handler(protocol);
++  }
+   if (!handler) {
+     dout(0) << "No AuthAuthorizeHandler found for protocol " << protocol << dendl;
+     is_valid = false;
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index fe809833cbd..1dcc24b2778 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -62,7 +62,10 @@ protected:
+   PyModuleRegistry &py_modules;
+   LogChannelRef clog, audit_clog;
+ 
+-  AuthAuthorizeHandlerRegistry auth_registry;
++  // Authentication methods for cluster peers
++  AuthAuthorizeHandlerRegistry auth_cluster_registry;
++  // Authentication methods for clients
++  AuthAuthorizeHandlerRegistry auth_service_registry;
+ 
+   // Connections for daemons, and clients with service names set
+   // (i.e. those MgrClients that are allowed to send MMgrReports)

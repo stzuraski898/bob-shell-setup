@@ -1,0 +1,49 @@
+commit a22bb9cb75ccfbbb270f591f68a92f8258bf6f4a
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Oct 4 14:07:50 2016 +0100
+
+    mgr: squash compiler warnings
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrPyModule.cc b/src/mgr/MgrPyModule.cc
+index 4e8d0d3bf64..218444a861c 100644
+--- a/src/mgr/MgrPyModule.cc
++++ b/src/mgr/MgrPyModule.cc
+@@ -79,7 +79,7 @@ int MgrPyModule::serve()
+   gstate = PyGILState_Ensure();
+ 
+   auto pValue = PyObject_CallMethod(pClassInstance,
+-      (const char*)"serve", (const char*)"()");
++      const_cast<char*>("serve"), nullptr);
+ 
+   if (pValue != NULL) {
+     Py_DECREF(pValue);
+@@ -102,7 +102,7 @@ void MgrPyModule::shutdown()
+   gstate = PyGILState_Ensure();
+ 
+   auto pValue = PyObject_CallMethod(pClassInstance,
+-      (const char*)"shutdown", (const char*)"()");
++      const_cast<char*>("shutdown"), nullptr);
+ 
+   if (pValue != NULL) {
+     Py_DECREF(pValue);
+@@ -122,7 +122,8 @@ void MgrPyModule::notify(const std::string &notify_type, const std::string &noti
+   gstate = PyGILState_Ensure();
+ 
+   // Execute
+-  auto pValue = PyObject_CallMethod(pClassInstance, (const char*)"notify", "(ss)",
++  auto pValue = PyObject_CallMethod(pClassInstance,
++       const_cast<char*>("notify"), const_cast<char*>("(ss)"),
+        notify_type.c_str(), notify_id.c_str());
+ 
+   if (pValue != NULL) {
+@@ -195,7 +196,7 @@ int MgrPyModule::handle_command(
+   PyObject *py_cmd = f.get();
+ 
+   auto pResult = PyObject_CallMethod(pClassInstance,
+-      (const char*)"handle_command", (const char*)"(O)", py_cmd);
++      const_cast<char*>("handle_command"), const_cast<char*>("(O)"), py_cmd);
+ 
+   Py_DECREF(py_cmd);
+ 

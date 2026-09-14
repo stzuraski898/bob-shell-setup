@@ -1,0 +1,66 @@
+commit 8ae44f6a3753bf5a1681887bb41705f313c47ff9
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Fri Jun 26 08:44:35 2026 +0800
+
+    mgr: fix PyObject leak in the remote() pickle calls
+    
+    dispatch_remote() and ceph_dispatch_remote() invoke pickle.loads/dumps via
+    PyObject_CallMethodObjArgs(pmodule, PyUnicode_FromString("loads"), ...). The
+    method-name string created by PyUnicode_FromString is a new reference that
+    CallMethodObjArgs does not steal, and it was never released, so every cross
+    -module remote() call leaked three PyUnicode objects on the active mgr.
+    
+    Use PyObject_CallMethod(pmodule, "loads", "(O)", arg), which takes the method
+    name as a C string and manages it internally, so there is nothing to leak.
+    The "(O)" format wraps the argument in a one-tuple so it reaches the callee as
+    a single object. A bare "O" passes the argument through directly, and when it
+    is a tuple (as remote()'s *args always is, including the empty tuple from a
+    no-argument call) PyObject_CallMethod unpacks it and calls dumps() with the
+    wrong arguments, e.g. dumps() with none.
+    
+    Fixes: https://tracker.ceph.com/issues/77724
+    Signed-off-by: Kefu Chai <k.chai@proxmox.com>
+
+diff --git a/src/mgr/ActivePyModule.cc b/src/mgr/ActivePyModule.cc
+index a01233ac5dc..24e91082278 100644
+--- a/src/mgr/ActivePyModule.cc
++++ b/src/mgr/ActivePyModule.cc
+@@ -155,11 +155,7 @@ std::optional<std::vector<std::byte>> ActivePyModule::dispatch_remote(
+ 
+   auto pmodule = py_module->pPickleModule;
+   auto pickled_args_bytes = py_bytes_from_span(pickled_args);
+-  auto args = PyObject_CallMethodObjArgs(
+-    pmodule,
+-    PyUnicode_FromString("loads"),
+-    pickled_args_bytes,
+-    nullptr);
++  auto args = PyObject_CallMethod(pmodule, "loads", "(O)", pickled_args_bytes);
+   Py_DECREF(pickled_args_bytes);
+   if (args == nullptr) {
+     std::string caller = "ActivePyModule::dispatch_remote "s + method;
+@@ -169,11 +165,7 @@ std::optional<std::vector<std::byte>> ActivePyModule::dispatch_remote(
+   }
+ 
+   auto pickled_kwargs_bytes = py_bytes_from_span(pickled_kwargs);
+-  auto kwargs = PyObject_CallMethodObjArgs(
+-    pmodule,
+-    PyUnicode_FromString("loads"),
+-    pickled_kwargs_bytes,
+-    nullptr);
++  auto kwargs = PyObject_CallMethod(pmodule, "loads", "(O)", pickled_kwargs_bytes);
+   Py_DECREF(pickled_kwargs_bytes);
+   if (kwargs == nullptr) {
+     std::string caller = "ActivePyModule::dispatch_remote "s + method;
+@@ -208,11 +200,7 @@ std::optional<std::vector<std::byte>> ActivePyModule::dispatch_remote(
+   }
+   dout(20) << "Success calling '" << method << "'" << dendl;
+ 
+-  auto pickled_ret = PyObject_CallMethodObjArgs(
+-    pmodule,
+-    PyUnicode_FromString("dumps"),
+-    ret,
+-    nullptr);
++  auto pickled_ret = PyObject_CallMethod(pmodule, "dumps", "(O)", ret);
+   Py_DECREF(ret);
+   if (pickled_ret == nullptr) {
+     std::string caller = "ActivePyModule::dispatch_remote "s + method;

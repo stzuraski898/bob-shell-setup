@@ -1,0 +1,30 @@
+commit 868b47e65a051daa942622b106f08fca2afa9918
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Apr 14 15:01:57 2019 +0800
+
+    src/: use make_message<Foo> instead of Foo::create()
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 0c47cfcd2ee..de867c620d7 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2767,7 +2767,7 @@ void DaemonServer::_send_configure(ConnectionRef c)
+ {
+   ceph_assert(lock.is_locked_by_me());
+ 
+-  auto configure = new MMgrConfigure();
++  auto configure = make_message<MMgrConfigure>();
+   configure->stats_period = g_conf().get_val<int64_t>("mgr_stats_period");
+   configure->stats_threshold = g_conf().get_val<int64_t>("mgr_stats_threshold");
+ 
+@@ -2776,7 +2776,7 @@ void DaemonServer::_send_configure(ConnectionRef c)
+         osd_perf_metric_collector.get_queries();
+   }
+ 
+-  c->send_message(configure);
++  c->send_message2(configure);
+ }
+ 
+ OSDPerfMetricQueryID DaemonServer::add_osd_perf_query(

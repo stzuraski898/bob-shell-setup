@@ -1,0 +1,54 @@
+commit 7c80548dba38a170ba33c964d3f6ad8dba49db4f
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Mar 15 12:28:17 2018 +0000
+
+    mgr: improve reporting on unloadable modules
+    
+    Previously, a module that failed to load at all (for
+    example due to an import error at module scope) would
+    be missing from the reports to the monitor, and would
+    result in enigmatic messages about a module not being
+    present on all mgrs.
+    
+    Fixes: http://tracker.ceph.com/issues/23358
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 8d311116011..dac80005c36 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -88,10 +88,11 @@ void PyModuleRegistry::init()
+         << cpp_strerror(r) << dendl;
+       failed_modules.push_back(module_name);
+       // Don't drop out here, load the other modules
+-    } else {
+-      // Success!
+-      modules[module_name] = std::move(mod);
+     }
++
++    // Record the module even if the load failed, so that we can
++    // report its loading error
++    modules[module_name] = std::move(mod);
+   }
+ 
+   if (!failed_modules.empty()) {
+@@ -144,7 +145,7 @@ void PyModuleRegistry::standby_start(MonClient *monc)
+ 
+   std::set<std::string> failed_modules;
+   for (const auto &i : modules) {
+-    if (!i.second->is_enabled()) {
++    if (!(i.second->is_enabled() && i.second->get_can_run())) {
+       continue;
+     }
+ 
+@@ -195,7 +196,9 @@ void PyModuleRegistry::active_start(
+               config_, ds, cs, mc, clog_, objecter_, client_, f));
+ 
+   for (const auto &i : modules) {
+-    if (!i.second->is_enabled()) {
++    // Anything we're skipping because of !can_run will be flagged
++    // to the user separately via get_health_checks
++    if (!(i.second->is_enabled() && i.second->get_can_run())) {
+       continue;
+     }
+ 

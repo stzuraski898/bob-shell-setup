@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/ClusterState.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/ClusterState.cc 0bac6af3c18a989771e2d5bb9199f8aae64943f8 ac30e6cee2b2d3815438f1a392a951d511bddfd4
+#
+# Rename chain for src/mgr/ClusterState.h
+#
+src/mgr/ClusterState.h 4adaf64d7187778965f1a0f6e7d04efc809a2a7b ac30e6cee2b2d3815438f1a392a951d511bddfd4

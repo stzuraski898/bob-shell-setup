@@ -1,0 +1,22 @@
+commit abca98058926f8a97af274ab990bf5ae4475c0cf
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu Jul 5 14:51:21 2018 +0800
+
+    common: extract SubProcess impl into .cc
+    
+    cleanup the header dependencies and speed-up the compiling
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index e34752f3f0c..b298b6949ab 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -19,6 +19,7 @@
+ #include "PyModule.h"
+ 
+ #include "common/debug.h"
++#include "common/errno.h"
+ #define dout_context g_ceph_context
+ #define dout_subsys ceph_subsys_mgr
+ 

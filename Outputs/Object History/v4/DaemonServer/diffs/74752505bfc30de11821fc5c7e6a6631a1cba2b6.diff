@@ -1,0 +1,62 @@
+commit 74752505bfc30de11821fc5c7e6a6631a1cba2b6
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed May 17 15:30:28 2017 +0800
+
+    mgr: add a command "mgr report"
+    
+    * extract send_report() out of tick() so it can be reused.
+    * add a commmand "mgr report-mon" for mgr, so we are able to flush the
+      the mgr stats to mon actively without waiting for the tick. this
+      could help with the tests.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ac23a9f9028..2a35f7a5b1c 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -19,6 +19,7 @@
+ 
+ #include "messages/MMgrOpen.h"
+ #include "messages/MMgrConfigure.h"
++#include "messages/MMonMgrReport.h"
+ #include "messages/MCommand.h"
+ #include "messages/MCommandReply.h"
+ #include "messages/MPGStats.h"
+@@ -725,3 +726,23 @@ bool DaemonServer::handle_command(MCommand *m)
+     return true;
+   }
+ }
++
++void DaemonServer::send_report()
++{
++  auto m = new MMonMgrReport();
++  cluster_state.with_pgmap([&](const PGMap& pg_map) {
++      // FIXME: no easy way to get mon features here.  this will do for
++      // now, though, as long as we don't make a backward-incompat change.
++      pg_map.encode_digest(m->get_data(), CEPH_FEATURES_ALL);
++      // FIXME: reporting health detail here might be a bad idea?
++      cluster_state.with_osdmap([&](const OSDMap& osdmap) {
++	  pg_map.get_health(g_ceph_context, osdmap,
++			    m->health_summary,
++			    &m->health_detail);
++	});
++    });
++  // TODO? We currently do not notify the PyModules
++  // TODO: respect needs_send, so we send the report only if we are asked to do
++  //       so, or the state is updated.
++  monc->send_mon_message(m);
++}
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 66b8045c8f0..bf6261356ce 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -112,7 +112,7 @@ public:
+   bool handle_open(MMgrOpen *m);
+   bool handle_report(MMgrReport *m);
+   bool handle_command(MCommand *m);
+-  void tick(MMonMgrReport *m) {}
++  void send_report();
+ };
+ 
+ #endif

@@ -1,0 +1,20 @@
+commit 3ebd36ff3e3c81f20439806b943e6fff68c73deb
+Author: Ren Huanwen <ren.huanwen@zte.com.cn>
+Date:   Tue Oct 11 19:30:57 2016 +0800
+
+    mgr/mgrstandby: display signal info
+    
+    Signed-off-by: huanwen ren <ren.huanwen@zte.com.cn>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index f8340e3296e..a7bfc33cd46 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -124,6 +124,7 @@ void MgrStandby::handle_signal(int signum)
+ {
+   Mutex::Locker l(lock);
+   assert(signum == SIGINT || signum == SIGTERM);
++  derr << "*** Got signal " << sig_str(signum) << " ***" << dendl;
+   shutdown();
+ }
+ 

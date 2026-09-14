@@ -1,0 +1,65 @@
+commit 067adbf9a032b5de793fd0b41b071f24f075270a
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu Apr 30 11:34:07 2020 +0800
+
+    mgr: do not load disabled modules
+    
+    an option named "mgr_disabled_modules" is added in this change to
+    prevent mgr from loading modules listed in this option. because mgr
+    loads *all* modules found in the configured path, and per
+    https://tracker.ceph.com/issues/45147, python subinterpreter could hang
+    when loading numpy, so this behavior practically creates a deadlock
+    in mgr.
+    
+    this issue is found when mgr uses python3.8 runtime. in development
+    environment, it'd be inconvenient to disable the offending mgr module
+    without changing the source code, even if we can choose to not install
+    them, for instance, the enduser can workaround this issue by
+    uninstalling `ceph-mgr-diskprediction-local`.
+    
+    an option would be useful in this case, so we can add the module to the
+    list before mgr tries to load it.
+    
+    as this issue is found with python3.8 + diskprediction_local (numpy), so
+    this mgr module is disabled by default if mgr is compiled with python3.8
+    runtime.
+    
+    Fixes: https://tracker.ceph.com/issues/45147
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 466da5d4049..2e2e080aa76 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -25,6 +25,7 @@ namespace fs = std::experimental::filesystem;
+ 
+ #include "include/stringify.h"
+ #include "common/errno.h"
++#include "common/split.h"
+ 
+ #include "BaseMgrModule.h"
+ #include "PyOSDMap.h"
+@@ -267,14 +268,22 @@ void PyModuleRegistry::shutdown()
+ 
+ std::set<std::string> PyModuleRegistry::probe_modules(const std::string &path) const
+ {
++  const auto opt = g_conf().get_val<std::string>("mgr_disabled_modules");
++  const auto disabled_modules = ceph::split(opt);
++
+   std::set<std::string> modules;
+   for (const auto& entry: fs::directory_iterator(path)) {
+     if (!fs::is_directory(entry)) {
+       continue;
+     }
++    const std::string name = entry.path().filename();
++    if (std::count(disabled_modules.begin(), disabled_modules.end(), name)) {
++      dout(10) << "ignoring disabled module " << name << dendl;
++      continue;
++    }
+     auto module_path = entry.path() / "module.py";
+     if (fs::exists(module_path)) {
+-      modules.emplace(entry.path().filename());
++      modules.emplace(name);
+     }
+   }
+   return modules;

@@ -1,0 +1,33 @@
+commit 09f3c879f2fac12298bffd0ebbf13cd35a483f1f
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Tue Jul 25 05:04:57 2023 +0000
+
+    ceph-dencoder: MDS - Add missing types
+    
+    Currently, ceph-dencoder lacks certain mds types, preventing us from accurately checking the ceph corpus for encode-decode mismatches.
+    This pull request aims to address this issue by adding the missing types to ceph-dencoder.
+    
+    To successfully incorporate these types into ceph-dencoder, we need to introduce the necessary `dump` and `generate_test_instances`
+    functions that was missing in some types. These functions are essential for proper encode and decode of the added types.
+    
+    This PR will enhance the functionality of ceph-dencoder by including the missing types, enabling a comprehensive analysis of encode-decode consistency.
+    With the addition of these types, we can ensure the robustness and correctness of the ceph corpus.
+    
+    This update will significantly contribute to improving the overall reliability and accuracy of ceph-dencoder.
+    It allows for a more comprehensive assessment of the encode-decode behavior, leading to enhanced data integrity and stability within the ceph ecosystem.
+    
+    Fixes: https://tracker.ceph.com/issues/61788
+    Signed-off-by: Nitzan Mordechai <nmordech@redhat.com>
+
+diff --git a/src/mgr/DaemonHealthMetric.h b/src/mgr/DaemonHealthMetric.h
+index a6fbce29910..2bc382dde40 100644
+--- a/src/mgr/DaemonHealthMetric.h
++++ b/src/mgr/DaemonHealthMetric.h
+@@ -7,6 +7,7 @@
+ #include <ostream>
+ #include "common/Formatter.h"
+ #include "include/denc.h"
++#include "common/Formatter.h"
+ 
+ enum class daemon_metric : uint8_t {
+   SLOW_OPS,

@@ -1,0 +1,24 @@
+commit 2d15ba7d146f1a4c8f947c3d622ad93ea5580771
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sun Apr 16 13:28:23 2017 -0400
+
+    mgr/MgrClient: fix reconnect event leak
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index e1fa439c2fd..2f558c0614a 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -49,6 +49,11 @@ void MgrClient::shutdown()
+ {
+   Mutex::Locker l(lock);
+ 
++  if (connect_retry_callback) {
++    timer.cancel_event(connect_retry_callback);
++    connect_retry_callback = nullptr;
++  }
++
+   // forget about in-flight commands if we are prematurely shut down
+   // (e.g., by control-C)
+   command_table.clear();

@@ -1,0 +1,82 @@
+commit 46ab713e1f237d8b4c41b0731a14a98e0c11f771
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 5 14:21:31 2018 -0500
+
+    mgr: move dump/print to DeviceState
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 60eefb7dfe7..8b7d39a7653 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -15,6 +15,7 @@
+ 
+ #include "MgrSession.h"
+ #include "include/stringify.h"
++#include "common/Formatter.h"
+ 
+ #define dout_context g_ceph_context
+ #define dout_subsys ceph_subsys_mgr
+@@ -50,6 +51,37 @@ void DeviceState::rm_expected_failure()
+   metadata.erase("expected_failure_stamp");
+ }
+ 
++void DeviceState::dump(Formatter *f) const
++{
++  f->dump_string("devid", devid);
++  f->dump_string("host", server);
++  f->open_array_section("daemons");
++  for (auto& i : daemons) {
++    f->dump_string("daemon", to_string(i));
++  }
++  f->close_section();
++  if (expected_failure != utime_t()) {
++    f->dump_stream("expected_failure") << expected_failure;
++    f->dump_stream("expected_failure_stamp")
++      << expected_failure_stamp;
++  }
++}
++
++void DeviceState::print(ostream& out) const
++{
++  out << "device " << devid << "\n";
++  out << "host " << server << "\n";
++  set<string> d;
++  for (auto& j : daemons) {
++    d.insert(to_string(j));
++  }
++  out << "daemons " << d << "\n";
++  if (expected_failure != utime_t()) {
++    out << "expected_failure " << expected_failure
++	<< " (as of " << expected_failure_stamp << ")\n";
++  }
++}
++
+ void DaemonStateIndex::insert(DaemonStatePtr dm)
+ {
+   RWLock::WLocker l(lock);
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 27190b95941..81d8cb49ab4 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -28,6 +28,9 @@
+ // For PerfCounterType
+ #include "messages/MMgrReport.h"
+ 
++namespace ceph {
++  class Formatter;
++}
+ 
+ // Unique reference to a daemon within a cluster
+ typedef std::pair<std::string, std::string> DaemonKey;
+@@ -207,6 +210,9 @@ struct DeviceState : public RefCountedObject
+   bool empty() const {
+     return daemons.empty() && metadata.empty();
+   }
++
++  void dump(Formatter *f) const;
++  void print(ostream& out) const;
+ };
+ 
+ typedef boost::intrusive_ptr<DeviceState> DeviceStateRef;

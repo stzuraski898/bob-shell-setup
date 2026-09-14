@@ -1,0 +1,21 @@
+commit 050e987265cb220c1405d63112cc9c74e30d02de
+Author: Li Wang <laurence.liwang@gmail.com>
+Date:   Sat Sep 30 02:34:41 2017 +0000
+
+    mgr: assert(false)->ceph_abort()
+    
+    Signed-off-by: Li Wang <laurence.liwang@gmail.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 0fdf21654ab..29a02bbb399 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -298,7 +298,7 @@ PyObject *PyModules::get_python(const std::string &what)
+     } else if (what == "mon_status") {
+       json = cluster_state.get_mon_status();
+     } else {
+-      assert(false);
++      ceph_abort();
+     }
+     f.dump_string("json", json.to_str());
+     return f.get();

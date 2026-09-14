@@ -1,0 +1,20 @@
+commit b835b07bc3c2936169dc3e6a212a2e29885246f7
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Fri Oct 2 10:55:45 2020 -0700
+
+    mgr: log reason for respawn
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index e72edd72d97..4c8334e4163 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -386,6 +386,7 @@ void MgrStandby::handle_mgr_map(ref_t<MMgrMap> mmap)
+   // this MgrMap is changing its set of enabled modules
+   bool need_respawn = py_module_registry.handle_mgr_map(map);
+   if (need_respawn) {
++    dout(1) << "respawning because set of enabled modules changed!" << dendl;
+     respawn();
+   }
+ 

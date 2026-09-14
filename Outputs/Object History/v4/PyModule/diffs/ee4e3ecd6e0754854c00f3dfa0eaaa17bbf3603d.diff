@@ -1,0 +1,86 @@
+commit ee4e3ecd6e0754854c00f3dfa0eaaa17bbf3603d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Dec 2 10:23:45 2021 -0500
+
+    mgr: only queue notify events that modules ask for
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 87100c50421..084cf3ffc1e 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -398,6 +398,8 @@ int PyModule::load(PyThreadState *pMainThreadState)
+       return r;
+     }
+ 
++    load_notify_types();
++
+     // We've imported the module and found a MgrModule subclass, at this
+     // point the module is considered loaded.  It might still not be
+     // runnable though, can_run populated later...
+@@ -509,6 +511,39 @@ int PyModule::register_options(PyObject *cls)
+   return 0;
+ }
+ 
++int PyModule::load_notify_types()
++{
++  PyObject *ls = PyObject_GetAttrString(pClass, "NOTIFY_TYPES");
++  if (ls == nullptr) {
++    derr << "Module " << get_name() << " has missing NOTIFY_TYPES member" << dendl;
++    return -EINVAL;
++  }
++  if (!PyObject_TypeCheck(ls, &PyList_Type)) {
++    // Relatively easy mistake for human to make, e.g. defining COMMANDS
++    // as a {} instead of a []
++    derr << "Module " << get_name() << " has NOTIFY_TYPES that is not a list" << dendl;
++    return -EINVAL;
++  }
++
++  const size_t list_size = PyList_Size(ls);
++  for (size_t i = 0; i < list_size; ++i) {
++    PyObject *notify_type = PyList_GetItem(ls, i);
++    ceph_assert(notify_type != nullptr);
++
++    if (!PyObject_TypeCheck(notify_type, &PyUnicode_Type)) {
++      derr << "Module " << get_name() << " has non-string entry in NOTIFY_TYPES list"
++	   << dendl;
++      return -EINVAL;
++    }
++
++    notify_types.insert(PyUnicode_AsUTF8(notify_type));
++  }
++  Py_DECREF(ls);
++  dout(10) << "Module " << get_name() << " notify_types " << notify_types << dendl;
++
++  return 0;
++}
++
+ int PyModule::load_commands()
+ {
+   PyObject *pRegCmd = PyObject_CallMethod(pClass,
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index fbb56080efa..8d88ff94c62 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -87,6 +87,9 @@ private:
+   int load_options();
+   std::map<std::string, MgrMap::ModuleOption> options;
+ 
++  int load_notify_types();
++  std::set<std::string> notify_types;
++
+ public:
+   static std::string mgr_store_prefix;
+ 
+@@ -154,6 +157,10 @@ public:
+   bool is_loaded() const { std::lock_guard l(lock) ; return loaded; }
+   bool is_always_on() const { std::lock_guard l(lock) ; return always_on; }
+ 
++  bool should_notify(const std::string& notify_type) const {
++    return notify_types.count(notify_type);
++  }
++
+   const std::string &get_name() const {
+     std::lock_guard l(lock) ; return module_name;
+   }

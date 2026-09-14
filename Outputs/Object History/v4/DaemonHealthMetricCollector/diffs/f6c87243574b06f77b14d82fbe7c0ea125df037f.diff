@@ -1,0 +1,20 @@
+commit f6c87243574b06f77b14d82fbe7c0ea125df037f
+Author: Shinobu Kinjo <shinobu@redhat.com>
+Date:   Mon Nov 27 13:46:58 2017 +0900
+
+    [cleanup] Remove namespace using directives for std
+    
+    Signed-off-by: Shinobu Kinjo <shinobu@redhat.com>
+
+diff --git a/src/mgr/OSDHealthMetricCollector.cc b/src/mgr/OSDHealthMetricCollector.cc
+index 0b3d4180d7f..d86ad07be06 100644
+--- a/src/mgr/OSDHealthMetricCollector.cc
++++ b/src/mgr/OSDHealthMetricCollector.cc
+@@ -5,7 +5,6 @@
+ #include "OSDHealthMetricCollector.h"
+ 
+ 
+-using namespace std;
+ 
+ ostream& operator<<(ostream& os,
+                     const OSDHealthMetricCollector::DaemonKey& daemon) {

@@ -1,0 +1,24 @@
+commit 83b9ef73c0c135ef7cd09edf33ae929693886ef5
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Aug 28 17:03:08 2017 -0400
+
+    mon/PGMap: remove osd_epochs
+    
+    This was used for the min_last_epoch_clean tracking; we don't need
+    it now.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 70eea257199..d9eed6d4dfb 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -70,7 +70,7 @@ void ClusterState::ingest_pgstats(MPGStats *stats)
+ 
+   const int from = stats->get_orig_source().num();
+ 
+-  pending_inc.update_stat(from, stats->epoch, std::move(stats->osd_stat));
++  pending_inc.update_stat(from, std::move(stats->osd_stat));
+ 
+   for (auto p : stats->pg_stat) {
+     pg_t pgid = p.first;

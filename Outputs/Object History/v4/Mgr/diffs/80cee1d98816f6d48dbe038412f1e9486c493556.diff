@@ -1,0 +1,28 @@
+commit 80cee1d98816f6d48dbe038412f1e9486c493556
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Sep 18 14:09:28 2018 -0500
+
+    mgr: parse mon metadata properly
+    
+    Identify the "device_ids" like we do with OSD metadata by using the
+    helper.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 329a1ade2d1..a1ca429e13a 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -351,9 +351,11 @@ void Mgr::load_all_metadata()
+     daemon_meta.erase("name");
+     daemon_meta.erase("hostname");
+ 
++    map<string,string> m;
+     for (const auto &i : daemon_meta) {
+-      dm->metadata[i.first] = i.second.get_str();
++      m[i.first] = i.second.get_str();
+     }
++    dm->set_metadata(m);
+ 
+     daemon_state.insert(dm);
+   }

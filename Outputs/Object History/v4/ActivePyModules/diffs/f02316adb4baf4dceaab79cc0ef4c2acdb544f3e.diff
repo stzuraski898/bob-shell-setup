@@ -1,0 +1,81 @@
+commit f02316adb4baf4dceaab79cc0ef4c2acdb544f3e
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Dec 14 06:24:18 2017 -0500
+
+    mgr: enable inter-module calls
+    
+    This is being done by passing native CPython objects
+    back and forth.  It's safe because sub-interpreters in CPython
+    share memory allocation infrastructure and share the GIL.
+    
+    With a view to PEP554, we limit inter-interpreter calls
+    to pickleable objects, so that this may be implemented
+    using byte-arrays in future.
+    
+    This infrastructure should enable:
+     - the dashboard to display the status of other modules, for
+       example the set of progress indicators from `progress`
+     - dashboard and restful to share an underlying long running
+       job mechanism.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 4f05de756e5..46a0f0a6c75 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -480,6 +480,19 @@ bool ActivePyModules::get_store(const std::string &module_name,
+   }
+ }
+ 
++PyObject *ActivePyModules::dispatch_remote(
++    const std::string &other_module,
++    const std::string &method,
++    PyObject *args,
++    PyObject *kwargs,
++    std::string *err)
++{
++  auto mod_iter = modules.find(other_module);
++  assert(mod_iter != modules.end());
++
++  return mod_iter->second->dispatch_remote(method, args, kwargs, err);
++}
++
+ bool ActivePyModules::get_config(const std::string &module_name,
+     const std::string &key, std::string *val) const
+ {
+@@ -820,3 +833,4 @@ void ActivePyModules::set_uri(const std::string& module_name,
+   modules[module_name]->set_uri(uri);
+ }
+ 
++
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 322f2bf10f0..d1f51c164e2 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -109,6 +109,25 @@ public:
+                   const std::string &notify_id);
+   void notify_all(const LogEntry &log_entry);
+ 
++  bool module_exists(const std::string &name) const
++  {
++    return modules.count(name) > 0;
++  }
++
++  bool method_exists(
++      const std::string &module_name,
++      const std::string &method_name) const
++  {
++    return modules.at(module_name)->method_exists(method_name);
++  }
++
++  PyObject *dispatch_remote(
++      const std::string &other_module,
++      const std::string &method,
++      PyObject *args,
++      PyObject *kwargs,
++      std::string *err);
++
+   int init();
+   void shutdown();
+ 

@@ -1,0 +1,128 @@
+commit 834bc27940507737f064bca7362b4c7f4cd54c98
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Nov 23 08:01:33 2017 -0500
+
+    mgr: load command definitions earlier
+    
+    ...and for all modules, not just the active ones.
+    
+    This enables us to give better feedback to the user
+    when they try and use a command from a disabled module,
+    and also fixes the race between enabling a module and
+    trying to use its commands.
+    
+    Fixes: http://tracker.ceph.com/issues/21683
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/ActivePyModule.cc b/src/mgr/ActivePyModule.cc
+index 311144086ab..185ef445428 100644
+--- a/src/mgr/ActivePyModule.cc
++++ b/src/mgr/ActivePyModule.cc
+@@ -46,7 +46,7 @@ int ActivePyModule::load(ActivePyModules *py_modules)
+     dout(1) << "Constructed class from module: " << get_name() << dendl;
+   }
+ 
+-  return load_commands();
++  return 0;
+ }
+ 
+ void ActivePyModule::notify(const std::string &notify_type, const std::string &notify_id)
+@@ -100,55 +100,7 @@ void ActivePyModule::notify_clog(const LogEntry &log_entry)
+   }
+ }
+ 
+-int ActivePyModule::load_commands()
+-{
+-  // Don't need a Gil here -- this is called from ActivePyModule::load(),
+-  // which already has one.
+-  PyObject *command_list = PyObject_GetAttrString(pClassInstance, "COMMANDS");
+-  if (command_list == nullptr) {
+-    // Even modules that don't define command should still have the COMMANDS
+-    // from the MgrModule definition.  Something is wrong!
+-    derr << "Module " << get_name() << " has missing COMMANDS member" << dendl;
+-    return -EINVAL;
+-  }
+-  if (!PyObject_TypeCheck(command_list, &PyList_Type)) {
+-    // Relatively easy mistake for human to make, e.g. defining COMMANDS
+-    // as a {} instead of a []
+-    derr << "Module " << get_name() << " has COMMANDS member of wrong type ("
+-            "should be a list)" << dendl;
+-    return -EINVAL;
+-  }
+-  const size_t list_size = PyList_Size(command_list);
+-  for (size_t i = 0; i < list_size; ++i) {
+-    PyObject *command = PyList_GetItem(command_list, i);
+-    assert(command != nullptr);
+-
+-    ModuleCommand item;
+-
+-    PyObject *pCmd = PyDict_GetItemString(command, "cmd");
+-    assert(pCmd != nullptr);
+-    item.cmdstring = PyString_AsString(pCmd);
+-
+-    dout(20) << "loaded command " << item.cmdstring << dendl;
+ 
+-    PyObject *pDesc = PyDict_GetItemString(command, "desc");
+-    assert(pDesc != nullptr);
+-    item.helpstring = PyString_AsString(pDesc);
+-
+-    PyObject *pPerm = PyDict_GetItemString(command, "perm");
+-    assert(pPerm != nullptr);
+-    item.perm = PyString_AsString(pPerm);
+-
+-    item.handler = this;
+-
+-    commands.push_back(item);
+-  }
+-  Py_DECREF(command_list);
+-
+-  dout(10) << "loaded " << commands.size() << " commands" << dendl;
+-
+-  return 0;
+-}
+ 
+ int ActivePyModule::handle_command(
+   const cmdmap_t &cmdmap,
+diff --git a/src/mgr/ActivePyModule.h b/src/mgr/ActivePyModule.h
+index b475610fbb1..9279f1c8f5d 100644
+--- a/src/mgr/ActivePyModule.h
++++ b/src/mgr/ActivePyModule.h
+@@ -34,26 +34,11 @@
+ class ActivePyModule;
+ class ActivePyModules;
+ 
+-/**
+- * A Ceph CLI command description provided from a Python module
+- */
+-class ModuleCommand {
+-public:
+-  std::string cmdstring;
+-  std::string helpstring;
+-  std::string perm;
+-  ActivePyModule *handler;
+-};
+-
+ class ActivePyModule : public PyModuleRunner
+ {
+ private:
+   health_check_map_t health_checks;
+ 
+-  std::vector<ModuleCommand> commands;
+-
+-  int load_commands();
+-
+   // Optional, URI exposed by plugins that implement serve()
+   std::string uri;
+ 
+@@ -67,11 +52,6 @@ public:
+   void notify(const std::string &notify_type, const std::string &notify_id);
+   void notify_clog(const LogEntry &le);
+ 
+-  const std::vector<ModuleCommand> &get_commands() const
+-  {
+-    return commands;
+-  }
+-
+   int handle_command(
+     const cmdmap_t &cmdmap,
+     std::stringstream *ds,

@@ -1,0 +1,94 @@
+commit 1164ef2f32d81d4f35623c3f6a77af2b6871f962
+Author: Boris Ranto <branto@redhat.com>
+Date:   Tue May 15 10:27:53 2018 +0200
+
+    mgr: Expose avgcount for long running avgs
+    
+    This provides a basic interface to export avg count for long running
+    averages.
+    
+    Signed-off-by: Boris Ranto <branto@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 57c3cf64a64..e2f0922079f 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -141,6 +141,8 @@ void DaemonPerfCounters::update(MMgrReport *report)
+   for (const auto &t : report->declare_types) {
+     types.insert(std::make_pair(t.path, t));
+     session->declared_types.insert(t.path);
++    instances.insert(std::pair<std::string, PerfCounterInstance>(
++                     t.path, PerfCounterInstance(t.type)));
+   }
+   // Remove any old types
+   for (const auto &t : report->undeclare_types) {
+@@ -162,9 +164,10 @@ void DaemonPerfCounters::update(MMgrReport *report)
+     if (t.type & PERFCOUNTER_LONGRUNAVG) {
+       decode(avgcount, p);
+       decode(avgcount2, p);
++      instances.at(t_path).push_avg(now, val, avgcount);
++    } else {
++      instances.at(t_path).push(now, val);
+     }
+-    // TODO: interface for insertion of avgs
+-    instances[t_path].push(now, val);
+   }
+   DECODE_FINISH(p);
+ }
+@@ -179,3 +182,8 @@ void PerfCounterInstance::push(utime_t t, uint64_t const &v)
+   buffer.push_back({t, v});
+ }
+ 
++void PerfCounterInstance::push_avg(utime_t t, uint64_t const &s,
++                                   uint64_t const &c)
++{
++  avg_buffer.push_back({t, s, c});
++}
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 7124965264d..9a9d9ab3aab 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -45,7 +45,20 @@ class PerfCounterInstance
+     {}
+   };
+ 
++  class AvgDataPoint
++  {
++    public:
++    utime_t t;
++    uint64_t s;
++    uint64_t c;
++    AvgDataPoint(utime_t t_, uint64_t s_, uint64_t c_)
++      : t(t_), s(s_), c(c_)
++    {}
++  };
++
+   boost::circular_buffer<DataPoint> buffer;
++  boost::circular_buffer<AvgDataPoint> avg_buffer;
++
+   uint64_t get_current() const;
+ 
+   public:
+@@ -53,9 +66,20 @@ class PerfCounterInstance
+   {
+     return buffer;
+   }
++  const boost::circular_buffer<AvgDataPoint> & get_data_avg() const
++  {
++    return avg_buffer;
++  }
+   void push(utime_t t, uint64_t const &v);
+-  PerfCounterInstance()
+-    : buffer(20) {}
++  void push_avg(utime_t t, uint64_t const &s, uint64_t const &c);
++
++  PerfCounterInstance(enum perfcounter_type_d type)
++  {
++    if (type & PERFCOUNTER_LONGRUNAVG)
++      avg_buffer = boost::circular_buffer<AvgDataPoint>(20);
++    else
++      buffer = boost::circular_buffer<DataPoint>(20);
++  };
+ };
+ 
+ 

@@ -1,0 +1,12 @@
+# Commit → function map for MetricCollector
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+c2470f271cce4d512f2cf00552c9b753e4c69f71 | remove_all_queries
+9a05872fdd499575961ee1a8d188d19054841eb8 | (no functions)
+7523aef6e8656952418d17227c877952f9370f95 | remove_all_queries
+f6ba1eea4cde2354e639518210a56d157081ecac | process_reports_generic
+efcebe1eb4ae16ea9c633436e3e105add4a2662c | (no functions)

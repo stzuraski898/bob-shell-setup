@@ -1,0 +1,6 @@
+# Commit → function map for DaemonPerfCounters
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+35f6dd06dd0b3c78235e21ac309e4226aa733af1 | (no functions)

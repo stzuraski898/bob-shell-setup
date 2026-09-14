@@ -1,0 +1,78 @@
+commit 5faf1787573bb4896a67889471b3c033dbeacf04
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Oct 23 11:46:31 2017 +0800
+
+    mgr/MgrClient: extract MMgrReport sending code into a separated method
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index c72470d9bca..25f365da361 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -216,6 +216,16 @@ bool MgrClient::ms_handle_refused(Connection *con)
+   return false;
+ }
+ 
++void MgrClient::send_stats()
++{
++  send_report();
++  send_pgstats();
++  if (stats_period != 0) {
++    report_callback = new FunctionContext([this](int){send_stats();});
++    timer.add_event_after(stats_period, report_callback);
++  }
++}
++
+ void MgrClient::send_report()
+ {
+   assert(lock.is_locked_by_me());
+@@ -314,13 +324,6 @@ void MgrClient::send_report()
+   }
+ 
+   session->con->send_message(report);
+-
+-  if (stats_period != 0) {
+-    report_callback = new FunctionContext([this](int r){send_report();});
+-    timer.add_event_after(stats_period, report_callback);
+-  }
+-
+-  send_pgstats();
+ }
+ 
+ void MgrClient::send_pgstats()
+@@ -352,7 +355,7 @@ bool MgrClient::handle_mgr_configure(MMgrConfigure *m)
+   bool starting = (stats_period == 0) && (m->stats_period != 0);
+   stats_period = m->stats_period;
+   if (starting) {
+-    send_report();
++    send_stats();
+   }
+ 
+   m->put();
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 08ff24c2384..be7a0945fbe 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -100,9 +100,7 @@ public:
+   bool handle_mgr_configure(MMgrConfigure *m);
+   bool handle_command_reply(MCommandReply *m);
+ 
+-  void send_report();
+   void send_pgstats();
+-
+   void set_pgstats_cb(std::function<MPGStats*()> cb_)
+   {
+     Mutex::Locker l(lock);
+@@ -119,7 +117,10 @@ public:
+     const std::map<std::string,std::string>& metadata);
+   int service_daemon_update_status(
+     const std::map<std::string,std::string>& status);
++
++private:
++  void send_stats();
++  void send_report();
+ };
+ 
+ #endif
+-

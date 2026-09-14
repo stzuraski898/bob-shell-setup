@@ -1,0 +1,27 @@
+commit 70e56269b1a459d6b0e7b23bc3037602963ea5c2
+Author: Yan Jun <yan.jun8@zte.com.cn>
+Date:   Wed Aug 8 15:24:37 2018 +0800
+
+    mgr: fix beacon interruption caused by deadlock
+    
+    There is potential deadlock between this code and DaemonServer::send_report()
+    
+    Signed-off-by: Yan Jun <yan.jun8@zte.com.cn>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 6da3576bbb3..ee0d791ff5d 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -314,9 +314,9 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+   } else if (what == "df") {
+     PyFormatter f;
+ 
+-    cluster_state.with_osdmap([this, &f](const OSDMap &osd_map){
+-      cluster_state.with_pgmap(
+-          [&osd_map, &f](const PGMap &pg_map) {
++    cluster_state.with_pgmap([this, &f](const PGMap &pg_map) {
++      cluster_state.with_osdmap(
++          [&pg_map, &f](const OSDMap &osd_map) {
+         pg_map.dump_fs_stats(nullptr, &f, true);
+         pg_map.dump_pool_stats_full(osd_map, nullptr, &f, true);
+       });

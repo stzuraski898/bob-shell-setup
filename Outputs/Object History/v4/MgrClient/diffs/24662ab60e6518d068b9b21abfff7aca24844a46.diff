@@ -1,0 +1,64 @@
+commit 24662ab60e6518d068b9b21abfff7aca24844a46
+Author: Bill Scales <bill_scales@uk.ibm.com>
+Date:   Thu Jul 23 15:50:06 2026 +0100
+
+    mgr: Don't log null characters in PerfCounter paths
+    
+    OSD logs at debug level 20 can contain 0x0's caused
+    by MgrClient logging PerfCounter path strings which
+    intentionally include 0x0 characters.
+    
+    Filter these strings to change these nulls to spaces.
+    
+    Fixes: https://tracker.ceph.com/issues/78642
+    
+    Signed-off-by: Bill Scales <bill_scales@uk.ibm.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 8bcf1c12d76..39ee742b3a0 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -15,6 +15,8 @@
+ 
+ #include "MgrClient.h"
+ 
++#include <algorithm>
++
+ #include "common/perf_counters_collection.h"
+ #include "common/perf_counters_key.h"
+ #include "mgr/MgrContext.h"
+@@ -38,6 +40,16 @@ using std::vector;
+ 
+ using ceph::bufferlist;
+ using ceph::make_message;
++
++namespace {
++
++std::string format_counter_path(std::string path)
++{
++  std::replace(path.begin(), path.end(), '\0', ' ');
++  return path;
++}
++
++} // anonymous namespace
+ using ceph::ref_cast;
+ using ceph::ref_t;
+ 
+@@ -342,7 +354,7 @@ void MgrClient::_send_report()
+     auto undeclare = [report, this](const std::string &path)
+     {
+       report->undeclare_types.push_back(path);
+-      ldout(cct,20) << " undeclare " << path << dendl;
++      ldout(cct,20) << " undeclare " << format_counter_path(path) << dendl;
+       session->declared.erase(path);
+     };
+ 
+@@ -371,7 +383,7 @@ void MgrClient::_send_report()
+       }
+ 
+       if (session->declared.count(path) == 0) {
+-        ldout(cct, 20) << " declare " << path << dendl;
++        ldout(cct, 20) << " declare " << format_counter_path(path) << dendl;
+         PerfCounterType type;
+         type.path = path;
+         if (data.description) {

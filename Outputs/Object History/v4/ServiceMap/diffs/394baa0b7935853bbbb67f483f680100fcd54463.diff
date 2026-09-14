@@ -1,0 +1,35 @@
+commit 394baa0b7935853bbbb67f483f680100fcd54463
+Author: João Eduardo Luís <joao@suse.de>
+Date:   Thu Dec 13 14:29:51 2018 +0000
+
+    mgr/ServiceMap: show service's id on summary
+    
+    This way we'll be able to show each service's id on status.
+    
+    Fixes: http://tracker.ceph.com/issues/21073
+    
+    Signed-off-by: Joao Eduardo Luis <joao@suse.de>
+
+diff --git a/src/mgr/ServiceMap.h b/src/mgr/ServiceMap.h
+index 7c877baa8f0..d2a1c9b37c1 100644
+--- a/src/mgr/ServiceMap.h
++++ b/src/mgr/ServiceMap.h
+@@ -49,6 +49,18 @@ struct ServiceMap {
+       std::ostringstream ss;
+       ss << daemons.size() << (daemons.size() > 1 ? " daemons" : " daemon")
+ 	 << " active";
++
++      if (!daemons.empty()) {
++	ss << " (";
++	for (auto p = daemons.begin(); p != daemons.end(); ++p) {
++	  if (p != daemons.begin()) {
++	    ss << ", ";
++	  }
++	  ss << p->first;
++	}
++	ss << ")";
++      }
++
+       return ss.str();
+     }
+ 

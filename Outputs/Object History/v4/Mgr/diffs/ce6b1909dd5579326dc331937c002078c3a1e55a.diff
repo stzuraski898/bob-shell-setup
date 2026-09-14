@@ -1,0 +1,20 @@
+commit ce6b1909dd5579326dc331937c002078c3a1e55a
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Sun Oct 9 10:55:12 2016 +0800
+
+    mgr: shutdown finisher in a graceful way
+    
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 834eb9111f6..653f1314418 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -338,6 +338,7 @@ void Mgr::shutdown()
+ 
+   // Then stop the finisher to ensure its enqueued contexts aren't going
+   // to touch references to the things we're about to tear down
++  finisher.wait_for_empty();
+   finisher.stop();
+ }
+ 

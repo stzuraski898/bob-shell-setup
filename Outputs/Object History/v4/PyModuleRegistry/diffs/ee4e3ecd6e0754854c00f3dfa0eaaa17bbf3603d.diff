@@ -1,0 +1,24 @@
+commit ee4e3ecd6e0754854c00f3dfa0eaaa17bbf3603d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Dec 2 10:23:45 2021 -0500
+
+    mgr: only queue notify events that modules ask for
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 19360b3fa2d..4cd98e8827e 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -191,6 +191,11 @@ public:
+     }
+   }
+ 
++  bool should_notify(const std::string& name,
++		     const std::string& notify_type) {
++    return modules.at(name)->should_notify(notify_type);
++  }
++
+   std::map<std::string, std::string> get_services() const
+   {
+     ceph_assert(active_modules);

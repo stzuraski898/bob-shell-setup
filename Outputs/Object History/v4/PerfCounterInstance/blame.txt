@@ -1,0 +1,113 @@
+# git blame -w -M -C src/mgr/PerfCounterInstance.cc
+#
+35f6dd06dd0b src/mgr/PerfCounterInstance.cc (Max Kellermann 2025-08-14 18:41:01 +0200  1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+35f6dd06dd0b src/mgr/PerfCounterInstance.cc (Max Kellermann 2025-08-14 18:41:01 +0200  2) // vim: ts=8 sw=2 smarttab
+ac30e6cee2b2 src/mgr/DaemonMetadata.h       (John Spray     2016-06-30 14:05:02 +0100  3) /*
+ac30e6cee2b2 src/mgr/DaemonMetadata.h       (John Spray     2016-06-30 14:05:02 +0100  4)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/DaemonMetadata.h       (John Spray     2016-06-30 14:05:02 +0100  5)  *
+ac30e6cee2b2 src/mgr/DaemonMetadata.h       (John Spray     2016-06-30 14:05:02 +0100  6)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/DaemonMetadata.h       (John Spray     2016-06-30 14:05:02 +0100  7)  *
+ac30e6cee2b2 src/mgr/DaemonMetadata.h       (John Spray     2016-06-30 14:05:02 +0100  8)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/DaemonMetadata.h       (John Spray     2016-06-30 14:05:02 +0100  9)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/DaemonMetadata.h       (John Spray     2016-06-30 14:05:02 +0100 10)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/DaemonMetadata.h       (John Spray     2016-06-30 14:05:02 +0100 11)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/DaemonMetadata.h       (John Spray     2016-06-30 14:05:02 +0100 12)  */
+ac30e6cee2b2 src/mgr/DaemonMetadata.h       (John Spray     2016-06-30 14:05:02 +0100 13) 
+35f6dd06dd0b src/mgr/PerfCounterInstance.cc (Max Kellermann 2025-08-14 18:41:01 +0200 14) #include "PerfCounterInstance.h"
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc      (John Spray     2016-06-30 14:05:02 +0100 15) 
+9501bfdd7114 src/mgr/DaemonState.cc         (John Spray     2016-07-26 11:14:00 +0100 16) void PerfCounterInstance::push(utime_t t, uint64_t const &v)
+9501bfdd7114 src/mgr/DaemonState.cc         (John Spray     2016-07-26 11:14:00 +0100 17) {
+9501bfdd7114 src/mgr/DaemonState.cc         (John Spray     2016-07-26 11:14:00 +0100 18)   buffer.push_back({t, v});
+9501bfdd7114 src/mgr/DaemonState.cc         (John Spray     2016-07-26 11:14:00 +0100 19) }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc      (John Spray     2016-06-30 14:05:02 +0100 20) 
+1164ef2f32d8 src/mgr/DaemonState.cc         (Boris Ranto    2018-05-15 10:27:53 +0200 21) void PerfCounterInstance::push_avg(utime_t t, uint64_t const &s,
+1164ef2f32d8 src/mgr/DaemonState.cc         (Boris Ranto    2018-05-15 10:27:53 +0200 22)                                    uint64_t const &c)
+1164ef2f32d8 src/mgr/DaemonState.cc         (Boris Ranto    2018-05-15 10:27:53 +0200 23) {
+1164ef2f32d8 src/mgr/DaemonState.cc         (Boris Ranto    2018-05-15 10:27:53 +0200 24)   avg_buffer.push_back({t, s, c});
+1164ef2f32d8 src/mgr/DaemonState.cc         (Boris Ranto    2018-05-15 10:27:53 +0200 25) }
+
+# git blame -w -M -C src/mgr/PerfCounterInstance.h
+#
+35f6dd06dd0b src/mgr/PerfCounterInstance.h (Max Kellermann 2025-08-14 18:41:01 +0200  1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+35f6dd06dd0b src/mgr/PerfCounterInstance.h (Max Kellermann 2025-08-14 18:41:01 +0200  2) // vim: ts=8 sw=2 smarttab
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100  3) /*
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100  4)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100  5)  *
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100  6)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100  7)  *
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100  8)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100  9)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100 10)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100 11)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100 12)  */
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100 13) 
+35f6dd06dd0b src/mgr/PerfCounterInstance.h (Max Kellermann 2025-08-14 18:41:01 +0200 14) #ifndef PERF_COUNTER_INSTANCE_H_
+35f6dd06dd0b src/mgr/PerfCounterInstance.h (Max Kellermann 2025-08-14 18:41:01 +0200 15) #define PERF_COUNTER_INSTANCE_H_
+35f6dd06dd0b src/mgr/PerfCounterInstance.h (Max Kellermann 2025-08-14 18:41:01 +0200 16) 
+35f6dd06dd0b src/mgr/PerfCounterInstance.h (Max Kellermann 2025-08-14 18:41:01 +0200 17) #include <cstdint>
+35f6dd06dd0b src/mgr/PerfCounterInstance.h (Max Kellermann 2025-08-14 18:41:01 +0200 18) 
+35f6dd06dd0b src/mgr/PerfCounterInstance.h (Max Kellermann 2025-08-14 18:41:01 +0200 19) #include <boost/circular_buffer.hpp>
+35f6dd06dd0b src/mgr/PerfCounterInstance.h (Max Kellermann 2025-08-14 18:41:01 +0200 20) 
+a17349b87afd src/mgr/DaemonState.h         (Max Kellermann 2025-08-12 21:06:17 +0200 21) #include "common/perf_counters.h" // for enum perfcounter_type_d
+35f6dd06dd0b src/mgr/PerfCounterInstance.h (Max Kellermann 2025-08-14 18:41:01 +0200 22) #include "include/utime.h"
+35f6dd06dd0b src/mgr/PerfCounterInstance.h (Max Kellermann 2025-08-14 18:41:01 +0200 23) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100 24) // An instance of a performance counter type, within
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100 25) // a particular daemon.
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100 26) class PerfCounterInstance
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100 27) {
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 28)   class DataPoint
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 29)   {
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100 30)     public:
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 31)     utime_t t;
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 32)     uint64_t v;
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 33)     DataPoint(utime_t t_, uint64_t v_)
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 34)       : t(t_), v(v_)
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 35)     {}
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 36)   };
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 37) 
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 38)   class AvgDataPoint
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 39)   {
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 40)     public:
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 41)     utime_t t;
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 42)     uint64_t s;
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 43)     uint64_t c;
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 44)     AvgDataPoint(utime_t t_, uint64_t s_, uint64_t c_)
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 45)       : t(t_), s(s_), c(c_)
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 46)     {}
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 47)   };
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 48) 
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 49)   boost::circular_buffer<DataPoint> buffer;
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 50)   boost::circular_buffer<AvgDataPoint> avg_buffer;
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 51) 
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 52)   uint64_t get_current() const;
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 53) 
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 54)   public:
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 55)   const boost::circular_buffer<DataPoint> & get_data() const
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 56)   {
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 57)     return buffer;
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 58)   }
+b421142b1c6f src/mgr/DaemonState.h         (Jan Fajerski   2018-09-07 10:26:31 +0200 59)   const DataPoint& get_latest_data() const
+b421142b1c6f src/mgr/DaemonState.h         (Jan Fajerski   2018-09-07 10:26:31 +0200 60)   {
+b421142b1c6f src/mgr/DaemonState.h         (Jan Fajerski   2018-09-07 10:26:31 +0200 61)     return buffer.back();
+b421142b1c6f src/mgr/DaemonState.h         (Jan Fajerski   2018-09-07 10:26:31 +0200 62)   }
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 63)   const boost::circular_buffer<AvgDataPoint> & get_data_avg() const
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 64)   {
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 65)     return avg_buffer;
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 66)   }
+b421142b1c6f src/mgr/DaemonState.h         (Jan Fajerski   2018-09-07 10:26:31 +0200 67)   const AvgDataPoint& get_latest_data_avg() const
+b421142b1c6f src/mgr/DaemonState.h         (Jan Fajerski   2018-09-07 10:26:31 +0200 68)   {
+b421142b1c6f src/mgr/DaemonState.h         (Jan Fajerski   2018-09-07 10:26:31 +0200 69)     return avg_buffer.back();
+b421142b1c6f src/mgr/DaemonState.h         (Jan Fajerski   2018-09-07 10:26:31 +0200 70)   }
+9501bfdd7114 src/mgr/DaemonState.h         (John Spray     2016-07-26 11:14:00 +0100 71)   void push(utime_t t, uint64_t const &v);
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 72)   void push_avg(utime_t t, uint64_t const &s, uint64_t const &c);
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 73) 
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 74)   PerfCounterInstance(enum perfcounter_type_d type)
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 75)   {
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 76)     if (type & PERFCOUNTER_LONGRUNAVG)
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 77)       avg_buffer = boost::circular_buffer<AvgDataPoint>(20);
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 78)     else
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 79)       buffer = boost::circular_buffer<DataPoint>(20);
+1164ef2f32d8 src/mgr/DaemonState.h         (Boris Ranto    2018-05-15 10:27:53 +0200 80)   };
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100 81) };
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray     2016-06-30 14:05:02 +0100 82) 
+35f6dd06dd0b src/mgr/PerfCounterInstance.h (Max Kellermann 2025-08-14 18:41:01 +0200 83) #endif

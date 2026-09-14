@@ -1,0 +1,39 @@
+commit 48c4bc445fcacd7980e84b4f135a3115b88b05f1
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Dec 18 19:03:29 2019 +0800
+
+    mgr: drop the compatibility with python2
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/StandbyPyModules.cc b/src/mgr/StandbyPyModules.cc
+index cff60aded2a..62f063a1403 100644
+--- a/src/mgr/StandbyPyModules.cc
++++ b/src/mgr/StandbyPyModules.cc
+@@ -109,7 +109,7 @@ int StandbyPyModule::load()
+   // with us in logging etc.
+   auto pThisPtr = PyCapsule_New(this, nullptr, nullptr);
+   ceph_assert(pThisPtr != nullptr);
+-  auto pModuleName = PyString_FromString(get_name().c_str());
++  auto pModuleName = PyUnicode_FromString(get_name().c_str());
+   ceph_assert(pModuleName != nullptr);
+   auto pArgs = PyTuple_Pack(2, pModuleName, pThisPtr);
+   Py_DECREF(pThisPtr);
+diff --git a/src/mgr/StandbyPyModules.h b/src/mgr/StandbyPyModules.h
+index d8d5e1a07ef..b434c917c7a 100644
+--- a/src/mgr/StandbyPyModules.h
++++ b/src/mgr/StandbyPyModules.h
+@@ -13,11 +13,11 @@
+ 
+ #pragma once
+ 
+-#include "PythonCompat.h"
+-
+ #include <string>
+ #include <map>
+ 
++#include <Python.h>
++
+ #include "common/Thread.h"
+ #include "common/ceph_mutex.h"
+ 

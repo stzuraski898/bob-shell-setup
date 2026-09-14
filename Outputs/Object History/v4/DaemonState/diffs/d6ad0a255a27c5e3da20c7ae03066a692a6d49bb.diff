@@ -1,0 +1,24 @@
+commit d6ad0a255a27c5e3da20c7ae03066a692a6d49bb
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Wed Jan 15 10:38:02 2020 -0500
+
+    mgr: re-enable mds `scrub status` info in ceph status
+    
+    MDS does not register with manager, therefore `task status`
+    (scrub status updates) were not getting displayed in ceph
+    status output.
+    
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 1b9ef543dc3..1c3b785f25b 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -144,7 +144,6 @@ class DaemonState
+   bool service_daemon = false;
+   utime_t service_status_stamp;
+   std::map<std::string, std::string> service_status;
+-  std::map<std::string, std::string> task_status;
+   utime_t last_service_beacon;
+ 
+   // running config

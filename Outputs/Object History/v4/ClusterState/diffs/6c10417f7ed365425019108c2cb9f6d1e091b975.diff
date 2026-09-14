@@ -1,0 +1,91 @@
+commit 6c10417f7ed365425019108c2cb9f6d1e091b975
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 27 15:52:25 2017 -0400
+
+    mgr: include MgrMap in ClusterState
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 8bc88c530f0..44ba19d0b74 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -22,8 +22,15 @@
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ 
+-ClusterState::ClusterState(MonClient *monc_, Objecter *objecter_)
+-  : monc(monc_), objecter(objecter_), lock("ClusterState"), pgservice(pg_map)
++ClusterState::ClusterState(
++  MonClient *monc_,
++  Objecter *objecter_,
++  const MgrMap& mgrmap)
++  : monc(monc_),
++    objecter(objecter_),
++    lock("ClusterState"),
++    mgr_map(mgrmap),
++    pgservice(pg_map)
+ {}
+ 
+ void ClusterState::set_objecter(Objecter *objecter_)
+@@ -40,6 +47,12 @@ void ClusterState::set_fsmap(FSMap const &new_fsmap)
+   fsmap = new_fsmap;
+ }
+ 
++void ClusterState::set_mgr_map(MgrMap const &new_mgrmap)
++{
++  Mutex::Locker l(lock);
++  mgr_map = new_mgrmap;
++}
++
+ void ClusterState::load_digest(MMgrDigest *m)
+ {
+   health_json = std::move(m->health_json);
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index ae08c75daa1..7b4f3149a62 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -15,6 +15,7 @@
+ #define CLUSTER_STATE_H_
+ 
+ #include "mds/FSMap.h"
++#include "mon/MgrMap.h"
+ #include "common/Mutex.h"
+ 
+ #include "osdc/Objecter.h"
+@@ -38,6 +39,8 @@ protected:
+   FSMap fsmap;
+   mutable Mutex lock;
+ 
++  MgrMap mgr_map;
++
+   set<int64_t> existing_pools; ///< pools that exist, as of PGMap epoch
+   PGMap pg_map;
+   PGMap::Incremental pending_inc;
+@@ -57,10 +60,11 @@ public:
+   const bufferlist &get_health() const {return health_json;}
+   const bufferlist &get_mon_status() const {return mon_status_json;}
+ 
+-  ClusterState(MonClient *monc_, Objecter *objecter_);
++  ClusterState(MonClient *monc_, Objecter *objecter_, const MgrMap& mgrmap);
+ 
+   void set_objecter(Objecter *objecter_);
+   void set_fsmap(FSMap const &new_fsmap);
++  void set_mgr_map(MgrMap const &new_mgrmap);
+ 
+   void notify_osdmap(const OSDMap &osd_map);
+ 
+@@ -76,6 +80,13 @@ public:
+     std::forward<Callback>(cb)(fsmap, std::forward<Args>(args)...);
+   }
+ 
++  template<typename Callback, typename...Args>
++  void with_mgrmap(Callback&& cb, Args&&...args) const
++  {
++    Mutex::Locker l(lock);
++    std::forward<Callback>(cb)(mgr_map, std::forward<Args>(args)...);
++  }
++
+   template<typename Callback, typename...Args>
+   auto with_pgmap(Callback&& cb, Args&&...args) const ->
+     decltype(cb(pg_map, std::forward<Args>(args)...))

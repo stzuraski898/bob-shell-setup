@@ -1,0 +1,40 @@
+commit 42823a092c9568d07c1188930aa0828db359876b
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Sep 6 09:44:23 2019 -0500
+
+    mgr/DaemonServer: route MCommand (for octopus+) to asok commands
+    
+    Send mgr 'tell' commands (if they originate from a octopus+ client that
+    knows the difference between MCommand and MMgrCommand) to the asok
+    comand queue.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index d3b65dd2a2c..de894ad0b85 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -791,12 +791,18 @@ public:
+ bool DaemonServer::handle_command(const ref_t<MCommand>& m)
+ {
+   std::lock_guard l(lock);
+-  auto cmdctx = std::make_shared<CommandContext>(m);
+-  try {
+-    return _handle_command(cmdctx);
+-  } catch (const bad_cmd_get& e) {
+-    cmdctx->reply(-EINVAL, e.what());
++  if (HAVE_FEATURE(m->get_connection()->get_features(), SERVER_OCTOPUS)) {
++    cct->get_admin_socket()->queue_tell_command(m);
+     return true;
++  } else {
++    // legacy client; send to CLI processing
++    auto cmdctx = std::make_shared<CommandContext>(m);
++    try {
++      return _handle_command(cmdctx);
++    } catch (const bad_cmd_get& e) {
++      cmdctx->reply(-EINVAL, e.what());
++      return true;
++    }
+   }
+ }
+ 

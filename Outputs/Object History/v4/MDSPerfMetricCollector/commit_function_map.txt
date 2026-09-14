@@ -1,0 +1,11 @@
+# Commit → function map for MDSPerfMetricCollector
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+d8141f4302ad7631a3a068e5017e9b018d6cb741 | MDSPerfMetricCollector
+c2470f271cce4d512f2cf00552c9b753e4c69f71 | get_counters process_reports get_delayed_ranks
+7523aef6e8656952418d17227c877952f9370f95 | process_reports
+f6ba1eea4cde2354e639518210a56d157081ecac | (no functions)

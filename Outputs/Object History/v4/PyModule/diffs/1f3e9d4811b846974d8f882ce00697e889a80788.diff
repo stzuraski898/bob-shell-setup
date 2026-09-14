@@ -1,0 +1,148 @@
+commit 1f3e9d4811b846974d8f882ce00697e889a80788
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Dec 17 14:22:33 2018 -0600
+
+    mgr/PyModule: populate ModuleOptions and expose to mon
+    
+    Populate the ModuleOptions from MODULE_OPTIONS fields and pass it to the
+    mon for inclusion in the MgrMap.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index e2b855a2920..7507144d06c 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -515,15 +515,78 @@ int PyModule::load_commands()
+ int PyModule::load_options()
+ {
+   int r = walk_dict_list("MODULE_OPTIONS", [this](PyObject *pOption) -> int {
+-    PyObject *pName = PyDict_GetItemString(pOption, "name");
+-    ceph_assert(pName != nullptr);
+-
+-    ModuleOption option;
+-    option.name = PyString_AsString(pName);
++    MgrMap::ModuleOption option;
++    PyObject *p;
++    p = PyDict_GetItemString(pOption, "name");
++    ceph_assert(p != nullptr);
++    option.name = PyString_AsString(p);
++    option.type = Option::TYPE_STR;
++    p = PyDict_GetItemString(pOption, "type");
++    if (p && PyObject_TypeCheck(p, &PyString_Type)) {
++      std::string s = PyString_AsString(p);
++      int t = Option::str_to_type(s);
++      if (t >= 0) {
++	option.type = t;
++      }
++    }
++    p = PyDict_GetItemString(pOption, "desc");
++    if (p && PyObject_TypeCheck(p, &PyString_Type)) {
++      option.desc = PyString_AsString(p);
++    }
++    p = PyDict_GetItemString(pOption, "long_desc");
++    if (p && PyObject_TypeCheck(p, &PyString_Type)) {
++      option.long_desc = PyString_AsString(p);
++    }
++    p = PyDict_GetItemString(pOption, "default");
++    if (p && PyObject_TypeCheck(p, &PyString_Type)) {
++      option.default_value = PyString_AsString(p);
++    }
++    p = PyDict_GetItemString(pOption, "min");
++    if (p && PyObject_TypeCheck(p, &PyString_Type)) {
++      option.min = PyString_AsString(p);
++    }
++    p = PyDict_GetItemString(pOption, "max");
++    if (p && PyObject_TypeCheck(p, &PyString_Type)) {
++      option.max = PyString_AsString(p);
++    }
++    p = PyDict_GetItemString(pOption, "enum_allowed");
++    if (p && PyObject_TypeCheck(p, &PyList_Type)) {
++      for (unsigned i = 0; i < PyList_Size(p); ++i) {
++	auto q = PyList_GetItem(p, i);
++	if (q && PyObject_TypeCheck(q, &PyString_Type)) {
++	  option.enum_allowed.insert(PyString_AsString(q));
++	}
++      }
++    }
++    p = PyDict_GetItemString(pOption, "see_also");
++    if (p && PyObject_TypeCheck(p, &PyList_Type)) {
++      for (unsigned i = 0; i < PyList_Size(p); ++i) {
++	auto q = PyList_GetItem(p, i);
++	if (q && PyObject_TypeCheck(q, &PyString_Type)) {
++	  option.see_also.insert(PyString_AsString(q));
++	}
++      }
++    }
++    p = PyDict_GetItemString(pOption, "tags");
++    if (p && PyObject_TypeCheck(p, &PyList_Type)) {
++      for (unsigned i = 0; i < PyList_Size(p); ++i) {
++	auto q = PyList_GetItem(p, i);
++	if (q && PyObject_TypeCheck(q, &PyString_Type)) {
++	  option.tags.insert(PyString_AsString(q));
++	}
++      }
++    }
++    p = PyDict_GetItemString(pOption, "runtime");
++    if (p && PyObject_TypeCheck(p, &PyBool_Type)) {
++      if (p == Py_True) {
++	option.flags |= Option::FLAG_RUNTIME;
++      }
++      if (p == Py_False) {
++	option.flags &= ~Option::FLAG_RUNTIME;
++      }
++    }
+     dout(20) << "loaded module option " << option.name << dendl;
+-
+     options[option.name] = std::move(option);
+-
+     return 0;
+   });
+ 
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index fe4ba9fc37f..05b8b0fc121 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -21,6 +21,7 @@
+ #include "common/Mutex.h"
+ #include "Python.h"
+ #include "Gil.h"
++#include "mon/MgrMap.h"
+ 
+ 
+ class MonClient;
+@@ -43,15 +44,6 @@ public:
+   std::string module_name;
+ };
+ 
+-
+-/**
+- * An option declared by the python module in its configuration schema
+- */
+-class ModuleOption {
+-  public:
+-  std::string name;
+-};
+-
+ class PyModule
+ {
+   mutable Mutex lock{"PyModule::lock"};
+@@ -90,7 +82,7 @@ private:
+   std::vector<ModuleCommand> commands;
+ 
+   int load_options();
+-  std::map<std::string, ModuleOption> options;
++  std::map<std::string, MgrMap::ModuleOption> options;
+ 
+ public:
+   static std::string config_prefix;
+@@ -107,6 +99,9 @@ public:
+   ~PyModule();
+ 
+   bool is_option(const std::string &option_name);
++  const std::map<std::string,MgrMap::ModuleOption>& get_options() const {
++    return options;
++  }
+ 
+   int load(PyThreadState *pMainThreadState);
+ #if PY_MAJOR_VERSION >= 3

@@ -1,0 +1,27 @@
+commit 5c25a018643b10aa78db8270cae1476f71d8f4f4
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Tue Jul 2 04:11:35 2019 -0400
+
+    mgr, mon: allow normal ceph services to register with manager
+    
+    Additionally, introduce `task status` field in manager report
+    messages to forward status of executing tasks in daemons (e.g.,
+    status of executing scrubs in ceph metadata servers).
+    
+    `task status` makes its way upto service map which is then used
+    to display the relevant information in ceph status.
+    
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 17ede40aa15..ff8bf8f2c41 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -147,6 +147,7 @@ class DaemonState
+   bool service_daemon = false;
+   utime_t service_status_stamp;
+   std::map<std::string, std::string> service_status;
++  std::map<std::string, std::string> task_status;
+   utime_t last_service_beacon;
+ 
+   // running config

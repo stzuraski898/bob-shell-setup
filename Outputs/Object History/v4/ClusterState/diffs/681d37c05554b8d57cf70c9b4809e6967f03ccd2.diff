@@ -1,0 +1,23 @@
+commit 681d37c05554b8d57cf70c9b4809e6967f03ccd2
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri May 19 17:01:55 2017 -0400
+
+    mgr/ClusterState: apply latest osdmap to pgmap
+    
+    In particular, clear out deleted pools and clear osd stats for
+    deleted/down/out osds.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index c40df895ef1..c2e7550fa5e 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -98,6 +98,7 @@ void ClusterState::notify_osdmap(const OSDMap &osd_map)
+   PGMap::Incremental pending_inc;
+   pending_inc.version = pg_map.version + 1; // to make apply_incremental happy
+ 
++  PGMapUpdater::check_osd_map(g_ceph_context, osd_map, pg_map, &pending_inc);
+   PGMapUpdater::update_creating_pgs(osd_map, pg_map, &pending_inc);
+   PGMapUpdater::register_new_pgs(osd_map, pg_map, &pending_inc);
+ 

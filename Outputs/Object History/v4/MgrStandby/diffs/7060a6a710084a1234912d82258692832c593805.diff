@@ -1,0 +1,34 @@
+commit 7060a6a710084a1234912d82258692832c593805
+Author: Ren Huanwen <ren.huanwen@zte.com.cn>
+Date:   Mon Feb 5 15:23:42 2018 +0800
+
+    common: Sign in early SIGHUP signal
+    
+    Contains the following process:
+    ceph-mon ceph-mgr ceph-mds ceph-fuse radosgw.
+    
+    Signed-off-by: huanwen ren <ren.huanwen@zte.com.cn>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index cd8ec2ca36c..7aebbae5ef0 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -94,6 +94,9 @@ void MgrStandby::handle_conf_change(
+ 
+ int MgrStandby::init()
+ {
++  init_async_signal_handler();
++  register_async_signal_handler(SIGHUP, sighup_handler);
++
+   Mutex::Locker l(lock);
+ 
+   // Initialize Messenger
+@@ -422,8 +425,6 @@ int MgrStandby::main(vector<const char *> args)
+ {
+   // Enable signal handlers
+   signal_mgr = this;
+-  init_async_signal_handler();
+-  register_async_signal_handler(SIGHUP, sighup_handler);
+   register_async_signal_handler_oneshot(SIGINT, handle_mgr_signal);
+   register_async_signal_handler_oneshot(SIGTERM, handle_mgr_signal);
+ 

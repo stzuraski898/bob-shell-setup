@@ -1,0 +1,27 @@
+commit 19000fad573138b2b0576c093237c4a708b76020
+Author: Neha Ojha <nojha@redhat.com>
+Date:   Thu Dec 3 20:34:53 2020 +0000
+
+    mgr: don't add config values to mgr log in config_callback and module_config
+    
+    The original code has been commented out and left for future debugging
+    purposes.
+    
+    Signed-off-by: Neha Ojha <nojha@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 22e419a9eb2..dd318148455 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -132,7 +132,10 @@ int MgrStandby::init()
+   // We must register our config callback before calling init(), so
+   // that we see the initial configuration message
+   monc.register_config_callback([this](const std::string &k, const std::string &v){
+-      dout(10) << "config_callback: " << k << " : " << v << dendl;
++      // removing value to hide sensitive data going into mgr logs
++      // leaving this for debugging purposes
++      // dout(10) << "config_callback: " << k << " : " << v << dendl;
++      dout(10) << "config_callback: " << k << " : " << dendl;
+       if (k.substr(0, 4) == "mgr/") {
+ 	const std::string global_key = PyModule::config_prefix + k.substr(4);
+         py_module_registry.handle_config(global_key, v);

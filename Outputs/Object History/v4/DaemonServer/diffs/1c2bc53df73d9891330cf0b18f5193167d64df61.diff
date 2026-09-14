@@ -1,0 +1,50 @@
+commit 1c2bc53df73d9891330cf0b18f5193167d64df61
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Oct 17 11:45:59 2018 -0500
+
+    mgr/DaemonState: fix get_config_defaults locking
+    
+    One of the callers didn't take the daemon->lock first; fix it.  Also
+    rename the method so it's more clear the caller does need to lock.
+    
+    Fixes: http://tracker.ceph.com/issues/36590
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index a09f457df89..5071a3ca23e 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1589,6 +1589,7 @@ bool DaemonServer::_handle_command(
+     key.first = who.substr(0, dot);
+     key.second = who.substr(dot + 1);
+     DaemonStatePtr daemon = daemon_state.get(key);
++    std::lock_guard l(daemon->lock);
+     string name;
+     if (!daemon) {
+       ss << "no config state for daemon " << who;
+@@ -1599,7 +1600,7 @@ bool DaemonServer::_handle_command(
+ 	  !p->second.empty()) {
+ 	cmdctx->odata.append(p->second.rbegin()->second + "\n");
+       } else {
+-	auto& defaults = daemon->get_config_defaults();
++	auto& defaults = daemon->_get_config_defaults();
+ 	auto q = defaults.find(name);
+ 	if (q != defaults.end()) {
+ 	  cmdctx->odata.append(q->second + "\n");
+@@ -1608,7 +1609,6 @@ bool DaemonServer::_handle_command(
+ 	}
+       }
+     } else if (daemon->config_defaults_bl.length() > 0) {
+-      std::lock_guard l(daemon->lock);
+       TextTable tbl;
+       if (f) {
+ 	f->open_array_section("config");
+@@ -1675,7 +1675,7 @@ bool DaemonServer::_handle_command(
+ 	}
+       } else {
+ 	// show-with-defaults
+-	auto& defaults = daemon->get_config_defaults();
++	auto& defaults = daemon->_get_config_defaults();
+ 	for (auto& i : defaults) {
+ 	  if (f) {
+ 	    f->open_object_section("value");

@@ -1,0 +1,34 @@
+commit 86c851e138ae00cbcc2854ba75ad8d40ef2a2270
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jun 12 00:02:30 2017 -0400
+
+    mgr/PyFormatter: implement dump_format_va
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyFormatter.cc b/src/mgr/PyFormatter.cc
+index abeb420c0b9..4c9aec30537 100644
+--- a/src/mgr/PyFormatter.cc
++++ b/src/mgr/PyFormatter.cc
+@@ -17,6 +17,8 @@
+ 
+ #include "PyFormatter.h"
+ 
++#define LARGE_SIZE 1024
++
+ 
+ void PyFormatter::open_array_section(const char *name)
+ {
+@@ -85,8 +87,10 @@ std::ostream& PyFormatter::dump_stream(const char *name)
+ 
+ void PyFormatter::dump_format_va(const char *name, const char *ns, bool quoted, const char *fmt, va_list ap)
+ {
+-  // TODO
+-  ceph_abort();
++  char buf[LARGE_SIZE];
++  vsnprintf(buf, LARGE_SIZE, fmt, ap);
++
++  dump_pyobject(name, PyString_FromString(buf));
+ }
+ 
+ /**

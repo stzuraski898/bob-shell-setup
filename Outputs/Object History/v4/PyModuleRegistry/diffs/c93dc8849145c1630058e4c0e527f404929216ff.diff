@@ -1,0 +1,21 @@
+commit c93dc8849145c1630058e4c0e527f404929216ff
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jul 7 11:14:49 2019 +0800
+
+    mgr: s/Mutex/ceph::mutex/
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 52e9907e361..94b591fe275 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -38,7 +38,7 @@
+ class PyModuleRegistry
+ {
+ private:
+-  mutable Mutex lock{"PyModuleRegistry::lock"};
++  mutable ceph::mutex lock = ceph::make_mutex("PyModuleRegistry::lock");
+   LogChannelRef clog;
+ 
+   std::map<std::string, PyModuleRef> modules;

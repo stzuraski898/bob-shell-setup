@@ -1,0 +1,33 @@
+commit a67c29d2773779de4ef98c7cf84b21a66876e5b2
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Mar 22 00:38:24 2007 +0000
+
+    * clock_tare arg to allow wall clock time
+    * cleaned out some old build targets
+    
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@1283 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/trunk/ceph/common/Clock.h b/trunk/ceph/common/Clock.h
+index 92a2b2bddf6..106e9e9f237 100644
+--- a/trunk/ceph/common/Clock.h
++++ b/trunk/ceph/common/Clock.h
+@@ -144,7 +144,7 @@ class Clock {
+  public:
+   Clock() {
+     // set offset
+-    tare();
++    //tare();
+   }
+ 
+   // real time.
+@@ -159,6 +159,9 @@ class Clock {
+   void tare() {
+     gettimeofday(&zero.timeval(), NULL);
+   }
++  void tare(utime_t z) {
++    zero = z;
++  }
+   utime_t now() {
+     //lock.Lock();  
+     utime_t n;

@@ -1,0 +1,64 @@
+commit efcebe1eb4ae16ea9c633436e3e105add4a2662c
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Tue Sep 10 09:49:04 2019 -0400
+
+    mgr: templatize/generalize metrics collection interface
+    
+    templatize metrics collection so as to reuse quering routines.
+    `MetricCollector` can be subclassed and along with implementing
+    ` process_reports()` to process incoming metrics data.
+    
+    also, generalize metrics data in `MMgrReport` and metric query
+    configuration in `MMgrConfigure`.
+    
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 36a5f74bafe..4d38a6e1e0f 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -1011,14 +1011,14 @@ void ActivePyModules::set_uri(const std::string& module_name,
+   modules.at(module_name)->set_uri(uri);
+ }
+ 
+-OSDPerfMetricQueryID ActivePyModules::add_osd_perf_query(
++MetricQueryID ActivePyModules::add_osd_perf_query(
+     const OSDPerfMetricQuery &query,
+     const std::optional<OSDPerfMetricLimit> &limit)
+ {
+   return server.add_osd_perf_query(query, limit);
+ }
+ 
+-void ActivePyModules::remove_osd_perf_query(OSDPerfMetricQueryID query_id)
++void ActivePyModules::remove_osd_perf_query(MetricQueryID query_id)
+ {
+   int r = server.remove_osd_perf_query(query_id);
+   if (r < 0) {
+@@ -1027,7 +1027,7 @@ void ActivePyModules::remove_osd_perf_query(OSDPerfMetricQueryID query_id)
+   }
+ }
+ 
+-PyObject *ActivePyModules::get_osd_perf_counters(OSDPerfMetricQueryID query_id)
++PyObject *ActivePyModules::get_osd_perf_counters(MetricQueryID query_id)
+ {
+   std::map<OSDPerfMetricKey, PerformanceCounters> counters;
+ 
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index a8a0f3c4cf0..192360400c7 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -101,11 +101,11 @@ public:
+       const std::string &svc_id,
+       const std::string &path) const;
+ 
+-  OSDPerfMetricQueryID add_osd_perf_query(
++  MetricQueryID add_osd_perf_query(
+       const OSDPerfMetricQuery &query,
+       const std::optional<OSDPerfMetricLimit> &limit);
+-  void remove_osd_perf_query(OSDPerfMetricQueryID query_id);
+-  PyObject *get_osd_perf_counters(OSDPerfMetricQueryID query_id);
++  void remove_osd_perf_query(MetricQueryID query_id);
++  PyObject *get_osd_perf_counters(MetricQueryID query_id);
+ 
+   bool get_store(const std::string &module_name,
+       const std::string &key, std::string *val) const;

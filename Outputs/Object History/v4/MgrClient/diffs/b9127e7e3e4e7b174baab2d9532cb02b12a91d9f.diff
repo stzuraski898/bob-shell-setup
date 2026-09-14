@@ -1,0 +1,49 @@
+commit b9127e7e3e4e7b174baab2d9532cb02b12a91d9f
+Author: Jason Dillaman <dillaman@redhat.com>
+Date:   Mon Jul 24 18:17:59 2017 -0400
+
+    mgr/MgrClient: do not attempt to access a global variable for config
+    
+    Signed-off-by: Jason Dillaman <dillaman@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 624fc0f4f60..849590ba93c 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -146,8 +146,7 @@ void MgrClient::reconnect()
+ 
+   // Don't send an open if we're just a client (i.e. doing
+   // command-sending, not stats etc)
+-  if ((g_conf && !g_conf->name.is_client()) ||
+-      service_daemon) {
++  if (!cct->_conf->name.is_client() || service_daemon) {
+     _send_open();
+   }
+ 
+@@ -168,7 +167,7 @@ void MgrClient::_send_open()
+       open->service_name = service_name;
+       open->daemon_name = daemon_name;
+     } else {
+-      open->daemon_name = g_conf->name.get_id();
++      open->daemon_name = cct->_conf->name.get_id();
+     }
+     if (service_daemon) {
+       open->service_daemon = service_daemon;
+@@ -274,7 +273,7 @@ void MgrClient::send_report()
+   if (daemon_name.size()) {
+     report->daemon_name = daemon_name;
+   } else {
+-    report->daemon_name = g_conf->name.get_id();
++    report->daemon_name = cct->_conf->name.get_id();
+   }
+   report->service_name = service_name;
+ 
+@@ -410,7 +409,7 @@ int MgrClient::service_daemon_register(
+   daemon_dirty_status = true;
+ 
+   // late register?
+-  if (g_conf->name.is_client() && session && session->con) {
++  if (cct->_conf->name.is_client() && session && session->con) {
+     _send_open();
+   }
+ 

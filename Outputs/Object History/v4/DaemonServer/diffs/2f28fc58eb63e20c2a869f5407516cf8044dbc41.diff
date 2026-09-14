@@ -1,0 +1,55 @@
+commit 2f28fc58eb63e20c2a869f5407516cf8044dbc41
+Author: Xuehan Xu <xuxuehan@qianxin.com>
+Date:   Sun Feb 7 12:40:36 2021 +0800
+
+    mgr: relax osd ok-to-stop condition on degraded pgs
+    
+    Right now, the "ok-to-stop" condition is relatively rigorous, it allows
+    stopping an osd only if no PG on it is non-active or degraded. But there
+    are situations in which an OSD is part of a degraded pg and the pg still
+    still have > min_size complete replicas after the OSD is stopped.
+    
+    In 9750061d5d4236aaba156d60790e0b8bcd7cfb64, we changed from considering
+    just acting to using avail_no_missing (OSDs that have no missing objects).
+    When the projected pg_acting is constructed this way, we can safely compare
+    to min_size... even for a PG marked degraded.
+    
+    Fixes: https://tracker.ceph.com/issues/49392
+    Signed-off-by: Xuehan Xu <xxhdx1985126@gmail.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 50d828d44d3..4ea5f703402 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1643,20 +1643,21 @@ bool DaemonServer::_handle_command(
+ 	    continue;
+ 	  }
+ 	  touched_pgs++;
+-	  if (!(q.second.state & PG_STATE_ACTIVE) ||
+-	      (q.second.state & PG_STATE_DEGRADED)) {
+-	    ++dangerous_pgs;
+-	    continue;
+-	  }
++
+ 	  const pg_pool_t *pi = osdmap.get_pg_pool(q.first.pool());
+ 	  if (!pi) {
+ 	    ++dangerous_pgs; // pool is creating or deleting
+-	  } else {
+-	    if (pg_acting.size() < pi->min_size) {
+-	      ++dangerous_pgs;
+-	    }
++            continue;
+ 	  }
+-	}
++
++	  if (!(q.second.state & PG_STATE_ACTIVE)) {
++	    ++dangerous_pgs;
++	    continue;
++	  }
++          if (pg_acting.size() < pi->min_size) {
++            ++dangerous_pgs;
++          }
++        }
+       });
+     if (r) {
+       cmdctx->reply(r, ss);

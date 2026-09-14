@@ -1,0 +1,33 @@
+commit c1471c7501948004096581ee415ab4a1fa2d9379
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Aug 22 14:42:11 2017 -0400
+
+    mgr: standby modules come up and run now
+    
+    ...they still don't have access to any config though.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/ActivePyModule.cc b/src/mgr/ActivePyModule.cc
+index c734a60c26a..6048dc707cf 100644
+--- a/src/mgr/ActivePyModule.cc
++++ b/src/mgr/ActivePyModule.cc
+@@ -24,6 +24,9 @@
+ #include "include/assert.h"  // boost clobbers this
+ 
+ 
++#define dout_context g_ceph_context
++#define dout_subsys ceph_subsys_mgr
++#undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ 
+ // decode a Python exception into a string
+@@ -49,8 +52,6 @@ std::string handle_pyerror()
+ }
+ 
+ 
+-
+-
+ void *ServeThread::entry()
+ {
+   // No need to acquire the GIL here; the module does it.

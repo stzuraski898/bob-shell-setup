@@ -1,0 +1,33 @@
+commit 987612a97529be7e67b89977c4a0cf47906a5ecb
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Jul 26 07:21:40 2017 -0400
+
+    mgr: reduce Gil verbosity at level 20
+    
+    Even at 20, it's pretty heavy to be logging
+    every lock acquire/release.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Gil.h b/src/mgr/Gil.h
+index 522d4b0e18a..0c401c0a912 100644
+--- a/src/mgr/Gil.h
++++ b/src/mgr/Gil.h
+@@ -47,7 +47,7 @@ public:
+ 
+     // Acquire the GIL, set the current thread state
+     PyEval_RestoreThread(pThreadState);
+-    dout(20) << "GIL acquired for thread state " << pThreadState << dendl;
++    dout(25) << "GIL acquired for thread state " << pThreadState << dendl;
+ 
+     //
+     // If called from a separate OS thread (i.e. a thread not created
+@@ -84,7 +84,7 @@ public:
+     }
+     // Release the GIL, reset the thread state to NULL
+     PyEval_SaveThread();
+-    dout(20) << "GIL released for thread state " << pThreadState << dendl;
++    dout(25) << "GIL released for thread state " << pThreadState << dendl;
+   }
+ 
+ private:

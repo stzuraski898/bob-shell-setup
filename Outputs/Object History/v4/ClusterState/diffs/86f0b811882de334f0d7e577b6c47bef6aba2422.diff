@@ -1,0 +1,27 @@
+commit 86f0b811882de334f0d7e577b6c47bef6aba2422
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Oct 12 21:57:48 2017 -0500
+
+    mon/PGMap: add purged_snaps map to PGMapDigest
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index edc911ba6a6..a270861e80b 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -103,6 +103,14 @@ public:
+     return std::forward<Callback>(cb)(pg_map, std::forward<Args>(args)...);
+   }
+ 
++  template<typename Callback, typename...Args>
++  auto with_mutable_pgmap(Callback&& cb, Args&&...args) ->
++    decltype(cb(pg_map, std::forward<Args>(args)...))
++  {
++    Mutex::Locker l(lock);
++    return std::forward<Callback>(cb)(pg_map, std::forward<Args>(args)...);
++  }
++
+   template<typename... Args>
+   void with_monmap(Args &&... args) const
+   {

@@ -1,0 +1,24 @@
+commit 615a6562bc6ac78ca0f874c055cec4887363ba3e
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 5 12:55:52 2018 -0500
+
+    mgr: tolerate racing config-key change during load_store()
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index f8a2e2fba34..cc14eac3a0f 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -184,8 +184,9 @@ std::map<std::string, std::string> Mgr::load_store()
+       lock.Unlock();
+       get_cmd.wait();
+       lock.Lock();
+-      assert(get_cmd.r == 0);
+-      loaded[key] = get_cmd.outbl.to_str();
++      if (get_cmd.r == 0) { // tolerate racing config-key change
++	loaded[key] = get_cmd.outbl.to_str();
++      }
+     }
+   }
+ 

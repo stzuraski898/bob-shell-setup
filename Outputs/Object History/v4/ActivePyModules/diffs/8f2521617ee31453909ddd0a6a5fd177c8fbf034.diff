@@ -1,0 +1,30 @@
+commit 8f2521617ee31453909ddd0a6a5fd177c8fbf034
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri May 12 21:27:11 2017 -0500
+
+    mon/PGMap: move summary information into parent PGMapDigest object
+    
+    Everything summary-ish that we need to send to the mon is moved into a
+    parent class.  The child PGMap retains the detail.
+    
+    The parent gets its own encode(), and PGMap::encode_digest() will call it
+    to encode just the summary info.
+    
+    Squashed in here is a new num_pg_by_osd that could have been done
+    in a preceding patch but I did things in the wrong order.  :(
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 5ba0b69b90e..b9596bb5f97 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -237,7 +237,7 @@ PyObject *PyModules::get_python(const std::string &what)
+       cluster_state.with_pgmap(
+           [&osd_map, &f](const PGMap &pg_map) {
+         pg_map.dump_fs_stats(nullptr, &f, true);
+-        pg_map.dump_pool_stats(osd_map, nullptr, &f, true);
++        pg_map.dump_pool_stats_full(osd_map, nullptr, &f, true);
+       });
+     });
+     return f.get();

@@ -1,0 +1,23 @@
+commit 3ab70dd3e1150b2b3f66cbbee329ea95618747a5
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Wed Oct 16 17:34:06 2024 +0200
+
+    common/Formatter: move {JSON,Table,XML}Formatter to separate files
+    
+    Most sources only need the Formatter interface and don't need the
+    other implementations (and their header dependencies).
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index a967658e2f4..85be92ea3b8 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -44,6 +44,7 @@
+ #include "messages/MOSDScrub2.h"
+ #include "messages/MOSDForceRecovery.h"
+ #include "common/errno.h"
++#include "common/JSONFormatter.h"
+ #include "common/pick_address.h"
+ #include "common/TextTable.h"
+ #include "crush/CrushWrapper.h"

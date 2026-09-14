@@ -1,0 +1,82 @@
+commit f6ef41a05ee87f59b9cd33ab3c7acc1b98724713
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Feb 5 10:15:58 2019 -0600
+
+    mgr: allow progress events to be reported from modules
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 1f185714972..42f28a0caad 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -911,6 +911,35 @@ void ActivePyModules::get_health_checks(health_check_map_t *checks)
+   }
+ }
+ 
++void ActivePyModules::update_progress_event(
++  const std::string& evid,
++  const std::string& desc,
++  float progress)
++{
++  std::lock_guard l(lock);
++  auto& pe = progress_events[evid];
++  pe.message = desc;
++  pe.progress = progress;
++}
++
++void ActivePyModules::complete_progress_event(const std::string& evid)
++{
++  std::lock_guard l(lock);
++  progress_events.erase(evid);
++}
++
++void ActivePyModules::clear_all_progress_events()
++{
++  std::lock_guard l(lock);
++  progress_events.clear();
++}
++
++void ActivePyModules::get_progress_events(std::map<std::string,ProgressEvent> *events)
++{
++  std::lock_guard l(lock);
++  *events = progress_events;
++}
++
+ void ActivePyModules::config_notify()
+ {
+   std::lock_guard l(lock);
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index d1761283334..bd3aee07d3c 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -25,6 +25,7 @@
+ #include "common/LogClient.h"
+ #include "mon/MgrMap.h"
+ #include "mon/MonCommand.h"
++#include "mon/mon_types.h"
+ 
+ #include "DaemonState.h"
+ #include "ClusterState.h"
+@@ -49,6 +50,7 @@ class ActivePyModules
+   DaemonServer &server;
+   PyModuleRegistry &py_module_registry;
+ 
++  map<std::string,ProgressEvent> progress_events;
+ 
+   mutable Mutex lock{"ActivePyModules::lock"};
+ 
+@@ -119,6 +121,13 @@ public:
+ 			 health_check_map_t&& checks);
+   void get_health_checks(health_check_map_t *checks);
+ 
++  void update_progress_event(const std::string& evid,
++			     const std::string& desc,
++			     float progress);
++  void complete_progress_event(const std::string& evid);
++  void clear_all_progress_events();
++  void get_progress_events(std::map<std::string,ProgressEvent>* events);
++
+   void config_notify();
+ 
+   void set_uri(const std::string& module_name, const std::string &uri);

@@ -1,0 +1,42 @@
+commit 3b2a11249aff6ee608efc95212d6723df180cd07
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Nov 30 18:18:31 2021 -0500
+
+    mgr: limit changes to pg_num
+    
+    We need to avoid making drastic changes to pg_num that outpace pgp_num or
+    else we will may hit the per-osd pg limits.
+    
+    Fixes: https://tracker.ceph.com/issues/53442
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 36ab66db999..7884a081aa1 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2766,15 +2766,24 @@ void DaemonServer::adjust_pgs()
+ 	    } else {
+ 	      active = false;
+ 	    }
++	    unsigned pg_gap = p.get_pg_num() - p.get_pgp_num();
++	    unsigned max_jump = cct->_conf->mgr_max_pg_num_change;
+ 	    if (!active) {
+ 	      dout(10) << "pool " << i.first
+ 		       << " pg_num_target " << p.get_pg_num_target()
+ 		       << " pg_num " << p.get_pg_num()
+ 		       << " - not all pgs active"
+ 		       << dendl;
++	    } else if (pg_gap >= max_jump) {
++	      dout(10) << "pool " << i.first
++		       << " pg_num " << p.get_pg_num()
++		       << " - pgp_num " << p.get_pgp_num()
++		       << " gap > max_pg_num_change " << max_jump
++		       << " - must scale pgp_num first"
++		       << dendl;
+ 	    } else {
+ 	      unsigned add = std::min(
+-		left,
++		std::min(left, max_jump - pg_gap),
+ 		p.get_pg_num_target() - p.get_pg_num());
+ 	      unsigned target = p.get_pg_num() + add;
+ 	      left -= add;

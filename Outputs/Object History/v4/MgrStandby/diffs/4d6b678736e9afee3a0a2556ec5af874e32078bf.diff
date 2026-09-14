@@ -1,0 +1,22 @@
+commit 4d6b678736e9afee3a0a2556ec5af874e32078bf
+Author: Liu Changcheng <changcheng.liu@intel.com>
+Date:   Thu Sep 17 13:15:44 2020 +0800
+
+    messenger: remove unused variable
+    
+    Signed-off-by: Changcheng Liu <changcheng.liu@aliyun.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 7a84c59061e..e72edd72d97 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -44,8 +44,7 @@ MgrStandby::MgrStandby(int argc, const char **argv) :
+ 		     cct->_conf.get_val<std::string>("ms_type"),
+ 		     entity_name_t::MGR(),
+ 		     "mgr",
+-		     Messenger::get_pid_nonce(),
+-		     0)),
++		     Messenger::get_pid_nonce())),
+   objecter{g_ceph_context, client_messenger.get(), &monc, poolctx, 0, 0},
+   client{client_messenger.get(), &monc, &objecter},
+   mgrc(g_ceph_context, client_messenger.get(), &monc.monmap),

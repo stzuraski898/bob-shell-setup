@@ -1,0 +1,37 @@
+commit 948de224df12b8b383460b86ba520b191dc275bc
+Author: Nitzan Mordechai <nmordech@ibm.com>
+Date:   Mon Jun 8 05:18:55 2026 +0000
+
+    mgr: fix dispatch throttle bottleneck causing OSD connection timeouts
+    
+    The mgr dispatch throttle (ms_dispatch_throttle_bytes, default 100MB)
+    was far smaller than the OSD throttle (mgr_osd_bytes, 512MB),
+    making the dispatch queue the effective bottleneck on large clusters.
+    
+    When the dispatch queue fills, OSD connections stall waiting for
+    throttle space. These connections time out and reconnect, causing
+    connection churn and heap growth from repeated connection setup/teardown.
+    The MGR also falls behind on PG stats processing, leading to unknown
+    and inactive PGs.
+    
+    Add mgr_dispatch_throttle_bytes (default 1GB) and a
+    Messenger::set_dispatch_throttle_size() API to configure it at init time.
+    The new default is sized to accommodate the sum of all per-type policy
+    throttles, ensuring the dispatch queue is never the bottleneck.
+    
+    Fixes: https://tracker.ceph.com/issues/66310
+    Signed-off-by: Nitzan Mordechai <nmordech@ibm.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index a7ddac0868d..822b508cbd9 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -176,6 +176,8 @@ int DaemonServer::init(uint64_t gid, entity_addrvec_t client_addrs)
+ 			   entity_name_t::MGR(gid),
+ 			   "mgr",
+ 			   Messenger::get_random_nonce());
++  msgr->set_dispatch_throttle_size(
++      g_conf().get_val<Option::size_t>("mgr_dispatch_throttle_bytes"));
+   msgr->set_default_policy(Messenger::Policy::stateless_server(0));
+   // throttle policy
+   msgr->set_policy(entity_name_t::TYPE_OSD,

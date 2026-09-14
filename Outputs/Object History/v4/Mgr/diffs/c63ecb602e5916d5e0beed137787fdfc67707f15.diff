@@ -1,0 +1,30 @@
+commit c63ecb602e5916d5e0beed137787fdfc67707f15
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Aug 11 11:48:33 2021 +0800
+
+    mgr: build without "using namespace std"
+    
+    * add "std::" prefix in headers
+    * add "using" declarations in .cc files.
+    
+    so we don't rely on "using namespace std" in one or more included
+    headers.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index c20242e9fe6..b609c7d1d5c 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -43,6 +43,11 @@
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ 
++using namespace std::literals;
++
++using std::map;
++using std::ostringstream;
++using std::string;
+ 
+ Mgr::Mgr(MonClient *monc_, const MgrMap& mgrmap,
+          PyModuleRegistry *py_module_registry_,

@@ -1,0 +1,38 @@
+commit 58dd3db0be62f67aa51f78357ceabb0979ccf6e1
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Sep 20 16:34:37 2016 +0100
+
+    mgr: update for Dispatcher::ms_handle_refused
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 7264caab5ea..f8340e3296e 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -208,6 +208,12 @@ bool MgrStandby::ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer,
+   return *authorizer != NULL;
+ }
+ 
++bool MgrStandby::ms_handle_refused(Connection *con)
++{
++  // do nothing for now
++  return false;
++}
++
+ // A reference for use by the signal handler
+ MgrStandby *signal_mgr = nullptr;
+ 
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index 4c46a0730ee..0762764cdc5 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -52,6 +52,8 @@ public:
+   void ms_handle_remote_reset(Connection *con) {}
+   bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer,
+                          bool force_new);
++  bool ms_handle_refused(Connection *con);
++
+   int init();
+   void shutdown();
+   void usage() {}

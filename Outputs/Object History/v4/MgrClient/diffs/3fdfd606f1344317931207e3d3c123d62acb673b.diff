@@ -1,0 +1,33 @@
+commit 3fdfd606f1344317931207e3d3c123d62acb673b
+Author: Radoslaw Zarzynski <rzarzynski@redhat.com>
+Date:   Tue Jun 23 10:28:15 2020 +0000
+
+    common/bl, *: deprecate list::claim() in favor of operator=(list&&).
+    
+    The motivation is that `claim(list&)` seems to actually be a pre-C++11
+    counterpart of the already available `operator=(list&&)`.
+    This commit deprecates the `claim()` method but doesn't drop it yet.
+    
+    All occurrences of `buffer::list::claim(list&)` are switched to
+      * `list::operator=(list&&)` or
+      * reworked to use `list::list(list&&)` instead.
+    
+    Changes are applied to: rgw, osdc, osd, os/memstore, os/filestore,
+    os/bluestore, os, msg, mgr, messages, mds, librbd, librados, crimson,
+    common, cls, mon.
+    
+    Signed-off-by: Radoslaw Zarzynski <rzarzyns@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 2f998635c3f..c63d54f2fee 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -552,7 +552,7 @@ bool MgrClient::handle_command_reply(
+ 
+   auto &op = command_table.get_command(tid);
+   if (op.outbl) {
+-    op.outbl->claim(data);
++    *op.outbl = std::move(data);
+   }
+ 
+   if (op.outs) {

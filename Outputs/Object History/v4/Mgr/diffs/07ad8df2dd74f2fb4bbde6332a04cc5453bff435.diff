@@ -1,0 +1,35 @@
+commit 07ad8df2dd74f2fb4bbde6332a04cc5453bff435
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sat Oct 23 17:32:11 2021 -0500
+
+    common/admin_socket: pass inbl to sync call() method
+    
+    Only the async_call got this before.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+    Signed-off-by: Radoslaw Zarzynski <rzarzyns@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 32c92466bbc..7dc158fe152 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -806,6 +806,7 @@ std::map<std::string, std::string> Mgr::get_services() const
+ int Mgr::call(
+   std::string_view admin_command,
+   const cmdmap_t& cmdmap,
++  const bufferlist&,
+   Formatter *f,
+   std::ostream& errss,
+   bufferlist& out)
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index 28a7da93de0..22ebdb68041 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -103,6 +103,7 @@ public:
+   int call(
+     std::string_view command,
+     const cmdmap_t& cmdmap,
++    const bufferlist& inbl,
+     Formatter *f,
+     std::ostream& errss,
+     ceph::buffer::list& out) override;

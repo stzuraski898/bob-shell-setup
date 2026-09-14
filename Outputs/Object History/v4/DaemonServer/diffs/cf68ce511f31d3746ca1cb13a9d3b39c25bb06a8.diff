@@ -1,0 +1,62 @@
+commit cf68ce511f31d3746ca1cb13a9d3b39c25bb06a8
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jan 5 14:55:12 2018 -0600
+
+    mgr: have MgrStandby send mgr reports to active mgr (even self!)
+    
+    This allows the mgr daemons to register state with the active mgr just
+    like the rest of the cluster, including perfcounters and current config.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index f57933deb04..0f1cafad7af 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1662,6 +1662,34 @@ void DaemonServer::got_service_map()
+   }
+ }
+ 
++void DaemonServer::got_mgr_map()
++{
++  Mutex::Locker l(lock);
++  set<std::string> have;
++  cluster_state.with_mgrmap([&](const MgrMap& mgrmap) {
++      if (mgrmap.active_name.size()) {
++	DaemonKey key("mgr", mgrmap.active_name);
++	have.insert(mgrmap.active_name);
++	if (!daemon_state.exists(key)) {
++	  auto daemon = std::make_shared<DaemonState>(daemon_state.types);
++	  daemon->key = key;
++	  daemon_state.insert(daemon);
++	  dout(10) << "added missing " << key << dendl;
++	}
++      }
++      for (auto& i : mgrmap.standbys) {
++	DaemonKey key("mgr", i.second.name);
++	have.insert(i.second.name);
++	if (!daemon_state.exists(key)) {
++	  auto daemon = std::make_shared<DaemonState>(daemon_state.types);
++	  daemon->key = key;
++	  daemon_state.insert(daemon);
++	  dout(10) << "added missing " << key << dendl;
++	}
++      }
++    });
++  daemon_state.cull("mgr", have);
++}
+ 
+ const char** DaemonServer::get_tracked_conf_keys() const
+ {
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 9c0575461d2..6a01714c4f0 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -136,6 +136,7 @@ public:
+   bool handle_command(MCommand *m);
+   void send_report();
+   void got_service_map();
++  void got_mgr_map();
+ 
+   void _send_configure(ConnectionRef c);
+ 

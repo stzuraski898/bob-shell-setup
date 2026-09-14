@@ -1,0 +1,60 @@
+commit c93dc8849145c1630058e4c0e527f404929216ff
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jul 7 11:14:49 2019 +0800
+
+    mgr: s/Mutex/ceph::mutex/
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 1145e27ca1b..ed200f232eb 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -76,7 +76,6 @@ DaemonServer::DaemonServer(MonClient *monc_,
+       py_modules(py_modules_),
+       clog(clog_),
+       audit_clog(audit_clog_),
+-      lock("DaemonServer"),
+       pgmap_ready(false),
+       timer(g_ceph_context, lock),
+       shutting_down(false),
+@@ -308,7 +307,7 @@ void DaemonServer::tick()
+ // fire after all modules have had a chance to set their health checks.
+ void DaemonServer::schedule_tick_locked(double delay_sec)
+ {
+-  ceph_assert(lock.is_locked_by_me());
++  ceph_assert(ceph_mutex_is_locked_by_me(lock));
+ 
+   if (tick_event) {
+     timer.cancel_event(tick_event);
+@@ -2755,7 +2754,7 @@ void DaemonServer::handle_conf_change(const ConfigProxy& conf,
+ 
+ void DaemonServer::_send_configure(ConnectionRef c)
+ {
+-  ceph_assert(lock.is_locked_by_me());
++  ceph_assert(ceph_mutex_is_locked_by_me(lock));
+ 
+   auto configure = make_message<MMgrConfigure>();
+   configure->stats_period = g_conf().get_val<int64_t>("mgr_stats_period");
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 5c87dec15e7..14ed023f06b 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -19,7 +19,7 @@
+ #include <set>
+ #include <string>
+ 
+-#include "common/Mutex.h"
++#include "common/ceph_mutex.h"
+ #include "common/LogClient.h"
+ #include "common/Timer.h"
+ 
+@@ -76,7 +76,7 @@ protected:
+ 
+   epoch_t pending_service_map_dirty = 0;
+ 
+-  Mutex lock;
++  ceph::mutex lock = ceph::make_mutex("DaemonServer");
+ 
+   static void _generate_command_map(cmdmap_t& cmdmap,
+                                     map<string,string> &param_str_map);

@@ -1,0 +1,44 @@
+commit 12375a4cf5d664eb2a0d54fc3fdc0ae65a35c4ef
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Fri Sep 4 00:33:13 2020 -0400
+
+    mgr: PyModuleRegistry::unregister_client() can run endlessly
+    
+    Lately seeing the RADOS instance in manager (python core) getting
+    blocklisted. Manager modules (such as mgr/volumes) use a pool of
+    CephFS connection handles which register their addrs on connection
+    initialization (via register_client()). Shutting down a connection
+    unregisters the respective address.
+    
+    Some history:
+    
+    This machinery was introduced to workaround the case where ceph-mgr
+    was getting evicted by ceph mds due to unlcean shutdown (ceph-mgr
+    python modules do not cleanup gracefully on exit) causing teuthology
+    tests to fail. The workaround was to blocklist these clients by including
+    the client addrs in the manager beacon message sent to monitor (for
+    inclusion in OSDMap) -- but this was not sufficient enough to solve
+    the eviction issue altogether. In the end whitelisting the cluster log
+    warning was rather convinient to workaround the tests failures.
+    However, the whole register/unregister machinery in still in use.
+    
+    The endless loop made ceph manager unresponsive thereby getting
+    blocklisted in midst of normal operation.
+    
+    Fixes: http://tracker.ceph.com/issues/47329
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 12bcb93e8ac..c16c4bf4c8e 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -193,7 +193,8 @@ public:
+     auto itp = clients.equal_range(std::string(name));
+     for (auto it = itp.first; it != itp.second; ++it) {
+       if (it->second == addrs) {
+-        it = clients.erase(it);
++        clients.erase(it);
++        return;
+       }
+     }
+   }

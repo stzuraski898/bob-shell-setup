@@ -1,0 +1,550 @@
+# git blame -w -M -C src/mgr/ClusterState.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman      2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/ClusterState.cc                  (Edwin Rodriguez     2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+c8c1019d1962 src/mgr/ClusterState.cc                  (Edwin Rodriguez     2025-10-02 15:31:35 -0400   3) 
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100   4) /*
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100   5)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100   6)  *
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100   7)  * Copyright (C) 2014 John Spray <john.spray@inktank.com>
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  13)  */
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  14) 
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  15) #include "mgr/ClusterState.h"
+3ab70dd3e115 src/mgr/ClusterState.cc                  (Max Kellermann      2024-10-16 17:34:06 +0200  16) #include "common/JSONFormatter.h"
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  17) #include "messages/MMgrDigest.h"
+ff1258e7ef39 src/mgr/ClusterState.cc                  (Greg Farnum         2017-03-10 18:48:47 -0800  18) #include "messages/MMonMgrReport.h"
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100  19) #include "messages/MPGStats.h"
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  20) 
+ea20d3522aaf src/mgr/ClusterState.cc                  (David Zafman        2019-07-18 21:28:16 -0700  21) #include <time.h>
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000  22) #include <boost/range/adaptor/reversed.hpp>
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  23) 
+b9182564c716 src/mgr/ClusterState.cc                  (Adam C. Emerson     2016-11-16 12:38:08 -0500  24) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray          2016-06-30 14:05:02 +0100  25) #define dout_subsys ceph_subsys_mgr
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray          2016-06-30 14:05:02 +0100  26) #undef dout_prefix
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray          2016-06-30 14:05:02 +0100  27) #define dout_prefix *_dout << "mgr " << __func__ << " "
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  28) 
+c63ecb602e59 src/mgr/ClusterState.cc                  (Kefu Chai           2021-08-11 11:48:33 +0800  29) using std::ostream;
+c63ecb602e59 src/mgr/ClusterState.cc                  (Kefu Chai           2021-08-11 11:48:33 +0800  30) using std::set;
+c63ecb602e59 src/mgr/ClusterState.cc                  (Kefu Chai           2021-08-11 11:48:33 +0800  31) using std::string;
+c63ecb602e59 src/mgr/ClusterState.cc                  (Kefu Chai           2021-08-11 11:48:33 +0800  32) using std::stringstream;
+c63ecb602e59 src/mgr/ClusterState.cc                  (Kefu Chai           2021-08-11 11:48:33 +0800  33) 
+6c10417f7ed3 src/mgr/ClusterState.cc                  (Sage Weil           2017-06-27 15:52:25 -0400  34) ClusterState::ClusterState(
+6c10417f7ed3 src/mgr/ClusterState.cc                  (Sage Weil           2017-06-27 15:52:25 -0400  35)   MonClient *monc_,
+6c10417f7ed3 src/mgr/ClusterState.cc                  (Sage Weil           2017-06-27 15:52:25 -0400  36)   Objecter *objecter_,
+6c10417f7ed3 src/mgr/ClusterState.cc                  (Sage Weil           2017-06-27 15:52:25 -0400  37)   const MgrMap& mgrmap)
+6c10417f7ed3 src/mgr/ClusterState.cc                  (Sage Weil           2017-06-27 15:52:25 -0400  38)   : monc(monc_),
+6c10417f7ed3 src/mgr/ClusterState.cc                  (Sage Weil           2017-06-27 15:52:25 -0400  39)     objecter(objecter_),
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000  40)     mgr_map(mgrmap),
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000  41)     asok_hook(NULL)
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  42) {}
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  43) 
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  44) void ClusterState::set_objecter(Objecter *objecter_)
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  45) {
+948635a8b213 src/mgr/ClusterState.cc                  (Sage Weil           2018-10-16 14:11:33 -0500  46)   std::lock_guard l(lock);
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  47) 
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  48)   objecter = objecter_;
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  49) }
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  50) 
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  51) void ClusterState::set_fsmap(FSMap const &new_fsmap)
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  52) {
+948635a8b213 src/mgr/ClusterState.cc                  (Sage Weil           2018-10-16 14:11:33 -0500  53)   std::lock_guard l(lock);
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  54) 
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  55)   fsmap = new_fsmap;
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  56) }
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  57) 
+6c10417f7ed3 src/mgr/ClusterState.cc                  (Sage Weil           2017-06-27 15:52:25 -0400  58) void ClusterState::set_mgr_map(MgrMap const &new_mgrmap)
+6c10417f7ed3 src/mgr/ClusterState.cc                  (Sage Weil           2017-06-27 15:52:25 -0400  59) {
+948635a8b213 src/mgr/ClusterState.cc                  (Sage Weil           2018-10-16 14:11:33 -0500  60)   std::lock_guard l(lock);
+6c10417f7ed3 src/mgr/ClusterState.cc                  (Sage Weil           2017-06-27 15:52:25 -0400  61)   mgr_map = new_mgrmap;
+6c10417f7ed3 src/mgr/ClusterState.cc                  (Sage Weil           2017-06-27 15:52:25 -0400  62) }
+6c10417f7ed3 src/mgr/ClusterState.cc                  (Sage Weil           2017-06-27 15:52:25 -0400  63) 
+97cfc3cb694e src/mgr/ClusterState.cc                  (Sage Weil           2017-06-26 13:22:17 -0400  64) void ClusterState::set_service_map(ServiceMap const &new_service_map)
+97cfc3cb694e src/mgr/ClusterState.cc                  (Sage Weil           2017-06-26 13:22:17 -0400  65) {
+948635a8b213 src/mgr/ClusterState.cc                  (Sage Weil           2018-10-16 14:11:33 -0500  66)   std::lock_guard l(lock);
+97cfc3cb694e src/mgr/ClusterState.cc                  (Sage Weil           2017-06-26 13:22:17 -0400  67)   servicemap = new_service_map;
+97cfc3cb694e src/mgr/ClusterState.cc                  (Sage Weil           2017-06-26 13:22:17 -0400  68) }
+97cfc3cb694e src/mgr/ClusterState.cc                  (Sage Weil           2017-06-26 13:22:17 -0400  69) 
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  70) void ClusterState::load_digest(MMgrDigest *m)
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  71) {
+da362675da51 src/mgr/ClusterState.cc                  (Radoslaw Zarzynski  2020-03-27 14:55:36 +0100  72)   std::lock_guard l(lock);
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  73)   health_json = std::move(m->health_json);
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  74)   mon_status_json = std::move(m->mon_status_json);
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  75) }
+ac30e6cee2b2 src/mgr/ClusterState.cc                  (John Spray          2016-06-30 14:05:02 +0100  76) 
+a075639ce746 src/mgr/ClusterState.cc                  (Kefu Chai           2019-04-15 14:01:00 +0800  77) void ClusterState::ingest_pgstats(ref_t<MPGStats> stats)
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100  78) {
+948635a8b213 src/mgr/ClusterState.cc                  (Sage Weil           2018-10-16 14:11:33 -0500  79)   std::lock_guard l(lock);
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100  80) 
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100  81)   const int from = stats->get_orig_source().num();
+493ec9d3acd3 src/mgr/ClusterState.cc                  (Zhi Zhang           2020-07-29 18:47:42 +0800  82)   bool is_in = with_osdmap([from](const OSDMap& osdmap) {
+493ec9d3acd3 src/mgr/ClusterState.cc                  (Zhi Zhang           2020-07-29 18:47:42 +0800  83)     return osdmap.is_in(from);
+493ec9d3acd3 src/mgr/ClusterState.cc                  (Zhi Zhang           2020-07-29 18:47:42 +0800  84)   });
+493ec9d3acd3 src/mgr/ClusterState.cc                  (Zhi Zhang           2020-07-29 18:47:42 +0800  85) 
+493ec9d3acd3 src/mgr/ClusterState.cc                  (Zhi Zhang           2020-07-29 18:47:42 +0800  86)   if (is_in) {
+83b9ef73c0c1 src/mgr/ClusterState.cc                  (Sage Weil           2017-08-28 17:03:08 -0400  87)     pending_inc.update_stat(from, std::move(stats->osd_stat));
+493ec9d3acd3 src/mgr/ClusterState.cc                  (Zhi Zhang           2020-07-29 18:47:42 +0800  88)   } else {
+493ec9d3acd3 src/mgr/ClusterState.cc                  (Zhi Zhang           2020-07-29 18:47:42 +0800  89)     osd_stat_t empty_stat;
+493ec9d3acd3 src/mgr/ClusterState.cc                  (Zhi Zhang           2020-07-29 18:47:42 +0800  90)     empty_stat.seq = stats->osd_stat.seq;
+493ec9d3acd3 src/mgr/ClusterState.cc                  (Zhi Zhang           2020-07-29 18:47:42 +0800  91)     pending_inc.update_stat(from, std::move(empty_stat));  
+493ec9d3acd3 src/mgr/ClusterState.cc                  (Zhi Zhang           2020-07-29 18:47:42 +0800  92)   }
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100  93) 
+70b41ea1ee83 src/mgr/ClusterState.cc                  (Kamoltat Sirivadhna 2025-06-06 22:43:23 +0000  94)   const auto existing_pools_end_it = existing_pools.end();
+70b41ea1ee83 src/mgr/ClusterState.cc                  (Kamoltat Sirivadhna 2025-06-06 22:43:23 +0000  95)   const auto pg_map_pg_stat_end_it = pg_map.pg_stat.end();
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100  96)   for (auto p : stats->pg_stat) {
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100  97)     pg_t pgid = p.first;
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100  98)     const auto &pg_stats = p.second;
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100  99) 
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 100)     // In case we're hearing about a PG that according to last
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 101)     // OSDMap update should not exist
+9e906733fe07 src/mgr/ClusterState.cc                  (Sage Weil           2018-07-29 22:23:06 -0500 102)     auto r = existing_pools.find(pgid.pool());
+70b41ea1ee83 src/mgr/ClusterState.cc                  (Kamoltat Sirivadhna 2025-06-06 22:43:23 +0000 103)     if (r == existing_pools_end_it) {
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 104)       dout(15) << " got " << pgid
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 105) 	       << " reported at " << pg_stats.reported_epoch << ":"
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 106)                << pg_stats.reported_seq
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 107)                << " state " << pg_state_string(pg_stats.state)
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 108)                << " but pool not in " << existing_pools
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 109)                << dendl;
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 110)       continue;
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 111)     }
+9e906733fe07 src/mgr/ClusterState.cc                  (Sage Weil           2018-07-29 22:23:06 -0500 112)     if (pgid.ps() >= r->second) {
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 113)       dout(15) << " got " << pgid
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 114) 	       << " reported at " << pg_stats.reported_epoch << ":"
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 115)                << pg_stats.reported_seq
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 116)                << " state " << pg_state_string(pg_stats.state)
+9e906733fe07 src/mgr/ClusterState.cc                  (Sage Weil           2018-07-29 22:23:06 -0500 117)                << " but > pg_num " << r->second
+9e906733fe07 src/mgr/ClusterState.cc                  (Sage Weil           2018-07-29 22:23:06 -0500 118)                << dendl;
+9e906733fe07 src/mgr/ClusterState.cc                  (Sage Weil           2018-07-29 22:23:06 -0500 119)       continue;
+9e906733fe07 src/mgr/ClusterState.cc                  (Sage Weil           2018-07-29 22:23:06 -0500 120)     }
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 121)     // In case we already heard about more recent stats from this PG
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 122)     // from another OSD
+ae688fc4d72c src/mgr/ClusterState.cc                  (Sage Weil           2017-07-11 11:34:30 -0400 123)     const auto q = pg_map.pg_stat.find(pgid);
+70b41ea1ee83 src/mgr/ClusterState.cc                  (Kamoltat Sirivadhna 2025-06-06 22:43:23 +0000 124)     if (q != pg_map_pg_stat_end_it &&
+ae688fc4d72c src/mgr/ClusterState.cc                  (Sage Weil           2017-07-11 11:34:30 -0400 125) 	q->second.get_version_pair() > pg_stats.get_version_pair()) {
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 126)       dout(15) << " had " << pgid << " from "
+ae688fc4d72c src/mgr/ClusterState.cc                  (Sage Weil           2017-07-11 11:34:30 -0400 127) 	       << q->second.reported_epoch << ":"
+ae688fc4d72c src/mgr/ClusterState.cc                  (Sage Weil           2017-07-11 11:34:30 -0400 128) 	       << q->second.reported_seq << dendl;
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 129)       continue;
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 130)     }
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 131) 
+70b41ea1ee83 src/mgr/ClusterState.cc                  (Kamoltat Sirivadhna 2025-06-06 22:43:23 +0000 132)     pending_inc.pg_stat_updates.insert_or_assign(pgid, pg_stats);
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 133)   }
+63df40608243 src/mgr/ClusterState.cc                  (Igor Fedotov        2017-12-11 22:12:50 +0300 134)   for (auto p : stats->pool_stat) {
+70b41ea1ee83 src/mgr/ClusterState.cc                  (Kamoltat Sirivadhna 2025-06-06 22:43:23 +0000 135)     pending_inc.pool_statfs_updates.insert_or_assign(std::make_pair(p.first, from), p.second);
+63df40608243 src/mgr/ClusterState.cc                  (Igor Fedotov        2017-12-11 22:12:50 +0300 136)   }
+d6d1db62edeb src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 09:49:16 -0400 137) }
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 138) 
+d6d1db62edeb src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 09:49:16 -0400 139) void ClusterState::update_delta_stats()
+d6d1db62edeb src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 09:49:16 -0400 140) {
+d6d1db62edeb src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 09:49:16 -0400 141)   pending_inc.stamp = ceph_clock_now();
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 142)   pending_inc.version = pg_map.version + 1; // to make apply_incremental happy
+d6d1db62edeb src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 09:49:16 -0400 143)   dout(10) << " v" << pending_inc.version << dendl;
+c2258991393f src/mgr/ClusterState.cc                  (Sage Weil           2017-06-07 17:48:40 -0400 144) 
+0bac6af3c18a src/mgr/ClusterState.cc                  (Nitzan Mordechai    2026-05-19 12:30:59 +0000 145)   if (!pending_inc.empty()) {
+c2258991393f src/mgr/ClusterState.cc                  (Sage Weil           2017-06-07 17:48:40 -0400 146)     dout(30) << " incremental:\n";
+c2258991393f src/mgr/ClusterState.cc                  (Sage Weil           2017-06-07 17:48:40 -0400 147)     JSONFormatter jf(true);
+c2258991393f src/mgr/ClusterState.cc                  (Sage Weil           2017-06-07 17:48:40 -0400 148)     jf.dump_object("pending_inc", pending_inc);
+c2258991393f src/mgr/ClusterState.cc                  (Sage Weil           2017-06-07 17:48:40 -0400 149)     jf.flush(*_dout);
+c2258991393f src/mgr/ClusterState.cc                  (Sage Weil           2017-06-07 17:48:40 -0400 150)     *_dout << dendl;
+0bac6af3c18a src/mgr/ClusterState.cc                  (Nitzan Mordechai    2026-05-19 12:30:59 +0000 151)   }
+0bac6af3c18a src/mgr/ClusterState.cc                  (Nitzan Mordechai    2026-05-19 12:30:59 +0000 152) 
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 153)   pg_map.apply_incremental(g_ceph_context, pending_inc);
+aad1afcb96de src/mgr/ClusterState.cc                  (Kefu Chai           2017-05-30 00:40:25 +0800 154)   pending_inc = PGMap::Incremental();
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 155) }
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 156) 
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 157) void ClusterState::notify_osdmap(const OSDMap &osd_map)
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 158) {
+03a761c980a1 src/mgr/ClusterState.cc                  (Sage Weil           2018-11-15 16:27:18 -0600 159)   assert(ceph_mutex_is_locked(lock));
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 160) 
+d6d1db62edeb src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 09:49:16 -0400 161)   pending_inc.stamp = ceph_clock_now();
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 162)   pending_inc.version = pg_map.version + 1; // to make apply_incremental happy
+d6d1db62edeb src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 09:49:16 -0400 163)   dout(10) << " v" << pending_inc.version << dendl;
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 164) 
+681d37c05554 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-19 17:01:55 -0400 165)   PGMapUpdater::check_osd_map(g_ceph_context, osd_map, pg_map, &pending_inc);
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 166) 
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 167)   // update our list of pools that exist, so that we can filter pg_map updates
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 168)   // in synchrony with this OSDMap.
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 169)   existing_pools.clear();
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 170)   for (auto& p : osd_map.get_pools()) {
+9e906733fe07 src/mgr/ClusterState.cc                  (Sage Weil           2018-07-29 22:23:06 -0500 171)     existing_pools[p.first] = p.second.get_pg_num();
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 172)   }
+6afca3beb2a8 src/mgr/ClusterState.cc                  (Sage Weil           2017-05-23 12:02:02 -0400 173) 
+3893432646b7 src/mgr/ClusterState.cc                  (Sage Weil           2017-02-10 10:12:29 -0500 174)   // brute force this for now (don't bother being clever by only
+3893432646b7 src/mgr/ClusterState.cc                  (Sage Weil           2017-02-10 10:12:29 -0500 175)   // checking osds that went up/down)
+3893432646b7 src/mgr/ClusterState.cc                  (Sage Weil           2017-02-10 10:12:29 -0500 176)   set<int> need_check_down_pg_osds;
+454da5e7b24c src/mgr/ClusterState.cc                  (Kefu Chai           2017-02-24 20:38:03 +0800 177)   PGMapUpdater::check_down_pgs(osd_map, pg_map, true,
+3893432646b7 src/mgr/ClusterState.cc                  (Sage Weil           2017-02-10 10:12:29 -0500 178) 			       need_check_down_pg_osds, &pending_inc);
+3893432646b7 src/mgr/ClusterState.cc                  (Sage Weil           2017-02-10 10:12:29 -0500 179) 
+0bac6af3c18a src/mgr/ClusterState.cc                  (Nitzan Mordechai    2026-05-19 12:30:59 +0000 180)   if (!pending_inc.empty()) {
+c2258991393f src/mgr/ClusterState.cc                  (Sage Weil           2017-06-07 17:48:40 -0400 181)     dout(30) << " incremental:\n";
+c2258991393f src/mgr/ClusterState.cc                  (Sage Weil           2017-06-07 17:48:40 -0400 182)     JSONFormatter jf(true);
+c2258991393f src/mgr/ClusterState.cc                  (Sage Weil           2017-06-07 17:48:40 -0400 183)     jf.dump_object("pending_inc", pending_inc);
+c2258991393f src/mgr/ClusterState.cc                  (Sage Weil           2017-06-07 17:48:40 -0400 184)     jf.flush(*_dout);
+c2258991393f src/mgr/ClusterState.cc                  (Sage Weil           2017-06-07 17:48:40 -0400 185)     *_dout << dendl;
+0bac6af3c18a src/mgr/ClusterState.cc                  (Nitzan Mordechai    2026-05-19 12:30:59 +0000 186)   }
+c2258991393f src/mgr/ClusterState.cc                  (Sage Weil           2017-06-07 17:48:40 -0400 187) 
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 188)   pg_map.apply_incremental(g_ceph_context, pending_inc);
+aad1afcb96de src/mgr/ClusterState.cc                  (Kefu Chai           2017-05-30 00:40:25 +0800 189)   pending_inc = PGMap::Incremental();
+afa7078763ef src/mgr/ClusterState.cc                  (John Spray          2016-09-22 17:09:22 +0100 190)   // TODO: Complete the separation of PG state handling so
+afa7078763ef src/mgr/ClusterState.cc                  (John Spray          2016-09-22 17:09:22 +0100 191)   // that a cut-down set of functionality remains in PGMonitor
+afa7078763ef src/mgr/ClusterState.cc                  (John Spray          2016-09-22 17:09:22 +0100 192)   // while the full-blown PGMap lives only here.
+fa147e3a591a src/mgr/ClusterState.cc                  (John Spray          2016-07-31 18:07:20 +0100 193) }
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 194) 
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 195) class ClusterSocketHook : public AdminSocketHook {
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 196)   ClusterState *cluster_state;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 197) public:
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 198)   explicit ClusterSocketHook(ClusterState *o) : cluster_state(o) {}
+9d772b8ea9e5 src/mgr/ClusterState.cc                  (Sage Weil           2019-09-06 10:36:31 -0500 199)   int call(std::string_view admin_command, const cmdmap_t& cmdmap,
+07ad8df2dd74 src/mgr/ClusterState.cc                  (Sage Weil           2021-10-23 17:32:11 -0500 200) 	   const bufferlist&,
+adf1486e46cb src/mgr/ClusterState.cc                  (Sage Weil           2019-09-19 11:11:55 -0500 201) 	   Formatter *f,
+a4c07734bf9e src/mgr/ClusterState.cc                  (Sage Weil           2019-09-13 14:13:50 -0500 202) 	   std::ostream& errss,
+a4c07734bf9e src/mgr/ClusterState.cc                  (Sage Weil           2019-09-13 14:13:50 -0500 203) 	   bufferlist& out) override {
+a4c07734bf9e src/mgr/ClusterState.cc                  (Sage Weil           2019-09-13 14:13:50 -0500 204)     stringstream outss;
+9d772b8ea9e5 src/mgr/ClusterState.cc                  (Sage Weil           2019-09-06 10:36:31 -0500 205)     int r = 0;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 206)     try {
+adf1486e46cb src/mgr/ClusterState.cc                  (Sage Weil           2019-09-19 11:11:55 -0500 207)       r = cluster_state->asok_command(admin_command, cmdmap, f, outss);
+a4c07734bf9e src/mgr/ClusterState.cc                  (Sage Weil           2019-09-13 14:13:50 -0500 208)       out.append(outss);
+a54d0a90c06a src/mgr/ClusterState.cc                  (Chunmei Liu         2020-01-17 15:09:10 -0800 209)     } catch (const TOPNSPC::common::bad_cmd_get& e) {
+a4c07734bf9e src/mgr/ClusterState.cc                  (Sage Weil           2019-09-13 14:13:50 -0500 210)       errss << e.what();
+9d772b8ea9e5 src/mgr/ClusterState.cc                  (Sage Weil           2019-09-06 10:36:31 -0500 211)       r = -EINVAL;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 212)     }
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 213)     return r;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 214)   }
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 215) };
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 216) 
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 217) void ClusterState::final_init()
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 218) {
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 219)   AdminSocket *admin_socket = g_ceph_context->get_admin_socket();
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 220)   asok_hook = new ClusterSocketHook(this);
+1a7cdedb5601 src/mgr/ClusterState.cc                  (Sage Weil           2019-09-05 17:19:50 -0500 221)   int r = admin_socket->register_command(
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 222)     "dump_osd_network name=value,type=CephInt,req=false", asok_hook,
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 223)     "Dump osd heartbeat network ping times");
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 224)   ceph_assert(r == 0);
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 225) }
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 226) 
+adf1486e46cb src/mgr/ClusterState.cc                  (Sage Weil           2019-09-19 11:11:55 -0500 227) bool ClusterState::asok_command(
+adf1486e46cb src/mgr/ClusterState.cc                  (Sage Weil           2019-09-19 11:11:55 -0500 228)   std::string_view admin_command,
+adf1486e46cb src/mgr/ClusterState.cc                  (Sage Weil           2019-09-19 11:11:55 -0500 229)   const cmdmap_t& cmdmap,
+adf1486e46cb src/mgr/ClusterState.cc                  (Sage Weil           2019-09-19 11:11:55 -0500 230)   Formatter *f,
+adf1486e46cb src/mgr/ClusterState.cc                  (Sage Weil           2019-09-19 11:11:55 -0500 231)   ostream& ss)
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 232) {
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 233)   std::lock_guard l(lock);
+07ad8df2dd74 src/mgr/ClusterState.cc                  (Sage Weil           2021-10-23 17:32:11 -0500 234) 
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 235)   if (admin_command == "dump_osd_network") {
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 236)     int64_t value = 0;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 237)     // Default to health warning level if nothing specified
+a54d0a90c06a src/mgr/ClusterState.cc                  (Chunmei Liu         2020-01-17 15:09:10 -0800 238)     if (!(TOPNSPC::common::cmd_getval(cmdmap, "value", value))) {
+5f83a6158b29 src/mgr/ClusterState.cc                  (David Zafman        2019-09-04 17:13:32 +0000 239)       // Convert milliseconds to microseconds
+6d2e4cb109ca src/mgr/ClusterState.cc                  (David Zafman        2019-09-06 11:20:10 -0700 240)       value = static_cast<int64_t>(g_ceph_context->_conf.get_val<double>("mon_warn_on_slow_ping_time")) * 1000;
+0d1bbd34e96e src/mgr/ClusterState.cc                  (David Zafman        2019-07-11 21:24:12 +0000 241)       if (value == 0) {
+0d1bbd34e96e src/mgr/ClusterState.cc                  (David Zafman        2019-07-11 21:24:12 +0000 242)         double ratio = g_conf().get_val<double>("mon_warn_on_slow_ping_ratio");
+0d1bbd34e96e src/mgr/ClusterState.cc                  (David Zafman        2019-07-11 21:24:12 +0000 243) 	value = g_conf().get_val<int64_t>("osd_heartbeat_grace");
+0d1bbd34e96e src/mgr/ClusterState.cc                  (David Zafman        2019-07-11 21:24:12 +0000 244) 	value *= 1000000 * ratio; // Seconds of grace to microseconds at ratio
+0d1bbd34e96e src/mgr/ClusterState.cc                  (David Zafman        2019-07-11 21:24:12 +0000 245)       }
+5f83a6158b29 src/mgr/ClusterState.cc                  (David Zafman        2019-09-04 17:13:32 +0000 246)     } else {
+5f83a6158b29 src/mgr/ClusterState.cc                  (David Zafman        2019-09-04 17:13:32 +0000 247)       // Convert user input to microseconds
+5f83a6158b29 src/mgr/ClusterState.cc                  (David Zafman        2019-09-04 17:13:32 +0000 248)       value *= 1000;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 249)     }
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 250)     if (value < 0)
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 251)       value = 0;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 252) 
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 253)     struct mgr_ping_time_t {
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 254)       uint32_t pingtime;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 255)       int from;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 256)       int to;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 257)       bool back;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 258)       std::array<uint32_t,3> times;
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 259)       std::array<uint32_t,3> min;
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 260)       std::array<uint32_t,3> max;
+3f846d7c806b src/mgr/ClusterState.cc                  (David Zafman        2019-07-15 13:23:53 -0700 261)       uint32_t last;
+ea20d3522aaf src/mgr/ClusterState.cc                  (David Zafman        2019-07-18 21:28:16 -0700 262)       uint32_t last_update;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 263) 
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 264)       bool operator<(const mgr_ping_time_t& rhs) const {
+66d44e7f911a src/mon/PGMap.cc                         (David Zafman        2019-06-26 02:59:06 +0000 265)         if (pingtime < rhs.pingtime)
+66d44e7f911a src/mon/PGMap.cc                         (David Zafman        2019-06-26 02:59:06 +0000 266)           return true;
+66d44e7f911a src/mon/PGMap.cc                         (David Zafman        2019-06-26 02:59:06 +0000 267)         if (pingtime > rhs.pingtime)
+66d44e7f911a src/mon/PGMap.cc                         (David Zafman        2019-06-26 02:59:06 +0000 268)           return false;
+66d44e7f911a src/mon/PGMap.cc                         (David Zafman        2019-06-26 02:59:06 +0000 269)         if (from < rhs.from)
+66d44e7f911a src/mon/PGMap.cc                         (David Zafman        2019-06-26 02:59:06 +0000 270)           return true;
+66d44e7f911a src/mon/PGMap.cc                         (David Zafman        2019-06-26 02:59:06 +0000 271)         if (from > rhs.from)
+66d44e7f911a src/mon/PGMap.cc                         (David Zafman        2019-06-26 02:59:06 +0000 272)           return false;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 273)         if (to < rhs.to)
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 274)           return true;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 275)         if (to > rhs.to)
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 276)           return false;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 277)         return back;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 278)       }
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 279)     };
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 280) 
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 281)     set<mgr_ping_time_t> sorted;
+048f8096265d src/mgr/ClusterState.cc                  (David Zafman        2019-07-22 11:52:41 -0700 282)     utime_t now = ceph_clock_now();
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 283)     for (auto i : pg_map.osd_stat) {
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 284)       for (auto j : i.second.hb_pingtime) {
+048f8096265d src/mgr/ClusterState.cc                  (David Zafman        2019-07-22 11:52:41 -0700 285) 
+048f8096265d src/mgr/ClusterState.cc                  (David Zafman        2019-07-22 11:52:41 -0700 286) 	if (j.second.last_update == 0)
+048f8096265d src/mgr/ClusterState.cc                  (David Zafman        2019-07-22 11:52:41 -0700 287) 	  continue;
+048f8096265d src/mgr/ClusterState.cc                  (David Zafman        2019-07-22 11:52:41 -0700 288) 	auto stale_time = g_ceph_context->_conf.get_val<int64_t>("osd_mon_heartbeat_stat_stale");
+048f8096265d src/mgr/ClusterState.cc                  (David Zafman        2019-07-22 11:52:41 -0700 289) 	if (now.sec() - j.second.last_update > stale_time) {
+048f8096265d src/mgr/ClusterState.cc                  (David Zafman        2019-07-22 11:52:41 -0700 290) 	  dout(20) << __func__ << " time out heartbeat for osd " << i.first
+048f8096265d src/mgr/ClusterState.cc                  (David Zafman        2019-07-22 11:52:41 -0700 291) 	           << " last_update " << j.second.last_update << dendl;
+048f8096265d src/mgr/ClusterState.cc                  (David Zafman        2019-07-22 11:52:41 -0700 292) 	   continue;
+048f8096265d src/mgr/ClusterState.cc                  (David Zafman        2019-07-22 11:52:41 -0700 293) 	}
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 294) 	mgr_ping_time_t item;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 295) 	item.pingtime = std::max(j.second.back_pingtime[0], j.second.back_pingtime[1]);
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 296) 	item.pingtime = std::max(item.pingtime, j.second.back_pingtime[2]);
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 297) 	if (!value || item.pingtime >= value) {
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 298) 	  item.from = i.first;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 299) 	  item.to = j.first;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 300) 	  item.times[0] = j.second.back_pingtime[0];
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 301) 	  item.times[1] = j.second.back_pingtime[1];
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 302) 	  item.times[2] = j.second.back_pingtime[2];
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 303) 	  item.min[0] = j.second.back_min[0];
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 304) 	  item.min[1] = j.second.back_min[1];
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 305) 	  item.min[2] = j.second.back_min[2];
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 306) 	  item.max[0] = j.second.back_max[0];
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 307) 	  item.max[1] = j.second.back_max[1];
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 308) 	  item.max[2] = j.second.back_max[2];
+3f846d7c806b src/mgr/ClusterState.cc                  (David Zafman        2019-07-15 13:23:53 -0700 309) 	  item.last = j.second.back_last;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 310) 	  item.back = true;
+ea20d3522aaf src/mgr/ClusterState.cc                  (David Zafman        2019-07-18 21:28:16 -0700 311) 	  item.last_update = j.second.last_update;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 312) 	  sorted.emplace(item);
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 313) 	}
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 314) 
+3f846d7c806b src/mgr/ClusterState.cc                  (David Zafman        2019-07-15 13:23:53 -0700 315) 	if (j.second.front_last == 0)
+3f846d7c806b src/mgr/ClusterState.cc                  (David Zafman        2019-07-15 13:23:53 -0700 316) 	  continue;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 317) 	item.pingtime = std::max(j.second.front_pingtime[0], j.second.front_pingtime[1]);
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 318) 	item.pingtime = std::max(item.pingtime, j.second.front_pingtime[2]);
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 319) 	if (!value || item.pingtime >= value) {
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 320) 	  item.from = i.first;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 321) 	  item.to = j.first;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 322) 	  item.times[0] = j.second.front_pingtime[0];
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 323) 	  item.times[1] = j.second.front_pingtime[1];
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 324) 	  item.times[2] = j.second.front_pingtime[2];
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 325) 	  item.min[0] = j.second.front_min[0];
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 326) 	  item.min[1] = j.second.front_min[1];
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 327) 	  item.min[2] = j.second.front_min[2];
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 328) 	  item.max[0] = j.second.front_max[0];
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 329) 	  item.max[1] = j.second.front_max[1];
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 330) 	  item.max[2] = j.second.front_max[2];
+3f846d7c806b src/mgr/ClusterState.cc                  (David Zafman        2019-07-15 13:23:53 -0700 331) 	  item.last = j.second.front_last;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 332) 	  item.back = false;
+ea20d3522aaf src/mgr/ClusterState.cc                  (David Zafman        2019-07-18 21:28:16 -0700 333) 	  item.last_update = j.second.last_update;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 334) 	  sorted.emplace(item);
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 335) 	}
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 336)       }
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 337)     }
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 338) 
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 339)     // Network ping times (1min 5min 15min)
+0d1bbd34e96e src/mgr/ClusterState.cc                  (David Zafman        2019-07-11 21:24:12 +0000 340)     f->open_object_section("network_ping_times");
+5f83a6158b29 src/mgr/ClusterState.cc                  (David Zafman        2019-09-04 17:13:32 +0000 341)     f->dump_int("threshold", value / 1000);
+0d1bbd34e96e src/mgr/ClusterState.cc                  (David Zafman        2019-07-11 21:24:12 +0000 342)     f->open_array_section("entries");
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 343)     for (auto &sitem : boost::adaptors::reverse(sorted)) {
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 344)       ceph_assert(!value || sitem.pingtime >= value);
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 345) 
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 346)       f->open_object_section("entry");
+ea20d3522aaf src/mgr/ClusterState.cc                  (David Zafman        2019-07-18 21:28:16 -0700 347) 
+ea20d3522aaf src/mgr/ClusterState.cc                  (David Zafman        2019-07-18 21:28:16 -0700 348)       const time_t lu(sitem.last_update);
+ea20d3522aaf src/mgr/ClusterState.cc                  (David Zafman        2019-07-18 21:28:16 -0700 349)       char buffer[26];
+ea20d3522aaf src/mgr/ClusterState.cc                  (David Zafman        2019-07-18 21:28:16 -0700 350)       string lustr(ctime_r(&lu, buffer));
+ea20d3522aaf src/mgr/ClusterState.cc                  (David Zafman        2019-07-18 21:28:16 -0700 351)       lustr.pop_back();   // Remove trailing \n
+ea20d3522aaf src/mgr/ClusterState.cc                  (David Zafman        2019-07-18 21:28:16 -0700 352)       auto stale = g_ceph_context->_conf.get_val<int64_t>("osd_heartbeat_stale");
+ea20d3522aaf src/mgr/ClusterState.cc                  (David Zafman        2019-07-18 21:28:16 -0700 353)       f->dump_string("last update", lustr);
+ea20d3522aaf src/mgr/ClusterState.cc                  (David Zafman        2019-07-18 21:28:16 -0700 354)       f->dump_bool("stale", ceph_clock_now().sec() - sitem.last_update > stale);
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 355)       f->dump_int("from osd", sitem.from);
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 356)       f->dump_int("to osd", sitem.to);
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 357)       f->dump_string("interface", (sitem.back ? "back" : "front"));
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 358)       f->open_object_section("average");
+9d02e5d39d7b src/mgr/ClusterState.cc                  (David Zafman        2019-08-05 20:57:48 -0700 359)       f->dump_format_unquoted("1min", "%s", fixed_u_to_string(sitem.times[0],3).c_str());
+9d02e5d39d7b src/mgr/ClusterState.cc                  (David Zafman        2019-08-05 20:57:48 -0700 360)       f->dump_format_unquoted("5min", "%s", fixed_u_to_string(sitem.times[1],3).c_str());
+9d02e5d39d7b src/mgr/ClusterState.cc                  (David Zafman        2019-08-05 20:57:48 -0700 361)       f->dump_format_unquoted("15min", "%s", fixed_u_to_string(sitem.times[2],3).c_str());
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 362)       f->close_section(); // average
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 363)       f->open_object_section("min");
+9d02e5d39d7b src/mgr/ClusterState.cc                  (David Zafman        2019-08-05 20:57:48 -0700 364)       f->dump_format_unquoted("1min", "%s", fixed_u_to_string(sitem.min[0],3).c_str());
+9d02e5d39d7b src/mgr/ClusterState.cc                  (David Zafman        2019-08-05 20:57:48 -0700 365)       f->dump_format_unquoted("5min", "%s", fixed_u_to_string(sitem.min[1],3).c_str());
+9d02e5d39d7b src/mgr/ClusterState.cc                  (David Zafman        2019-08-05 20:57:48 -0700 366)       f->dump_format_unquoted("15min", "%s", fixed_u_to_string(sitem.min[2],3).c_str());
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 367)       f->close_section(); // min
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 368)       f->open_object_section("max");
+9d02e5d39d7b src/mgr/ClusterState.cc                  (David Zafman        2019-08-05 20:57:48 -0700 369)       f->dump_format_unquoted("1min", "%s", fixed_u_to_string(sitem.max[0],3).c_str());
+9d02e5d39d7b src/mgr/ClusterState.cc                  (David Zafman        2019-08-05 20:57:48 -0700 370)       f->dump_format_unquoted("5min", "%s", fixed_u_to_string(sitem.max[1],3).c_str());
+9d02e5d39d7b src/mgr/ClusterState.cc                  (David Zafman        2019-08-05 20:57:48 -0700 371)       f->dump_format_unquoted("15min", "%s", fixed_u_to_string(sitem.max[2],3).c_str());
+297a0e7b1de4 src/mgr/ClusterState.cc                  (David Zafman        2019-07-12 01:06:23 +0000 372)       f->close_section(); // max
+9d02e5d39d7b src/mgr/ClusterState.cc                  (David Zafman        2019-08-05 20:57:48 -0700 373)       f->dump_format_unquoted("last", "%s", fixed_u_to_string(sitem.last,3).c_str());
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 374)       f->close_section(); // entry
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 375)     }
+0d1bbd34e96e src/mgr/ClusterState.cc                  (David Zafman        2019-07-11 21:24:12 +0000 376)     f->close_section(); // entries
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 377)     f->close_section(); // network_ping_times
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 378)   } else {
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 379)     ceph_abort_msg("broken asok registration");
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 380)   }
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 381)   return true;
+5d3c1856415f src/mgr/ClusterState.cc                  (David Zafman        2019-07-09 17:22:12 +0000 382) }
+
+# git blame -w -M -C src/mgr/ClusterState.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng      2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/ClusterState.h                                     (Edwin Rodriguez    2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/ClusterState.h                                     (Edwin Rodriguez    2025-10-02 15:34:08 -0400   3) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100   4) /*
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100   5)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100   6)  *
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100   7)  * Copyright (C) 2014 John Spray <john.spray@inktank.com>
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  13)  */
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  14) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  15) #ifndef CLUSTER_STATE_H_
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  16) #define CLUSTER_STATE_H_
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  17) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  18) #include "mds/FSMap.h"
+6c10417f7ed3 src/mgr/ClusterState.h                                     (Sage Weil          2017-06-27 15:52:25 -0400  19) #include "mon/MgrMap.h"
+c93dc8849145 src/mgr/ClusterState.h                                     (Kefu Chai          2019-07-07 11:14:49 +0800  20) #include "common/ceph_mutex.h"
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  21) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  22) #include "osdc/Objecter.h"
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  23) #include "mon/MonClient.h"
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100  24) #include "mon/PGMap.h"
+97cfc3cb694e src/mgr/ClusterState.h                                     (Sage Weil          2017-06-26 13:22:17 -0400  25) #include "mgr/ServiceMap.h"
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  26) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  27) class MMgrDigest;
+ff1258e7ef39 src/mgr/ClusterState.h                                     (Greg Farnum        2017-03-10 18:48:47 -0800  28) class MMonMgrReport;
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100  29) class MPGStats;
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  30) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  31) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  32) /**
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  33)  * Cluster-scope state (things like cluster maps) as opposed
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  34)  * to daemon-level state (things like perf counters and smart)
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  35)  */
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  36) class ClusterState
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  37) {
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  38) protected:
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  39)   MonClient *monc;
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  40)   Objecter *objecter;
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  41)   FSMap fsmap;
+97cfc3cb694e src/mgr/ClusterState.h                                     (Sage Weil          2017-06-26 13:22:17 -0400  42)   ServiceMap servicemap;
+c93dc8849145 src/mgr/ClusterState.h                                     (Kefu Chai          2019-07-07 11:14:49 +0800  43)   mutable ceph::mutex lock = ceph::make_mutex("ClusterState");
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  44) 
+6c10417f7ed3 src/mgr/ClusterState.h                                     (Sage Weil          2017-06-27 15:52:25 -0400  45)   MgrMap mgr_map;
+6c10417f7ed3 src/mgr/ClusterState.h                                     (Sage Weil          2017-06-27 15:52:25 -0400  46) 
+c63ecb602e59 src/mgr/ClusterState.h                                     (Kefu Chai          2021-08-11 11:48:33 +0800  47)   std::map<int64_t,unsigned> existing_pools; ///< pools that exist, and pg_num, as of PGMap epoch
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100  48)   PGMap pg_map;
+d6d1db62edeb src/mgr/ClusterState.h                                     (Sage Weil          2017-05-23 09:49:16 -0400  49)   PGMap::Incremental pending_inc;
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100  50) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  51)   bufferlist health_json;
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  52)   bufferlist mon_status_json;
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  53) 
+5d3c1856415f src/mgr/ClusterState.h                                     (David Zafman       2019-07-09 17:22:12 +0000  54)   class ClusterSocketHook *asok_hook;
+5d3c1856415f src/mgr/ClusterState.h                                     (David Zafman       2019-07-09 17:22:12 +0000  55) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  56) public:
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  57) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  58)   void load_digest(MMgrDigest *m);
+a075639ce746 src/mgr/ClusterState.h                                     (Kefu Chai          2019-04-15 14:01:00 +0800  59)   void ingest_pgstats(ceph::ref_t<MPGStats> stats);
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  60) 
+d6d1db62edeb src/mgr/ClusterState.h                                     (Sage Weil          2017-05-23 09:49:16 -0400  61)   void update_delta_stats();
+d6d1db62edeb src/mgr/ClusterState.h                                     (Sage Weil          2017-05-23 09:49:16 -0400  62) 
+6c10417f7ed3 src/mgr/ClusterState.h                                     (Sage Weil          2017-06-27 15:52:25 -0400  63)   ClusterState(MonClient *monc_, Objecter *objecter_, const MgrMap& mgrmap);
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  64) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  65)   void set_objecter(Objecter *objecter_);
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  66)   void set_fsmap(FSMap const &new_fsmap);
+6c10417f7ed3 src/mgr/ClusterState.h                                     (Sage Weil          2017-06-27 15:52:25 -0400  67)   void set_mgr_map(MgrMap const &new_mgrmap);
+97cfc3cb694e src/mgr/ClusterState.h                                     (Sage Weil          2017-06-26 13:22:17 -0400  68)   void set_service_map(ServiceMap const &new_service_map);
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  69) 
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100  70)   void notify_osdmap(const OSDMap &osd_map);
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100  71) 
+6646b35ac76d src/mgr/ClusterState.h                                     (Kefu Chai          2017-04-09 03:42:03 +0800  72)   bool have_fsmap() const {
+948635a8b213 src/mgr/ClusterState.h                                     (Sage Weil          2018-10-16 14:11:33 -0500  73)     std::lock_guard l(lock);
+1113eb123b14 src/mgr/ClusterState.h                                     (Sage Weil          2017-04-04 14:27:41 -0400  74)     return fsmap.get_epoch() > 0;
+1113eb123b14 src/mgr/ClusterState.h                                     (Sage Weil          2017-04-04 14:27:41 -0400  75)   }
+1113eb123b14 src/mgr/ClusterState.h                                     (Sage Weil          2017-04-04 14:27:41 -0400  76) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  77)   template<typename Callback, typename...Args>
+9c652fb305a3 src/mgr/ClusterState.h                                     (Kefu Chai          2020-12-24 15:27:41 +0800  78)   auto with_servicemap(Callback&& cb, Args&&...args) const
+97cfc3cb694e src/mgr/ClusterState.h                                     (Sage Weil          2017-06-26 13:22:17 -0400  79)   {
+948635a8b213 src/mgr/ClusterState.h                                     (Sage Weil          2018-10-16 14:11:33 -0500  80)     std::lock_guard l(lock);
+9c652fb305a3 src/mgr/ClusterState.h                                     (Kefu Chai          2020-12-24 15:27:41 +0800  81)     return std::forward<Callback>(cb)(servicemap, std::forward<Args>(args)...);
+97cfc3cb694e src/mgr/ClusterState.h                                     (Sage Weil          2017-06-26 13:22:17 -0400  82)   }
+97cfc3cb694e src/mgr/ClusterState.h                                     (Sage Weil          2017-06-26 13:22:17 -0400  83) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  84)   template<typename Callback, typename...Args>
+9c652fb305a3 src/mgr/ClusterState.h                                     (Kefu Chai          2020-12-24 15:27:41 +0800  85)   auto with_fsmap(Callback&& cb, Args&&...args) const
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  86)   {
+948635a8b213 src/mgr/ClusterState.h                                     (Sage Weil          2018-10-16 14:11:33 -0500  87)     std::lock_guard l(lock);
+9c652fb305a3 src/mgr/ClusterState.h                                     (Kefu Chai          2020-12-24 15:27:41 +0800  88)     return std::forward<Callback>(cb)(fsmap, std::forward<Args>(args)...);
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  89)   }
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  90) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  91)   template<typename Callback, typename...Args>
+9c652fb305a3 src/mgr/ClusterState.h                                     (Kefu Chai          2020-12-24 15:27:41 +0800  92)   auto with_mgrmap(Callback&& cb, Args&&...args) const
+6c10417f7ed3 src/mgr/ClusterState.h                                     (Sage Weil          2017-06-27 15:52:25 -0400  93)   {
+948635a8b213 src/mgr/ClusterState.h                                     (Sage Weil          2018-10-16 14:11:33 -0500  94)     std::lock_guard l(lock);
+9c652fb305a3 src/mgr/ClusterState.h                                     (Kefu Chai          2020-12-24 15:27:41 +0800  95)     return std::forward<Callback>(cb)(mgr_map, std::forward<Args>(args)...);
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  96)   }
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  97) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100  98)   template<typename Callback, typename...Args>
+6646b35ac76d src/mgr/ClusterState.h                                     (Kefu Chai          2017-04-09 03:42:03 +0800  99)   auto with_pgmap(Callback&& cb, Args&&...args) const ->
+6646b35ac76d src/mgr/ClusterState.h                                     (Kefu Chai          2017-04-09 03:42:03 +0800 100)     decltype(cb(pg_map, std::forward<Args>(args)...))
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100 101)   {
+948635a8b213 src/mgr/ClusterState.h                                     (Sage Weil          2018-10-16 14:11:33 -0500 102)     std::lock_guard l(lock);
+6646b35ac76d src/mgr/ClusterState.h                                     (Kefu Chai          2017-04-09 03:42:03 +0800 103)     return std::forward<Callback>(cb)(pg_map, std::forward<Args>(args)...);
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100 104)   }
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100 105) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 106)   template<typename Callback, typename...Args>
+86f0b811882d src/mgr/ClusterState.h                                     (Sage Weil          2017-10-12 21:57:48 -0500 107)   auto with_mutable_pgmap(Callback&& cb, Args&&...args) ->
+6646b35ac76d src/mgr/ClusterState.h                                     (Kefu Chai          2017-04-09 03:42:03 +0800 108)     decltype(cb(pg_map, std::forward<Args>(args)...))
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100 109)   {
+948635a8b213 src/mgr/ClusterState.h                                     (Sage Weil          2018-10-16 14:11:33 -0500 110)     std::lock_guard l(lock);
+6646b35ac76d src/mgr/ClusterState.h                                     (Kefu Chai          2017-04-09 03:42:03 +0800 111)     return std::forward<Callback>(cb)(pg_map, std::forward<Args>(args)...);
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100 112)   }
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100 113) 
+45b33934e878 src/mgr/ClusterState.h                                     (John Spray         2016-09-23 14:46:54 +0100 114)   template<typename... Args>
+9c652fb305a3 src/mgr/ClusterState.h                                     (Kefu Chai          2020-12-24 15:27:41 +0800 115)   auto with_monmap(Args &&... args) const
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 116)   {
+948635a8b213 src/mgr/ClusterState.h                                     (Sage Weil          2018-10-16 14:11:33 -0500 117)     std::lock_guard l(lock);
+ab23c5069647 src/mgr/ClusterState.h                                     (Adam C. Emerson    2018-08-23 11:25:51 -0400 118)     ceph_assert(monc != nullptr);
+9c652fb305a3 src/mgr/ClusterState.h                                     (Kefu Chai          2020-12-24 15:27:41 +0800 119)     return monc->with_monmap(std::forward<Args>(args)...);
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 120)   }
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 121) 
+45b33934e878 src/mgr/ClusterState.h                                     (John Spray         2016-09-23 14:46:54 +0100 122)   template<typename... Args>
+6646b35ac76d src/mgr/ClusterState.h                                     (Kefu Chai          2017-04-09 03:42:03 +0800 123)   auto with_osdmap(Args &&... args) const ->
+c14b913bad38 src/mgr/ClusterState.h                                     (Kefu Chai          2017-04-09 02:43:44 +0800 124)     decltype(objecter->with_osdmap(std::forward<Args>(args)...))
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 125)   {
+ab23c5069647 src/mgr/ClusterState.h                                     (Adam C. Emerson    2018-08-23 11:25:51 -0400 126)     ceph_assert(objecter != nullptr);
+c14b913bad38 src/mgr/ClusterState.h                                     (Kefu Chai          2017-04-09 02:43:44 +0800 127)     return objecter->with_osdmap(std::forward<Args>(args)...);
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 128)   }
+45b33934e878 src/mgr/ClusterState.h                                     (John Spray         2016-09-23 14:46:54 +0100 129) 
+60876ccce4e9 src/mgr/ClusterState.h                                     (Sage Weil          2018-11-15 16:26:48 -0600 130)   // call cb(osdmap, pg_map, ...args) with the appropriate locks
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 131)   template <typename Callback, typename ...Args>
+60876ccce4e9 src/mgr/ClusterState.h                                     (Sage Weil          2018-11-15 16:26:48 -0600 132)   auto with_osdmap_and_pgmap(Callback&& cb, Args&& ...args) const {
+ab23c5069647 src/mgr/ClusterState.h                                     (Adam C. Emerson    2018-08-23 11:25:51 -0400 133)     ceph_assert(objecter != nullptr);
+60876ccce4e9 src/mgr/ClusterState.h                                     (Sage Weil          2018-11-15 16:26:48 -0600 134)     std::lock_guard l(lock);
+60876ccce4e9 src/mgr/ClusterState.h                                     (Sage Weil          2018-11-15 16:26:48 -0600 135)     return objecter->with_osdmap(
+60876ccce4e9 src/mgr/ClusterState.h                                     (Sage Weil          2018-11-15 16:26:48 -0600 136)       std::forward<Callback>(cb),
+60876ccce4e9 src/mgr/ClusterState.h                                     (Sage Weil          2018-11-15 16:26:48 -0600 137)       pg_map,
+60876ccce4e9 src/mgr/ClusterState.h                                     (Sage Weil          2018-11-15 16:26:48 -0600 138)       std::forward<Args>(args)...);
+60876ccce4e9 src/mgr/ClusterState.h                                     (Sage Weil          2018-11-15 16:26:48 -0600 139)   }
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 140) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 141)   template<typename Callback, typename...Args>
+9c652fb305a3 src/mgr/ClusterState.h                                     (Kefu Chai          2020-12-24 15:27:41 +0800 142)   auto with_health(Callback&& cb, Args&&...args) const
+da362675da51 src/mgr/ClusterState.h                                     (Radoslaw Zarzynski 2020-03-27 14:55:36 +0100 143)   {
+da362675da51 src/mgr/ClusterState.h                                     (Radoslaw Zarzynski 2020-03-27 14:55:36 +0100 144)     std::lock_guard l(lock);
+9c652fb305a3 src/mgr/ClusterState.h                                     (Kefu Chai          2020-12-24 15:27:41 +0800 145)     return std::forward<Callback>(cb)(health_json, std::forward<Args>(args)...);
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100 146)   }
+fa147e3a591a src/mgr/ClusterState.h                                     (John Spray         2016-07-31 18:07:20 +0100 147) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 148)   template<typename Callback, typename...Args>
+9c652fb305a3 src/mgr/ClusterState.h                                     (Kefu Chai          2020-12-24 15:27:41 +0800 149)   auto with_mon_status(Callback&& cb, Args&&...args) const
+da362675da51 src/mgr/ClusterState.h                                     (Radoslaw Zarzynski 2020-03-27 14:55:36 +0100 150)   {
+da362675da51 src/mgr/ClusterState.h                                     (Radoslaw Zarzynski 2020-03-27 14:55:36 +0100 151)     std::lock_guard l(lock);
+9c652fb305a3 src/mgr/ClusterState.h                                     (Kefu Chai          2020-12-24 15:27:41 +0800 152)     return std::forward<Callback>(cb)(mon_status_json, std::forward<Args>(args)...);
+da362675da51 src/mgr/ClusterState.h                                     (Radoslaw Zarzynski 2020-03-27 14:55:36 +0100 153)   }
+da362675da51 src/mgr/ClusterState.h                                     (Radoslaw Zarzynski 2020-03-27 14:55:36 +0100 154) 
+5d3c1856415f src/mgr/ClusterState.h                                     (David Zafman       2019-07-09 17:22:12 +0000 155)   void final_init();
+adf1486e46cb src/mgr/ClusterState.h                                     (Sage Weil          2019-09-19 11:11:55 -0500 156)   bool asok_command(std::string_view admin_command,
+adf1486e46cb src/mgr/ClusterState.h                                     (Sage Weil          2019-09-19 11:11:55 -0500 157) 		    const cmdmap_t& cmdmap,
+adf1486e46cb src/mgr/ClusterState.h                                     (Sage Weil          2019-09-19 11:11:55 -0500 158) 		    Formatter *f,
+c63ecb602e59 src/mgr/ClusterState.h                                     (Kefu Chai          2021-08-11 11:48:33 +0800 159) 		    std::ostream& ss);
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 160) };
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 161) 
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 162) #endif
+ac30e6cee2b2 src/mgr/ClusterState.h                                     (John Spray         2016-06-30 14:05:02 +0100 163) 

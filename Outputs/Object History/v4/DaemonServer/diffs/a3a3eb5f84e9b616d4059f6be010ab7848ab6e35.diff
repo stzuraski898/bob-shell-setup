@@ -1,0 +1,21 @@
+commit a3a3eb5f84e9b616d4059f6be010ab7848ab6e35
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Nov 8 21:30:09 2018 -0600
+
+    mgr/DaemonServer: fix session leak
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index cd7e1223c57..778ef3887f7 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -170,7 +170,7 @@ int DaemonServer::ms_handle_authentication(Connection *con)
+ {
+   int ret = 0;
+   MgrSession *s = new MgrSession(cct);
+-  con->set_priv(s->get());
++  con->set_priv(s);
+   s->inst.addr = con->get_peer_addr();
+   s->entity_name = con->peer_name;
+   dout(10) << __func__ << " new session " << s << " con " << con

@@ -1,0 +1,51 @@
+commit 3bafb5e571681dd71df35bf1863a95d69142d02d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Feb 16 18:27:08 2021 -0500
+
+    mgr: rename config_prefix -> mgr_store_prefix
+    
+    The prefix for module kv store is "mgr/", but it is not *config* (which
+    lives under /config/mgr/...).  Rename the constant.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 9e0fa60aca0..02935c8b5f8 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -24,7 +24,7 @@
+ 
+ #include "mgr/MgrContext.h"
+ 
+-// For ::config_prefix
++// For ::mgr_store_prefix
+ #include "PyModule.h"
+ #include "PyModuleRegistry.h"
+ #include "PyUtil.h"
+@@ -593,7 +593,7 @@ bool ActivePyModules::get_store(const std::string &module_name,
+   without_gil_t no_gil;
+   std::lock_guard l(lock);
+ 
+-  const std::string global_key = PyModule::config_prefix
++  const std::string global_key = PyModule::mgr_store_prefix
+     + module_name + "/" + key;
+ 
+   dout(4) << __func__ << " key: " << global_key << dendl;
+@@ -685,7 +685,7 @@ PyObject *ActivePyModules::get_store_prefix(const std::string &module_name,
+   std::lock_guard l(lock);
+   std::lock_guard lock(module_config.lock);
+ 
+-  const std::string base_prefix = PyModule::config_prefix
++  const std::string base_prefix = PyModule::mgr_store_prefix
+                                     + module_name + "/";
+   const std::string global_prefix = base_prefix + prefix;
+   dout(4) << __func__ << " prefix: " << global_prefix << dendl;
+@@ -703,7 +703,7 @@ PyObject *ActivePyModules::get_store_prefix(const std::string &module_name,
+ void ActivePyModules::set_store(const std::string &module_name,
+     const std::string &key, const boost::optional<std::string>& val)
+ {
+-  const std::string global_key = PyModule::config_prefix
++  const std::string global_key = PyModule::mgr_store_prefix
+                                    + module_name + "/" + key;
+ 
+   Command set_cmd;

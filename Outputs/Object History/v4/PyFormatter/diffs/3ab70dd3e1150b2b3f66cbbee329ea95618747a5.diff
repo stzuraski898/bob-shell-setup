@@ -1,0 +1,24 @@
+commit 3ab70dd3e1150b2b3f66cbbee329ea95618747a5
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Wed Oct 16 17:34:06 2024 +0200
+
+    common/Formatter: move {JSON,Table,XML}Formatter to separate files
+    
+    Most sources only need the Formatter interface and don't need the
+    other implementations (and their header dependencies).
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index b45fbf162e0..5608707c1dc 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -27,7 +27,7 @@
+ #include <memory>
+ #include <list>
+ 
+-#include "common/Formatter.h"
++#include "common/JSONFormatter.h"
+ #include "include/ceph_assert.h"
+ 
+ class PyFormatter : public ceph::Formatter

@@ -1,0 +1,64 @@
+commit a996144cb35051567a0ca9e2dd81a978598ba505
+Author: Sunnatillo <sunnat.samadov@est.tech>
+Date:   Tue Jul 21 11:26:02 2026 +0300
+
+    mgr/DaemonServer: erase daemon_connections ref on reset for all peer types
+    
+    handle_open() stores a strong ConnectionRef in daemon_connections for
+    every non-client daemon (mon, mds, osd), but ms_handle_reset() erased
+    it only for OSD peers.
+    
+    Any non-OSD daemon connection that ended without an explicit MMgrClose
+    (idle timeout, network drop, daemon crash) left a permanent
+    ConnectionRef behind. That leaked one AsyncConnection per reconnect
+    cycle and caused unbounded ceph-mgr RSS growth.
+    
+    Erase daemon_connections unconditionally on reset while keeping
+    osd_cons cleanup under the OSD peer-type guard.
+    
+    Fixes: https://tracker.ceph.com/issues/78408
+    
+    Signed-off-by: Sunnatillo <sunnat.samadov@est.tech>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 822b508cbd9..950f95148de 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -331,21 +331,27 @@ void DaemonServer::ms_handle_accept(Connection* con)
+ 
+ bool DaemonServer::ms_handle_reset(Connection *con)
+ {
++  std::lock_guard l(lock);
+   if (con->get_peer_type() == CEPH_ENTITY_TYPE_OSD) {
+     auto priv = con->get_priv();
+     auto session = static_cast<MgrSession*>(priv.get());
+-    if (!session) {
+-      return false;
++    if (session) {
++      dout(10) << "unregistering osd." << session->osd_id
++               << "  session " << session << " con " << con << dendl;
++      osd_cons[session->osd_id].erase(con);
+     }
+-    std::lock_guard l(lock);
+-    dout(10) << "unregistering osd." << session->osd_id
+-	     << "  session " << session << " con " << con << dendl;
+-    osd_cons[session->osd_id].erase(con);
++  }
+ 
+-    auto iter = daemon_connections.find(con);
+-    if (iter != daemon_connections.end()) {
+-      daemon_connections.erase(iter);
+-    }
++  auto iter = daemon_connections.find(con);
++  if (iter != daemon_connections.end()) {
++    dout(10) << "removing daemon connection " << con
++             << " peer " << con->get_peer_addr()
++             << dendl;
++    daemon_connections.erase(iter);
++  } else {
++    dout(10) << "reset for untracked daemon connection " << con
++             << " peer " << con->get_peer_addr()
++             << dendl;
+   }
+   return false;
+ }

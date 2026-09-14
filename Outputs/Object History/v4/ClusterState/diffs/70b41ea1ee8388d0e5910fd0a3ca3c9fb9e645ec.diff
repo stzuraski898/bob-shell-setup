@@ -1,0 +1,63 @@
+commit 70b41ea1ee8388d0e5910fd0a3ca3c9fb9e645ec
+Author: Kamoltat Sirivadhna <ksirivad@redhat.com>
+Date:   Fri Jun 6 22:43:23 2025 +0000
+
+    src/mgr/ClusterState.cc: micro improve ingest_pgstats
+    
+    As I was going through ClusterState::ingest_pgstats
+    I noticed some refractor + mini-optimization we can do
+    with iterators and how we are inserting in a map container.
+    Propose caching the end() iterator of map
+    and use insert_or_assign() when adding new or updating values.
+    insert_or_assign() is better than [] in that pg_stat_t contain
+    some vectors and maps, so for adding new pgs or new keys
+    insert_or_assign() will do a direct copy-construction, rather than
+    default construction and assign values which arguable has more
+    overhead.
+    
+    Signed-off-by: Kamoltat Sirivadhna <ksirivad@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 0ab745a70f8..b1f9ff654d4 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -89,6 +89,8 @@ void ClusterState::ingest_pgstats(ref_t<MPGStats> stats)
+     pending_inc.update_stat(from, std::move(empty_stat));  
+   }
+ 
++  const auto existing_pools_end_it = existing_pools.end();
++  const auto pg_map_pg_stat_end_it = pg_map.pg_stat.end();
+   for (auto p : stats->pg_stat) {
+     pg_t pgid = p.first;
+     const auto &pg_stats = p.second;
+@@ -96,7 +98,7 @@ void ClusterState::ingest_pgstats(ref_t<MPGStats> stats)
+     // In case we're hearing about a PG that according to last
+     // OSDMap update should not exist
+     auto r = existing_pools.find(pgid.pool());
+-    if (r == existing_pools.end()) {
++    if (r == existing_pools_end_it) {
+       dout(15) << " got " << pgid
+ 	       << " reported at " << pg_stats.reported_epoch << ":"
+                << pg_stats.reported_seq
+@@ -117,7 +119,7 @@ void ClusterState::ingest_pgstats(ref_t<MPGStats> stats)
+     // In case we already heard about more recent stats from this PG
+     // from another OSD
+     const auto q = pg_map.pg_stat.find(pgid);
+-    if (q != pg_map.pg_stat.end() &&
++    if (q != pg_map_pg_stat_end_it &&
+ 	q->second.get_version_pair() > pg_stats.get_version_pair()) {
+       dout(15) << " had " << pgid << " from "
+ 	       << q->second.reported_epoch << ":"
+@@ -125,10 +127,10 @@ void ClusterState::ingest_pgstats(ref_t<MPGStats> stats)
+       continue;
+     }
+ 
+-    pending_inc.pg_stat_updates[pgid] = pg_stats;
++    pending_inc.pg_stat_updates.insert_or_assign(pgid, pg_stats);
+   }
+   for (auto p : stats->pool_stat) {
+-    pending_inc.pool_statfs_updates[std::make_pair(p.first, from)] = p.second;
++    pending_inc.pool_statfs_updates.insert_or_assign(std::make_pair(p.first, from), p.second);
+   }
+ }
+ 

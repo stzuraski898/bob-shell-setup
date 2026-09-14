@@ -1,0 +1,26 @@
+commit e3d3d0501e5095ce557e2e4ccaefc294a7d5c08c
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu Mar 5 23:35:46 2020 +0800
+
+    mgr: update "hostname" when we already have the daemon state from the same entity
+    
+    there is chance that we reuse the identity of a daemon and deploy the
+    daemon on a different host. in that case, the existing daemon state
+    should be updated with the new hostname.
+    
+    Fixes: https://tracker.ceph.com/issues/44446
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 80d05ed5301..da24a24d0bf 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -103,6 +103,8 @@ void MetadataUpdate::finish(int r)
+       DaemonStatePtr state;
+       if (daemon_state.exists(key)) {
+         state = daemon_state.get(key);
++        state->hostname = daemon_meta.at("hostname").get_str();
++
+         if (key.type == "mds" || key.type == "mgr" || key.type == "mon") {
+           daemon_meta.erase("name");
+         } else if (key.type == "osd") {

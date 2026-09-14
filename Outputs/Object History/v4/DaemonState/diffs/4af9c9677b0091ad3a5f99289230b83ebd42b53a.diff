@@ -1,0 +1,31 @@
+commit 4af9c9677b0091ad3a5f99289230b83ebd42b53a
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jan 8 18:47:26 2018 -0600
+
+    mgr: 'config show <who> <key>'
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 4efd91b8770..9bd0ce2c6ab 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -120,6 +120,18 @@ class DaemonState
+     : perf_counters(types_)
+   {
+   }
++
++  const std::map<std::string,std::string>& get_config_defaults() {
++    if (config_defaults.empty() &&
++	config_defaults_bl.length()) {
++      auto p = config_defaults_bl.begin();
++      try {
++	::decode(config_defaults, p);
++      } catch (buffer::error e) {
++      }
++    }
++    return config_defaults;
++  }
+ };
+ 
+ typedef std::shared_ptr<DaemonState> DaemonStatePtr;

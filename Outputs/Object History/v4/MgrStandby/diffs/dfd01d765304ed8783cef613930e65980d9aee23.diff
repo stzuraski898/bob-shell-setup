@@ -1,0 +1,22 @@
+commit dfd01d765304ed8783cef613930e65980d9aee23
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jun 15 10:27:03 2020 -0500
+
+    blacklist -> blocklist
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+    Signed-off-by: Neha Ojha <nojha@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 79374518865..7a84c59061e 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -210,7 +210,7 @@ void MgrStandby::send_beacon()
+ 
+   auto clients = py_module_registry.get_clients();
+   for (const auto& client : clients) {
+-    dout(15) << "noting RADOS client for blacklist: " << client << dendl;
++    dout(15) << "noting RADOS client for blocklist: " << client << dendl;
+   }
+ 
+   // Whether I think I am available (request MgrMonitor to set me

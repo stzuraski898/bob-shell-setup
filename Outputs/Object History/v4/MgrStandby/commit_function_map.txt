@@ -1,0 +1,131 @@
+# Commit → function map for MgrStandby
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+75b6149b294e16b9463c05d270adf0e9f51a4268 | MgrStandby
+d8dde402b6dae6b6ebe0ee765bb83b25b0443271 | init handle_conf_change
+a3dad559e87600b394d80cd51b244b0dcc3f31d9 | asok_command main
+bf25a08cc58c8e872806e92dd36d9ff91e5523d9 | send_beacon
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b | (no functions)
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+4a7976a57c1ff823753c1c25274b6482f0a8c8ea | init handle_conf_change MgrStandby
+2d4b4235fc255fd2a9b114627d9697718795790b | MgrStandby
+56cb05775a937159ee0e6e26e30fe204accb5223 | ms_dispatch2
+c9d0913f53b0c4d632746075c05c2f2187d77c02 | handle_mgr_map
+f20df2eb8545f2a4fc16acdde5edcb611868522e | handle_mgr_map init MgrStandby
+dd9f9e268b5562bae8972bce03ec0970f353ae14 | tick
+e27f6c6a856d6ba7cad08bb933ec84e226aae6ad | MgrStandby
+15dfa71cf7c8ff761f305638a89438b0551d64cf | state_str init send_beacon tick
+bb09a1d7e2c5dd29bbdfc70a24bd35ab5a0ce60a | respawn
+c63ecb602e5916d5e0beed137787fdfc67707f15 | (no functions)
+218f4cefea087eadcd8ddf47d719beda1cb6370b | send_beacon
+35d2146c1a801a2b478a19b9d62af0f10279fd34 | handle_mgr_map
+73af779d314902f2af9d62e86a5adb17fb9f5d00 | init
+efc29fb3630aaab4e04d99621c40561d38a99c03 | handle_conf_change
+c15e197ca00b2caad1abeac030d2e387b5fd32b2 | MgrStandby
+95f80dda9dae788aefb4a1f2a85d55405f3f1cb5 | init
+19000fad573138b2b0576c093237c4a708b76020 | init
+a8a23747aa081d938c9b277ab42507dd506bf6c2 | MgrStandby
+b835b07bc3c2936169dc3e6a212a2e29885246f7 | handle_mgr_map
+4d6b678736e9afee3a0a2556ec5af874e32078bf | MgrStandby
+dfd01d765304ed8783cef613930e65980d9aee23 | send_beacon
+306eebe05bec1220b2477a66b6501da222bacdfc | init
+e3a050403751f6e1283381a09b6553a29e29f835 | MgrStandby
+ad0bbc8f78a632b1008f624ffb6090f86731a0e0 | MgrStandby
+df507cde8d71063d5873a42f668156e4c32e86f9 | send_beacon
+78576c9eecf2209ab69bccb17a2f862db8beffbf | send_beacon
+54ddf2c8973663f04a820937001e248dda5b58e1 | init MgrStandby
+0ab72913186d38caf0efe2bc51c6846aa2c7d1f0 | MgrStandby
+73f5249f3f14886831a9da5fb7731b0c227b8d69 | init
+3d360b97ed7dead8e9a5f602cfaf61ab7b41e531 | tick ms_handle_refused
+6f35d2835268eade059535b62378d6d407ef9e87 | MgrStandby
+12d301a1994e7893c17015d1c5ac3b6c2d026a06 | send_beacon
+489b30844e86dab102f768796251783b6e4a5f8f | handle_mgr_map tick
+351a3b9d3867ab8dd6d0502fbc46c0016553c6d5 | send_beacon
+c93dc8849145c1630058e4c0e527f404929216ff | init MgrStandby ms_dispatch2
+dffce107fb68e21cd85938d67115bdafe4e697eb | handle_mgr_map init
+91c6016dd9e0c6997ca0e8b7f946864d66987bec | ms_dispatch2
+a50a91d24349c8147c53f7aa109974160e8db120 | handle_mgr_map _update_log_config
+1da01024828b53795a8ddbf57f92ae318646b28b | (no functions)
+b925be726bdd44ae3cd909fd0cd90633bf5c7de5 | (no functions)
+6146c85bb2bda46d9a9e99f3682ede78b1e06347 | (no functions)
+8e070294542a23e55e9305deaa52a3df30649122 | (no functions)
+5f86c72825b5c9ea23fcf0388e552057a421229c | send_beacon
+b62520059767bbae2bd24d4edbedf3aa22eeea4c | send_beacon
+f22347db5509dc2da3cac6bc9f7a9b627798d3ac | handle_mgr_map init MgrStandby tick
+e62f45d1baa976bc64525ecb3bb49b777d6a0990 | (no functions)
+430ba5e231d6929a004a9758d31b426ecbe43951 | init
+3ce61e40fa7dfe21b8966879528bc76256a60118 | (no functions)
+1f3e9d4811b846974d8f882ce00697e889a80788 | send_beacon
+f27a5dc6155440f0add91213d68bb690d8bf9cd7 | init
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f | handle_mgr_map init tick
+18f253aa3f1b0693c5345756ecca7ca365c389e5 | send_beacon
+ab23c506964753990f9fe23e314b9f3e2547a773 | init tick respawn
+3068c4290166076093119d1dc08a2c0fada8235f | tick
+cf292dfa8f9254e5095689c45a3d5e895e5df333 | send_beacon
+f528475d92524328ef3e12dfec036461395338c0 | (no functions)
+4718b7cb2fac65b2ac7014f42ba1a10181350f0b | handle_mgr_map send_beacon MgrStandby tick
+e48353bbdd52a4288e9839d2a99fec1ef95147f3 | init
+2df0a50e07947f42d37b3c54d7dbba96f1ccbad9 | (no functions)
+7f787704cdcd55df18d204c5251cdd6a3cedd604 | send_beacon
+6185bd66a9e9b23f1d1982b0bc12d672c33c6fcd | handle_mgr_map
+37484af0b86083c02a7a506a0c9be02b3fd67b28 | handle_mgr_map init
+3193d40d0daf766d5e210e7b1117afbfebd71f31 | init
+f04190ed11700fd2c701799d2c867cf299a5f1b2 | (no functions)
+80ee71ab5aef9e6a9cf8b9dfe720daf96ed86461 | tick
+cf68ce511f31d3746ca1cb13a9d3b39c25bb06a8 | handle_mgr_map init
+810369b0cc0ec595da496466d7ab08ecdbc9d57d | handle_mgr_map init
+7060a6a710084a1234912d82258692832c593805 | handle_conf_change main
+6eb5c636dd5d80249fbb073771ed87507808677d | send_beacon
+9999ddf67bc6211982523a2b51af9ec1d0b77b63 | send_beacon
+6a8da7ca734726315c06929635c25dbb88599654 | send_beacon
+712ad57d09a2a96dc1e21cd245fbf1a6372867ba | send_beacon
+834bc27940507737f064bca7362b4c7f4cd54c98 | send_beacon
+0d5b1d70e616d7d1c2d6360375770f5c4754649d | tick
+c1471c7501948004096581ee415ab4a1fa2d9379 | handle_mgr_map main
+9718896c8b844db2f3c07df1d344636da4605e61 | handle_mgr_map send_beacon MgrStandby
+a0183a63fa791954d14c57632e184858cefe893d | send_beacon
+8d1277fa5c578ce0ea23a70cc58c6cf99921ee25 | send_beacon
+ec09a7abc515f802451bf7ef3d22ce8ee6c6c7b3 | tick
+389d676b5d153116eb09769af49230bbfac2d562 | send_beacon
+3bc029f46929e787e6aed377ab7942bfb18f0ca6 | send_beacon
+1bf4a89890d2312964f44b9b03640120a5a0cab2 | send_beacon
+5c3846306b6bf7864327265bbac9607295f46cfc | handle_mgr_map send_beacon MgrStandby _update_log_config
+617c96014bfb71a073a4ac37d33d5452fba629f1 | send_beacon
+324e4d2d19b3c2bb421ebaf2569bf16bee3b855d | (no functions)
+e0e87da6529d2c7c785aebd2aca88a517e150d0c | handle_mgr_map
+16fcee1f71fce3a2365d17dfef0b1459f8da1948 | handle_mgr_map
+d953198aff3e5aaa6e2eadcf8a53c9e0279a30de | send_beacon
+6c10417f7ed365425019108c2cb9f6d1e091b975 | handle_mgr_map
+f6ba8ab7977759083f416611e80716c440a18e13 | (no functions)
+2fd49a1a617fc2a5736adcd591a2c0b159372fea | handle_mgr_map MgrStandby
+15f823b43ed3a525cc446d8b885d61f932891544 | handle_mgr_map
+35fd964ec0d18bd8fcce061057d070b799c77ebe | init send_beacon
+ff1258e7ef39f1f1a69ef6475445712c1dc6e037 | send_beacon
+890f482568574757eab4a46c5c8fb362404dd0ce | (no functions)
+6135c97d7b02a4506fcb86f9a8e979230e53087f | (no functions)
+260fea0f59d2e1bf69c913ee1bfbe834a8884d96 | handle_mgr_map init send_beacon MgrStandby ms_handle_refused
+2b8961c9730b14912f71161496ead834af40214b | (no functions)
+3746e209d88137206b5ad319dc049207bc4e2524 | handle_mgr_map init MgrStandby
+b1e5d492d684b5a28b0009301bf894531c53f3b9 | (no functions)
+f79ae2504ad5355d20b137019afddb4d3f3cd204 | handle_mgr_map
+44354e008984659ecc399f262e6a84a270b0a3be | main
+d3a10d35120445bbf994b0a062f21af891a33440 | handle_mgr_map init ~MgrStandby
+607b43a092d040dd861455f7d18ac8da41ecbdd9 | send_beacon
+ecbcd591b785009e8a28a41125868024d86c112d | (no functions)
+6ea42d79ae1f6434b2b4684bba837b541c3952af | handle_mgr_map ~MgrStandby
+a2eb6ae3fb57b09efdd4d7baac6871ca8dd8e79f | (no functions)
+b9182564c716fdfcb39cc77314ba295990dd4312 | (no functions)
+624bdbcf3afe304ad043baca43d46bfda2746e78 | send_beacon
+10bf5123f8f9e2ccdc440c3d9be1dec1e7c3e7d5 | init
+efe5378c392efa7221ca3f1659b2998a3e511f2a | send_beacon
+3ebd36ff3e3c81f20439806b943e6fff68c73deb | (no functions)
+58dd3db0be62f67aa51f78357ceabb0979ccf6e1 | (no functions)
+fa147e3a591a4d74a7a8692b17add420ffc9bf98 | (no functions)
+fd537bc696d65ce3baec88ecf5a825f7eaaaf484 | init MgrStandby
+7845f8d757adf63390d6cb0ff56afbc088bc508b | (no functions)
+f7e9ff174f8f84b0b3ccada87f6e4b18bdc4d130 | (no functions)
+7a985df6339499052bb7bad2df214477e7e1580a | (no functions)

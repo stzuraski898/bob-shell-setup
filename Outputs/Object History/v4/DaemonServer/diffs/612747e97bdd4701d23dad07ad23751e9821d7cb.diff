@@ -1,0 +1,27 @@
+commit 612747e97bdd4701d23dad07ad23751e9821d7cb
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Nov 7 12:51:04 2019 -0600
+
+    mgr/DaemonServer: warn when we reject reports
+    
+    If this is triggered it can be disruptive, since we're marking the
+    connection down.  It points to a real bug, so better visibility is good
+    (e.g., failing the teuthology jobs).
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ccc5bd3eb8b..6d086179c2c 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -498,7 +498,9 @@ bool DaemonServer::handle_report(const ref_t<MMgrReport>& m)
+     // Clients should not be sending us stats unless they are declaring
+     // themselves to be a daemon for some service.
+     dout(10) << "rejecting report from non-daemon client " << m->daemon_name
+-	    << dendl;
++	     << dendl;
++    clog->warn() << "rejecting report from non-daemon client " << m->daemon_name
++		 << " at " << m->get_connection()->get_peer_addrs();
+     m->get_connection()->mark_down();
+     return true;
+   }

@@ -1,0 +1,33 @@
+commit 61d63433dfdcc08ecc21ba4f645794da5e01823c
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Tue Oct 11 13:53:16 2016 -0400
+
+    mon: omit deprecated commands in desc
+    
+    This is useful for filtering out deprecated commands in help output. For
+    example, `ceph mds -h` no longer lists commands like `mds set_max_mds`.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 31f0ce999d3..53740868dc5 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -263,7 +263,7 @@ bool DaemonServer::handle_command(MCommand *m)
+       dout(20) << "Dumping " << pyc.cmdstring << " (" << pyc.helpstring
+                << ")" << dendl;
+       dump_cmddesc_to_json(&f, secname.str(), pyc.cmdstring, pyc.helpstring,
+-			   "mgr", pyc.perm, "cli");
++			   "mgr", pyc.perm, "cli", 0);
+       cmdnum++;
+     }
+ #if 0
+@@ -273,7 +273,7 @@ bool DaemonServer::handle_command(MCommand *m)
+       ostringstream secname;
+       secname << "cmd" << setfill('0') << std::setw(3) << cmdnum;
+       dump_cmddesc_to_json(f, secname.str(), cp->cmdstring, cp->helpstring,
+-			   cp->module, cp->perm, cp->availability);
++			   cp->module, cp->perm, cp->availability, 0);
+       cmdnum++;
+     }
+ #endif

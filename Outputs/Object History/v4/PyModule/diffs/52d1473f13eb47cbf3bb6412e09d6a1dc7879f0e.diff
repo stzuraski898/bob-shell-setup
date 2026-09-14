@@ -1,0 +1,45 @@
+commit 52d1473f13eb47cbf3bb6412e09d6a1dc7879f0e
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sat May 8 20:59:07 2021 +0800
+
+    mgr/PyModule: use Py_ssize_t for the PyList index
+    
+    also silences the warnings like:
+    
+    mgr/PyModule.cc:574:30: warning: comparison of integer expressions of different signedness: 'unsigned int' and 'Py_ssize_t' {aka 'int'} [-Wsign-compare]
+      574 |       for (unsigned i = 0; i < PyList_Size(p); ++i) {
+          |                            ~~^~~~~~~~~~~~~~~~
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 28c76fe7edc..ff1ff85e7ea 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -562,7 +562,7 @@ int PyModule::load_options()
+     }
+     p = PyDict_GetItemString(pOption, "enum_allowed");
+     if (p && PyObject_TypeCheck(p, &PyList_Type)) {
+-      for (unsigned i = 0; i < PyList_Size(p); ++i) {
++      for (Py_ssize_t i = 0; i < PyList_Size(p); ++i) {
+ 	auto q = PyList_GetItem(p, i);
+ 	if (q) {
+ 	  auto r = PyObject_Str(q);
+@@ -573,7 +573,7 @@ int PyModule::load_options()
+     }
+     p = PyDict_GetItemString(pOption, "see_also");
+     if (p && PyObject_TypeCheck(p, &PyList_Type)) {
+-      for (unsigned i = 0; i < PyList_Size(p); ++i) {
++      for (Py_ssize_t i = 0; i < PyList_Size(p); ++i) {
+ 	auto q = PyList_GetItem(p, i);
+ 	if (q && PyObject_TypeCheck(q, &PyUnicode_Type)) {
+ 	  option.see_also.insert(PyUnicode_AsUTF8(q));
+@@ -582,7 +582,7 @@ int PyModule::load_options()
+     }
+     p = PyDict_GetItemString(pOption, "tags");
+     if (p && PyObject_TypeCheck(p, &PyList_Type)) {
+-      for (unsigned i = 0; i < PyList_Size(p); ++i) {
++      for (Py_ssize_t i = 0; i < PyList_Size(p); ++i) {
+ 	auto q = PyList_GetItem(p, i);
+ 	if (q && PyObject_TypeCheck(q, &PyUnicode_Type)) {
+ 	  option.tags.insert(PyUnicode_AsUTF8(q));

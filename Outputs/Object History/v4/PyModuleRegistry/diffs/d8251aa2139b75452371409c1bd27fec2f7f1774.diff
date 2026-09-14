@@ -1,0 +1,26 @@
+commit d8251aa2139b75452371409c1bd27fec2f7f1774
+Author: Ilsoo Byun <ilsoobyun@linecorp.com>
+Date:   Fri Sep 6 13:50:31 2019 +0900
+
+    build/ops: fix build fail related to PYTHON_EXECUTABLE variable
+    
+    Fixes: https://tracker.ceph.com/issues/41676
+    Signed-off-by: Ilsoo Byun <ilsoobyun@linecorp.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index ac92c9282cc..f7105b87a70 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -41,10 +41,10 @@ void PyModuleRegistry::init()
+   // Set up global python interpreter
+ #if PY_MAJOR_VERSION >= 3
+ #define WCHAR(s) L ## #s
+-  Py_SetProgramName(const_cast<wchar_t*>(WCHAR(PYTHON_EXECUTABLE)));
++  Py_SetProgramName(const_cast<wchar_t*>(WCHAR(MGR_PYTHON_EXECUTABLE)));
+ #undef WCHAR
+ #else
+-  Py_SetProgramName(const_cast<char*>(PYTHON_EXECUTABLE));
++  Py_SetProgramName(const_cast<char*>(MGR_PYTHON_EXECUTABLE));
+ #endif
+   // Add more modules
+   if (g_conf().get_val<bool>("daemonize")) {

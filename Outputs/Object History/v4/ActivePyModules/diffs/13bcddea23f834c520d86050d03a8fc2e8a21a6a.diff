@@ -1,0 +1,32 @@
+commit 13bcddea23f834c520d86050d03a8fc2e8a21a6a
+Author: John Spray <jspray@redhat.com>
+Date:   Tue May 15 15:40:00 2018 +0100
+
+    mgr: handle long-named mgr modules
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index db74b41c9e8..30bab738f0a 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -375,16 +375,14 @@ int ActivePyModules::start_one(PyModuleRef py_module)
+   assert(modules.count(py_module->get_name()) == 0);
+ 
+   modules[py_module->get_name()].reset(new ActivePyModule(py_module, clog));
++  auto active_module = modules.at(py_module->get_name()).get();
+ 
+-  int r = modules[py_module->get_name()]->load(this);
++  int r = active_module->load(this);
+   if (r != 0) {
+     return r;
+   } else {
+     dout(4) << "Starting thread for " << py_module->get_name() << dendl;
+-    // Giving Thread the module's module_name member as its
+-    // char* thread name: thread must not outlive module class lifetime.
+-    modules[py_module->get_name()]->thread.create(
+-        py_module->get_name().c_str());
++    active_module->thread.create(active_module->get_thread_name());
+ 
+     return 0;
+   }

@@ -1,0 +1,22 @@
+commit 5f86c72825b5c9ea23fcf0388e552057a421229c
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sun Feb 17 09:26:44 2019 -0600
+
+    mgr/MgrStandby: include addrs in metadata
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index a2767be7abd..e0c80e0b00e 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -216,8 +216,8 @@ void MgrStandby::send_beacon()
+   dout(10) << "sending beacon as gid " << monc.get_global_id() << dendl;
+ 
+   map<string,string> metadata;
+-#warning fixme, report addrs instead
+   metadata["addr"] = client_messenger->get_myaddr_legacy().ip_only_to_str();
++  metadata["addrs"] = stringify(client_messenger->get_myaddrs());
+   collect_sys_info(&metadata, g_ceph_context);
+ 
+   MMgrBeacon *m = new MMgrBeacon(monc.get_fsid(),

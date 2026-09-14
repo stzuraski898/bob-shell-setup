@@ -1,0 +1,26 @@
+commit 712ad57d09a2a96dc1e21cd245fbf1a6372867ba
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Nov 16 16:30:39 2017 -0500
+
+    mgr: evaluate `can_run` method on modules
+    
+    ...and transmit the result to the monitor in
+    our beacon.
+    
+    Fixes: http://tracker.ceph.com/issues/21502
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index 9e5a0da32dd..81d74473504 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -70,6 +70,9 @@ int PyModuleRunner::serve()
+                   << ": " << exc_msg;
+     derr << get_name() << ".serve:" << dendl;
+     derr << handle_pyerror() << dendl;
++
++    py_module->fail(exc_msg);
++
+     return -EINVAL;
+   }
+ 

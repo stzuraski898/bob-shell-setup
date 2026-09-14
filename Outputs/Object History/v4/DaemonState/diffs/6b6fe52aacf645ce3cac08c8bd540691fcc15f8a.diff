@@ -1,0 +1,115 @@
+commit 6b6fe52aacf645ce3cac08c8bd540691fcc15f8a
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jun 6 08:44:42 2018 -0500
+
+    mgr: track and report device names too
+    
+    If you're looking at a specific device by its unique id, it's also nice
+    to know what device name (sdb etc) it is and on which host.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 8b7d39a7653..824e606fa36 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -54,7 +54,14 @@ void DeviceState::rm_expected_failure()
+ void DeviceState::dump(Formatter *f) const
+ {
+   f->dump_string("devid", devid);
+-  f->dump_string("host", server);
++  f->open_array_section("location");
++  for (auto& i : devnames) {
++    f->open_object_section("attachment");
++    f->dump_string("host", i.first);
++    f->dump_string("dev", i.second);
++    f->close_section();
++  }
++  f->close_section();
+   f->open_array_section("daemons");
+   for (auto& i : daemons) {
+     f->dump_string("daemon", to_string(i));
+@@ -70,7 +77,9 @@ void DeviceState::dump(Formatter *f) const
+ void DeviceState::print(ostream& out) const
+ {
+   out << "device " << devid << "\n";
+-  out << "host " << server << "\n";
++  for (auto& i : devnames) {
++    out << "attachment " << i.first << ":" << i.second << "\n";
++  }
+   set<string> d;
+   for (auto& j : daemons) {
+     d.insert(to_string(j));
+@@ -93,10 +102,10 @@ void DaemonStateIndex::insert(DaemonStatePtr dm)
+   by_server[dm->hostname][dm->key] = dm;
+   all[dm->key] = dm;
+ 
+-  for (auto& devid : dm->devids) {
+-    auto d = _get_or_create_device(devid);
++  for (auto& i : dm->devices) {
++    auto d = _get_or_create_device(i.first);
+     d->daemons.insert(dm->key);
+-    d->server = dm->hostname;
++    d->devnames.insert(make_pair(dm->hostname, i.second));
+   }
+ }
+ 
+@@ -108,10 +117,11 @@ void DaemonStateIndex::_erase(const DaemonKey& dmk)
+   assert(to_erase != all.end());
+   const auto dm = to_erase->second;
+ 
+-  for (auto& devid : dm->devids) {
+-    auto d = _get_or_create_device(devid);
++  for (auto& i : dm->devices) {
++    auto d = _get_or_create_device(i.first);
+     assert(d->daemons.count(dmk));
+     d->daemons.erase(dmk);
++    d->devnames.erase(make_pair(dm->hostname, i.second));
+     if (d->empty()) {
+       _erase_device(d);
+     }
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 81d8cb49ab4..c746d57ca2a 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -129,8 +129,8 @@ class DaemonState
+   // The metadata (hostname, version, etc) sent from the daemon
+   std::map<std::string, std::string> metadata;
+ 
+-  /// device ids, derived from metadata[device_ids]
+-  std::set<std::string> devids;
++  /// device ids -> devname, derived from metadata[device_ids]
++  std::map<std::string,std::string> devices;
+ 
+   // TODO: this can be generalized to other daemons
+   std::vector<DaemonHealthMetric> daemon_health_metrics;
+@@ -166,7 +166,7 @@ class DaemonState
+       map<std::string,std::string> devs;
+       get_str_map(p->second, &devs, ",; ");
+       for (auto& i : devs) {
+-	devids.insert(i.second);
++	devices[i.second] = i.first;
+       }
+     }
+   }
+@@ -191,7 +191,7 @@ typedef std::map<DaemonKey, DaemonStatePtr> DaemonStateCollection;
+ struct DeviceState : public RefCountedObject
+ {
+   std::string devid;
+-  std::string server;
++  std::set<pair<std::string,std::string>> devnames; ///< (server,devname)
+   std::set<DaemonKey> daemons;
+ 
+   std::map<string,string> metadata;  ///< persistent metadata
+@@ -322,8 +322,9 @@ public:
+     auto m = get_by_server(server);
+     for (auto& i : m) {
+       Mutex::Locker l(i.second->lock);
+-      ls->insert(i.second->devids.begin(),
+-		 i.second->devids.end());
++      for (auto& j : i.second->devices) {
++	ls->insert(j.first);
++      }
+     }
+   }
+ 

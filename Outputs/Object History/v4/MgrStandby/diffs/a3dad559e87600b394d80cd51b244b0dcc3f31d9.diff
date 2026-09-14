@@ -1,0 +1,49 @@
+commit a3dad559e87600b394d80cd51b244b0dcc3f31d9
+Author: Nitzan Mordechai <nmordech@ibm.com>
+Date:   Sun Jun 14 07:55:36 2026 +0000
+
+    mgr: handle SIGTERM/SIGINT in standby mgr to avoid CEPHADM_FAILED_DAEMON
+    
+    MgrStandby only registered SIGHUP, leaving SIGTERM/SIGINT at OS defaults.
+    When a standby is stopped via `ceph orch daemon stop`, SIGTERM terminates
+    it with exit code 143, causing systemd to mark the unit as failed instead
+    of stopped, which triggers CEPHADM_FAILED_DAEMON.
+    
+    Mirror the handler already used in Mgr::init() for the active mgr.
+    
+    Fixes: https://tracker.ceph.com/issues/77116
+    Signed-off-by: Nitzan Mordechai <nmordech@ibm.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index b0cfedbcc02..70db2135966 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -153,11 +153,18 @@ int MgrStandby::asok_command(std::string_view cmd, const cmdmap_t& cmdmap, Forma
+   }
+ }
+ 
++static void handle_standby_mgr_signal(int signum)
++{
++  derr << " *** Got signal " << sig_str(signum) << " ***" << dendl;
++  _exit(0);
++}
++
+ int MgrStandby::init()
+ {
+   init_async_signal_handler();
+   register_async_signal_handler(SIGHUP, sighup_handler);
+-
++  register_async_signal_handler_oneshot(SIGTERM, handle_standby_mgr_signal);
++  register_async_signal_handler_oneshot(SIGINT, handle_standby_mgr_signal);
+   cct->_conf.add_observer(this);
+ 
+   std::lock_guard l(lock);
+@@ -495,6 +502,8 @@ int MgrStandby::main(vector<const char *> args)
+ 
+   // Disable signal handlers
+   unregister_async_signal_handler(SIGHUP, sighup_handler);
++  unregister_async_signal_handler(SIGTERM, handle_standby_mgr_signal);
++  unregister_async_signal_handler(SIGINT, handle_standby_mgr_signal);
+   shutdown_async_signal_handler();
+ 
+   return 0;

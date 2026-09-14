@@ -1,0 +1,23 @@
+commit 86cf85e0a2c5086df63ee8fc287502cb901b1073
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jan 5 17:44:56 2018 -0600
+
+    mgr: get config defaults on session open
+    
+    Leave them encoded until they are used, since usually we won't use them.
+    This is about 50k currently.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 2b557d0acef..7f50258b771 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -175,6 +175,7 @@ void MgrClient::_send_open()
+       open->daemon_metadata = daemon_metadata;
+     }
+     cct->_conf->get_config_bl(&open->config_bl);
++    cct->_conf->get_defaults_bl(&open->config_defaults_bl);
+     session->con->send_message(open);
+   }
+ }

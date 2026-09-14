@@ -1,0 +1,21 @@
+commit 5050d06650545ea400cbc59f26ec66b1026182ca
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Thu Feb 28 12:33:53 2019 -0500
+
+    mgr: Remove unused lambda capture
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 9e32dce58ca..0f3f508eb6f 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -327,7 +327,7 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+     return f.get();
+   } else if (what == "df") {
+     cluster_state.with_osdmap_and_pgmap(
+-      [this, &f, &tstate](
++      [&f, &tstate](
+ 	const OSDMap& osd_map,
+ 	const PGMap &pg_map) {
+ 	PyEval_RestoreThread(tstate);

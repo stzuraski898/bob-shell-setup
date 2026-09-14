@@ -1,0 +1,43 @@
+commit ab23c506964753990f9fe23e314b9f3e2547a773
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Thu Aug 23 11:25:51 2018 -0400
+
+    mgr: Use ceph_assert for asserts.
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index b0324d488d6..403c8a9f183 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -38,7 +38,7 @@ PyModuleRunner::~PyModuleRunner()
+ 
+ int PyModuleRunner::serve()
+ {
+-  assert(pClassInstance != nullptr);
++  ceph_assert(pClassInstance != nullptr);
+ 
+   // This method is called from a separate OS thread (i.e. a thread not
+   // created by Python), so tell Gil to wrap this in a new thread state.
+@@ -75,7 +75,7 @@ int PyModuleRunner::serve()
+ 
+ void PyModuleRunner::shutdown()
+ {
+-  assert(pClassInstance != nullptr);
++  ceph_assert(pClassInstance != nullptr);
+ 
+   Gil gil(py_module->pMyThreadState, true);
+ 
+diff --git a/src/mgr/PyModuleRunner.h b/src/mgr/PyModuleRunner.h
+index c6bf18926fa..fb58bf0c232 100644
+--- a/src/mgr/PyModuleRunner.h
++++ b/src/mgr/PyModuleRunner.h
+@@ -70,7 +70,7 @@ public:
+     // required to be <16 chars
+     thread_name = py_module->get_name().substr(0, 15);
+ 
+-    assert(py_module != nullptr);
++    ceph_assert(py_module != nullptr);
+   }
+ 
+   ~PyModuleRunner();

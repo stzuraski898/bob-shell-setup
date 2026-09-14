@@ -1,0 +1,21 @@
+commit 53d7c46cf54d010210f89e18ebc3ef9010a2512e
+Author: Noah Watkins <nwatkins@redhat.com>
+Date:   Tue Aug 7 10:13:20 2018 -0700
+
+    mgr: add locked assertion
+    
+    Signed-off-by: Noah Watkins <noahwatkins@gmail.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 4ec42dc6942..ab20edb1c91 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -365,6 +365,8 @@ void DaemonServer::tick()
+ // fire after all modules have had a chance to set their health checks.
+ void DaemonServer::schedule_tick_locked(double delay_sec)
+ {
++  assert(lock.is_locked_by_me());
++
+   if (tick_event) {
+     timer.cancel_event(tick_event);
+     tick_event = nullptr;

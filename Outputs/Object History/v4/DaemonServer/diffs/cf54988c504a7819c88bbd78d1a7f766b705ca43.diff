@@ -1,0 +1,127 @@
+commit cf54988c504a7819c88bbd78d1a7f766b705ca43
+Author: Sridhar Seshasayee <sseshasa@redhat.com>
+Date:   Mon Feb 2 14:14:15 2026 +0530
+
+    mgr/DaemonServer: Modify offline_pg_report to handle set or vector types
+    
+    The offline_pg_report structure to be used by both the 'ok-to-stop' and
+    'ok-to-upgrade' commands is modified to handle either std::set or std::vector
+    type containers. This is necessitated due to the differences in the way
+    both commands work. For the 'ok-to-upgrade' command logic to work optimally,
+    the items in the specified crush bucket including items found in the subtree
+    must be strictly ordered. The earlier std::set container re-orders the items
+    upon insertion by sorting the items which results in the offline pg check to
+    report sub-optimal results.
+    
+    Therefore, the offline_pg_report struct is modified to use
+    std::variant<std::vector<int>, std::set<int>> as a ContainerType and handled
+    accordingly in dump() using std::visit(). This ensures backward compatibility
+    with the existing 'ok-to-stop' command while catering to the requirements of
+    the new 'ok-to-upgrade' command.
+    
+    Signed-off-by: Sridhar Seshasayee <sseshasa@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 3b657c57ffe..9dbcff6feb8 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1012,7 +1012,7 @@ void DaemonServer::log_access_denied(
+ }
+ 
+ void DaemonServer::_check_offlines_pgs(
+-  const std::set<int>& osds,
++  const ContainerType& osds,
+   const OSDMap& osdmap,
+   const PGMap& pgmap,
+   offline_pg_report *report)
+@@ -1030,20 +1030,36 @@ void DaemonServer::_check_offlines_pgs(
+     }
+     if (q.second.state & PG_STATE_DEGRADED) {
+       for (auto& anm : q.second.avail_no_missing) {
+-	if (osds.count(anm.osd)) {
+-	  found = true;
+-	  continue;
+-	}
++        std::visit([anm, &found](auto& container) {
++          using T = std::decay_t<decltype(container)>;
++          if constexpr (std::is_same_v<T, std::set<int>>) {
++            found = container.count(anm.osd);
++          } else if constexpr (std::is_same_v<T, std::vector<int>>) {
++            auto it = std::find(container.begin(), container.end(), anm.osd);
++            found = (it != container.end());
++          }
++        }, osds);
++        if (found) {
++          continue;
++        }
+ 	if (anm.osd != CRUSH_ITEM_NONE) {
+ 	  pg_acting.insert(anm.osd);
+ 	}
+       }
+     } else {
+       for (auto& a : q.second.acting) {
+-	if (osds.count(a)) {
+-	  found = true;
+-	  continue;
+-	}
++        std::visit([a, &found](auto& container) {
++          using T = std::decay_t<decltype(container)>;
++          if constexpr (std::is_same_v<T, std::set<int>>) {
++            found = container.count(a);
++          } else if constexpr (std::is_same_v<T, std::vector<int>>) {
++            auto it = std::find(container.begin(), container.end(), a);
++            found = (it != container.end());
++          }
++        }, osds);
++        if (found) {
++          continue;
++        }
+ 	if (a != CRUSH_ITEM_NONE) {
+ 	  pg_acting.insert(a);
+ 	}
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 71dd7822d4a..94b046332f3 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -54,7 +54,8 @@ struct MDSPerfMetricQuery;
+ 
+ 
+ struct offline_pg_report {
+-  std::set<int> osds;
++  using ContainerType = std::variant<std::vector<int>, std::set<int>>;
++  ContainerType osds;
+   std::set<pg_t> ok, not_ok, unknown;
+   std::set<pg_t> ok_become_degraded, ok_become_more_degraded;             // ok
+   std::set<pg_t> bad_no_pool, bad_already_inactive, bad_become_inactive;  // not ok
+@@ -66,9 +67,11 @@ struct offline_pg_report {
+   void dump(Formatter *f) const {
+     f->dump_bool("ok_to_stop", ok_to_stop());
+     f->open_array_section("osds");
+-    for (auto o : osds) {
+-      f->dump_int("osd", o);
+-    }
++    std::visit([&f](auto&& container) {
++      for (const auto& o : container) {
++        f->dump_int("osd", o);
++      }
++    }, osds);
+     f->close_section();
+     f->dump_unsigned("num_ok_pgs", ok.size());
+     f->dump_unsigned("num_not_ok_pgs", not_ok.size());
+@@ -173,6 +176,7 @@ protected:
+   class DaemonServerHook *asok_hook;
+ 
+ private:
++  using ContainerType = std::variant<std::vector<int>, std::set<int>>;
+   friend class ReplyOnFinish;
+   bool _reply(MCommand* m,
+ 	      int ret, const std::string& s, const bufferlist& payload);
+@@ -180,7 +184,7 @@ private:
+   void _prune_pending_service_map();
+ 
+   void _check_offlines_pgs(
+-    const std::set<int>& osds,
++    const ContainerType& osds,
+     const OSDMap& osdmap,
+     const PGMap& pgmap,
+     offline_pg_report *report);

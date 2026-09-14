@@ -1,0 +1,43 @@
+commit 56cb05775a937159ee0e6e26e30fe204accb5223
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Tue Feb 18 14:20:57 2025 -0500
+
+    mgr: indicate map message is acked instead of unhandled
+    
+    This avoids messages like:
+    
+        2025-02-18T05:31:17.738+0000 7f5206546640  0 ms_deliver_dispatch: unhandled message 0x5632d05f0700 fsmap(e 9) from mon.0 v2:172.21.3.230:40412/0
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@ibm.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index cb2bd10f92d..8795ad7f3a0 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -407,21 +407,19 @@ Dispatcher::dispatch_result_t MgrStandby::ms_dispatch2(const ref_t<Message>& m)
+   std::lock_guard l(lock);
+   dout(10) << state_str() << " " << *m << dendl;
+ 
++  Dispatcher::dispatch_result_t r;
++
+   if (m->get_type() == MSG_MGR_MAP) {
+     handle_mgr_map(ref_cast<MMgrMap>(m));
++    r = Dispatcher::ACKNOWLEDGED();
+   }
+-  bool handled = false;
+   if (active_mgr) {
+     auto am = active_mgr;
+     lock.unlock();
+-    handled = am->ms_dispatch2(m);
++    r = am->ms_dispatch2(m);
+     lock.lock();
+   }
+-  if (m->get_type() == MSG_MGR_MAP) {
+-    // let this pass through for mgrc
+-    handled = false;
+-  }
+-  return handled;
++  return r;
+ }
+ 
+ 

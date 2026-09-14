@@ -1,0 +1,36 @@
+commit a59f4e5deb49536af23473658e0f04d0f495829f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sat Apr 11 09:51:46 2020 -0500
+
+    mgr/PyModuleRegistry: ignore 'obsolete' modules
+    
+    Old modules may be in the mgrmap (and always_on) but no longer exist.  Do
+    not try to load those or raise errors about them.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 2897684c4ae..660774004a6 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -32,7 +32,9 @@
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr[py] "
+ 
+-
++std::set<std::string> obsolete_modules = {
++  "orchestrator_cli",
++};
+ 
+ void PyModuleRegistry::init()
+ {
+@@ -370,6 +372,9 @@ void PyModuleRegistry::get_health_checks(health_check_map_t *checks)
+ 
+     // report failed always_on modules as health errors
+     for (const auto& name : mgr_map.get_always_on_modules()) {
++      if (obsolete_modules.count(name)) {
++	continue;
++      }
+       if (!active_modules->module_exists(name)) {
+         if (failed_modules.find(name) == failed_modules.end() &&
+             dependency_modules.find(name) == dependency_modules.end()) {

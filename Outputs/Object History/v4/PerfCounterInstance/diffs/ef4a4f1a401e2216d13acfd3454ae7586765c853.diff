@@ -1,0 +1,34 @@
+commit ef4a4f1a401e2216d13acfd3454ae7586765c853
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Nov 16 05:29:15 2007 +0000
+
+    some client request/reply struct redefinition; no more file_data_version, for now; utime_t now uses ceph_timeval
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@2071 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/trunk/ceph/common/Clock.h b/trunk/ceph/common/Clock.h
+index 1ea7227adeb..ba106ade229 100644
+--- a/trunk/ceph/common/Clock.h
++++ b/trunk/ceph/common/Clock.h
+@@ -55,15 +55,18 @@ class Clock {
+ 
+   // relative time (from startup)
+   void tare() {
+-    gettimeofday(&zero.timeval(), NULL);
++    struct timeval tv;
++    gettimeofday(&tv, NULL);
++    zero.set_from_timeval(&tv);
+   }
+   void tare(utime_t z) {
+     zero = z;
+   }
+   utime_t now() {
+     //lock.Lock();  
+-    utime_t n;
+-    gettimeofday(&n.timeval(), NULL);
++    struct timeval tv;
++    gettimeofday(&tv, NULL);
++    utime_t n(&tv);
+     n -= zero;
+     if (n < last) {
+       //std::cerr << "WARNING: clock jumped backwards from " << last << " to " << n << std::endl;

@@ -1,0 +1,67 @@
+# git blame -w -M -C src/mgr/OSDPerfMetricCollector.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman  2025-04-07 09:50:35 +0000  1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/OSDPerfMetricCollector.cc        (Edwin Rodriguez 2025-10-01 09:09:50 -0400  2) // vim: ts=8 sw=2 sts=2 expandtab
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  3) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  4) #include "common/debug.h"
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  5) #include "common/errno.h"
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  6) 
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400  7) #include "messages/MMgrReport.h"
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  8) #include "OSDPerfMetricCollector.h"
+ac30e6cee2b2 src/mgr/DaemonServer.cc                  (John Spray      2016-06-30 14:05:02 +0100  9) 
+b9182564c716 src/mgr/DaemonServer.cc                  (Adam C. Emerson 2016-11-16 12:38:08 -0500 10) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/DaemonServer.cc                  (John Spray      2016-06-30 14:05:02 +0100 11) #define dout_subsys ceph_subsys_mgr
+ac30e6cee2b2 src/mgr/DaemonServer.cc                  (John Spray      2016-06-30 14:05:02 +0100 12) #undef dout_prefix
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 13) #define dout_prefix *_dout << "mgr.osd_perf_metric_collector " << __func__ << " "
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 14) 
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400 15) OSDPerfMetricCollector::OSDPerfMetricCollector(MetricListener &listener)
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400 16)   : MetricCollector<OSDPerfMetricQuery,
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400 17)                     OSDPerfMetricLimit,
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400 18)                     OSDPerfMetricKey,
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400 19)                     OSDPerfMetricReport>(listener) {
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 20) }
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 21) 
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400 22) void OSDPerfMetricCollector::process_reports(const MetricPayload &payload) {
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400 23)   const std::map<OSDPerfMetricQuery, OSDPerfMetricReport> &reports =
+d8141f4302ad src/mgr/OSDPerfMetricCollector.cc        (Kefu Chai       2025-04-25 23:53:08 +0800 24)     std::get<OSDMetricPayload>(payload).report;
+f495b8cce901 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-09-23 20:33:14 +0300 25) 
+948635a8b213 src/mgr/OSDPerfMetricCollector.cc        (Sage Weil       2018-10-16 14:11:33 -0500 26)   std::lock_guard locker(lock);
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400 27)   process_reports_generic(
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400 28)     reports, [](PerformanceCounter *counter, const PerformanceCounter &update) {
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400 29)       counter->first += update.first;
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400 30)       counter->second += update.second;
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-09-10 09:49:04 -0400 31)     });
+f495b8cce901 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-09-23 20:33:14 +0300 32) }
+7523aef6e865 src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-08-26 05:32:23 -0400 33) 
+7523aef6e865 src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-08-26 05:32:23 -0400 34) int OSDPerfMetricCollector::get_counters(PerfCollector *collector) {
+7523aef6e865 src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-08-26 05:32:23 -0400 35)   OSDPerfCollector *c = static_cast<OSDPerfCollector *>(collector);
+f495b8cce901 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-09-23 20:33:14 +0300 36) 
+948635a8b213 src/mgr/OSDPerfMetricCollector.cc        (Sage Weil       2018-10-16 14:11:33 -0500 37)   std::lock_guard locker(lock);
+7523aef6e865 src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-08-26 05:32:23 -0400 38)   return get_counters_generic(c->query_id, &c->counters);
+7523aef6e865 src/mgr/OSDPerfMetricCollector.cc        (Venky Shankar   2019-08-26 05:32:23 -0400 39) }
+
+# git blame -w -M -C src/mgr/OSDPerfMetricCollector.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng   2020-04-08 10:35:40 +0800  1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/OSDPerfMetricCollector.h                           (Edwin Rodriguez 2025-10-01 09:09:51 -0400  2) // vim: ts=8 sw=2 sts=2 expandtab
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300  3) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300  4) #ifndef OSD_PERF_METRIC_COLLECTOR_H_
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300  5) #define OSD_PERF_METRIC_COLLECTOR_H_
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300  6) 
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.h                           (Venky Shankar   2019-09-10 09:49:04 -0400  7) #include "mgr/MetricCollector.h"
+f495b8cce901 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-09-23 20:33:14 +0300  8) #include "mgr/OSDPerfMetricTypes.h"
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300  9) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300 10) /**
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300 11)  * OSD performance query class.
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300 12)  */
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.h                           (Venky Shankar   2019-09-10 09:49:04 -0400 13) class OSDPerfMetricCollector
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.h                           (Venky Shankar   2019-09-10 09:49:04 -0400 14)   : public MetricCollector<OSDPerfMetricQuery, OSDPerfMetricLimit, OSDPerfMetricKey,
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.h                           (Venky Shankar   2019-09-10 09:49:04 -0400 15)                            OSDPerfMetricReport> {
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300 16) public:
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.h                           (Venky Shankar   2019-09-10 09:49:04 -0400 17)   OSDPerfMetricCollector(MetricListener &listener);
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300 18) 
+efcebe1eb4ae src/mgr/OSDPerfMetricCollector.h                           (Venky Shankar   2019-09-10 09:49:04 -0400 19)   void process_reports(const MetricPayload &payload) override;
+7523aef6e865 src/mgr/OSDPerfMetricCollector.h                           (Venky Shankar   2019-08-26 05:32:23 -0400 20)   int get_counters(PerfCollector *collector) override;
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300 21) };
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300 22) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.h                           (Mykola Golub    2018-10-03 19:07:07 +0300 23) #endif // OSD_PERF_METRIC_COLLECTOR_H_

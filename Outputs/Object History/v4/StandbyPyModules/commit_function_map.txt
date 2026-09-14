@@ -1,0 +1,37 @@
+# Commit → function map for StandbyPyModules
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b | (no functions)
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+8b8e7522982476d25685ad055d4a89f6173041f8 | (no functions)
+719d5e1836c95bcbc446dbeb7d8f03adefd02a3e | load
+3bafb5e571681dd71df35bf1863a95d69142d02d | get_store
+b0a4bff845bec0f9bdd07db1acbc78c59f2efca4 | load
+662e64ef5d3af402f14f41e8b393687c14b24cd0 | (no functions)
+5c95e22109695abec5b481e28428f1b153d932ff | (no functions)
+56e34f58cb7a84439c53779467b2d5b495beb3ef | start_one
+48c4bc445fcacd7980e84b4f135a3115b88b05f1 | load
+489b30844e86dab102f768796251783b6e4a5f8f | start_one
+c93dc8849145c1630058e4c0e527f404929216ff | shutdown
+f22347db5509dc2da3cac6bc9f7a9b627798d3ac | shutdown StandbyPyModules
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f | shutdown StandbyPyModules
+5009d9ecc692076360ff777e47db9902c7bff669 | (no functions)
+ab23c506964753990f9fe23e314b9f3e2547a773 | load start_one
+abca98058926f8a97af274ab990bf5ae4475c0cf | (no functions)
+6185bd66a9e9b23f1d1982b0bc12d672c33c6fcd | get_config load
+306e4854b5bef5ac1000d80eafaa942cc3f8868e | (no functions)
+37484af0b86083c02a7a506a0c9be02b3fd67b28 | get_config
+3193d40d0daf766d5e210e7b1117afbfebd71f31 | get_config shutdown load start_one
+d3b5c4cd4d90174355820fa77dabe00959992c01 | get_config
+ce6e043a44e35144b038bc0236b5d244ffee1ca5 | (no functions)
+46003075924bb16b41149e7c12f31e9a6b7a3f15 | (no functions)
+6a8da7ca734726315c06929635c25dbb88599654 | get_config shutdown get_active_uri start_one
+f4763c32fa84f57c93c559d742203fb3fd2985a8 | start_one
+29193a47e6cf8297d9b1ceecc7695f2c85434999 | shutdown start_one
+bb4e71ed2ebdee1ac5e4b3eee390060e19fea0d8 | start_one
+c1471c7501948004096581ee415ab4a1fa2d9379 | (no functions)
+df8797320bed7ad9f121477e35d7e3862efd89bd | get_active_uri load

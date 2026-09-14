@@ -1,0 +1,22 @@
+commit 35f6dd06dd0b3c78235e21ac309e4226aa733af1
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Thu Aug 14 18:41:01 2025 +0200
+
+    mgr/DaemonState: move PerfCounters classes to separate sources
+    
+    To reduce header dependencies.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index ab5e40898a7..fcef67daa37 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -35,6 +35,7 @@
+ 
+ #include "DaemonKey.h"
+ #include "DaemonServer.h"
++#include "PerfCounterInstance.h"
+ #include "mgr/MgrContext.h"
+ #include "PyFormatter.h"
+ // For ::mgr_store_prefix

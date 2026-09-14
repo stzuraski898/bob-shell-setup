@@ -1,0 +1,44 @@
+commit c2470f271cce4d512f2cf00552c9b753e4c69f71
+Author: Jos Collin <jcollin@redhat.com>
+Date:   Tue Jun 29 15:29:01 2021 +0530
+
+    mgr, pybind/mgr, mgr/stats: be resilient to offline rank0 MDS
+    
+    Reregister the user queries during the rank0 MDS failover event
+    by calling listener.handle_query_updated(). This enables
+    `ceph fs perf stats` to receive the updated metrics after the
+    failover.
+    
+    Fixes: https://tracker.ceph.com/issues/50033
+    Signed-off-by: Jos Collin <jcollin@redhat.com>
+
+diff --git a/src/mgr/MetricCollector.cc b/src/mgr/MetricCollector.cc
+index 7da0dae7fe4..c31dcf0b90c 100644
+--- a/src/mgr/MetricCollector.cc
++++ b/src/mgr/MetricCollector.cc
+@@ -114,6 +114,12 @@ void MetricCollector<Query, Limit, Key, Report>::remove_all_queries() {
+   }
+ }
+ 
++template <typename Query, typename Limit, typename Key, typename Report>
++void MetricCollector<Query, Limit, Key, Report>::reregister_queries() {
++  dout(20) << dendl;
++  listener.handle_query_updated();
++}
++
+ template <typename Query, typename Limit, typename Key, typename Report>
+ int MetricCollector<Query, Limit, Key, Report>::get_counters_generic(
+     MetricQueryID query_id, std::map<Key, PerformanceCounters> *c) {
+diff --git a/src/mgr/MetricCollector.h b/src/mgr/MetricCollector.h
+index 65e71e276e4..91fa7878195 100644
+--- a/src/mgr/MetricCollector.h
++++ b/src/mgr/MetricCollector.h
+@@ -34,6 +34,8 @@ public:
+ 
+   void remove_all_queries();
+ 
++  void reregister_queries();
++
+   std::map<Query, Limits> get_queries() const {
+     std::lock_guard locker(lock);
+ 

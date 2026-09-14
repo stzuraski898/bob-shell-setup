@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/DaemonServer.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/DaemonServer.cc ffd759b34b940830b982bf0525e7f3a299b77298 ac30e6cee2b2d3815438f1a392a951d511bddfd4
+#
+# Rename chain for src/mgr/DaemonServer.h
+#
+src/mgr/DaemonServer.h fd4d4ce58b8616a8d87e244bb5f3c367dd20cf63 ac30e6cee2b2d3815438f1a392a951d511bddfd4

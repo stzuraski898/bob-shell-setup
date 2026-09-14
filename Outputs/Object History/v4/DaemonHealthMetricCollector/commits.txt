@@ -1,0 +1,17 @@
+# Non-merge commits touching src/mgr/DaemonHealthMetricCollector.cc and/or src/mgr/DaemonHealthMetricCollector.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+4ac2d6b536b9230b8313ad289503a99a16c60947 2024-11-05 Max Kellermann | mgr/DaemonHealthMetricCollector: include cleanup
+c63ecb602e5916d5e0beed137787fdfc67707f15 2021-08-11 Kefu Chai | mgr: build without "using namespace std"
+fc1905b4a74aedc6bdbc928b6d6e514183bbf090 2020-10-08 Paul Cuzner | mgr: add doc to describe relationship to prometheus
+85acc8bf1261289c4147a1ddd40a0d879fc8cb4e 2020-10-23 Kefu Chai | mgr/DaemonHealthMetricCollector: replace boost::format with fmt::format
+fb725f7cc3d1f3dff81b94c5cf17fcc097cd8b3c 2020-10-23 Kefu Chai | mgr: use make_unique<> when appropriate
+5aac7eba36be99861eb8726872e339ff55360f47 2019-09-29 Kefu Chai | mgr: use a struct for DaemonKey
+25963f24e59568871e8231432bfc31d60624e911 2019-09-29 Xie Xingguo | mgr: fix weird health-alert daemon key
+02cc60f6935a5005aa461da183c6c4332503be83 2019-09-10 Ilsoo Byun | mgr: do not reset reported if a new metric is not collected
+d0eb22f3ba557b9e98836995c813ea77c5e7c2a5 2019-07-31 Sage Weil | mon/health_checks: associate a count with health_alert_t
+b5263176dea6d204c2caa52043cefc94dd5e475f 2018-05-01 Brad Hubbard | mgr: Include daemon details in SLOW_OPS output
+714ffe0d5f078e4106ddbd8b57918ae2a0c899af 2018-03-13 Shanchun Lv | mgr,osd: make osd_metric more popular
+f6c87243574b06f77b14d82fbe7c0ea125df037f 2017-11-27 Shinobu Kinjo | [cleanup] Remove namespace using directives for std
+7e7978732d20c506eca581f2b153ede70ceefa3d 2017-11-01 Kefu Chai | mgr: summarize osd metrics in MMgrReport and sent it to mon

@@ -1,0 +1,41 @@
+commit 39ffec281af577c766c619d568f7a7051d108b00
+Author: Danny Al-Gaaf <danny.al-gaaf@bisect.de>
+Date:   Wed Apr 25 09:30:56 2018 +0200
+
+    misc: mark constructors as explicit
+    
+    Set 218 constructors as explicit to avoid implicit usage.
+    
+    Fix for cppcheck warning:
+     Class has a constructor with 1 argument that is
+     not explicit. Such constructors should in general be explicit for
+     type safety reasons. Using the explicit keyword in the constructor
+     means some mistakes when using the class can be avoided.
+    
+     For more information check:
+      https://www.codeproject.com/Articles/28663/Explicit-Constructor-in-C
+    
+    Signed-off-by: Danny Al-Gaaf <danny.al-gaaf@bisect.de>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ca09f360925..ba351b69fa7 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -664,7 +664,7 @@ bool DaemonServer::handle_command(MCommand *m)
+     bufferlist odata;
+     cmdmap_t cmdmap;
+ 
+-    CommandContext(MCommand *m_)
++    explicit CommandContext(MCommand *m_)
+       : m(m_)
+     {
+     }
+@@ -708,7 +708,7 @@ bool DaemonServer::handle_command(MCommand *m)
+     bufferlist from_mon;
+     string outs;
+ 
+-    ReplyOnFinish(const std::shared_ptr<CommandContext> &cmdctx_)
++    explicit ReplyOnFinish(const std::shared_ptr<CommandContext> &cmdctx_)
+       : cmdctx(cmdctx_)
+     {}
+     void finish(int r) override {

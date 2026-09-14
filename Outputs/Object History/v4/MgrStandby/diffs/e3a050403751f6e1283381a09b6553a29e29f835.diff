@@ -1,0 +1,25 @@
+commit e3a050403751f6e1283381a09b6553a29e29f835
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Tue Apr 28 18:26:52 2020 -0400
+
+    osdc: Asiofact the Objecter
+    
+    Thanks to Casey Bodley <cbodley@users.noreply.github.com> for
+    watch/notify fixes and Patrick Donnelly <pdonnell@redhat.com> for MDS
+    fix.
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 7e30eac6181..79374518865 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -46,7 +46,7 @@ MgrStandby::MgrStandby(int argc, const char **argv) :
+ 		     "mgr",
+ 		     Messenger::get_pid_nonce(),
+ 		     0)),
+-  objecter{g_ceph_context, client_messenger.get(), &monc, NULL, 0, 0},
++  objecter{g_ceph_context, client_messenger.get(), &monc, poolctx, 0, 0},
+   client{client_messenger.get(), &monc, &objecter},
+   mgrc(g_ceph_context, client_messenger.get(), &monc.monmap),
+   log_client(g_ceph_context, client_messenger.get(), &monc.monmap, LogClient::NO_FLAGS),

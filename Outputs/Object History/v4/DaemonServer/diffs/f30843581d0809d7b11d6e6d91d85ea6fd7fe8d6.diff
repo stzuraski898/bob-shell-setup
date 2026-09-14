@@ -1,0 +1,43 @@
+commit f30843581d0809d7b11d6e6d91d85ea6fd7fe8d6
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 12 12:30:56 2018 -0500
+
+    mgr: myaddr -> myaddrs
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 257177ea156..bb3ce29ae1f 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -94,7 +94,7 @@ DaemonServer::~DaemonServer() {
+   g_conf->remove_observer(this);
+ }
+ 
+-int DaemonServer::init(uint64_t gid, entity_addr_t client_addr)
++int DaemonServer::init(uint64_t gid, entity_addrvec_t client_addrs)
+ {
+   // Initialize Messenger
+   std::string public_msgr_type = g_conf->ms_public_type.empty() ?
+@@ -134,7 +134,7 @@ int DaemonServer::init(uint64_t gid, entity_addr_t client_addr)
+   }
+ 
+   msgr->set_myname(entity_name_t::MGR(gid));
+-  msgr->set_addr_unknowns(entity_addrvec_t(client_addr));
++  msgr->set_addr_unknowns(client_addrs);
+ 
+   msgr->start();
+   msgr->add_dispatcher_tail(this);
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 6817d2357b7..11c716c2215 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -104,7 +104,7 @@ private:
+   void maybe_ready(int32_t osd_id);
+ 
+ public:
+-  int init(uint64_t gid, entity_addr_t client_addr);
++  int init(uint64_t gid, entity_addrvec_t client_addrs);
+   void shutdown();
+ 
+   entity_addrvec_t get_myaddrs() const;

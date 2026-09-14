@@ -1,0 +1,1082 @@
+# git blame -w -M -C src/mgr/Mgr.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman     2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/Mgr.cc                           (Edwin Rodriguez    2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+c8c1019d1962 src/mgr/Mgr.cc                           (Edwin Rodriguez    2025-10-02 15:31:35 -0400   3) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100   4) /*
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100   5)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100   6)  *
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100   7)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  13)  */
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  14) 
+fa147e3a591a src/mgr/Mgr.cc                           (John Spray         2016-07-31 18:07:20 +0100  15) #include <Python.h>
+fa147e3a591a src/mgr/Mgr.cc                           (John Spray         2016-07-31 18:07:20 +0100  16) 
+fd537bc696d6 src/mgr/Mgr.cc                           (John Spray         2016-07-16 22:04:39 +0100  17) #include "osdc/Objecter.h"
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  18) #include "common/errno.h"
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  19) #include "mon/MonClient.h"
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  20) #include "include/stringify.h"
+a17349b87afd src/mgr/Mgr.cc                           (Max Kellermann     2025-08-12 21:06:17 +0200  21) #include "include/str_map.h"
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  22) #include "global/global_context.h"
+c81e542b3281 src/mgr/Mgr.cc                           (John Spray         2016-07-04 15:22:27 +0100  23) #include "global/signal_handler.h"
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  24) 
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800  25) #ifdef WITH_LIBCEPHSQLITE
+b1e78c417748 src/mgr/Mgr.cc                           (Greg Farnum        2021-04-13 04:12:11 +0000  26) #  include <sqlite3.h>
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800  27) #  include "include/libcephsqlite.h"
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800  28) #endif
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800  29) 
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500  30) #include "mds/FSMap.h"
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  31) #include "messages/MCommand.h"
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  32) #include "messages/MCommandReply.h"
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500  33) #include "messages/MFSMap.h"
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500  34) #include "messages/MKVData.h"
+9ea37c223f92 src/mgr/Mgr.cc                           (John Spray         2016-11-14 00:04:16 +0000  35) #include "messages/MLog.h"
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  36) #include "messages/MMgrDigest.h"
+97cfc3cb694e src/mgr/Mgr.cc                           (Sage Weil          2017-06-26 13:22:17 -0400  37) #include "messages/MServiceMap.h"
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500  38) 
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500  39) #include "MgrContext.h"
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  40) #include "DaemonServer.h"
+de5665493107 src/mgr/Mgr.cc                           (Max Kellermann     2025-08-19 14:15:00 +0200  41) #include "JSONCommand.h"
+3193d40d0daf src/mgr/Mgr.cc                           (Rubab-Syed         2018-02-16 15:51:11 +0500  42) #include "PyModule.h"
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  43) #include "Mgr.h"
+e9abc5ce0bb7 src/mgr/Mgr.cc                           (Max Kellermann     2025-08-14 14:54:51 +0200  44) #include "DaemonHealthMetric.h" // for accessing DaemonState::daemon_health_metrics
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  45) 
+ae5aadf538c5 src/mgr/Mgr.cc                           (Max Kellermann     2024-11-01 08:24:46 +0100  46) #include <sstream>
+ae5aadf538c5 src/mgr/Mgr.cc                           (Max Kellermann     2024-11-01 08:24:46 +0100  47) 
+b9182564c716 src/mgr/Mgr.cc                           (Adam C. Emerson    2016-11-16 12:38:08 -0500  48) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  49) #define dout_subsys ceph_subsys_mgr
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  50) #undef dout_prefix
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  51) #define dout_prefix *_dout << "mgr " << __func__ << " "
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  52) 
+c63ecb602e59 src/mgr/Mgr.cc                           (Kefu Chai          2021-08-11 11:48:33 +0800  53) using namespace std::literals;
+c63ecb602e59 src/mgr/Mgr.cc                           (Kefu Chai          2021-08-11 11:48:33 +0800  54) 
+c63ecb602e59 src/mgr/Mgr.cc                           (Kefu Chai          2021-08-11 11:48:33 +0800  55) using std::map;
+c63ecb602e59 src/mgr/Mgr.cc                           (Kefu Chai          2021-08-11 11:48:33 +0800  56) using std::ostringstream;
+c63ecb602e59 src/mgr/Mgr.cc                           (Kefu Chai          2021-08-11 11:48:33 +0800  57) using std::string;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  58) 
+6c10417f7ed3 src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:52:25 -0400  59) Mgr::Mgr(MonClient *monc_, const MgrMap& mgrmap,
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400  60)          PyModuleRegistry *py_module_registry_,
+6c10417f7ed3 src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:52:25 -0400  61) 	 Messenger *clientm_, Objecter *objecter_,
+f20df2eb8545 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-01-30 17:08:07 -0500  62) 	 LogChannelRef clog_, LogChannelRef audit_clog_) :
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100  63)   monc(monc_),
+fd537bc696d6 src/mgr/Mgr.cc                           (John Spray         2016-07-16 22:04:39 +0100  64)   objecter(objecter_),
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100  65)   client_messenger(clientm_),
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  66)   finisher(g_ceph_context, "Mgr", "mgr-fin"),
+f25763208ff6 src/mgr/Mgr.cc                           (John Spray         2017-06-29 07:05:48 -0400  67)   digest_received(false),
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400  68)   py_module_registry(py_module_registry_),
+6c10417f7ed3 src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:52:25 -0400  69)   cluster_state(monc, nullptr, mgrmap),
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400  70)   server(monc, finisher, daemon_state, cluster_state, *py_module_registry,
+9988a564d816 src/mgr/Mgr.cc                           (John Spray         2017-03-05 10:38:36 -0500  71)          clog_, audit_clog_),
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400  72)   clog(clog_),
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400  73)   audit_clog(audit_clog_),
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100  74)   initialized(false),
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000  75)   initializing(false),
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000  76)   initialization_start_time(ceph::coarse_mono_clock::zero())
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  77) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  78)   cluster_state.set_objecter(objecter);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  79) }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  80) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  81) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  82) Mgr::~Mgr()
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  83) {
+75b6149b294e src/mgr/Mgr.cc                           (Steven Zuraski     2026-05-21 19:23:54 +0000  84) }
+75b6149b294e src/mgr/Mgr.cc                           (Steven Zuraski     2026-05-21 19:23:54 +0000  85) 
+75b6149b294e src/mgr/Mgr.cc                           (Steven Zuraski     2026-05-21 19:23:54 +0000  86) void Mgr::shutdown()
+75b6149b294e src/mgr/Mgr.cc                           (Steven Zuraski     2026-05-21 19:23:54 +0000  87) {
+75b6149b294e src/mgr/Mgr.cc                           (Steven Zuraski     2026-05-21 19:23:54 +0000  88)   if (initialized) {
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  89)     AdminSocket *admin_socket = g_ceph_context->get_admin_socket();
+75b6149b294e src/mgr/Mgr.cc                           (Steven Zuraski     2026-05-21 19:23:54 +0000  90)     admin_socket->unregister_commands(this);
+75b6149b294e src/mgr/Mgr.cc                           (Steven Zuraski     2026-05-21 19:23:54 +0000  91)   }
+75b6149b294e src/mgr/Mgr.cc                           (Steven Zuraski     2026-05-21 19:23:54 +0000  92) 
+75b6149b294e src/mgr/Mgr.cc                           (Steven Zuraski     2026-05-21 19:23:54 +0000  93)   finisher.wait_for_empty();
+75b6149b294e src/mgr/Mgr.cc                           (Steven Zuraski     2026-05-21 19:23:54 +0000  94)   finisher.stop();
+75b6149b294e src/mgr/Mgr.cc                           (Steven Zuraski     2026-05-21 19:23:54 +0000  95) 
+fd4d4ce58b86 src/mgr/Mgr.cc                           (Steven Zuraski     2026-05-21 19:23:09 +0000  96)   server.shutdown();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  97) }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  98) 
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200  99) static std::string crush_hostname_for_osd(ClusterState& cluster_state, int osd_id)
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 100) {
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 101)   std::string hostname;
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 102)   cluster_state.with_osdmap([&](const OSDMap& osdmap) {
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 103)     if (osdmap.crush) {
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 104)       auto loc = osdmap.crush->get_full_location(osd_id);
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 105)       auto it = loc.find("host");
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 106)       if (it != loc.end()) {
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 107)         hostname = it->second;
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 108)       }
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 109)     }
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 110)   });
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 111)   return hostname;
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 112) }
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 113) 
+a39813837ca8 src/mgr/Mgr.cc                           (Chang Liu          2017-10-21 23:35:47 +0800 114) void MetadataUpdate::finish(int r)
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 115) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 116)   daemon_state.clear_updating(key);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 117)   if (r == 0) {
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 118)     if (key.type == "mds" || key.type == "osd" ||
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 119)         key.type == "mgr" || key.type == "mon") {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 120)       json_spirit::mValue json_result;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 121)       bool read_ok = json_spirit::read(
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 122)           outbl.to_str(), json_result);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 123)       if (!read_ok) {
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 124)         dout(1) << "mon returned invalid JSON for " << key << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 125)         return;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 126)       }
+92b2fe9e653f src/mgr/Mgr.cc                           (Sage Weil          2019-01-30 16:17:25 -0600 127)       if (json_result.type() != json_spirit::obj_type) {
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 128)         dout(1) << "mon returned valid JSON " << key
+92b2fe9e653f src/mgr/Mgr.cc                           (Sage Weil          2019-01-30 16:17:25 -0600 129) 		<< " but not an object: '" << outbl.to_str() << "'" << dendl;
+92b2fe9e653f src/mgr/Mgr.cc                           (Sage Weil          2019-01-30 16:17:25 -0600 130)         return;
+92b2fe9e653f src/mgr/Mgr.cc                           (Sage Weil          2019-01-30 16:17:25 -0600 131)       }
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 132)       dout(4) << "mon returned valid metadata JSON for " << key << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 133) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 134)       json_spirit::mObject daemon_meta = json_result.get_obj();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 135) 
+3c333f359964 src/mgr/Mgr.cc                           (Xinying Song       2019-01-15 19:18:20 +0800 136)       // Skip daemon who doesn't have hostname yet
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 137)       if (daemon_meta.count("hostname") == 0) {
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 138)         dout(1) << "Skipping incomplete metadata entry for " << key << dendl;
+3c333f359964 src/mgr/Mgr.cc                           (Xinying Song       2019-01-15 19:18:20 +0800 139)         return;
+3c333f359964 src/mgr/Mgr.cc                           (Xinying Song       2019-01-15 19:18:20 +0800 140)       }
+3c333f359964 src/mgr/Mgr.cc                           (Xinying Song       2019-01-15 19:18:20 +0800 141) 
+8ce30bc4cd23 src/mgr/Mgr.cc                           (John Spray         2017-03-27 12:55:12 +0200 142)       // Apply any defaults
+8ce30bc4cd23 src/mgr/Mgr.cc                           (John Spray         2017-03-27 12:55:12 +0200 143)       for (const auto &i : defaults) {
+8ce30bc4cd23 src/mgr/Mgr.cc                           (John Spray         2017-03-27 12:55:12 +0200 144)         if (daemon_meta.find(i.first) == daemon_meta.end()) {
+8ce30bc4cd23 src/mgr/Mgr.cc                           (John Spray         2017-03-27 12:55:12 +0200 145)           daemon_meta[i.first] = i.second;
+8ce30bc4cd23 src/mgr/Mgr.cc                           (John Spray         2017-03-27 12:55:12 +0200 146)         }
+8ce30bc4cd23 src/mgr/Mgr.cc                           (John Spray         2017-03-27 12:55:12 +0200 147)       }
+8ce30bc4cd23 src/mgr/Mgr.cc                           (John Spray         2017-03-27 12:55:12 +0200 148) 
+9501bfdd7114 src/mgr/Mgr.cc                           (John Spray         2016-07-26 11:14:00 +0100 149)       if (daemon_state.exists(key)) {
+79785efbdb75 src/mgr/Mgr.cc                           (Kefu Chai          2020-08-28 13:59:27 +0800 150)         DaemonStatePtr state = daemon_state.get(key);
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 151) 	// Resolve CRUSH host before taking state->lock to preserve lock ordering
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 152) 	// (Objecter::rwlock must not be acquired under state->lock)
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 153) 	std::string crush_host;
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 154) 	if (key.type == "osd") {
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 155) 	  try {
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 156) 	    crush_host = crush_hostname_for_osd(cluster_state, std::stoi(key.name));
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 157) 	  } catch (const std::exception& e) {
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 158) 	    dout(5) << "cannot derive CRUSH hostname for " << key
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 159) 		    << ": " << e.what() << dendl;
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 160) 	  }
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 161) 	}
+706b2be41624 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-01-30 17:05:25 -0500 162) 	std::map<string,string> m;
+5096685cd623 src/mgr/Mgr.cc                           (Sage Weil          2021-11-24 13:22:26 -0500 163) 	{
+5096685cd623 src/mgr/Mgr.cc                           (Sage Weil          2021-11-24 13:22:26 -0500 164) 	  std::lock_guard l(state->lock);
+ec5988807024 src/mgr/Mgr.cc                           (senol.colak        2026-05-29 11:33:36 +0200 165) 	  std::string reported_hostname = daemon_meta.at("hostname").get_str();
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 166) 	  if (key.type == "mds" || key.type == "mgr" || key.type == "mon") {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 167) 	    daemon_meta.erase("name");
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 168) 	  } else if (key.type == "osd") {
+cb26eead3f19 src/mgr/Mgr.cc                           (Yanhu Cao          2017-08-09 10:22:19 +0800 169) 	    daemon_meta.erase("id");
+cb26eead3f19 src/mgr/Mgr.cc                           (Yanhu Cao          2017-08-09 10:22:19 +0800 170) 	  }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 171) 	  daemon_meta.erase("hostname");
+4e2d344eb34d src/mgr/Mgr.cc                           (Kefu Chai          2020-08-28 13:26:03 +0800 172) 	  for (const auto &[key, val] : daemon_meta) {
+4e2d344eb34d src/mgr/Mgr.cc                           (Kefu Chai          2020-08-28 13:26:03 +0800 173) 	    m.emplace(key, val.get_str());
+9501bfdd7114 src/mgr/Mgr.cc                           (John Spray         2016-07-26 11:14:00 +0100 174) 	  }
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 175) 	  // prefer CRUSH physical host over container/pod hostname (tracker.ceph.com/issues/73080)
+ec5988807024 src/mgr/Mgr.cc                           (senol.colak        2026-05-29 11:33:36 +0200 176) 	  // fall back to the reported hostname when CRUSH does not place the OSD
+ec5988807024 src/mgr/Mgr.cc                           (senol.colak        2026-05-29 11:33:36 +0200 177) 	  // under a host bucket, and for mds/mgr/mon which don't use CRUSH
+ec5988807024 src/mgr/Mgr.cc                           (senol.colak        2026-05-29 11:33:36 +0200 178) 	  m["hostname"] = !crush_host.empty() ? crush_host : reported_hostname;
+5096685cd623 src/mgr/Mgr.cc                           (Sage Weil          2021-11-24 13:22:26 -0500 179) 	}
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 180) 	// update_metadata calls _rm then _insert using state->hostname read from
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 181) 	// the map via set_metadata, so hostname must be set through m, not
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 182) 	// directly on state->hostname before the call (that would corrupt by_server)
+8a2f4429b129 src/mgr/Mgr.cc                           (Sage Weil          2018-10-18 17:33:46 -0500 183) 	daemon_state.update_metadata(state, m);
+9501bfdd7114 src/mgr/Mgr.cc                           (John Spray         2016-07-26 11:14:00 +0100 184)       } else {
+79785efbdb75 src/mgr/Mgr.cc                           (Kefu Chai          2020-08-28 13:59:27 +0800 185)         auto state = std::make_shared<DaemonState>(daemon_state.types);
+9501bfdd7114 src/mgr/Mgr.cc                           (John Spray         2016-07-26 11:14:00 +0100 186)         state->key = key;
+ec5988807024 src/mgr/Mgr.cc                           (senol.colak        2026-05-29 11:33:36 +0200 187)         std::string reported_hostname = daemon_meta.at("hostname").get_str();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 188) 
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 189)         if (key.type == "mds" || key.type == "mgr" || key.type == "mon") {
+cb26eead3f19 src/mgr/Mgr.cc                           (Yanhu Cao          2017-08-09 10:22:19 +0800 190)           daemon_meta.erase("name");
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 191)         } else if (key.type == "osd") {
+cb26eead3f19 src/mgr/Mgr.cc                           (Yanhu Cao          2017-08-09 10:22:19 +0800 192)           daemon_meta.erase("id");
+cb26eead3f19 src/mgr/Mgr.cc                           (Yanhu Cao          2017-08-09 10:22:19 +0800 193)         }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 194)         daemon_meta.erase("hostname");
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 195) 
+706b2be41624 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-01-30 17:05:25 -0500 196) 	std::map<string,string> m;
+4e2d344eb34d src/mgr/Mgr.cc                           (Kefu Chai          2020-08-28 13:26:03 +0800 197)         for (const auto &[key, val] : daemon_meta) {
+4e2d344eb34d src/mgr/Mgr.cc                           (Kefu Chai          2020-08-28 13:26:03 +0800 198)           m.emplace(key, val.get_str());
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 199)         }
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 200) 	// prefer CRUSH physical host over container/pod hostname (tracker.ceph.com/issues/73080)
+ec5988807024 src/mgr/Mgr.cc                           (senol.colak        2026-05-29 11:33:36 +0200 201) 	// fall back to the reported hostname when CRUSH does not place the OSD
+ec5988807024 src/mgr/Mgr.cc                           (senol.colak        2026-05-29 11:33:36 +0200 202) 	// under a host bucket, and for mds/mgr/mon which don't use CRUSH
+ec5988807024 src/mgr/Mgr.cc                           (senol.colak        2026-05-29 11:33:36 +0200 203) 	std::string crush_host;
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 204) 	if (key.type == "osd") {
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 205) 	  try {
+ec5988807024 src/mgr/Mgr.cc                           (senol.colak        2026-05-29 11:33:36 +0200 206) 	    crush_host = crush_hostname_for_osd(cluster_state,
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 207) 						std::stoi(key.name));
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 208) 	  } catch (const std::exception& e) {
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 209) 	    dout(5) << "cannot derive CRUSH hostname for " << key
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 210) 		    << ": " << e.what() << dendl;
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 211) 	  }
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 212) 	}
+ec5988807024 src/mgr/Mgr.cc                           (senol.colak        2026-05-29 11:33:36 +0200 213) 	m["hostname"] = !crush_host.empty() ? crush_host : reported_hostname;
+67b5d3e343c5 src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 08:46:41 -0500 214) 	state->set_metadata(m);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 215) 
+9501bfdd7114 src/mgr/Mgr.cc                           (John Spray         2016-07-26 11:14:00 +0100 216)         daemon_state.insert(state);
+9501bfdd7114 src/mgr/Mgr.cc                           (John Spray         2016-07-26 11:14:00 +0100 217)       }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 218)     } else {
+61fca96c2910 src/mgr/Mgr.cc                           (Sage Weil          2016-11-21 23:37:31 -0500 219)       ceph_abort();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 220)     }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 221)   } else {
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 222)     dout(1) << "mon failed to return metadata for " << key
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 223) 	    << ": " << cpp_strerror(r) << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 224)   }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 225) }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 226) 
+e0e87da6529d src/mgr/Mgr.cc                           (John Spray         2017-06-29 09:35:39 -0400 227) void Mgr::background_init(Context *completion)
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 228) {
+948635a8b213 src/mgr/Mgr.cc                           (Sage Weil          2018-10-16 14:11:33 -0500 229)   std::lock_guard l(lock);
+ab23c5069647 src/mgr/Mgr.cc                           (Adam C. Emerson    2018-08-23 11:25:51 -0400 230)   ceph_assert(!initializing);
+ab23c5069647 src/mgr/Mgr.cc                           (Adam C. Emerson    2018-08-23 11:25:51 -0400 231)   ceph_assert(!initialized);
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 232)   initializing = true;
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 233)   initialization_start_time = ceph::coarse_mono_clock::now();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 234) 
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 235)   finisher.start();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 236) 
+489b30844e86 src/mgr/Mgr.cc                           (Patrick Donnelly   2019-08-14 11:23:42 -0700 237)   finisher.queue(new LambdaContext([this, completion](int r){
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 238)     init();
+cbd1726fde08 src/mgr/Mgr.cc                           (Laura Flores       2025-04-25 22:11:19 +0000 239)     py_module_registry->check_all_modules_started(
+cbd1726fde08 src/mgr/Mgr.cc                           (Laura Flores       2025-04-25 22:11:19 +0000 240) 	new LambdaContext([this, completion](int){
+cbd1726fde08 src/mgr/Mgr.cc                           (Laura Flores       2025-04-25 22:11:19 +0000 241) 	  {
+cbd1726fde08 src/mgr/Mgr.cc                           (Laura Flores       2025-04-25 22:11:19 +0000 242) 	    std::lock_guard l(lock);
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 243) 	    initializing = false;
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 244) 	    initialized = true;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 245) 	  }
+e0e87da6529d src/mgr/Mgr.cc                           (John Spray         2017-06-29 09:35:39 -0400 246) 	completion->complete(0);
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 247)       }));
+cbd1726fde08 src/mgr/Mgr.cc                           (Laura Flores       2025-04-25 22:11:19 +0000 248)   }));
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 249) }
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 250) 
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 251) std::map<std::string, std::string> Mgr::load_store()
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 252) {
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 253)   ceph_assert(ceph_mutex_is_locked_by_me(lock));
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 254) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 255)   dout(10) << "listing keys" << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 256)   JSONCommand cmd;
+2ebb8e13f6f5 src/mgr/Mgr.cc                           (Sage Weil          2017-07-19 09:41:14 -0400 257)   cmd.run(monc, "{\"prefix\": \"config-key ls\"}");
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 258)   lock.unlock();
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 259)   cmd.wait();
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 260)   lock.lock();
+ab23c5069647 src/mgr/Mgr.cc                           (Adam C. Emerson    2018-08-23 11:25:51 -0400 261)   ceph_assert(cmd.r == 0);
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 262) 
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 263)   std::map<std::string, std::string> loaded;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 264)   
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 265)   for (auto &key_str : cmd.json_result.get_array()) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 266)     std::string const key = key_str.get_str();
+3193d40d0daf src/mgr/Mgr.cc                           (Rubab-Syed         2018-02-16 15:51:11 +0500 267)     
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 268)     dout(20) << "saw key '" << key << "'" << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 269) 
+3bafb5e57168 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 18:27:08 -0500 270)     const std::string store_prefix = PyModule::mgr_store_prefix;
+45d4dfed1ded src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 13:57:09 -0500 271)     const std::string device_prefix = "device/";
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 272) 
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 273)     if (key.substr(0, device_prefix.size()) == device_prefix ||
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 274) 	key.substr(0, store_prefix.size()) == store_prefix) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 275)       dout(20) << "fetching '" << key << "'" << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 276)       Command get_cmd;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 277)       std::ostringstream cmd_json;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 278)       cmd_json << "{\"prefix\": \"config-key get\", \"key\": \"" << key << "\"}";
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 279)       get_cmd.run(monc, cmd_json.str());
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 280)       lock.unlock();
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 281)       get_cmd.wait();
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 282)       lock.lock();
+615a6562bc6a src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 12:55:52 -0500 283)       if (get_cmd.r == 0) { // tolerate racing config-key change
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 284) 	loaded[key] = get_cmd.outbl.to_str();
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 285)       }
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 286)     }
+615a6562bc6a src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 12:55:52 -0500 287)   }
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 288) 
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 289)   return loaded;
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 290) }
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 291) 
+3d360b97ed7d src/mgr/Mgr.cc                           (Venky Shankar      2019-10-14 06:51:03 -0400 292) static void handle_mgr_signal(int signum)
+3d360b97ed7d src/mgr/Mgr.cc                           (Venky Shankar      2019-10-14 06:51:03 -0400 293) {
+3d360b97ed7d src/mgr/Mgr.cc                           (Venky Shankar      2019-10-14 06:51:03 -0400 294)   derr << " *** Got signal " << sig_str(signum) << " ***" << dendl;
+3363a1001c7b src/mgr/Mgr.cc                           (Sage Weil          2019-12-05 17:18:07 -0600 295) 
+3363a1001c7b src/mgr/Mgr.cc                           (Sage Weil          2019-12-05 17:18:07 -0600 296)   // The python modules don't reliably shut down, so don't even
+dfd01d765304 src/mgr/Mgr.cc                           (Sage Weil          2020-06-15 10:27:03 -0500 297)   // try. The mon will blocklist us (and all of our rados/cephfs
+3363a1001c7b src/mgr/Mgr.cc                           (Sage Weil          2019-12-05 17:18:07 -0600 298)   // clients) anyway. Just exit!
+3363a1001c7b src/mgr/Mgr.cc                           (Sage Weil          2019-12-05 17:18:07 -0600 299) 
+b925be726bdd src/mgr/MgrStandby.cc                    (Sage Weil          2019-03-10 10:48:21 -0500 300)   _exit(0);  // exit with 0 result code, as if we had done an orderly shutdown
+3d360b97ed7d src/mgr/Mgr.cc                           (Venky Shankar      2019-10-14 06:51:03 -0400 301) }
+3d360b97ed7d src/mgr/Mgr.cc                           (Venky Shankar      2019-10-14 06:51:03 -0400 302) 
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 303) void Mgr::init()
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 304) {
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 305)   std::unique_lock l(lock);
+ab23c5069647 src/mgr/Mgr.cc                           (Adam C. Emerson    2018-08-23 11:25:51 -0400 306)   ceph_assert(initializing);
+ab23c5069647 src/mgr/Mgr.cc                           (Adam C. Emerson    2018-08-23 11:25:51 -0400 307)   ceph_assert(!initialized);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 308) 
+3d360b97ed7d src/mgr/Mgr.cc                           (Venky Shankar      2019-10-14 06:51:03 -0400 309)   // Enable signal handlers
+c81e542b3281 src/mgr/Mgr.cc                           (John Spray         2016-07-04 15:22:27 +0100 310)   register_async_signal_handler_oneshot(SIGINT, handle_mgr_signal);
+c81e542b3281 src/mgr/Mgr.cc                           (John Spray         2016-07-04 15:22:27 +0100 311)   register_async_signal_handler_oneshot(SIGTERM, handle_mgr_signal);
+c81e542b3281 src/mgr/Mgr.cc                           (John Spray         2016-07-04 15:22:27 +0100 312) 
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 313)   // Only pacific+ monitors support subscribe to kv updates
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 314)   bool mon_allows_kv_sub = false;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 315)   monc->with_monmap(
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 316)     [&](const MonMap &monmap) {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 317)       if (monmap.get_required_features().contains_all(
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 318) 	    ceph::features::mon::FEATURE_PACIFIC)) {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 319) 	mon_allows_kv_sub = true;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 320)       }
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 321)     });
+b356fd0a8c65 src/mgr/Mgr.cc                           (Sage Weil          2021-03-12 15:21:49 -0500 322)   if (!mon_allows_kv_sub) {
+b356fd0a8c65 src/mgr/Mgr.cc                           (Sage Weil          2021-03-12 15:21:49 -0500 323)     // mons are still pre-pacific.  wait long enough to ensure our
+b356fd0a8c65 src/mgr/Mgr.cc                           (Sage Weil          2021-03-12 15:21:49 -0500 324)     // next beacon is processed so that our module options are
+b356fd0a8c65 src/mgr/Mgr.cc                           (Sage Weil          2021-03-12 15:21:49 -0500 325)     // propagated.  See https://tracker.ceph.com/issues/49778
+b356fd0a8c65 src/mgr/Mgr.cc                           (Sage Weil          2021-03-12 15:21:49 -0500 326)     lock.unlock();
+b356fd0a8c65 src/mgr/Mgr.cc                           (Sage Weil          2021-03-12 15:21:49 -0500 327)     dout(10) << "waiting a bit for the pre-pacific mon to process our beacon" << dendl;
+b356fd0a8c65 src/mgr/Mgr.cc                           (Sage Weil          2021-03-12 15:21:49 -0500 328)     sleep(g_conf().get_val<std::chrono::seconds>("mgr_tick_period").count() * 3);
+b356fd0a8c65 src/mgr/Mgr.cc                           (Sage Weil          2021-03-12 15:21:49 -0500 329)     lock.lock();
+b356fd0a8c65 src/mgr/Mgr.cc                           (Sage Weil          2021-03-12 15:21:49 -0500 330)   }
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 331) 
+6d5e0132d978 src/mgr/Mgr.cc                           (Sage Weil          2017-04-04 14:27:54 -0400 332)   // subscribe to all the maps
+9ea37c223f92 src/mgr/Mgr.cc                           (John Spray         2016-11-14 00:04:16 +0000 333)   monc->sub_want("log-info", 0, 0);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 334)   monc->sub_want("mgrdigest", 0, 0);
+6d5e0132d978 src/mgr/Mgr.cc                           (Sage Weil          2017-04-04 14:27:54 -0400 335)   monc->sub_want("fsmap", 0, 0);
+97cfc3cb694e src/mgr/Mgr.cc                           (Sage Weil          2017-06-26 13:22:17 -0400 336)   monc->sub_want("servicemap", 0, 0);
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 337)   if (mon_allows_kv_sub) {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 338)     monc->sub_want("kv:config/", 0, 0);
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 339)     monc->sub_want("kv:mgr/", 0, 0);
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 340)     monc->sub_want("kv:device/", 0, 0);
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 341)   }
+6d5e0132d978 src/mgr/Mgr.cc                           (Sage Weil          2017-04-04 14:27:54 -0400 342) 
+6d5e0132d978 src/mgr/Mgr.cc                           (Sage Weil          2017-04-04 14:27:54 -0400 343)   dout(4) << "waiting for OSDMap..." << dendl;
+1bb9edbaf27d src/mgr/Mgr.cc                           (John Spray         2016-09-26 22:12:19 +0100 344)   // Subscribe to OSDMap update to pass on to ClusterState
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 345)   objecter->maybe_request_map();
+1bb9edbaf27d src/mgr/Mgr.cc                           (John Spray         2016-09-26 22:12:19 +0100 346) 
+6d5e0132d978 src/mgr/Mgr.cc                           (Sage Weil          2017-04-04 14:27:54 -0400 347)   // reset the mon session.  we get these maps through subscriptions which
+6d5e0132d978 src/mgr/Mgr.cc                           (Sage Weil          2017-04-04 14:27:54 -0400 348)   // are stateful with the connection, so even if *we* don't have them a
+6d5e0132d978 src/mgr/Mgr.cc                           (Sage Weil          2017-04-04 14:27:54 -0400 349)   // previous incarnation sharing the same MonClient may have.
+6d5e0132d978 src/mgr/Mgr.cc                           (Sage Weil          2017-04-04 14:27:54 -0400 350)   monc->reopen_session();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 351) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 352)   // Start Objecter and wait for OSD map
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 353)   lock.unlock();  // Drop lock because OSDMap dispatch calls into my ms_dispatch
+f2986a4400bb src/mgr/Mgr.cc                           (Patrick Donnelly   2019-11-21 12:31:16 -0800 354)   epoch_t e;
+f2986a4400bb src/mgr/Mgr.cc                           (Patrick Donnelly   2019-11-21 12:31:16 -0800 355)   cluster_state.with_mgrmap([&e](const MgrMap& m) {
+f2986a4400bb src/mgr/Mgr.cc                           (Patrick Donnelly   2019-11-21 12:31:16 -0800 356)     e = m.last_failure_osd_epoch;
+f2986a4400bb src/mgr/Mgr.cc                           (Patrick Donnelly   2019-11-21 12:31:16 -0800 357)   });
+dfd01d765304 src/mgr/Mgr.cc                           (Sage Weil          2020-06-15 10:27:03 -0500 358)   /* wait for any blocklists to be applied to previous mgr instance */
+f2986a4400bb src/mgr/Mgr.cc                           (Patrick Donnelly   2019-11-21 12:31:16 -0800 359)   dout(4) << "Waiting for new OSDMap (e=" << e
+dfd01d765304 src/mgr/Mgr.cc                           (Sage Weil          2020-06-15 10:27:03 -0500 360)           << ") that may blocklist prior active." << dendl;
+f2986a4400bb src/mgr/Mgr.cc                           (Patrick Donnelly   2019-11-21 12:31:16 -0800 361)   objecter->wait_for_osd_map(e);
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 362)   lock.lock();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 363) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 364)   // Start communicating with daemons to learn statistics etc
+f30843581d08 src/mgr/Mgr.cc                           (Sage Weil          2018-06-12 12:30:56 -0500 365)   int r = server.init(monc->get_global_id(), client_messenger->get_myaddrs());
+b4a4a7a89b21 src/mgr/Mgr.cc                           (Ren Huanwen        2016-10-11 19:29:52 +0800 366)   if (r < 0) {
+2dca5b436a21 src/mgr/Mgr.cc                           (John Spray         2018-02-26 17:11:16 +0000 367)     derr << "Initialize server fail: " << cpp_strerror(r) << dendl;
+2dca5b436a21 src/mgr/Mgr.cc                           (John Spray         2018-02-26 17:11:16 +0000 368)     // This is typically due to a bind() failure, so let's let
+2dca5b436a21 src/mgr/Mgr.cc                           (John Spray         2018-02-26 17:11:16 +0000 369)     // systemd restart us.
+2dca5b436a21 src/mgr/Mgr.cc                           (John Spray         2018-02-26 17:11:16 +0000 370)     exit(1);
+b4a4a7a89b21 src/mgr/Mgr.cc                           (Ren Huanwen        2016-10-11 19:29:52 +0800 371)   }
+7f787704cdcd src/mgr/Mgr.cc                           (Sage Weil          2018-05-29 16:47:07 -0500 372)   dout(4) << "Initialized server at " << server.get_myaddrs() << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 373) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 374)   // Preload all daemon metadata (will subsequently keep this
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 375)   // up to date by watching maps, so do the initial load before
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 376)   // we subscribe to any maps)
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 377)   dout(4) << "Loading daemon metadata..." << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 378)   load_all_metadata();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 379) 
+fa147e3a591a src/mgr/Mgr.cc                           (John Spray         2016-07-31 18:07:20 +0100 380)   // Populate PGs in ClusterState
+03a761c980a1 src/mgr/Mgr.cc                           (Sage Weil          2018-11-15 16:27:18 -0600 381)   cluster_state.with_osdmap_and_pgmap([this](const OSDMap &osd_map,
+03a761c980a1 src/mgr/Mgr.cc                           (Sage Weil          2018-11-15 16:27:18 -0600 382) 					     const PGMap& pg_map) {
+fa147e3a591a src/mgr/Mgr.cc                           (John Spray         2016-07-31 18:07:20 +0100 383)     cluster_state.notify_osdmap(osd_map);
+fa147e3a591a src/mgr/Mgr.cc                           (John Spray         2016-07-31 18:07:20 +0100 384)   });
+fa147e3a591a src/mgr/Mgr.cc                           (John Spray         2016-07-31 18:07:20 +0100 385) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 386)   // Wait for FSMap
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 387)   dout(4) << "waiting for FSMap..." << dendl;
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 388)   fs_map_cond.wait(l, [this] { return cluster_state.have_fsmap();});
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 389) 
+f25763208ff6 src/mgr/Mgr.cc                           (John Spray         2017-06-29 07:05:48 -0400 390)   // Wait for MgrDigest...
+110e60f4e31a src/mgr/Mgr.cc                           (Sage Weil          2017-07-14 16:07:28 -0400 391)   dout(4) << "waiting for MgrDigest..." << dendl;
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 392)   digest_cond.wait(l, [this] { return digest_received; });
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 393) 
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 394)   if (!mon_allows_kv_sub) {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 395)     dout(4) << "loading config-key data from pre-pacific mon cluster..." << dendl;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 396)     pre_init_store = load_store();
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 397)   }
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 398) 
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 399)   dout(4) << "initializing device state..." << dendl;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 400)   // Note: we only have to do this during startup because once we are
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 401)   // active the only changes to this state will originate from one of our
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 402)   // own modules.
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 403)   for (auto p = pre_init_store.lower_bound("device/");
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 404)        p != pre_init_store.end() && p->first.find("device/") == 0;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 405)        ++p) {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 406)     string devid = p->first.substr(7);
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 407)     dout(10) << "  updating " << devid << dendl;
+706b2be41624 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-01-30 17:05:25 -0500 408)     std::map<string,string> meta;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 409)     ostringstream ss;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 410)     int r = get_json_str_map(p->second, ss, &meta, false);
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 411)     if (r < 0) {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 412)       derr << __func__ << " failed to parse " << p->second << ": " << ss.str()
+45d4dfed1ded src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 13:57:09 -0500 413) 	   << dendl;
+45d4dfed1ded src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 13:57:09 -0500 414)     } else {
+45d4dfed1ded src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 13:57:09 -0500 415)       daemon_state.with_device_create(
+45d4dfed1ded src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 13:57:09 -0500 416) 	devid, [&meta] (DeviceState& dev) {
+45d4dfed1ded src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 13:57:09 -0500 417) 		 dev.set_metadata(std::move(meta));
+45d4dfed1ded src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 13:57:09 -0500 418) 	       });
+45d4dfed1ded src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 13:57:09 -0500 419)     }
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 420)   }
+37484af0b860 src/mgr/Mgr.cc                           (John Spray         2018-04-09 15:25:45 -0400 421)   
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 422)   // assume finisher already initialized in background_init
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400 423)   dout(4) << "starting python modules..." << dendl;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 424)   py_module_registry->active_start(
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 425)     daemon_state, cluster_state,
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 426)     pre_init_store, mon_allows_kv_sub,
+f20df2eb8545 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-01-30 17:08:07 -0500 427)     *monc, clog, audit_clog, *objecter,
+95746ecce921 src/mgr/Mgr.cc                           (Volker Theile      2018-09-24 12:18:56 +0200 428)     finisher, server);
+c81e542b3281 src/mgr/Mgr.cc                           (John Spray         2016-07-04 15:22:27 +0100 429) 
+5d3c1856415f src/mgr/Mgr.cc                           (David Zafman       2019-07-09 17:22:12 +0000 430)   cluster_state.final_init();
+5d3c1856415f src/mgr/Mgr.cc                           (David Zafman       2019-07-09 17:22:12 +0000 431) 
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 432)   AdminSocket *admin_socket = g_ceph_context->get_admin_socket();
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 433)   r = admin_socket->register_command(
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 434)     "mgr_status", this,
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 435)     "Dump mgr status");
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 436)   ceph_assert(r == 0);
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 437) 
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 438) #ifdef WITH_LIBCEPHSQLITE
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 439)   dout(4) << "Using sqlite3 version: " << sqlite3_libversion() << dendl;
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 440)   /* See libcephsqlite.h for rationale of this code. */
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 441)   sqlite3_auto_extension((void (*)())sqlite3_cephsqlite_init);
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 442)   {
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 443)     sqlite3* db = nullptr;
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 444)     if (int rc = sqlite3_open_v2(":memory:", &db, SQLITE_OPEN_READWRITE, nullptr); rc == SQLITE_OK) {
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 445)       sqlite3_close(db);
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 446)     } else {
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 447)       derr << "could not open sqlite3: " << rc << dendl;
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 448)       ceph_abort();
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 449)     }
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 450)   }
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 451)   {
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 452)     char *ident = nullptr;
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 453)     if (int rc = cephsqlite_setcct(g_ceph_context, &ident); rc < 0) {
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 454)       derr << "could not set libcephsqlite cct: " << rc << dendl;
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 455)       ceph_abort();
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 456)     }
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 457)     entity_addrvec_t addrv;
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 458)     addrv.parse(ident);
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 459)     ident = (char*)realloc(ident, 0);
+e72194b42ce1 src/mgr/Mgr.cc                           (Patrick Donnelly   2023-02-27 15:00:08 -0500 460)     py_module_registry->register_client("libcephsqlite", addrv, true);
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 461)   }
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 462) #endif
+52446d00f647 src/mgr/Mgr.cc                           (Patrick Donnelly   2021-01-28 15:02:33 -0800 463) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 464)   dout(4) << "Complete." << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 465) }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 466) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 467) void Mgr::load_all_metadata()
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 468) {
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 469)   ceph_assert(ceph_mutex_is_locked_by_me(lock));
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 470) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 471)   JSONCommand mds_cmd;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 472)   mds_cmd.run(monc, "{\"prefix\": \"mds metadata\"}");
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 473)   JSONCommand osd_cmd;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 474)   osd_cmd.run(monc, "{\"prefix\": \"osd metadata\"}");
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 475)   JSONCommand mon_cmd;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 476)   mon_cmd.run(monc, "{\"prefix\": \"mon metadata\"}");
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 477) 
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 478)   lock.unlock();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 479)   mds_cmd.wait();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 480)   osd_cmd.wait();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 481)   mon_cmd.wait();
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 482)   lock.lock();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 483) 
+ab23c5069647 src/mgr/Mgr.cc                           (Adam C. Emerson    2018-08-23 11:25:51 -0400 484)   ceph_assert(mds_cmd.r == 0);
+ab23c5069647 src/mgr/Mgr.cc                           (Adam C. Emerson    2018-08-23 11:25:51 -0400 485)   ceph_assert(mon_cmd.r == 0);
+ab23c5069647 src/mgr/Mgr.cc                           (Adam C. Emerson    2018-08-23 11:25:51 -0400 486)   ceph_assert(osd_cmd.r == 0);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 487) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 488)   for (auto &metadata_val : mds_cmd.json_result.get_array()) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 489)     json_spirit::mObject daemon_meta = metadata_val.get_obj();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 490)     if (daemon_meta.count("hostname") == 0) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 491)       dout(1) << "Skipping incomplete metadata entry" << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 492)       continue;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 493)     }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 494) 
+d9dfb436ea58 src/mgr/Mgr.cc                           (John Spray         2016-07-03 19:45:28 +0100 495)     DaemonStatePtr dm = std::make_shared<DaemonState>(daemon_state.types);
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 496)     dm->key = DaemonKey{"mds",
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 497)                         daemon_meta.at("name").get_str()};
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 498)     dm->hostname = daemon_meta.at("hostname").get_str();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 499) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 500)     daemon_meta.erase("name");
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 501)     daemon_meta.erase("hostname");
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 502) 
+4e2d344eb34d src/mgr/Mgr.cc                           (Kefu Chai          2020-08-28 13:26:03 +0800 503)     for (const auto &[key, val] : daemon_meta) {
+4e2d344eb34d src/mgr/Mgr.cc                           (Kefu Chai          2020-08-28 13:26:03 +0800 504)       dm->metadata.emplace(key, val.get_str());
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 505)     }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 506) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 507)     daemon_state.insert(dm);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 508)   }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 509) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 510)   for (auto &metadata_val : mon_cmd.json_result.get_array()) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 511)     json_spirit::mObject daemon_meta = metadata_val.get_obj();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 512)     if (daemon_meta.count("hostname") == 0) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 513)       dout(1) << "Skipping incomplete metadata entry" << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 514)       continue;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 515)     }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 516) 
+d9dfb436ea58 src/mgr/Mgr.cc                           (John Spray         2016-07-03 19:45:28 +0100 517)     DaemonStatePtr dm = std::make_shared<DaemonState>(daemon_state.types);
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 518)     dm->key = DaemonKey{"mon",
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 519)                         daemon_meta.at("name").get_str()};
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 520)     dm->hostname = daemon_meta.at("hostname").get_str();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 521) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 522)     daemon_meta.erase("name");
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 523)     daemon_meta.erase("hostname");
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 524) 
+706b2be41624 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-01-30 17:05:25 -0500 525)     std::map<string,string> m;
+4e2d344eb34d src/mgr/Mgr.cc                           (Kefu Chai          2020-08-28 13:26:03 +0800 526)     for (const auto &[key, val] : daemon_meta) {
+4e2d344eb34d src/mgr/Mgr.cc                           (Kefu Chai          2020-08-28 13:26:03 +0800 527)       m.emplace(key, val.get_str());
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 528)     }
+80cee1d98816 src/mgr/Mgr.cc                           (Sage Weil          2018-09-18 14:09:28 -0500 529)     dm->set_metadata(m);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 530) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 531)     daemon_state.insert(dm);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 532)   }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 533) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 534)   for (auto &osd_metadata_val : osd_cmd.json_result.get_array()) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 535)     json_spirit::mObject osd_metadata = osd_metadata_val.get_obj();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 536)     if (osd_metadata.count("hostname") == 0) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 537)       dout(1) << "Skipping incomplete metadata entry" << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 538)       continue;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 539)     }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 540) 
+d9dfb436ea58 src/mgr/Mgr.cc                           (John Spray         2016-07-03 19:45:28 +0100 541)     DaemonStatePtr dm = std::make_shared<DaemonState>(daemon_state.types);
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 542)     int osd_id = osd_metadata.at("id").get_int();
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 543)     dm->key = DaemonKey{"osd", stringify(osd_id)};
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 544)     dm->hostname = osd_metadata.at("hostname").get_str();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 545) 
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 546)     // prefer CRUSH physical host over container/pod hostname (tracker.ceph.com/issues/73080)
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 547)     std::string crush_host = crush_hostname_for_osd(cluster_state, osd_id);
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 548)     if (!crush_host.empty()) {
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 549)       dm->hostname = crush_host;
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 550)     }
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 551)     dout(4) << dm->hostname << dendl;
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 552) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 553)     osd_metadata.erase("id");
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 554)     osd_metadata.erase("hostname");
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 555) 
+706b2be41624 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-01-30 17:05:25 -0500 556)     std::map<string,string> m;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 557)     for (const auto &i : osd_metadata) {
+67b5d3e343c5 src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 08:46:41 -0500 558)       m[i.first] = i.second.get_str();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 559)     }
+67b5d3e343c5 src/mgr/Mgr.cc                           (Sage Weil          2018-06-05 08:46:41 -0500 560)     dm->set_metadata(m);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 561) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 562)     daemon_state.insert(dm);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 563)   }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 564) }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 565) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 566) void Mgr::handle_osd_map()
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 567) {
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 568)   ceph_assert(ceph_mutex_is_locked_by_me(lock));
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 569) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 570)   std::set<std::string> names_exist;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 571) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 572)   /**
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 573)    * When we see a new OSD map, inspect the entity addrs to
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 574)    * see if they have changed (service restart), and if so
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 575)    * reload the metadata.
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 576)    */
+03a761c980a1 src/mgr/Mgr.cc                           (Sage Weil          2018-11-15 16:27:18 -0600 577)   cluster_state.with_osdmap_and_pgmap([this, &names_exist](const OSDMap &osd_map,
+03a761c980a1 src/mgr/Mgr.cc                           (Sage Weil          2018-11-15 16:27:18 -0600 578) 							   const PGMap &pg_map) {
+a38ad9714a3a src/mgr/Mgr.cc                           (Jos Collin         2017-09-21 14:35:39 +0530 579)     for (int osd_id = 0; osd_id < osd_map.get_max_osd(); ++osd_id) {
+282558cf4027 src/mgr/Mgr.cc                           (Cory Snyder        2024-04-19 15:42:00 +0000 580)       if (!osd_map.exists(osd_id)) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 581)         continue;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 582)       }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 583) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 584)       // Remember which OSDs exist so that we can cull any that don't
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 585)       names_exist.insert(stringify(osd_id));
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 586) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 587)       // Consider whether to update the daemon metadata (new/restarted daemon)
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 588)       const auto k = DaemonKey{"osd", std::to_string(osd_id)};
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 589)       if (daemon_state.is_updating(k)) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 590)         continue;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 591)       }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 592)         
+282558cf4027 src/mgr/Mgr.cc                           (Cory Snyder        2024-04-19 15:42:00 +0000 593)       DaemonStatePtr daemon = daemon_state.get(k);
+282558cf4027 src/mgr/Mgr.cc                           (Cory Snyder        2024-04-19 15:42:00 +0000 594)         
+3db2b5767056 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-09-07 12:41:55 +0000 595)       if (daemon) {
+3db2b5767056 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-09-07 12:41:55 +0000 596)         bool clear_metrics = false;
+3db2b5767056 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-09-07 12:41:55 +0000 597)         clear_metrics |= (osd_map.is_out(osd_id) && osd_map.is_down(osd_id));
+3db2b5767056 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-09-07 12:41:55 +0000 598)         clear_metrics |= osd_map.is_destroyed(osd_id);
+3db2b5767056 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-09-07 12:41:55 +0000 599)         if (clear_metrics) {
+3db2b5767056 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-09-07 12:41:55 +0000 600)           // clear any health metrics for an OSD that is (out and down) or destroyed
+282558cf4027 src/mgr/Mgr.cc                           (Cory Snyder        2024-04-19 15:42:00 +0000 601)           std::lock_guard l(daemon->lock);
+282558cf4027 src/mgr/Mgr.cc                           (Cory Snyder        2024-04-19 15:42:00 +0000 602)           daemon->daemon_health_metrics.clear();
+282558cf4027 src/mgr/Mgr.cc                           (Cory Snyder        2024-04-19 15:42:00 +0000 603)         }
+3db2b5767056 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-09-07 12:41:55 +0000 604)       }
+282558cf4027 src/mgr/Mgr.cc                           (Cory Snyder        2024-04-19 15:42:00 +0000 605) 
+73078cf73c3a src/mgr/Mgr.cc                           (Kefu Chai          2020-03-05 23:42:13 +0800 606)       bool update_meta = false;
+282558cf4027 src/mgr/Mgr.cc                           (Cory Snyder        2024-04-19 15:42:00 +0000 607)       if (daemon) {
+73078cf73c3a src/mgr/Mgr.cc                           (Kefu Chai          2020-03-05 23:42:13 +0800 608)         if (osd_map.get_up_from(osd_id) == osd_map.get_epoch()) {
+73078cf73c3a src/mgr/Mgr.cc                           (Kefu Chai          2020-03-05 23:42:13 +0800 609)           dout(4) << "Mgr::handle_osd_map: osd." << osd_id
+73078cf73c3a src/mgr/Mgr.cc                           (Kefu Chai          2020-03-05 23:42:13 +0800 610) 		  << " joined cluster at " << "e" << osd_map.get_epoch()
+73078cf73c3a src/mgr/Mgr.cc                           (Kefu Chai          2020-03-05 23:42:13 +0800 611) 		  << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 612)           update_meta = true;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 613)         }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 614)       } else {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 615)         update_meta = true;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 616)       }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 617)       if (update_meta) {
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 618)         auto c = new MetadataUpdate(daemon_state, cluster_state, k);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 619)         std::ostringstream cmd;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 620)         cmd << "{\"prefix\": \"osd metadata\", \"id\": "
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 621)             << osd_id << "}";
+ac66b7542782 src/mgr/Mgr.cc                           (John Spray         2017-03-01 19:12:41 +0000 622)         monc->start_mon_command(
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 623)             {cmd.str()},
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 624)             {}, &c->outbl, &c->outs, c);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 625)       }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 626)     }
+fa147e3a591a src/mgr/Mgr.cc                           (John Spray         2016-07-31 18:07:20 +0100 627) 
+fa147e3a591a src/mgr/Mgr.cc                           (John Spray         2016-07-31 18:07:20 +0100 628)     cluster_state.notify_osdmap(osd_map);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 629)   });
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 630) 
+6f10373b7a23 src/mgr/Mgr.cc                           (Spandan Kumar Sahu 2017-05-03 04:35:22 +0530 631)   // TODO: same culling for MonMap
+a22b256bad1f src/mgr/Mgr.cc                           (Sage Weil          2017-06-22 14:19:17 -0400 632)   daemon_state.cull("osd", names_exist);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 633) }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 634) 
+a50a91d24349 src/mgr/Mgr.cc                           (Kefu Chai          2019-04-15 14:39:11 +0800 635) void Mgr::handle_log(ref_t<MLog> m)
+9ea37c223f92 src/mgr/Mgr.cc                           (John Spray         2016-11-14 00:04:16 +0000 636) {
+9ea37c223f92 src/mgr/Mgr.cc                           (John Spray         2016-11-14 00:04:16 +0000 637)   for (const auto &e : m->entries) {
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400 638)     py_module_registry->notify_all(e);
+9ea37c223f92 src/mgr/Mgr.cc                           (John Spray         2016-11-14 00:04:16 +0000 639)   }
+9ea37c223f92 src/mgr/Mgr.cc                           (John Spray         2016-11-14 00:04:16 +0000 640) }
+9ea37c223f92 src/mgr/Mgr.cc                           (John Spray         2016-11-14 00:04:16 +0000 641) 
+a50a91d24349 src/mgr/Mgr.cc                           (Kefu Chai          2019-04-15 14:39:11 +0800 642) void Mgr::handle_service_map(ref_t<MServiceMap> m)
+97cfc3cb694e src/mgr/Mgr.cc                           (Sage Weil          2017-06-26 13:22:17 -0400 643) {
+97cfc3cb694e src/mgr/Mgr.cc                           (Sage Weil          2017-06-26 13:22:17 -0400 644)   dout(10) << "e" << m->service_map.epoch << dendl;
+3dbc1f0578d9 src/mgr/Mgr.cc                           (Sage Weil          2021-03-18 10:40:42 -0500 645)   monc->sub_got("servicemap", m->service_map.epoch);
+97cfc3cb694e src/mgr/Mgr.cc                           (Sage Weil          2017-06-26 13:22:17 -0400 646)   cluster_state.set_service_map(m->service_map);
+97cfc3cb694e src/mgr/Mgr.cc                           (Sage Weil          2017-06-26 13:22:17 -0400 647)   server.got_service_map();
+97cfc3cb694e src/mgr/Mgr.cc                           (Sage Weil          2017-06-26 13:22:17 -0400 648) }
+97cfc3cb694e src/mgr/Mgr.cc                           (Sage Weil          2017-06-26 13:22:17 -0400 649) 
+430ba5e231d6 src/mgr/Mgr.cc                           (Xinying Song       2018-12-30 11:49:58 +0800 650) void Mgr::handle_mon_map()
+430ba5e231d6 src/mgr/Mgr.cc                           (Xinying Song       2018-12-30 11:49:58 +0800 651) {
+430ba5e231d6 src/mgr/Mgr.cc                           (Xinying Song       2018-12-30 11:49:58 +0800 652)   dout(20) << __func__ << dendl;
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 653)   assert(ceph_mutex_is_locked_by_me(lock));
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 654)   std::set<std::string> names_exist;
+430ba5e231d6 src/mgr/Mgr.cc                           (Xinying Song       2018-12-30 11:49:58 +0800 655)   cluster_state.with_monmap([&] (auto &monmap) {
+430ba5e231d6 src/mgr/Mgr.cc                           (Xinying Song       2018-12-30 11:49:58 +0800 656)     for (unsigned int i = 0; i < monmap.size(); i++) {
+430ba5e231d6 src/mgr/Mgr.cc                           (Xinying Song       2018-12-30 11:49:58 +0800 657)       names_exist.insert(monmap.get_name(i));
+430ba5e231d6 src/mgr/Mgr.cc                           (Xinying Song       2018-12-30 11:49:58 +0800 658)     }
+430ba5e231d6 src/mgr/Mgr.cc                           (Xinying Song       2018-12-30 11:49:58 +0800 659)   });
+c037f4cb5d74 src/mgr/Mgr.cc                           (Kefu Chai          2021-01-16 14:33:17 +0800 660)   for (const auto& name : names_exist) {
+8fc290bfba4d src/mgr/Mgr.cc                           (Kefu Chai          2021-03-09 12:51:55 +0800 661)     const auto k = DaemonKey{"mon", name};
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 662)     if (daemon_state.is_updating(k)) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 663)       continue;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 664)     }
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 665)     auto c = new MetadataUpdate(daemon_state, cluster_state, k);
+bbb1574eabf0 src/mgr/Mgr.cc                           (Casey Bodley       2022-02-14 17:58:05 -0500 666)     constexpr std::string_view cmd = R"({{"prefix": "mon metadata", "id": "{}"}})";
+c037f4cb5d74 src/mgr/Mgr.cc                           (Kefu Chai          2021-01-16 14:33:17 +0800 667)     monc->start_mon_command({fmt::format(cmd, name)}, {},
+c037f4cb5d74 src/mgr/Mgr.cc                           (Kefu Chai          2021-01-16 14:33:17 +0800 668) 			    &c->outbl, &c->outs, c);
+c037f4cb5d74 src/mgr/Mgr.cc                           (Kefu Chai          2021-01-16 14:33:17 +0800 669)   }
+430ba5e231d6 src/mgr/Mgr.cc                           (Xinying Song       2018-12-30 11:49:58 +0800 670)   daemon_state.cull("mon", names_exist);
+430ba5e231d6 src/mgr/Mgr.cc                           (Xinying Song       2018-12-30 11:49:58 +0800 671) }
+430ba5e231d6 src/mgr/Mgr.cc                           (Xinying Song       2018-12-30 11:49:58 +0800 672) 
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500 673) Dispatcher::dispatch_result_t Mgr::ms_dispatch2(const ref_t<Message>& m)
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 674) {
+dffce107fb68 src/mgr/Mgr.cc                           (Sebastian Wagner   2019-07-22 14:36:41 +0200 675)   dout(10) << *m << dendl;
+948635a8b213 src/mgr/Mgr.cc                           (Sage Weil          2018-10-16 14:11:33 -0500 676)   std::lock_guard l(lock);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 677) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 678)   switch (m->get_type()) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 679)     case MSG_MGR_DIGEST:
+a50a91d24349 src/mgr/Mgr.cc                           (Kefu Chai          2019-04-15 14:39:11 +0800 680)       handle_mgr_digest(ref_cast<MMgrDigest>(m));
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500 681)       return Dispatcher::HANDLED();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 682)     case CEPH_MSG_MON_MAP:
+190f37978f72 src/mgr/Mgr.cc                           (Patrick Donnelly   2024-03-07 13:37:15 -0500 683)       /* MonClient passthrough of MonMap to us */
+190f37978f72 src/mgr/Mgr.cc                           (Patrick Donnelly   2024-03-07 13:37:15 -0500 684)       handle_mon_map(); /* use monc's monmap */
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400 685)       py_module_registry->notify_all("mon_map", "");
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500 686)       return Dispatcher::ACKNOWLEDGED();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 687)     case CEPH_MSG_FS_MAP:
+a50a91d24349 src/mgr/Mgr.cc                           (Kefu Chai          2019-04-15 14:39:11 +0800 688)       handle_fs_map(ref_cast<MFSMap>(m));
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400 689)       py_module_registry->notify_all("fs_map", "");
+403340bcf8c2 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-07-17 06:17:00 +0000 690)       py_module_registry->notify_all("mds_metadata", "");
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500 691)       return Dispatcher::ACKNOWLEDGED();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 692)     case CEPH_MSG_OSD_MAP:
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 693)       handle_osd_map();
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400 694)       py_module_registry->notify_all("osd_map", "");
+403340bcf8c2 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-07-17 06:17:00 +0000 695)       py_module_registry->notify_all("osd_metadata", "");
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 696) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 697)       // Continuous subscribe, so that we can generate notifications
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 698)       // for our MgrPyModules
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 699)       objecter->maybe_request_map();
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500 700)       return Dispatcher::ACKNOWLEDGED();
+97cfc3cb694e src/mgr/Mgr.cc                           (Sage Weil          2017-06-26 13:22:17 -0400 701)     case MSG_SERVICE_MAP:
+a50a91d24349 src/mgr/Mgr.cc                           (Kefu Chai          2019-04-15 14:39:11 +0800 702)       handle_service_map(ref_cast<MServiceMap>(m));
+d3c8f171e9aa src/mgr/Mgr.cc                           (Sage Weil          2021-12-02 10:19:16 -0500 703)       //no users: py_module_registry->notify_all("service_map", "");
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500 704)       return Dispatcher::ACKNOWLEDGED();
+9ea37c223f92 src/mgr/Mgr.cc                           (John Spray         2016-11-14 00:04:16 +0000 705)     case MSG_LOG:
+a50a91d24349 src/mgr/Mgr.cc                           (Kefu Chai          2019-04-15 14:39:11 +0800 706)       handle_log(ref_cast<MLog>(m));
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500 707)       return Dispatcher::HANDLED();
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 708)     case MSG_KV_DATA:
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 709)       {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 710) 	auto msg = ref_cast<MKVData>(m);
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 711) 	monc->sub_got("kv:"s + msg->prefix, msg->version);
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 712) 	if (!msg->data.empty()) {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 713) 	  if (initialized) {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 714) 	    py_module_registry->update_kv_data(
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 715) 	      msg->prefix,
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 716) 	      msg->incremental,
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 717) 	      msg->data
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 718) 	      );
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 719) 	  } else {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 720) 	    // before we have created the ActivePyModules, we need to
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 721) 	    // track the store regions we're monitoring
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 722) 	    if (!msg->incremental) {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 723) 	      dout(10) << "full update on " << msg->prefix << dendl;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 724) 	      auto p = pre_init_store.lower_bound(msg->prefix);
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 725) 	      while (p != pre_init_store.end() && p->first.find(msg->prefix) == 0) {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 726) 		dout(20) << " rm prior " << p->first << dendl;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 727) 		p = pre_init_store.erase(p);
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 728) 	      }
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 729) 	    } else {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 730) 	      dout(10) << "incremental update on " << msg->prefix << dendl;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 731) 	    }
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 732) 	    for (auto& i : msg->data) {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 733) 	      if (i.second) {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 734) 		dout(20) << " set " << i.first << " = " << i.second->to_str() << dendl;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 735) 		pre_init_store[i.first] = i.second->to_str();
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 736) 	      } else {
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 737) 		dout(20) << " rm " << i.first << dendl;
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 738) 		pre_init_store.erase(i.first);
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 739) 	      }
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 740) 	    }
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 741) 	  }
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 742) 	}
+edf1ea2f5092 src/mgr/Mgr.cc                           (Sage Weil          2021-02-16 14:47:23 -0500 743)       }
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500 744)       return Dispatcher::HANDLED();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 745)     default:
+56cb05775a93 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-02-18 14:20:57 -0500 746)       return Dispatcher::UNHANDLED();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 747)   }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 748) }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 749) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 750) 
+a50a91d24349 src/mgr/Mgr.cc                           (Kefu Chai          2019-04-15 14:39:11 +0800 751) void Mgr::handle_fs_map(ref_t<MFSMap> m)
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 752) {
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 753)   ceph_assert(ceph_mutex_is_locked_by_me(lock));
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 754) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 755)   std::set<std::string> names_exist;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 756)   const FSMap &new_fsmap = m->get_fsmap();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 757) 
+3dbc1f0578d9 src/mgr/Mgr.cc                           (Sage Weil          2021-03-18 10:40:42 -0500 758)   monc->sub_got("fsmap", m->epoch);
+3dbc1f0578d9 src/mgr/Mgr.cc                           (Sage Weil          2021-03-18 10:40:42 -0500 759) 
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 760)   fs_map_cond.notify_all();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 761) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 762)   // TODO: callers (e.g. from python land) are potentially going to see
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 763)   // the new fsmap before we've bothered populating all the resulting
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 764)   // daemon_state.  Maybe we should block python land while we're making
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 765)   // this kind of update?
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 766)   
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 767)   cluster_state.set_fsmap(new_fsmap);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 768) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 769)   auto mds_info = new_fsmap.get_mds_info();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 770)   for (const auto &i : mds_info) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 771)     const auto &info = i.second;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 772) 
+6f10373b7a23 src/mgr/Mgr.cc                           (Spandan Kumar Sahu 2017-05-03 04:35:22 +0530 773)     if (!new_fsmap.gid_exists(i.first)){
+6f10373b7a23 src/mgr/Mgr.cc                           (Spandan Kumar Sahu 2017-05-03 04:35:22 +0530 774)       continue;
+6f10373b7a23 src/mgr/Mgr.cc                           (Spandan Kumar Sahu 2017-05-03 04:35:22 +0530 775)     }
+6f10373b7a23 src/mgr/Mgr.cc                           (Spandan Kumar Sahu 2017-05-03 04:35:22 +0530 776) 
+6f10373b7a23 src/mgr/Mgr.cc                           (Spandan Kumar Sahu 2017-05-03 04:35:22 +0530 777)     // Remember which MDS exists so that we can cull any that don't
+6f10373b7a23 src/mgr/Mgr.cc                           (Spandan Kumar Sahu 2017-05-03 04:35:22 +0530 778)     names_exist.insert(info.name);
+6f10373b7a23 src/mgr/Mgr.cc                           (Spandan Kumar Sahu 2017-05-03 04:35:22 +0530 779) 
+5aac7eba36be src/mgr/Mgr.cc                           (Kefu Chai          2019-09-29 17:28:28 +0800 780)     const auto k = DaemonKey{"mds", info.name};
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 781)     if (daemon_state.is_updating(k)) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 782)       continue;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 783)     }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 784) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 785)     bool update = false;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 786)     if (daemon_state.exists(k)) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 787)       auto metadata = daemon_state.get(k);
+948635a8b213 src/mgr/Mgr.cc                           (Sage Weil          2018-10-16 14:11:33 -0500 788)       std::lock_guard l(metadata->lock);
+a6fab0825f27 src/mgr/Mgr.cc                           (Sage Weil          2017-03-17 16:42:31 -0400 789)       if (metadata->metadata.empty() ||
+a6fab0825f27 src/mgr/Mgr.cc                           (Sage Weil          2017-03-17 16:42:31 -0400 790) 	  metadata->metadata.count("addr") == 0) {
+9501bfdd7114 src/mgr/Mgr.cc                           (John Spray         2016-07-26 11:14:00 +0100 791)         update = true;
+9501bfdd7114 src/mgr/Mgr.cc                           (John Spray         2016-07-26 11:14:00 +0100 792)       } else {
+ea1481d08d56 src/mgr/Mgr.cc                           (Sage Weil          2018-06-12 11:18:44 -0500 793)         auto metadata_addrs = metadata->metadata.at("addr");
+ea1481d08d56 src/mgr/Mgr.cc                           (Sage Weil          2018-06-12 11:18:44 -0500 794)         const auto map_addrs = info.addrs;
+ea1481d08d56 src/mgr/Mgr.cc                           (Sage Weil          2018-06-12 11:18:44 -0500 795)         update = metadata_addrs != stringify(map_addrs);
+9501bfdd7114 src/mgr/Mgr.cc                           (John Spray         2016-07-26 11:14:00 +0100 796)         if (update) {
+ea1481d08d56 src/mgr/Mgr.cc                           (Sage Weil          2018-06-12 11:18:44 -0500 797)           dout(4) << "MDS[" << info.name << "] addr change " << metadata_addrs
+c11183d4ee33 src/mgr/Mgr.cc                           (Sage Weil          2018-05-30 15:09:22 -0500 798)                   << " != " << stringify(map_addrs) << dendl;
+9501bfdd7114 src/mgr/Mgr.cc                           (John Spray         2016-07-26 11:14:00 +0100 799)         }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 800)       }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 801)     } else {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 802)       update = true;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 803)     }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 804) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 805)     if (update) {
+dcd9c5bac5e2 src/mgr/Mgr.cc                           (senol.colak        2026-05-27 18:47:20 +0200 806)       auto c = new MetadataUpdate(daemon_state, cluster_state, k);
+8ce30bc4cd23 src/mgr/Mgr.cc                           (John Spray         2017-03-27 12:55:12 +0200 807) 
+8ce30bc4cd23 src/mgr/Mgr.cc                           (John Spray         2017-03-27 12:55:12 +0200 808)       // Older MDS daemons don't have addr in the metadata, so
+8ce30bc4cd23 src/mgr/Mgr.cc                           (John Spray         2017-03-27 12:55:12 +0200 809)       // fake it if the returned metadata doesn't have the field.
+ea1481d08d56 src/mgr/Mgr.cc                           (Sage Weil          2018-06-12 11:18:44 -0500 810)       c->set_default("addr", stringify(info.addrs));
+8ce30bc4cd23 src/mgr/Mgr.cc                           (John Spray         2017-03-27 12:55:12 +0200 811) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 812)       std::ostringstream cmd;
+4042bec19dbb src/mgr/Mgr.cc                           (Patrick Donnelly   2018-01-11 14:46:32 -0800 813)       cmd << "{\"prefix\": \"mds metadata\", \"who\": \""
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 814)           << info.name << "\"}";
+ac66b7542782 src/mgr/Mgr.cc                           (John Spray         2017-03-01 19:12:41 +0000 815)       monc->start_mon_command(
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 816)           {cmd.str()},
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 817)           {}, &c->outbl, &c->outs, c);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 818)     }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 819)   }
+a22b256bad1f src/mgr/Mgr.cc                           (Sage Weil          2017-06-22 14:19:17 -0400 820)   daemon_state.cull("mds", names_exist);
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 821) }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 822) 
+16fcee1f71fc src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:58:44 -0400 823) bool Mgr::got_mgr_map(const MgrMap& m)
+6c10417f7ed3 src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:52:25 -0400 824) {
+948635a8b213 src/mgr/Mgr.cc                           (Sage Weil          2018-10-16 14:11:33 -0500 825)   std::lock_guard l(lock);
+6c10417f7ed3 src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:52:25 -0400 826)   dout(10) << m << dendl;
+16fcee1f71fc src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:58:44 -0400 827) 
+706b2be41624 src/mgr/Mgr.cc                           (Patrick Donnelly   2025-01-30 17:05:25 -0500 828)   std::set<string> old_modules;
+16fcee1f71fc src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:58:44 -0400 829)   cluster_state.with_mgrmap([&](const MgrMap& m) {
+16fcee1f71fc src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:58:44 -0400 830)       old_modules = m.modules;
+16fcee1f71fc src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:58:44 -0400 831)     });
+403340bcf8c2 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-07-17 06:17:00 +0000 832)   py_module_registry->notify_all("mgr_map", "");
+16fcee1f71fc src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:58:44 -0400 833)   if (m.modules != old_modules) {
+16fcee1f71fc src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:58:44 -0400 834)     derr << "mgrmap module list changed to (" << m.modules << "), respawn"
+16fcee1f71fc src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:58:44 -0400 835) 	 << dendl;
+16fcee1f71fc src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:58:44 -0400 836)     return true;
+16fcee1f71fc src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:58:44 -0400 837)   }
+62935db87921 src/mgr/Mgr.cc                           (John Spray         2017-06-21 20:12:58 -0400 838) 
+6c10417f7ed3 src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:52:25 -0400 839)   cluster_state.set_mgr_map(m);
+cf68ce511f31 src/mgr/Mgr.cc                           (Sage Weil          2018-01-05 14:55:12 -0600 840)   server.got_mgr_map();
+62935db87921 src/mgr/Mgr.cc                           (John Spray         2017-06-21 20:12:58 -0400 841) 
+16fcee1f71fc src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:58:44 -0400 842)   return false;
+6c10417f7ed3 src/mgr/Mgr.cc                           (Sage Weil          2017-06-27 15:52:25 -0400 843) }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 844) 
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 845) bool Mgr::exceeded_initialization_expiration()
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 846) {
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 847)   // initialization_start_time=0 when initialization hasn't started yet,
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 848)   // so know we can't have exceeded the time expiration.
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 849)   if (ceph::coarse_mono_clock::is_zero(initialization_start_time)) {
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 850)     return false;
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 851)   }
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 852) 
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 853)   // Save the amount of time elapsed
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 854)   auto time_elapsed = ceph::coarse_mono_clock::now() - initialization_start_time;
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 855)   dout(20) << "time elapsed since mgr initialization: " << time_elapsed << dendl;
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 856) 
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 857)   // Reset start time if the expiration time has been exceeded.
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 858)   // Signal initialization=true so the mgr forcibly sends an "active" beacon
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 859)   auto expiration = g_conf().get_val<std::chrono::milliseconds>("mgr_module_load_expiration");
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 860)   bool exceeded_expiration = time_elapsed > expiration;
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 861)   if (exceeded_expiration) {
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 862)     std::lock_guard l(lock);
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 863)     initialization_start_time = ceph::coarse_mono_clock::zero();
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 864)     initializing = false;
+7845f8d757ad src/mgr/Mgr.cc                           (John Spray         2016-07-15 00:39:22 +0100 865)     initialized = true;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 866)   }
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 867) 
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 868)   return exceeded_expiration;
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 869) }
+bf25a08cc58c src/mgr/Mgr.cc                           (Laura Flores       2025-07-29 22:46:46 +0000 870) 
+a50a91d24349 src/mgr/Mgr.cc                           (Kefu Chai          2019-04-15 14:39:11 +0800 871) void Mgr::handle_mgr_digest(ref_t<MMgrDigest> m)
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 872) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 873)   dout(10) << m->mon_status_json.length() << dendl;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 874)   dout(10) << m->health_json.length() << dendl;
+a50a91d24349 src/mgr/Mgr.cc                           (Kefu Chai          2019-04-15 14:39:11 +0800 875)   cluster_state.load_digest(m.get());
+403340bcf8c2 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-07-17 06:17:00 +0000 876)   py_module_registry->notify_all("mon_status", "");
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400 877)   py_module_registry->notify_all("health", "");
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 878) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 879)   // Hack: use this as a tick/opportunity to prompt python-land that
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 880)   // the pgmap might have changed since last time we were here.
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400 881)   py_module_registry->notify_all("pg_summary", "");
+403340bcf8c2 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-07-17 06:17:00 +0000 882)   py_module_registry->notify_all("pg_stats", "");
+403340bcf8c2 src/mgr/Mgr.cc                           (Nitzan Mordechai   2025-07-17 06:17:00 +0000 883)   py_module_registry->notify_all("pg_dump", "");
+f2a44f41607f src/mgr/Mgr.cc                           (Sage Weil          2017-04-04 16:05:23 -0400 884)   dout(10) << "done." << dendl;
+a50a91d24349 src/mgr/Mgr.cc                           (Kefu Chai          2019-04-15 14:39:11 +0800 885)   m.reset();
+f25763208ff6 src/mgr/Mgr.cc                           (John Spray         2017-06-29 07:05:48 -0400 886) 
+f25763208ff6 src/mgr/Mgr.cc                           (John Spray         2017-06-29 07:05:48 -0400 887)   if (!digest_received) {
+f25763208ff6 src/mgr/Mgr.cc                           (John Spray         2017-06-29 07:05:48 -0400 888)     digest_received = true;
+c93dc8849145 src/mgr/Mgr.cc                           (Kefu Chai          2019-07-07 11:14:49 +0800 889)     digest_cond.notify_all();
+f25763208ff6 src/mgr/Mgr.cc                           (John Spray         2017-06-29 07:05:48 -0400 890)   }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 891) }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 892) 
+a0183a63fa79 src/mgr/Mgr.cc                           (John Spray         2017-07-27 11:50:23 -0400 893) std::map<std::string, std::string> Mgr::get_services() const
+a0183a63fa79 src/mgr/Mgr.cc                           (John Spray         2017-07-27 11:50:23 -0400 894) {
+948635a8b213 src/mgr/Mgr.cc                           (Sage Weil          2018-10-16 14:11:33 -0500 895)   std::lock_guard l(lock);
+a0183a63fa79 src/mgr/Mgr.cc                           (John Spray         2017-07-27 11:50:23 -0400 896) 
+9718896c8b84 src/mgr/Mgr.cc                           (John Spray         2017-08-14 06:31:18 -0400 897)   return py_module_registry->get_services();
+a0183a63fa79 src/mgr/Mgr.cc                           (John Spray         2017-07-27 11:50:23 -0400 898) }
+a0183a63fa79 src/mgr/Mgr.cc                           (John Spray         2017-07-27 11:50:23 -0400 899) 
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 900) int Mgr::call(
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 901)   std::string_view admin_command,
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 902)   const cmdmap_t& cmdmap,
+07ad8df2dd74 src/mgr/Mgr.cc                           (Sage Weil          2021-10-23 17:32:11 -0500 903)   const bufferlist&,
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 904)   Formatter *f,
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 905)   std::ostream& errss,
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 906)   bufferlist& out)
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 907) {
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 908)   try {
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 909)     if (admin_command == "mgr_status") {
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 910)       f->open_object_section("mgr_status");
+68221661b00f src/mgr/Mgr.cc                           (Laura Flores       2025-09-11 22:13:51 +0000 911)       {
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 912) 	cluster_state.with_mgrmap(
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 913) 	    [f](const MgrMap& mm) {
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 914) 	    f->dump_unsigned("mgrmap_epoch", mm.get_epoch());
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 915) 	    });
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 916)         f->dump_bool("initialized", initialized);
+68221661b00f src/mgr/Mgr.cc                           (Laura Flores       2025-09-11 22:13:51 +0000 917) 	f->open_array_section("pending_modules");
+68221661b00f src/mgr/Mgr.cc                           (Laura Flores       2025-09-11 22:13:51 +0000 918)         for (auto& mod : py_module_registry->get_pending_modules()) {
+68221661b00f src/mgr/Mgr.cc                           (Laura Flores       2025-09-11 22:13:51 +0000 919)           f->dump_string("module", mod);
+68221661b00f src/mgr/Mgr.cc                           (Laura Flores       2025-09-11 22:13:51 +0000 920)         }
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 921)         f->close_section();
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 922)       f->close_section();
+68221661b00f src/mgr/Mgr.cc                           (Laura Flores       2025-09-11 22:13:51 +0000 923)       }
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 924)       return 0;
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 925)     } else {
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 926)       return -ENOSYS;
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 927)     }
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 928)   } catch (const TOPNSPC::common::bad_cmd_get& e) {
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 929)     errss << e.what();
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 930)     return -EINVAL;
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 931)   }
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 932)   return 0;
+3e056ca5c6d2 src/mgr/Mgr.cc                           (Sage Weil          2020-03-10 09:26:22 -0500 933) }
+
+# git blame -w -M -C src/mgr/Mgr.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng    2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/Mgr.h                                              (Edwin Rodriguez  2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/Mgr.h                                              (Edwin Rodriguez  2025-10-02 15:34:08 -0400   3) 
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100   4) /*
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100   5)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100   6)  *
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100   7)  * Copyright (C) 2014 John Spray <john.spray@inktank.com>
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  13)  */
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  14) 
+7845f8d757ad src/mgr/Mgr.h                                              (John Spray       2016-07-15 00:39:22 +0100  15) #ifndef CEPH_MGR_H_
+7845f8d757ad src/mgr/Mgr.h                                              (John Spray       2016-07-15 00:39:22 +0100  16) #define CEPH_MGR_H_
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  17) 
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  18) // Python.h comes first because otherwise it clobbers ceph's assert
+48c4bc445fca src/mgr/Mgr.h                                              (Kefu Chai        2019-12-18 19:03:29 +0800  19) #include <Python.h>
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  20) 
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  21) #include "auth/Auth.h"
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  22) #include "common/Finisher.h"
+62935db87921 src/mgr/Mgr.h                                              (John Spray       2017-06-21 20:12:58 -0400  23) #include "mon/MgrMap.h"
+56cb05775a93 src/mgr/Mgr.h                                              (Patrick Donnelly 2025-02-18 14:20:57 -0500  24) #include "msg/Dispatcher.h"
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  25) #include "msg/Messenger.h"
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  26) 
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  27) #include "ClusterState.h"
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  28) #include "DaemonServer.h"
+d9dfb436ea58 src/mgr/Mgr.h                                              (John Spray       2016-07-03 19:45:28 +0100  29) #include "DaemonState.h"
+9718896c8b84 src/mgr/Mgr.h                                              (John Spray       2017-08-14 06:31:18 -0400  30) #include "PyModuleRegistry.h"
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  31) 
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  32) class MCommand;
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  33) class MMgrDigest;
+9ea37c223f92 src/mgr/Mgr.h                                              (John Spray       2016-11-14 00:04:16 +0000  34) class MLog;
+97cfc3cb694e src/mgr/Mgr.h                                              (Sage Weil        2017-06-26 13:22:17 -0400  35) class MServiceMap;
+fd537bc696d6 src/mgr/Mgr.h                                              (John Spray       2016-07-16 22:04:39 +0100  36) class Objecter;
+56cb05775a93 src/mgr/Mgr.h                                              (Patrick Donnelly 2025-02-18 14:20:57 -0500  37) class MFSMap;
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  38) 
+3e056ca5c6d2 src/mgr/Mgr.h                                              (Sage Weil        2020-03-10 09:26:22 -0500  39) class Mgr : public AdminSocketHook {
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  40) protected:
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  41)   MonClient *monc;
+7845f8d757ad src/mgr/Mgr.h                                              (John Spray       2016-07-15 00:39:22 +0100  42)   Objecter  *objecter;
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  43)   Messenger *client_messenger;
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  44) 
+c93dc8849145 src/mgr/Mgr.h                                              (Kefu Chai        2019-07-07 11:14:49 +0800  45)   mutable ceph::mutex lock = ceph::make_mutex("Mgr::lock");
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  46)   Finisher finisher;
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  47) 
+f25763208ff6 src/mgr/Mgr.h                                              (John Spray       2017-06-29 07:05:48 -0400  48)   // Track receipt of initial data during startup
+c93dc8849145 src/mgr/Mgr.h                                              (Kefu Chai        2019-07-07 11:14:49 +0800  49)   ceph::condition_variable fs_map_cond;
+f25763208ff6 src/mgr/Mgr.h                                              (John Spray       2017-06-29 07:05:48 -0400  50)   bool digest_received;
+c93dc8849145 src/mgr/Mgr.h                                              (Kefu Chai        2019-07-07 11:14:49 +0800  51)   ceph::condition_variable digest_cond;
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  52) 
+9718896c8b84 src/mgr/Mgr.h                                              (John Spray       2017-08-14 06:31:18 -0400  53)   PyModuleRegistry *py_module_registry;
+d9dfb436ea58 src/mgr/Mgr.h                                              (John Spray       2016-07-03 19:45:28 +0100  54)   DaemonStateIndex daemon_state;
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  55)   ClusterState cluster_state;
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  56) 
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  57)   DaemonServer server;
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  58) 
+9718896c8b84 src/mgr/Mgr.h                                              (John Spray       2017-08-14 06:31:18 -0400  59)   LogChannelRef clog;
+9718896c8b84 src/mgr/Mgr.h                                              (John Spray       2017-08-14 06:31:18 -0400  60)   LogChannelRef audit_clog;
+9718896c8b84 src/mgr/Mgr.h                                              (John Spray       2017-08-14 06:31:18 -0400  61) 
+edf1ea2f5092 src/mgr/Mgr.h                                              (Sage Weil        2021-02-16 14:47:23 -0500  62)   std::map<std::string, std::string> pre_init_store;
+edf1ea2f5092 src/mgr/Mgr.h                                              (Sage Weil        2021-02-16 14:47:23 -0500  63) 
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  64)   void load_all_metadata();
+37484af0b860 src/mgr/Mgr.h                                              (John Spray       2018-04-09 15:25:45 -0400  65)   std::map<std::string, std::string> load_store();
+7845f8d757ad src/mgr/Mgr.h                                              (John Spray       2016-07-15 00:39:22 +0100  66)   void init();
+7845f8d757ad src/mgr/Mgr.h                                              (John Spray       2016-07-15 00:39:22 +0100  67) 
+7845f8d757ad src/mgr/Mgr.h                                              (John Spray       2016-07-15 00:39:22 +0100  68)   bool initialized;
+7845f8d757ad src/mgr/Mgr.h                                              (John Spray       2016-07-15 00:39:22 +0100  69)   bool initializing;
+bf25a08cc58c src/mgr/Mgr.h                                              (Laura Flores     2025-07-29 22:46:46 +0000  70)   ceph::coarse_mono_time initialization_start_time;
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  71) 
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  72) public:
+6c10417f7ed3 src/mgr/Mgr.h                                              (Sage Weil        2017-06-27 15:52:25 -0400  73)   Mgr(MonClient *monc_, const MgrMap& mgrmap,
+9718896c8b84 src/mgr/Mgr.h                                              (John Spray       2017-08-14 06:31:18 -0400  74)       PyModuleRegistry *py_module_registry_,
+6c10417f7ed3 src/mgr/Mgr.h                                              (Sage Weil        2017-06-27 15:52:25 -0400  75)       Messenger *clientm_, Objecter *objecter_,
+f20df2eb8545 src/mgr/Mgr.h                                              (Patrick Donnelly 2025-01-30 17:08:07 -0500  76)       LogChannelRef clog_, LogChannelRef audit_clog_);
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  77)   ~Mgr();
+75b6149b294e src/mgr/Mgr.h                                              (Steven Zuraski   2026-05-21 19:23:54 +0000  78)   void shutdown();
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  79) 
+7845f8d757ad src/mgr/Mgr.h                                              (John Spray       2016-07-15 00:39:22 +0100  80)   bool is_initialized() const {return initialized;}
+bf25a08cc58c src/mgr/Mgr.h                                              (Laura Flores     2025-07-29 22:46:46 +0000  81)   bool exceeded_initialization_expiration();
+7f787704cdcd src/mgr/Mgr.h                                              (Sage Weil        2018-05-29 16:47:07 -0500  82)   entity_addrvec_t get_server_addrs() const {
+7f787704cdcd src/mgr/Mgr.h                                              (Sage Weil        2018-05-29 16:47:07 -0500  83)     return server.get_myaddrs();
+7f787704cdcd src/mgr/Mgr.h                                              (Sage Weil        2018-05-29 16:47:07 -0500  84)   }
+7845f8d757ad src/mgr/Mgr.h                                              (John Spray       2016-07-15 00:39:22 +0100  85) 
+a50a91d24349 src/mgr/Mgr.h                                              (Kefu Chai        2019-04-15 14:39:11 +0800  86)   void handle_mgr_digest(ceph::ref_t<MMgrDigest> m);
+a50a91d24349 src/mgr/Mgr.h                                              (Kefu Chai        2019-04-15 14:39:11 +0800  87)   void handle_fs_map(ceph::ref_t<MFSMap> m);
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100  88)   void handle_osd_map();
+a50a91d24349 src/mgr/Mgr.h                                              (Kefu Chai        2019-04-15 14:39:11 +0800  89)   void handle_log(ceph::ref_t<MLog> m);
+a50a91d24349 src/mgr/Mgr.h                                              (Kefu Chai        2019-04-15 14:39:11 +0800  90)   void handle_service_map(ceph::ref_t<MServiceMap> m);
+430ba5e231d6 src/mgr/Mgr.h                                              (Xinying Song     2018-12-30 11:49:58 +0800  91)   void handle_mon_map();
+7845f8d757ad src/mgr/Mgr.h                                              (John Spray       2016-07-15 00:39:22 +0100  92) 
+16fcee1f71fc src/mgr/Mgr.h                                              (Sage Weil        2017-06-27 15:58:44 -0400  93)   bool got_mgr_map(const MgrMap& m);
+6c10417f7ed3 src/mgr/Mgr.h                                              (Sage Weil        2017-06-27 15:52:25 -0400  94) 
+56cb05775a93 src/mgr/Mgr.h                                              (Patrick Donnelly 2025-02-18 14:20:57 -0500  95)   Dispatcher::dispatch_result_t ms_dispatch2(const ceph::ref_t<Message>& m);
+7845f8d757ad src/mgr/Mgr.h                                              (John Spray       2016-07-15 00:39:22 +0100  96) 
+e0e87da6529d src/mgr/Mgr.h                                              (John Spray       2017-06-29 09:35:39 -0400  97)   void background_init(Context *completion);
+3d360b97ed7d src/mgr/Mgr.h                                              (Venky Shankar    2019-10-14 06:51:03 -0400  98) 
+a0183a63fa79 src/mgr/Mgr.h                                              (John Spray       2017-07-27 11:50:23 -0400  99)   std::map<std::string, std::string> get_services() const;
+3e056ca5c6d2 src/mgr/Mgr.h                                              (Sage Weil        2020-03-10 09:26:22 -0500 100) 
+3e056ca5c6d2 src/mgr/Mgr.h                                              (Sage Weil        2020-03-10 09:26:22 -0500 101)   int call(
+3e056ca5c6d2 src/mgr/Mgr.h                                              (Sage Weil        2020-03-10 09:26:22 -0500 102)     std::string_view command,
+3e056ca5c6d2 src/mgr/Mgr.h                                              (Sage Weil        2020-03-10 09:26:22 -0500 103)     const cmdmap_t& cmdmap,
+07ad8df2dd74 src/mgr/Mgr.h                                              (Sage Weil        2021-10-23 17:32:11 -0500 104)     const bufferlist& inbl,
+3e056ca5c6d2 src/mgr/Mgr.h                                              (Sage Weil        2020-03-10 09:26:22 -0500 105)     Formatter *f,
+3e056ca5c6d2 src/mgr/Mgr.h                                              (Sage Weil        2020-03-10 09:26:22 -0500 106)     std::ostream& errss,
+3e056ca5c6d2 src/mgr/Mgr.h                                              (Sage Weil        2020-03-10 09:26:22 -0500 107)     ceph::buffer::list& out) override;
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100 108) };
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100 109) 
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100 110) /**
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100 111)  * Context for completion of metadata mon commands: take
+d9dfb436ea58 src/mgr/Mgr.cc                                             (John Spray       2016-07-03 19:45:28 +0100 112)  * the result and stash it in DaemonStateIndex
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100 113)  */
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100 114) class MetadataUpdate : public Context
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100 115) {
+a39813837ca8 src/mgr/Mgr.h                                              (Chang Liu        2017-10-21 23:35:47 +0800 116) 
+a39813837ca8 src/mgr/Mgr.h                                              (Chang Liu        2017-10-21 23:35:47 +0800 117) private:
+a39813837ca8 src/mgr/Mgr.h                                              (Chang Liu        2017-10-21 23:35:47 +0800 118)   DaemonStateIndex &daemon_state;
+dcd9c5bac5e2 src/mgr/Mgr.h                                              (senol.colak      2026-05-27 18:47:20 +0200 119)   ClusterState &cluster_state;
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100 120)   DaemonKey key;
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100 121) 
+8ce30bc4cd23 src/mgr/Mgr.cc                                             (John Spray       2017-03-27 12:55:12 +0200 122)   std::map<std::string, std::string> defaults;
+8ce30bc4cd23 src/mgr/Mgr.cc                                             (John Spray       2017-03-27 12:55:12 +0200 123) 
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100 124) public:
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100 125)   bufferlist outbl;
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100 126)   std::string outs;
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100 127) 
+dcd9c5bac5e2 src/mgr/Mgr.h                                              (senol.colak      2026-05-27 18:47:20 +0200 128)   MetadataUpdate(DaemonStateIndex &daemon_state_, ClusterState &cluster_state_,
+dcd9c5bac5e2 src/mgr/Mgr.h                                              (senol.colak      2026-05-27 18:47:20 +0200 129)                  const DaemonKey &key_)
+dcd9c5bac5e2 src/mgr/Mgr.h                                              (senol.colak      2026-05-27 18:47:20 +0200 130)     : daemon_state(daemon_state_), cluster_state(cluster_state_), key(key_)
+3eaf1516ebbf src/mgr/Mgr.h                                              (Jan Fajerski     2018-03-20 09:16:55 +0100 131)   {
+3eaf1516ebbf src/mgr/Mgr.h                                              (Jan Fajerski     2018-03-20 09:16:55 +0100 132)       daemon_state.notify_updating(key);
+3eaf1516ebbf src/mgr/Mgr.h                                              (Jan Fajerski     2018-03-20 09:16:55 +0100 133)   }
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100 134) 
+8ce30bc4cd23 src/mgr/Mgr.cc                                             (John Spray       2017-03-27 12:55:12 +0200 135)   void set_default(const std::string &k, const std::string &v)
+8ce30bc4cd23 src/mgr/Mgr.cc                                             (John Spray       2017-03-27 12:55:12 +0200 136)   {
+8ce30bc4cd23 src/mgr/Mgr.cc                                             (John Spray       2017-03-27 12:55:12 +0200 137)     defaults[k] = v;
+8ce30bc4cd23 src/mgr/Mgr.cc                                             (John Spray       2017-03-27 12:55:12 +0200 138)   }
+8ce30bc4cd23 src/mgr/Mgr.cc                                             (John Spray       2017-03-27 12:55:12 +0200 139) 
+a39813837ca8 src/mgr/Mgr.h                                              (Chang Liu        2017-10-21 23:35:47 +0800 140)   void finish(int r) override;
+a39813837ca8 src/mgr/Mgr.h                                              (Chang Liu        2017-10-21 23:35:47 +0800 141) };
+a39813837ca8 src/mgr/Mgr.h                                              (Chang Liu        2017-10-21 23:35:47 +0800 142) 
+a39813837ca8 src/mgr/Mgr.h                                              (Chang Liu        2017-10-21 23:35:47 +0800 143) 
+7845f8d757ad src/mgr/Mgr.h                                              (John Spray       2016-07-15 00:39:22 +0100 144) #endif

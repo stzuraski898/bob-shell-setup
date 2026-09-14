@@ -1,0 +1,45 @@
+commit 3193d40d0daf766d5e210e7b1117afbfebd71f31
+Author: Rubab-Syed <rubab.syed21@gmail.com>
+Date:   Fri Feb 16 15:51:11 2018 +0500
+
+    mgr: centralized setting/getting of mgr configs
+    
+    Signed-off-by: Rubab Syed<rubab.syed21@gmail.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 53ca84c703e..da7b0adc403 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -123,6 +123,13 @@ namespace {
+ #endif
+ }
+ 
++PyModuleConfig::PyModuleConfig() = default;  
++
++PyModuleConfig::PyModuleConfig(PyModuleConfig &mconfig)
++  : config(mconfig.config)
++{}
++
++PyModuleConfig::~PyModuleConfig() = default;
+ 
+ std::string PyModule::get_site_packages()
+ {
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index df79e8e9a6d..7a314af9796 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -132,3 +132,14 @@ public:
+ 
+ typedef std::shared_ptr<PyModule> PyModuleRef;
+ 
++class PyModuleConfig {
++public:
++  mutable Mutex lock{"PyModuleConfig::lock"};
++  std::map<std::string, std::string> config;
++
++  PyModuleConfig();
++  
++  PyModuleConfig(PyModuleConfig &mconfig);
++  
++  ~PyModuleConfig();
++};

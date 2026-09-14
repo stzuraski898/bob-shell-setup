@@ -1,0 +1,20 @@
+commit 7f336f23668757ddb2768c78f208607b3d2b247e
+Author: Yanhu Cao <gmayyyha@gmail.com>
+Date:   Thu Aug 10 17:16:48 2017 +0800
+
+    mgr/DaemonServer.cc: add 'is_valid=false' when decode caps error
+    
+    Signed-off-by: Yanhu Cao <gmayyyha@gmail.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index a58675ed24c..7423bef7073 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -175,6 +175,7 @@ bool DaemonServer::ms_verify_authorizer(Connection *con,
+ 	::decode(str, p);
+       }
+       catch (buffer::error& e) {
++        is_valid = false;
+       }
+       bool success = s->caps.parse(str);
+       if (success) {

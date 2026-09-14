@@ -1,0 +1,21 @@
+commit 1e81118e328eddd270911cbfe3dab721cc0b554e
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Fri Dec 16 09:21:58 2022 +0000
+
+    mgr: drop redundant release-acquire gil
+    
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 58c3d9ee4d6..5fe5ceeb9b4 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -512,8 +512,6 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+     derr << "Python module requested unknown data '" << what << "'" << dendl;
+     Py_RETURN_NONE;
+   }
+-  without_gil_t no_gil;
+-  no_gil.acquire_gil();
+   if(ttl_seconds) {
+     return jf.get();
+   } else {

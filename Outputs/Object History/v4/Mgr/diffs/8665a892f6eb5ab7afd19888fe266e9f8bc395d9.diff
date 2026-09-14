@@ -1,0 +1,34 @@
+commit 8665a892f6eb5ab7afd19888fe266e9f8bc395d9
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Thu Mar 14 15:20:17 2019 +0800
+
+    mgr/Mgr: kill redundant sub_unwant call
+    
+    Quote from Kefu:
+    sub_unwant() only helps if the subscription is not acked by monitor,
+    and MonClient is still alive, in that case MonClient will stop asking
+    monitor for the subscription. but once a subscription is added, we cannot
+    "undo" this without disconnect from monitor. so, to remove a sub in
+    MonClient is a no-op under most circumstances. i guess that's why we don't
+    call sub_unwant() elsewhere.
+    in this case, it's MgrStandby::shutdown() who starts the shutdown process.
+    it stops monc, mgrc, then stops Mgr. so when Mgr::stop() is executed,
+    MonClient is already disconnected.
+    the only use case of call sub_unwant() i can think of is rados_monitor_log().
+    
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 7cd6c91eb65..60f42e20ea0 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -406,9 +406,6 @@ void Mgr::shutdown()
+   finisher.queue(new FunctionContext([&](int) {
+     {
+       std::lock_guard l(lock);
+-      monc->sub_unwant("log-info");
+-      monc->sub_unwant("mgrdigest");
+-      monc->sub_unwant("fsmap");
+       // First stop the server so that we're not taking any more incoming
+       // requests
+       server.shutdown();

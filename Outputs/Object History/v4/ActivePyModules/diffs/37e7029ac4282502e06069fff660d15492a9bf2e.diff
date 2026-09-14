@@ -1,0 +1,29 @@
+commit 37e7029ac4282502e06069fff660d15492a9bf2e
+Author: Tim Serong <tserong@suse.com>
+Date:   Fri Mar 24 16:38:19 2017 +0100
+
+    mgr: fix crash on missing 'ceph_version' in daemon metadata
+    
+    Prior to 1a331234e8, only OSDs had the Ceph version in their
+    metadata (MONs and MDSes didn't).  This commit searches for
+    ceph_version, and if not present just returns an empty string.
+    
+    Fixes: http://tracker.ceph.com/issues/18764
+    Signed-off-by: Tim Serong <tserong@suse.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index a4ddcda38c1..72eda5e58cd 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -48,7 +48,10 @@ void PyModules::dump_server(const std::string &hostname,
+     // TODO: pick the highest version, and make sure that
+     // somewhere else (during health reporting?) we are
+     // indicating to the user if we see mixed versions
+-    ceph_version = i.second->metadata.at("ceph_version");
++    auto ver_iter = i.second->metadata.find("ceph_version");
++    if (ver_iter != i.second->metadata.end()) {
++      ceph_version = i.second->metadata.at("ceph_version");
++    }
+ 
+     f->open_object_section("service");
+     f->dump_string("type", str_type);

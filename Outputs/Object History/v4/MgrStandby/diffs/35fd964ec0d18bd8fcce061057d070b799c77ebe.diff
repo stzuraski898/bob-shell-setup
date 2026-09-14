@@ -1,0 +1,63 @@
+commit 35fd964ec0d18bd8fcce061057d070b799c77ebe
+Author: Greg Farnum <gfarnum@redhat.com>
+Date:   Fri Mar 10 15:02:50 2017 -0800
+
+    mgr: switch from send_beacon() to tick()
+    
+    We are about to want similar time-based stuff in our other
+    classes and it's simplest to coalesce them into a single wakeup.
+    
+    Signed-off-by: Greg Farnum <gfarnum@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index bc946e41c18..d94e3fd6865 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -134,7 +134,7 @@ int MgrStandby::init()
+   client.init();
+   timer.init();
+ 
+-  send_beacon();
++  tick();
+ 
+   dout(4) << "Complete." << dendl;
+   return 0;
+@@ -155,9 +155,15 @@ void MgrStandby::send_beacon()
+                                  available);
+                                  
+   monc.send_mon_message(m);
+-  timer.add_event_after(g_conf->mgr_beacon_period, new FunctionContext(
++}
++
++void MgrStandby::tick()
++{
++  send_beacon();
++
++  timer.add_event_after(g_conf->mgr_tick_period, new FunctionContext(
+         [this](int r){
+-          send_beacon();
++          tick();
+         }
+   )); 
+ }
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index 8698e92a7de..8c1c144e73f 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -59,6 +59,7 @@ protected:
+ 
+   void handle_mgr_map(MMgrMap *m);
+   void _update_log_config();
++  void send_beacon();
+ 
+ public:
+   MgrStandby();
+@@ -75,7 +76,7 @@ public:
+   void shutdown();
+   int main(vector<const char *> args);
+   void handle_signal(int signum);
+-  void send_beacon();
++  void tick();
+ };
+ 
+ #endif

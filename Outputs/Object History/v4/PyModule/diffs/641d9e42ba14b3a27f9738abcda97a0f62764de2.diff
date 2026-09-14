@@ -1,0 +1,56 @@
+commit 641d9e42ba14b3a27f9738abcda97a0f62764de2
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Dec 3 14:22:18 2018 -0600
+
+    pybind/mgr: OPTIONS -> MODULE_OPTIONS
+    
+    We want to distinguish between module options (mgr/$module/name)
+    and compiled-in ceph options (common/options.cc).
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 9838bbff7c2..e2b855a2920 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -372,9 +372,9 @@ int PyModule::load(PyThreadState *pMainThreadState)
+ 
+     r = load_options();
+     if (r != 0) {
+-      derr << "Missing or invalid OPTIONS attribute in module '"
++      derr << "Missing or invalid MODULE_OPTIONS attribute in module '"
+           << module_name << "'" << dendl;
+-      error_string = "Missing or invalid OPTIONS attribute";
++      error_string = "Missing or invalid MODULE_OPTIONS attribute";
+       return r;
+     }
+ 
+@@ -514,13 +514,13 @@ int PyModule::load_commands()
+ 
+ int PyModule::load_options()
+ {
+-  int r = walk_dict_list("OPTIONS", [this](PyObject *pOption) -> int {
++  int r = walk_dict_list("MODULE_OPTIONS", [this](PyObject *pOption) -> int {
+     PyObject *pName = PyDict_GetItemString(pOption, "name");
+     ceph_assert(pName != nullptr);
+ 
+     ModuleOption option;
+     option.name = PyString_AsString(pName);
+-    dout(20) << "loaded option " << option.name << dendl;
++    dout(20) << "loaded module option " << option.name << dendl;
+ 
+     options[option.name] = std::move(option);
+ 
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index 84d3a6f62f0..fe4ba9fc37f 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -81,7 +81,7 @@ private:
+   // Populated if loaded, can_run or failed indicates a problem
+   std::string error_string;
+ 
+-  // Helper for loading OPTIONS and COMMANDS members
++  // Helper for loading MODULE_OPTIONS and COMMANDS members
+   int walk_dict_list(
+       const std::string &attr_name,
+       std::function<int(PyObject*)> fn);

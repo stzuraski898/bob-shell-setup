@@ -1,0 +1,82 @@
+commit 7757ddd146f7e7e31630b54f633e1b89b6e5a6f8
+Author: Julien Collet <julien.collet@cern.ch>
+Date:   Mon Sep 17 17:23:17 2018 +0200
+
+    mgr: add optional OSD perf queries to MMgrConfigure message
+    
+    Fixes: https://tracker.ceph.com/issues/35914
+    Signed-off-by: Julien Collet <julien.collet@cern.ch>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index ea6998167b7..432b154c7c8 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -350,6 +350,10 @@ void MgrClient::_send_report()
+   cct->_conf.get_config_bl(last_config_bl_version, &report->config_bl,
+ 			    &last_config_bl_version);
+ 
++  if (get_perf_report_cb) {
++    //get_perf_report_cb(&report->perf_report)
++  }
++
+   session->con->send_message(report);
+ }
+ 
+@@ -391,6 +395,10 @@ bool MgrClient::handle_mgr_configure(MMgrConfigure *m)
+     _send_stats();
+   }
+ 
++  if (set_perf_queries_cb) {
++    set_perf_queries_cb(m->osd_perf_metric_queries);
++  }
++
+   m->put();
+   return true;
+ }
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index e9fd37dce64..ffeb586450a 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -19,10 +19,15 @@
+ #include "mon/MgrMap.h"
+ #include "mgr/DaemonHealthMetric.h"
+ 
++#include "messages/MMgrReport.h"
++#include "mgr/OSDPerfMetricQuery.h"
++
+ #include "common/perf_counters.h"
+ #include "common/Timer.h"
+ #include "common/CommandTable.h"
+ 
++typedef int OSDPerfMetricReport; //Temporary
++
+ class MMgrMap;
+ class MMgrConfigure;
+ class MMgrClose;
+@@ -76,6 +81,8 @@ protected:
+   // If provided, use this to compose an MPGStats to send with
+   // our reports (hook for use by OSD)
+   std::function<MPGStats*()> pgstats_cb;
++  std::function<void(const std::list<OSDPerfMetricQuery> &)> set_perf_queries_cb;
++  std::function<void(OSDPerfMetricReport *)> get_perf_report_cb;
+ 
+   // for service registration and beacon
+   bool service_daemon = false;
+@@ -112,6 +119,17 @@ public:
+   bool handle_mgr_close(MMgrClose *m);
+   bool handle_command_reply(MCommandReply *m);
+ 
++  void set_perf_metric_query_cb(
++          std::function<void(const std::list<OSDPerfMetricQuery> &)> cb_set,
++          std::function<void(OSDPerfMetricReport *)> cb_get)
++
++  {
++      Mutex::Locker l(lock);
++      set_perf_queries_cb = cb_set;
++      get_perf_report_cb = cb_get;
++  }
++
++
+   void send_pgstats();
+   void set_pgstats_cb(std::function<MPGStats*()>&& cb_)
+   {

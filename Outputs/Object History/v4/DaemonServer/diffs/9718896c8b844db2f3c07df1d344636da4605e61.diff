@@ -1,0 +1,67 @@
+commit 9718896c8b844db2f3c07df1d344636da4605e61
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Aug 14 06:31:18 2017 -0400
+
+    mgr: refactor python module management
+    
+    Separate out the *loading* of modules from
+    the *running* of modules.
+    
+    This is a precursor to enabling modules to run
+    in standby mode.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index bdb3cc96a7c..42132d72602 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -41,7 +41,7 @@ DaemonServer::DaemonServer(MonClient *monc_,
+                            Finisher &finisher_,
+ 			   DaemonStateIndex &daemon_state_,
+ 			   ClusterState &cluster_state_,
+-			   PyModules &py_modules_,
++			   PyModuleRegistry &py_modules_,
+ 			   LogChannelRef clog_,
+ 			   LogChannelRef audit_clog_)
+     : Dispatcher(g_ceph_context),
+@@ -1287,7 +1287,7 @@ bool DaemonServer::handle_command(MCommand *m)
+   }
+ 
+   // None of the special native commands, 
+-  MgrPyModule *handler = nullptr;
++  ActivePyModule *handler = nullptr;
+   auto py_commands = py_modules.get_py_commands();
+   for (const auto &pyc : py_commands) {
+     auto pyc_prefix = cmddesc_get_prefix(pyc.cmdstring);
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index a3ac2cad6dd..fe809833cbd 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -14,7 +14,7 @@
+ #ifndef DAEMON_SERVER_H_
+ #define DAEMON_SERVER_H_
+ 
+-#include "PyModules.h"
++#include "PyModuleRegistry.h"
+ 
+ #include <set>
+ #include <string>
+@@ -59,7 +59,7 @@ protected:
+   Finisher  &finisher;
+   DaemonStateIndex &daemon_state;
+   ClusterState &cluster_state;
+-  PyModules &py_modules;
++  PyModuleRegistry &py_modules;
+   LogChannelRef clog, audit_clog;
+ 
+   AuthAuthorizeHandlerRegistry auth_registry;
+@@ -109,7 +109,7 @@ public:
+                Finisher &finisher_,
+ 	       DaemonStateIndex &daemon_state_,
+ 	       ClusterState &cluster_state_,
+-	       PyModules &py_modules_,
++	       PyModuleRegistry &py_modules_,
+ 	       LogChannelRef cl,
+ 	       LogChannelRef auditcl);
+   ~DaemonServer() override;

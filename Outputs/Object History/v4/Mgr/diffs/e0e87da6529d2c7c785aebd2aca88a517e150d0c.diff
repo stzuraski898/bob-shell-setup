@@ -1,0 +1,47 @@
+commit e0e87da6529d2c7c785aebd2aca88a517e150d0c
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Jun 29 09:35:39 2017 -0400
+
+    mgr: send beacon to mon as soon as done with Mgr::init
+    
+    ...instead of waiting for next periodic beacon.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index cbbe24916a2..11d03aae1f9 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -148,7 +148,7 @@ public:
+ };
+ 
+ 
+-void Mgr::background_init()
++void Mgr::background_init(Context *completion)
+ {
+   Mutex::Locker l(lock);
+   assert(!initializing);
+@@ -157,8 +157,9 @@ void Mgr::background_init()
+ 
+   finisher.start();
+ 
+-  finisher.queue(new FunctionContext([this](int r){
++  finisher.queue(new FunctionContext([this, completion](int r){
+     init();
++    completion->complete(0);
+   }));
+ }
+ 
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index a129a43b91e..2ca63f800c6 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -94,7 +94,7 @@ public:
+ 
+   void tick();
+ 
+-  void background_init();
++  void background_init(Context *completion);
+   void shutdown();
+ };
+ 

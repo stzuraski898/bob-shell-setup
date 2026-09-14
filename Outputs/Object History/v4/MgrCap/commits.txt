@@ -1,0 +1,21 @@
+# Non-merge commits touching src/mgr/MgrCap.cc and/or src/mgr/MgrCap.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+488cb91e47036475637bc7bb4fd1941daaa85663 2026-07-26 Matthew N. Heler | mon,osd,mgr: add rgw cap profile
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 2025-10-02 Edwin Rodriguez | Add missing blank line after comment block
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+f6387fd81c6e23dbfb14edbd21185e1a753a249a 2025-08-26 Kefu Chai | src: replace push_back(T{}) with emplace_back()
+ed6b71246137f9793f2d56b4d050b271a3da29fd 2025-06-09 Kefu Chai | src: Fix memory leaks in generate_test_instance() by returning values instead of pointers
+4f1f40ad6143cbafdd27557f1aafdfb6b837d854 2024-10-10 Max Kellermann | mgr/MgrCap: add missing includes
+03da55716ca1e277a573c2edca333a339ddc218a 2022-07-29 Kefu Chai | mgr/MgrCap: include <boost/phoenix.hpp>
+c7244e7aade4f9ef887110e600dc76d0ccfb6744 2020-06-17 Sage Weil | misc language changes: whitelist -> ignore etc
+1e8864092d44761da8a1768760f3156ed12382c4 2020-03-22 Adam C. Emerson | mon: Build ceph-mon without using namespace declarations in headers
+98dfce1c36f8f594d2a771855db72abae45d18f1 2020-03-02 Kefu Chai | mgr/MgrCap.h: avoid forward declare CephContext in different ways
+2dc7a959509325f8da23d0baef2509174477398c 2019-10-22 Jason Dillaman | mgr: added placeholder 'osd' and 'mds' profiles
+3463613bd43d5fb7f8094c3b9b8a3163325ff196 2019-10-11 Jason Dillaman | mgr: add new 'allow module' cap to MgrCap
+9193d8762347af65bebdaea673175113f7ccd01a 2019-10-17 Jason Dillaman | mgr: validate that profile caps are actually valid
+b0d73aed19a9f3f242d5a13757016759835c164c 2019-10-14 Jason Dillaman | mgr: added 'profile rbd/rbd-read-only' cap
+cb534e0049afc4f9259812a6624744bbdbaabafa 2019-10-11 Jason Dillaman | mgr: support optional arguments for module and profile caps
+6350bee5c873cb1cef0ca1345b89bff66817e0c1 2019-10-11 Jason Dillaman | mgr: stop re-using MonCap for handling MGR caps

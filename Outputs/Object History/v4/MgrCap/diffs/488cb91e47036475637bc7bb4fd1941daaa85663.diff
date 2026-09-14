@@ -1,0 +1,44 @@
+commit 488cb91e47036475637bc7bb4fd1941daaa85663
+Author: Matthew N. Heler <matthew.heler@hotmail.com>
+Date:   Sun Jul 26 10:24:24 2026 -0500
+
+    mon,osd,mgr: add rgw cap profile
+    
+    rgw keys have been created with mon 'allow rw' and osd 'allow rwx', far
+    more than the daemon uses. profile rgw grants read on the mon and pg
+    services, read and write on the osd service, the 'log' command that
+    carries cluster log warnings, and config-key get under rgw/ on the mon;
+    rwx on rgw-tagged pools on the osd; and nothing on the mgr. keys take it
+    as mon 'profile rgw' osd 'profile rgw'. bootstrap-rgw only accepts the
+    profile.
+    
+    the osd grant stays service-wide rather than a list of commands because
+    Rados::pool_create() reaches the mon as MPoolOp, which is checked with
+    no command name. so it also covers the rest of the osd service's write
+    commands.
+    
+    Signed-off-by: Matthew N. Heler <matthew.heler@hotmail.com>
+
+diff --git a/src/mgr/MgrCap.cc b/src/mgr/MgrCap.cc
+index 2610daf2da7..3b53f2e0b20 100644
+--- a/src/mgr/MgrCap.cc
++++ b/src/mgr/MgrCap.cc
+@@ -156,15 +156,9 @@ void MgrCapGrant::expand_profile(std::ostream *err) const {
+     return;
+   }
+ 
+-  if (profile == "osd") {
+-    // this is a documented profile (so we need to accept it as valid), but it
+-    // currently doesn't do anything
+-    return;
+-  }
+-
+-  if (profile == "mds") {
+-    // this is a documented profile (so we need to accept it as valid), but it
+-    // currently doesn't do anything
++  if (profile == "osd" || profile == "mds" || profile == "rgw") {
++    // these are documented profiles (so we need to accept them as valid), but
++    // they grant nothing here
+     return;
+   }
+ 

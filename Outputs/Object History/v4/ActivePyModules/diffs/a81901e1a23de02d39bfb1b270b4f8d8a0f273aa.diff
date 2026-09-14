@@ -1,0 +1,96 @@
+commit a81901e1a23de02d39bfb1b270b4f8d8a0f273aa
+Author: Naveen Naidu <naveennaidu479@gmail.com>
+Date:   Wed Mar 19 19:10:32 2025 +0530
+
+    mgr: rename APIs for fetching perf schema and perf counter values to indicate that they only work on unlabeled counters.
+    
+    The current API's for fetching performance schema only fetches unlabeled
+    counters and the API for fetching the latest value of the performance
+    counters also only works on unlabeled counters. We update the name of
+    these API's to correctly reflect this behaviour.
+    
+    This change is also required to make sure that we do not break any
+    existing functionality while we work on the support of gradually phasing
+    all the manager clients such as telemetry to work with labeled counters.
+    
+    Signed-off-by: Naveen Naidu <naveen.naidu@ibm.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 709fcfae227..5a0fa1c817a 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -839,7 +839,7 @@ void ActivePyModules::_refresh_config_map()
+   }
+ }
+ 
+-PyObject* ActivePyModules::with_perf_counters(
++PyObject* ActivePyModules::with_unlabled_perf_counters(
+     std::function<void(PerfCounterInstance& counter_instance, PerfCounterType& counter_type, PyFormatter& f)> fct,
+     const std::string &svc_name,
+     const std::string &svc_id,
+@@ -876,7 +876,7 @@ PyObject* ActivePyModules::with_perf_counters(
+   return f.get();
+ }
+ 
+-PyObject* ActivePyModules::get_counter_python(
++PyObject* ActivePyModules::get_unlabeled_counter_python(
+     const std::string &svc_name,
+     const std::string &svc_id,
+     const std::string &path)
+@@ -905,10 +905,10 @@ PyObject* ActivePyModules::get_counter_python(
+       }
+     }
+   };
+-  return with_perf_counters(extract_counters, svc_name, svc_id, path);
++  return with_unlabled_perf_counters(extract_counters, svc_name, svc_id, path);
+ }
+ 
+-PyObject* ActivePyModules::get_latest_counter_python(
++PyObject* ActivePyModules::get_latest_unlabeled_counter_python(
+     const std::string &svc_name,
+     const std::string &svc_id,
+     const std::string &path)
+@@ -929,10 +929,10 @@ PyObject* ActivePyModules::get_latest_counter_python(
+       f.dump_unsigned("v", datapoint.v);
+     }
+   };
+-  return with_perf_counters(extract_latest_counters, svc_name, svc_id, path);
++  return with_unlabled_perf_counters(extract_latest_counters, svc_name, svc_id, path);
+ }
+ 
+-PyObject* ActivePyModules::get_perf_schema_python(
++PyObject* ActivePyModules::get_unlabeled_perf_schema_python(
+     const std::string &svc_type,
+     const std::string &svc_id)
+ {
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index a4154050375..cb2587b1be8 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -91,22 +91,22 @@ public:
+     const std::string &svc_type, const std::string &svc_id);
+   PyObject *get_daemon_status_python(
+     const std::string &svc_type, const std::string &svc_id);
+-  PyObject *get_counter_python(
++  PyObject *get_unlabeled_counter_python(
+     const std::string &svc_type,
+     const std::string &svc_id,
+     const std::string &path);
+-  PyObject *get_latest_counter_python(
++  PyObject *get_latest_unlabeled_counter_python(
+     const std::string &svc_type,
+     const std::string &svc_id,
+     const std::string &path);
+-  PyObject *get_perf_schema_python(
++  PyObject *get_unlabeled_perf_schema_python(
+      const std::string &svc_type,
+      const std::string &svc_id);
+   PyObject *get_rocksdb_version();
+   PyObject *get_context();
+   PyObject *get_osdmap();
+   /// @note @c fct is not allowed to acquire locks when holding GIL
+-  PyObject *with_perf_counters(
++  PyObject *with_unlabled_perf_counters(
+       std::function<void(
+         PerfCounterInstance& counter_instance,
+         PerfCounterType& counter_type,

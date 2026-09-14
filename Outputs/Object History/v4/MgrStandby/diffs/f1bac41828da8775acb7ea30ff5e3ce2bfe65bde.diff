@@ -1,0 +1,21 @@
+commit f1bac41828da8775acb7ea30ff5e3ce2bfe65bde
+Author: Edwin Rodriguez <edwin.rodriguez1@ibm.com>
+Date:   Wed Oct 1 09:09:50 2025 -0400
+
+    Update indent settings cc
+    
+    Fixes: https://tracker.ceph.com/issues/72587
+    Signed-off-by: Edwin Rodriguez <edwin.rodriguez1@ibm.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index c7976aa1e50..fee4cfb2e83 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -1,5 +1,5 @@
+-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+-// vim: ts=8 sw=2 smarttab
++// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
++// vim: ts=8 sw=2 sts=2 expandtab
+ /*
+  * Ceph - scalable distributed file system
+  *

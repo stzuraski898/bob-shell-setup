@@ -1,0 +1,25 @@
+commit b4a4a7a89b2178b04816f3532da7bb1fe5d26f6b
+Author: Ren Huanwen <ren.huanwen@zte.com.cn>
+Date:   Tue Oct 11 19:29:52 2016 +0800
+
+    mgr: mgr::init() return when connection daemons failed
+    
+    Signed-off-by: huanwen ren <ren.huanwen@zte.com.cn>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 834eb9111f6..d22cc43b39c 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -148,7 +148,11 @@ void Mgr::init()
+   assert(!initialized);
+ 
+   // Start communicating with daemons to learn statistics etc
+-  server.init(monc->get_global_id(), client_messenger->get_myaddr());
++  int r = server.init(monc->get_global_id(), client_messenger->get_myaddr());
++  if (r < 0) {
++    derr << "Initialize server fail"<< dendl;
++    return;
++  }
+   dout(4) << "Initialized server at " << server.get_myaddr() << dendl;
+ 
+   // Preload all daemon metadata (will subsequently keep this

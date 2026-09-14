@@ -1,0 +1,44 @@
+commit 4c90cee20473aa51c04731f4ef2d286b2a2abf44
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Tue Jun 18 16:06:52 2019 +0800
+
+    osd/OSDMap: pass filter directly to the OSDUtilizationDumper
+    
+    This makes the code easy to maintain and especially to extend,
+    e.g., adding per pool filters.
+    
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 6853a62d70c..6a63aca1424 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1228,27 +1228,21 @@ bool DaemonServer::_handle_command(
+     }
+     stringstream rs;
+     r = cluster_state.with_osdmap_and_pgmap([&](const OSDMap& osdmap, const PGMap& pgmap) {
+-        string class_name;
+-        string item_name;
+         // sanity check filter(s)
+         if (filter_by == "class") {
+           if (!osdmap.crush->class_exists(filter)) {
+             rs << "specified class '" << filter << "' does not exist";
+             return -EINVAL;
+           }
+-          class_name = filter;
+         }
+         if (filter_by == "name") {
+           if (!osdmap.crush->name_exists(filter)) {
+             rs << "specified name '" << filter << "' does not exist";
+             return -EINVAL;
+           }
+-          item_name = filter;
+         }
+ 	print_osd_utilization(osdmap, pgmap, ss,
+-                              f.get(), method == "tree",
+-                              class_name, item_name);
+-	
++                              f.get(), method == "tree", filter);
+ 	cmdctx->odata.append(ss);
+ 	return 0;
+       });

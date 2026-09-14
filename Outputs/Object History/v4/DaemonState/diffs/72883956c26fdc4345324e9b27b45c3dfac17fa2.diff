@@ -1,0 +1,24 @@
+commit 72883956c26fdc4345324e9b27b45c3dfac17fa2
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue May 29 15:51:07 2018 +0800
+
+    mds,osd,mon,msg: use intrusive_ptr for holding Connection::priv
+    
+    See-also: http://tracker.ceph.com/issues/20924
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index e2f0922079f..0c4034072c3 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -134,8 +134,8 @@ void DaemonPerfCounters::update(MMgrReport *report)
+            << report->packed.length() << " bytes of data" << dendl;
+ 
+   // Retrieve session state
+-  MgrSessionRef session(static_cast<MgrSession*>(
+-        report->get_connection()->get_priv()));
++  auto priv = report->get_connection()->get_priv();
++  auto session = static_cast<MgrSession*>(priv.get());
+ 
+   // Load any newly declared types
+   for (const auto &t : report->declare_types) {

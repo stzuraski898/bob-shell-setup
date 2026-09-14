@@ -1,0 +1,45 @@
+commit dcd9c5bac5e2670efd726e1ae89bc264bd404671
+Author: senol.colak <senol.colak@sap.com>
+Date:   Wed May 27 18:47:20 2026 +0200
+
+    mgr: override OSD hostname with CRUSH physical host in all metadata paths
+    
+    In containerized deployments (e.g. Rook), OSD daemons report the
+    pod/container hostname. The CRUSH map records the physical host.
+    This mismatch causes 'ceph device ls' to show pod names instead of
+    physical hosts, breaking host-based device correlation.
+    
+    Fix by deriving the CRUSH host bucket name for each OSD and substituting
+    it as the canonical hostname in all three metadata paths:
+    - MetadataUpdate::finish (async mon metadata fetch, primary path)
+    - Mgr::load_all_metadata OSD bulk-load (startup/failover)
+    - DaemonServer::fetch_missing_metadata (via MetadataUpdate)
+    
+    The override is a no-op when the OSD is absent from CRUSH or when the
+    OSD map is not yet available.
+    
+    Fixes: https://tracker.ceph.com/issues/73080
+    Signed-off-by: senol.colak <senol.colak@sap.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 210ff663208..fe4ffd8bedb 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -539,7 +539,7 @@ void DaemonServer::fetch_missing_metadata(const DaemonKey& key,
+   if (!daemon_state.is_updating(key) &&
+       (key.type == "osd" || key.type == "mds" || key.type == "mon")) {
+     std::ostringstream oss;
+-    auto c = new MetadataUpdate(daemon_state, key);
++    auto c = new MetadataUpdate(daemon_state, cluster_state, key);
+     if (key.type == "osd") {
+       oss << "{\"prefix\": \"osd metadata\", \"id\": "
+ 	  << key.name<< "}";
+@@ -3677,7 +3677,7 @@ void DaemonServer::got_mgr_map()
+   cluster_state.with_mgrmap([&](const MgrMap& mgrmap) {
+       auto md_update = [&] (DaemonKey key) {
+         std::ostringstream oss;
+-        auto c = new MetadataUpdate(daemon_state, key);
++        auto c = new MetadataUpdate(daemon_state, cluster_state, key);
+ 	// FIXME remove post-nautilus: include 'id' for luminous mons
+         oss << "{\"prefix\": \"mgr metadata\", \"who\": \""
+ 	    << key.name << "\", \"id\": \"" << key.name << "\"}";

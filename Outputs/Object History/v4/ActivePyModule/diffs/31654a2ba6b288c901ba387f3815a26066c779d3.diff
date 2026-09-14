@@ -1,0 +1,46 @@
+commit 31654a2ba6b288c901ba387f3815a26066c779d3
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Nov 21 16:56:52 2018 +0800
+
+    mgr: silence GCC warning
+    
+    the signature of PyObject_CallMethod() is different in python2 and
+    python3:
+    
+    in python2: it is
+    
+    PyObject* PyObject_CallMethod(PyObject *o, char *method, char *format,
+    ...)
+    
+    while in python3, it is
+    
+    PyObject* PyObject_CallMethod(PyObject *obj, const char *name, const
+    char *format, ...)
+    
+    so, if we compile mgr with python2, we will have following warning:
+    
+    warning: ISO C++ forbids converting a string constant to ‘char*’
+    [-Wwrite-strings]
+            (char*)NULL);
+                       ^
+    
+    it'd be simpler if we just const_cast<> the method name string, to
+    silence the warning just like other places we call
+    PyObject_CallMethod().
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ActivePyModule.cc b/src/mgr/ActivePyModule.cc
+index 4d07222b7d7..56c34803fd9 100644
+--- a/src/mgr/ActivePyModule.cc
++++ b/src/mgr/ActivePyModule.cc
+@@ -160,7 +160,8 @@ void ActivePyModule::config_notify()
+   Gil gil(py_module->pMyThreadState, true);
+   dout(20) << "Calling " << py_module->get_name() << ".config_notify..."
+ 	   << dendl;
+-  auto remoteResult = PyObject_CallMethod(pClassInstance, "config_notify",
++  auto remoteResult = PyObject_CallMethod(pClassInstance,
++					  const_cast<char*>("config_notify"),
+ 					  (char*)NULL);
+   if (remoteResult != nullptr) {
+     Py_DECREF(remoteResult);

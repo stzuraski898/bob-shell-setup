@@ -1,0 +1,40 @@
+commit 987211a63927b19a76c99eab7580845e1480baf5
+Author: Dan Mick <dmick@redhat.com>
+Date:   Tue May 2 16:55:21 2017 -0700
+
+    mgr/PyModules: move constructor definition to .cc
+    
+    Otherwise, the incomplete ServeThread type causes problems
+    for others who include PyModules.h
+    
+    Signed-off-by: Dan Mick <dan.mick@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 89347e2326b..8b0fc62d373 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -60,16 +60,17 @@ namespace {
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ 
+-PyModules::PyModules(DaemonStateIndex &ds, ClusterState &cs, MonClient &mc,
+-                     Objecter &objecter_, Client &client_,
+-		     Finisher &f)
++// constructor/destructor implementations cannot be in .h,
++// because ServeThread is still an "incomplete" type there
++
++PyModules::PyModules(DaemonStateIndex &ds, ClusterState &cs,
++	  MonClient &mc, Objecter &objecter_, Client &client_,
++	  Finisher &f)
+   : daemon_state(ds), cluster_state(cs), monc(mc),
+-    objecter(objecter_), client(client_),
+-    finisher(f)
++    objecter(objecter_), client(client_), finisher(f),
++    lock("PyModules")
+ {}
+ 
+-// we can not have the default destructor in header, because ServeThread is
+-// still an "incomplete" type. so we need to define the destructor here.
+ PyModules::~PyModules() = default;
+ 
+ void PyModules::dump_server(const std::string &hostname,

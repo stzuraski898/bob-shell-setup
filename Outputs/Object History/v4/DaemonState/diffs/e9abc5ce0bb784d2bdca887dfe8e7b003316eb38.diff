@@ -1,0 +1,63 @@
+commit e9abc5ce0bb784d2bdca887dfe8e7b003316eb38
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Thu Aug 14 14:54:51 2025 +0200
+
+    mgr/DaemonState: forward-declare class DaemonHealthMetric
+    
+    This requires un-inlining constructor and destructor.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 965bba4ad42..685e83a7e52 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -38,6 +38,13 @@ using std::string;
+ using std::stringstream;
+ using std::unique_ptr;
+ 
++DaemonState::DaemonState(PerfCounterTypes &types_)
++    : perf_counters(types_)
++{
++}
++
++DaemonState::~DaemonState() noexcept = default;
++
+ void DeviceState::set_metadata(map<string,string>&& m)
+ {
+   metadata = std::move(m);
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index fca31ac9e65..d19ea7de374 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -28,7 +28,6 @@
+ 
+ #include "msg/msg_types.h"
+ 
+-#include "DaemonHealthMetric.h"
+ #include "DaemonKey.h"
+ #include "DaemonPerfCounters.h"
+ 
+@@ -36,6 +35,8 @@ namespace ceph {
+   class Formatter;
+ }
+ 
++class DaemonHealthMetric;
++
+ // The state that we store about one daemon
+ class DaemonState
+ {
+@@ -79,10 +80,9 @@ class DaemonState
+   // The perf counters received in MMgrReport messages
+   DaemonPerfCounters perf_counters;
+ 
+-  explicit DaemonState(PerfCounterTypes &types_)
+-    : perf_counters(types_)
+-  {
+-  }
++  explicit DaemonState(PerfCounterTypes &types_);
++  ~DaemonState() noexcept;
++
+   void set_metadata(const std::map<std::string,std::string>& m);
+   const std::map<std::string,std::string>& _get_config_defaults();
+ };

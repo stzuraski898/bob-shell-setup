@@ -1,0 +1,25 @@
+commit 750ad8340c827d2f8896e1251e45f921dddb9f30
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Mon Nov 14 19:33:56 2016 -0500
+
+    common: Unskew clock
+    
+    In preparation to deglobalizing CephContext, remove the CephContext*
+    parameter to ceph_clock_now() and ceph::real_clock::now() that carries
+    a configurable offset.
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index ffa7a81a307..07af2be2a1b 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -117,7 +117,7 @@ void DaemonPerfCounters::update(MMgrReport *report)
+     declared_types.insert(t.path);
+   }
+ 
+-  const auto now = ceph_clock_now(g_ceph_context);
++  const auto now = ceph_clock_now();
+ 
+   // Parse packed data according to declared set of types
+   bufferlist::iterator p = report->packed.begin();

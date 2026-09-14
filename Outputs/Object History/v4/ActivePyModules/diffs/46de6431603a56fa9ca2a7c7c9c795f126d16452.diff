@@ -1,0 +1,90 @@
+commit 46de6431603a56fa9ca2a7c7c9c795f126d16452
+Author: Kotresh Hiremath Ravishankar <khiremat@redhat.com>
+Date:   Mon Oct 17 17:19:17 2022 +0530
+
+    mgr: Add one finisher thread per module
+    
+    Adds a finisher thread for each module. Each module command is
+    executed via corresponding finisher thread. There is generic
+    finisher thread via which all other commands like notify, config
+    is run.
+    
+    Fixes: https://tracker.ceph.com/issues/51177
+    Signed-off-by: Kotresh HR <khiremat@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 47cb9377c99..391a83029d3 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -544,6 +544,9 @@ void ActivePyModules::start_one(PyModuleRef py_module)
+ 
+       dout(4) << "Starting thread for " << name << dendl;
+       active_module->thread.create(active_module->get_thread_name());
++      dout(4) << "Starting active module " << name <<" finisher thread "
++        << active_module->get_fin_thread_name() << dendl;
++      active_module->finisher.start();
+     }
+   }));
+ }
+@@ -552,6 +555,13 @@ void ActivePyModules::shutdown()
+ {
+   std::lock_guard locker(lock);
+ 
++  // Stop per active module finisher thread
++  for (auto& [name, module] : modules) {
++      dout(4) << "Stopping active module " << name << " finisher thread" << dendl;
++      module->finisher.wait_for_empty();
++      module->finisher.stop();
++  }
++
+   // Signal modules to drop out of serve() and/or tear down resources
+   for (auto& [name, module] : modules) {
+     lock.unlock();
+@@ -590,8 +600,9 @@ void ActivePyModules::notify_all(const std::string &notify_type,
+     // Send all python calls down a Finisher to avoid blocking
+     // C++ code, and avoid any potential lock cycles.
+     dout(15) << "queuing notify (" << notify_type << ") to " << name << dendl;
++    Finisher& mod_finisher = py_module_registry.get_active_module_finisher(name);
+     // workaround for https://bugs.llvm.org/show_bug.cgi?id=35984
+-    finisher.queue(new LambdaContext([module=module, notify_type, notify_id]
++    mod_finisher.queue(new LambdaContext([module=module, notify_type, notify_id]
+       (int r){
+         module->notify(notify_type, notify_id);
+     }));
+@@ -614,8 +625,9 @@ void ActivePyModules::notify_all(const LogEntry &log_entry)
+     // log_entry: we take a copy because caller's instance is
+     // probably ephemeral.
+     dout(15) << "queuing notify (clog) to " << name << dendl;
++    Finisher& mod_finisher = py_module_registry.get_active_module_finisher(name);
+     // workaround for https://bugs.llvm.org/show_bug.cgi?id=35984
+-    finisher.queue(new LambdaContext([module=module, log_entry](int r){
++    mod_finisher.queue(new LambdaContext([module=module, log_entry](int r){
+       module->notify_clog(log_entry);
+     }));
+   }
+@@ -1308,8 +1320,9 @@ void ActivePyModules::config_notify()
+     // Send all python calls down a Finisher to avoid blocking
+     // C++ code, and avoid any potential lock cycles.
+     dout(15) << "notify (config) " << name << dendl;
++    Finisher& mod_finisher = py_module_registry.get_active_module_finisher(name);
+     // workaround for https://bugs.llvm.org/show_bug.cgi?id=35984
+-    finisher.queue(new LambdaContext([module=module](int r){
++    mod_finisher.queue(new LambdaContext([module=module](int r){
+       module->config_notify();
+     }));
+   }
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 8f70b4fe05a..4b180942dde 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -189,6 +189,10 @@ public:
+                   const std::string &notify_id);
+   void notify_all(const LogEntry &log_entry);
+ 
++  auto& get_module_finisher(const std::string &name) {
++    return modules.at(name)->finisher;
++  }
++
+   bool is_pending(std::string_view name) const {
+     return pending_modules.count(name) > 0;
+   }

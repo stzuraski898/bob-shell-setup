@@ -1,0 +1,32 @@
+commit 68221661b00f8a6bef0fbd7b5401aa49eb5118d0
+Author: Laura Flores <lflores@ibm.com>
+Date:   Thu Sep 11 22:13:51 2025 +0000
+
+    mgr, qa: add `pending_modules` to asock command
+    
+    Now, the command `ceph tell mgr mgr_status` will show a
+    "pending_modules" field. This is another way for Ceph operators
+    to check which modules haven't been initalized yet (in addition
+    to the health error).
+    
+    This command was also added to testing scenarios in the workunit.
+    
+    Fixes: https://tracker.ceph.com/issues/71631
+    Signed-off-by: Laura Flores <lflores@ibm.com>
+
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 111ff3ff5dc..069af5154b9 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -246,5 +246,11 @@ public:
+   // See "Mgr::background_init()".
+   void check_all_modules_started(Context *modules_start_complete);
+ 
++  // Return set of active modules where class instances are not yet created.
++  // Protected by const; we only want to view the contents- not modify anything.
++  const std::set<std::string, std::less<>>& get_pending_modules() const {
++    return active_modules->get_pending_modules();
++  }
++
+   // <<< (end of ActivePyModules cheeky call-throughs)
+ };

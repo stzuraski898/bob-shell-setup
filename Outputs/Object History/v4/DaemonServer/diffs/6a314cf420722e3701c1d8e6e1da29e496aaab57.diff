@@ -1,0 +1,47 @@
+commit 6a314cf420722e3701c1d8e6e1da29e496aaab57
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 14 09:26:51 2017 -0400
+
+    mgr: move MgrSession to its own header
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 5f020ea7a51..160bd5939a8 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -24,10 +24,9 @@
+ #include <msg/Messenger.h>
+ #include <mon/MonClient.h>
+ 
+-#include <mon/MonCap.h>
+-
+ #include "auth/AuthAuthorizeHandler.h"
+ 
++#include "MgrSession.h"
+ #include "DaemonState.h"
+ 
+ class MMgrReport;
+@@ -35,22 +34,6 @@ class MMgrOpen;
+ class MCommand;
+ struct MgrCommand;
+ 
+-/**
+- * Session state associated with the Connection.
+- */
+-struct MgrSession : public RefCountedObject {
+-  uint64_t global_id = 0;
+-  EntityName entity_name;
+-  entity_addr_t addr;
+-
+-  // mon caps are suitably generic for mgr
+-  MonCap caps;
+-
+-  MgrSession() : RefCountedObject(0) {}
+-  ~MgrSession() override {}
+-};
+-
+-typedef boost::intrusive_ptr<MgrSession> MgrSessionRef;
+ 
+ /**
+  * Server used in ceph-mgr to communicate with Ceph daemons like

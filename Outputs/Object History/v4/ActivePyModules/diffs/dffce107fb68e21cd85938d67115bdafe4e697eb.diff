@@ -1,0 +1,39 @@
+commit dffce107fb68e21cd85938d67115bdafe4e697eb
+Author: Sebastian Wagner <swagner@suse.com>
+Date:   Mon Jul 22 14:36:41 2019 +0200
+
+    mgr: cleanup idle debug log at level 4.
+    
+    Changed all messages to 10 that are printed repeatedly in an idle cluster.
+    
+    This makes debugging Python modules easier as the log
+    is no longer pullued by mgr core messages.
+    
+    Signed-off-by: Sebastian Wagner <sebastian.wagner@suse.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 57ab93a74c6..a6d3fce2238 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -516,7 +516,7 @@ bool ActivePyModules::get_config(const std::string &module_name,
+   const std::string global_key = PyModule::config_prefix
+     + module_name + "/" + key;
+ 
+-  dout(4) << __func__ << " key: " << global_key << dendl;
++  dout(20) << " key: " << global_key << dendl;
+ 
+   std::lock_guard lock(module_config.lock);
+   
+@@ -558,10 +558,10 @@ PyObject *ActivePyModules::get_typed_config(
+   }
+   PyEval_RestoreThread(tstate);
+   if (prefix.size()) {
+-    dout(4) << __func__ << " [" << prefix << "/]" << key << " not found "
++    dout(10) << " [" << prefix << "/]" << key << " not found "
+ 	    << dendl;
+   } else {
+-    dout(4) << __func__ << " " << key << " not found " << dendl;
++    dout(10) << " " << key << " not found " << dendl;
+   }
+   Py_RETURN_NONE;
+ }

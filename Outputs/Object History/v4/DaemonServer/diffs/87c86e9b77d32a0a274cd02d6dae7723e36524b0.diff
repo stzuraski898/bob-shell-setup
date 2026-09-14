@@ -1,0 +1,65 @@
+commit 87c86e9b77d32a0a274cd02d6dae7723e36524b0
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue Jul 14 17:34:02 2020 +0800
+
+    mgr/DaemonServer: pass task_status instead of a message
+    
+    be explicit that the caller is only interested in the task_status
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 302948fc206..a6227db2754 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -548,20 +548,23 @@ bool DaemonServer::handle_close(const ref_t<MMgrClose>& m)
+   return true;
+ }
+ 
+-void DaemonServer::update_task_status(DaemonKey key, const ref_t<MMgrReport>& m) {
++void DaemonServer::update_task_status(
++  DaemonKey key,
++  const std::map<std::string,std::string>& task_status)
++{
+   dout(10) << "got task status from " << key << dendl;
+ 
+   bool service_map_dirty = false;
+-  if ((*m->task_status).empty()) {
++  if (task_status.empty()) {
+     auto removed = pending_service_map.rm_daemon(key.type, key.name);
+     if (removed) {
+       service_map_dirty = true;
+     }
+   } else {
+     auto p = pending_service_map.get_daemon(key.type, key.name);
+-    if (!map_compare(p.first->task_status, *m->task_status)) {
++    if (!map_compare(p.first->task_status, task_status)) {
+       service_map_dirty = true;
+-      p.first->task_status = *m->task_status;
++      p.first->task_status = task_status;
+     }
+   }
+ 
+@@ -664,7 +667,7 @@ bool DaemonServer::handle_report(const ref_t<MMgrReport>& m)
+       }
+       // update task status
+       if (m->task_status) {
+-        update_task_status(key, m);
++        update_task_status(key, *m->task_status);
+         daemon->last_service_beacon = now;
+       }
+       if (m->get_connection()->peer_is_osd() || m->get_connection()->peer_is_mon()) {
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 4c8647beeed..1e8bef75de7 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -165,7 +165,8 @@ private:
+     }
+   };
+ 
+-  void update_task_status(DaemonKey key, const ref_t<MMgrReport>& m);
++  void update_task_status(DaemonKey key,
++			  const std::map<std::string,std::string>& task_status);
+ 
+ public:
+   int init(uint64_t gid, entity_addrvec_t client_addrs);

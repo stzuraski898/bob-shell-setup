@@ -1,0 +1,44 @@
+commit 9962772358048a98a6e871dccf1bfd0a15b4d791
+Author: Rishabh Dave <ridave@redhat.com>
+Date:   Fri Jul 19 01:08:07 2024 +0530
+
+    mon/MgrMonitor: allow disabling always-on MGR modules
+    
+    Add a new command ("ceph mgr module force disable <module>") that allows
+    forcibly disabling an always-on module. This command should ideally only
+    be used to for cluster recovery.
+    
+    Fixes: https://tracker.ceph.com/issues/66005
+    Signed-off-by: Rishabh Dave <ridave@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 736e49b375f..08501568a2c 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -151,7 +151,8 @@ bool PyModuleRegistry::handle_mgr_map(const MgrMap &mgr_map_)
+     return false;
+   } else {
+     bool modules_changed = mgr_map_.modules != mgr_map.modules ||
+-      mgr_map_.always_on_modules != mgr_map.always_on_modules;
++      mgr_map_.always_on_modules != mgr_map.always_on_modules ||
++      mgr_map_.force_disabled_modules != mgr_map.force_disabled_modules;
+     mgr_map = mgr_map_;
+ 
+     if (standby_modules != nullptr) {
+@@ -240,6 +241,16 @@ void PyModuleRegistry::active_start(
+     // Anything we're skipping because of !can_run will be flagged
+     // to the user separately via get_health_checks
+     if (!(i.second->is_enabled() && i.second->is_loaded())) {
++      dout(8) << __func__ << " Not starting module '" << i.first << "', it is "
++	      << "not enabled and loaded"  << dendl;
++      continue;
++    }
++
++    // These are always-on modules but user force-disabled them.
++    if (mgr_map.force_disabled_modules.find(i.first) !=
++	mgr_map.force_disabled_modules.end()) {
++      dout(8) << __func__ << " Not starting module '" << i.first << "', it is "
++	      << "force-disabled" << dendl;
+       continue;
+     }
+ 

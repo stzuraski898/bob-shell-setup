@@ -1,0 +1,36 @@
+commit 7fadf6a8d464456668550e1f85c6c5a86f94bb49
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Tue Aug 26 14:30:12 2025 +0000
+
+    mgr/TTLCache: fix PyObject* lifetime management and cleanup logic
+    
+    Fix incorrect reference counting and memory retention behavior in TTLCache
+    when storing PyObject* values.
+    Previously, TTLCache::insert did not increment the reference count,
+    and `erase` / `clear` did not correctly decref the values, leading
+    to use-after-free or leaks depending on usage.
+    
+    Changes:
+    - Move Py_INCREF from cacheable_get_python() to TTLCache::insert()
+    - Add `TTLCache::clear()` method for proper memory cleanup
+    - Ensure TTLCache::get() returns a new reference
+    - Fix misuse of std::move on c_str() in PyJSONFormatter
+    
+    These changes prevent both memory leaks and use-after-free errors when
+    mgr modules use cached Python objects logic.
+    
+    Fixes: https://tracker.ceph.com/issues/68989
+    Signed-off-by: Nitzan Mordechai <nmordech@redhat.com>
+
+diff --git a/src/mgr/PyFormatter.cc b/src/mgr/PyFormatter.cc
+index 6259f835612..7c333308ab5 100644
+--- a/src/mgr/PyFormatter.cc
++++ b/src/mgr/PyFormatter.cc
+@@ -141,6 +141,6 @@ PyObject* PyJSONFormatter::get()
+   std::ostringstream ss;
+   flush(ss);
+   std::string s = ss.str();
+-  PyObject* obj = PyBytes_FromStringAndSize(std::move(s.c_str()), s.size());
++  PyObject* obj = PyBytes_FromStringAndSize(s.c_str(), s.size());
+   return obj;
+ }

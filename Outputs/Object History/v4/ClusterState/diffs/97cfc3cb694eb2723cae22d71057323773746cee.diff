@@ -1,0 +1,67 @@
+commit 97cfc3cb694eb2723cae22d71057323773746cee
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jun 26 13:22:17 2017 -0400
+
+    mgr: allow/track service registrations
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 44ba19d0b74..6dee866c7d8 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -53,6 +53,12 @@ void ClusterState::set_mgr_map(MgrMap const &new_mgrmap)
+   mgr_map = new_mgrmap;
+ }
+ 
++void ClusterState::set_service_map(ServiceMap const &new_service_map)
++{
++  Mutex::Locker l(lock);
++  servicemap = new_service_map;
++}
++
+ void ClusterState::load_digest(MMgrDigest *m)
+ {
+   health_json = std::move(m->health_json);
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index 7b4f3149a62..9513c763bd0 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -21,6 +21,7 @@
+ #include "osdc/Objecter.h"
+ #include "mon/MonClient.h"
+ #include "mon/PGMap.h"
++#include "mgr/ServiceMap.h"
+ 
+ class MMgrDigest;
+ class MMonMgrReport;
+@@ -37,6 +38,7 @@ protected:
+   MonClient *monc;
+   Objecter *objecter;
+   FSMap fsmap;
++  ServiceMap servicemap;
+   mutable Mutex lock;
+ 
+   MgrMap mgr_map;
+@@ -65,6 +67,7 @@ public:
+   void set_objecter(Objecter *objecter_);
+   void set_fsmap(FSMap const &new_fsmap);
+   void set_mgr_map(MgrMap const &new_mgrmap);
++  void set_service_map(ServiceMap const &new_service_map);
+ 
+   void notify_osdmap(const OSDMap &osd_map);
+ 
+@@ -73,6 +76,13 @@ public:
+     return fsmap.get_epoch() > 0;
+   }
+ 
++  template<typename Callback, typename...Args>
++  void with_servicemap(Callback&& cb, Args&&...args) const
++  {
++    Mutex::Locker l(lock);
++    std::forward<Callback>(cb)(servicemap, std::forward<Args>(args)...);
++  }
++
+   template<typename Callback, typename...Args>
+   void with_fsmap(Callback&& cb, Args&&...args) const
+   {

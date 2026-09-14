@@ -1,0 +1,39 @@
+commit d3c8d3fc6566d3c909d36875d9ba05345fc90cb2
+Author: Sun Yuechi <sunyuechi@iscas.ac.cn>
+Date:   Tue Jun 16 03:41:34 2026 +0800
+
+    crimson,mgr: mark assert-only variables [[maybe_unused]]
+    
+    These variables are only read inside assert(), which is compiled out
+    under NDEBUG. Mark them [[maybe_unused]] to silence the warnings while
+    keeping the debug-only assert() style used by the surrounding code:
+    
+      src/crimson/os/seastore/lba/btree_lba_manager.cc:1078: unused variable 'orig_len' [-Wunused-variable]
+      src/crimson/os/seastore/omap_manager/log/log_manager.cc:73: variable 'ret' set but not used [-Wunused-but-set-variable]
+      src/crimson/os/seastore/transaction_manager.cc:382: variable 'intermediate_key' set but not used [-Wunused-but-set-variable]
+      src/mgr/PyModule.cc:166,186: unused variable 'r' [-Wunused-variable]
+    
+    Signed-off-by: Sun Yuechi <sunyuechi@iscas.ac.cn>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 46dc97073b8..40531f6db8f 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -163,7 +163,7 @@ std::span<std::byte const> py_bytes_as_span(PyObject *bytes)
+   assert(PyBytes_CheckExact(bytes));
+   Py_ssize_t length;
+   char *buf;
+-  int r = PyBytes_AsStringAndSize(
++  [[maybe_unused]] int r = PyBytes_AsStringAndSize(
+     bytes, &buf, &length);
+   assert(r == 0);
+   return std::span<std::byte const>((const std::byte*)buf, size_t(length));
+@@ -183,7 +183,7 @@ std::vector<std::byte> py_bytes_as_vec(PyObject *bytes)
+   assert(PyBytes_CheckExact(bytes));
+   Py_ssize_t length;
+   char *buf;
+-  int r = PyBytes_AsStringAndSize(
++  [[maybe_unused]] int r = PyBytes_AsStringAndSize(
+     bytes, &buf, &length);
+   assert(r == 0);
+   return std::vector<std::byte>{

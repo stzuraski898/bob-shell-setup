@@ -1,0 +1,70 @@
+commit 18f253aa3f1b0693c5345756ecca7ca365c389e5
+Author: Noah Watkins <nwatkins@redhat.com>
+Date:   Tue Sep 4 10:17:22 2018 -0700
+
+    mgr: monitor-controlled always on modules
+    
+    the original version of the always-on mgr modules feature had an issue
+    such that if a user-enabled module was included in the always-on list of
+    modules then after an upgrade the module would remain in the list of
+    enabled modules (because it was still in the manager map). this results
+    in awkward ux since the modules cannot actually be disabled. this patch
+    addresses the issue by altering MgrMap to contain the always on modules,
+    and centralizes control of this list in the monitor.
+    
+    the list of always on modules is versioned at compile time, and the
+    monitor will update the manager map when this verison is bumped. manager
+    daemons enable the union of user-enabled modules and the list of always
+    on modules. this is important so that a user-enabled module is not
+    disabled if it goes through a cycle of being in the always on list, and
+    then being removed through an upgrade sequence.
+    
+    communicating the always on modules to the daemon enables the daemon to
+    provide the best error reporting when an always on module encounters an
+    issue (i.e. complain loudly).
+    
+    Signed-off-by: Noah Watkins <nwatkins@redhat.com>
+
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index 3ffdeb8f13a..db5c501d375 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -57,13 +57,15 @@ class PyModule
+   mutable Mutex lock{"PyModule::lock"};
+ private:
+   const std::string module_name;
+-  const bool always_on;
+   std::string get_site_packages();
+   int load_subclass_of(const char* class_name, PyObject** py_class);
+ 
+   // Did the MgrMap identify this module as one that should run?
+   bool enabled = false;
+ 
++  // Did the MgrMap flag this module as always on?
++  bool always_on = false;
++
+   // Did we successfully import this python module and look up symbols?
+   // (i.e. is it possible to instantiate a MgrModule subclass instance?)
+   bool loaded = false;
+@@ -97,8 +99,8 @@ public:
+   PyObject *pClass = nullptr;
+   PyObject *pStandbyClass = nullptr;
+ 
+-  explicit PyModule(const std::string &module_name_, bool always_on)
+-    : module_name(module_name_), always_on(always_on)
++  explicit PyModule(const std::string &module_name_)
++    : module_name(module_name_)
+   {
+   }
+ 
+@@ -120,6 +122,10 @@ public:
+     enabled = enabled_;
+   }
+ 
++  void set_always_on(const bool always_on_) {
++    always_on = always_on_;
++  }
++
+   /**
+    * Extend `out` with the contents of `this->commands`
+    */

@@ -1,0 +1,23 @@
+commit b1e5d492d684b5a28b0009301bf894531c53f3b9
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Apr 3 14:27:02 2017 -0400
+
+    mgr: fix deadlock in dispatch
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index af176fd9b24..daa482b9325 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -256,7 +256,9 @@ bool MgrStandby::ms_dispatch(Message *m)
+ 
+     default:
+       if (active_mgr) {
+-        return active_mgr->ms_dispatch(m);
++        lock.Unlock();
++        active_mgr->ms_dispatch(m);
++        lock.Lock();
+       } else {
+         return false;
+       }

@@ -1,0 +1,29 @@
+commit b5487abb8b946c534d0e93f88c8b9b2d1cb35bae
+Author: Noah Watkins <nwatkins@redhat.com>
+Date:   Tue Jul 10 14:09:44 2018 -0700
+
+    mgr/pybind: expose erasure code profiles
+    
+    handles the insights cases that had been using Ceph CLI
+    `erasure-code-profile ls/get` to access the same data.
+    
+    Signed-off-by: Noah Watkins <nwatkins@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 1c127cacd3c..4f05de756e5 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -362,6 +362,13 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+       mgr_map.dump(&f);
+     });
+     return f.get();
++  } else if (what == "ec_profiles") {
++    PyFormatter f;
++    cluster_state.with_osdmap([&f, &what](const OSDMap &osdmap){
++      const auto &profiles = osdmap.get_erasure_code_profiles();
++      osdmap.dump_erasure_code_profiles(profiles, &f);
++    });
++    return f.get();
+   } else {
+     derr << "Python module requested unknown data '" << what << "'" << dendl;
+     Py_RETURN_NONE;

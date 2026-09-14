@@ -1,0 +1,48 @@
+commit 26d10b300e59fe656feafc6a86ae4ff1f4e2c3dd
+Author: NitzanMordhai <nmordech@ibm.com>
+Date:   Wed Jan 7 14:36:57 2026 +0000
+
+    mgr/ActivePyModules: fix dangling string_view in get_perf_schema_python
+    
+    prev_key_name and key_name variables were declared as std::string_view but
+    prev_key_name was assigned from key_name, which points to
+    key_name_without_counter's buffer. This buffer is overwritten each iteration,
+    causing prev_key_name and key_name to become a dangling pointers.
+    
+    This results in corrupted comparisons and can cause assertion failures like
+    ("cursor != root" in PyFormatter::close_section) or segmentation faults
+    when the corrupted string is passed back to telemetry.
+    
+    Fixes: https://tracker.ceph.com/issues/74286
+    Signed-off-by: Nitzan Mordechai <nmordech@ibm.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 0cf6aa3c116..5ec3ccd44b3 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -1152,7 +1152,7 @@ PyObject* ActivePyModules::get_perf_schema_python(
+     for (auto &[key, state] : daemons) {
+       std::lock_guard l(state->lock);
+       with_gil(no_gil, [&, key = ceph::to_string(key), state = state] {
+-	std::string_view key_name, prev_key_name;
++	std::string key_name, prev_key_name;
+ 	perf_counter_label_pairs prev_key_labels;
+ 	Formatter::ObjectSection counter_section(
+ 	    f, key.c_str());  // Main Object Section
+@@ -1182,14 +1182,12 @@ PyObject* ActivePyModules::get_perf_schema_python(
+ 
+ 	  // Extract the key names from the counter path, these key names form
+ 	  // the main object section for their counters
+-	  string key_name_without_counter;
+ 	  if (key_labels.empty()) {
+ 	    size_t pos = counter_name_with_labels.rfind('.');
+-	    key_name_without_counter = counter_name_with_labels.substr(0, pos);
+-	    key_name = key_name_without_counter;  // key_name, osd
++	    key_name = counter_name_with_labels.substr(0, pos);  // key_name, osd
+ 	  } else {
+ 	    // key_name, osd_scrub_sh_repl
+-	    key_name = ceph::perf_counters::key_name(counter_name_with_labels);
++	    key_name = std::string(ceph::perf_counters::key_name(counter_name_with_labels));
+ 	  }
+ 
+ 	  /*

@@ -1,0 +1,29 @@
+commit 156c941ad0d27c3cd487a085e04df9faeeffa768
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Mon Dec 25 03:33:57 2017 -0500
+
+    mgr: Use unqualified encode/decode
+    
+    This is a portion of Part 1 of the namespace project: using ADL
+    properly in encode and decode so we can use namespaces easily in Ceph.
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 33d467303eb..0c8246dd061 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -297,10 +297,10 @@ void MgrClient::send_report()
+ 	session->declared.insert(path);
+       }
+ 
+-      ::encode(static_cast<uint64_t>(data.u64), report->packed);
++      encode(static_cast<uint64_t>(data.u64), report->packed);
+       if (data.type & PERFCOUNTER_LONGRUNAVG) {
+-        ::encode(static_cast<uint64_t>(data.avgcount), report->packed);
+-        ::encode(static_cast<uint64_t>(data.avgcount2), report->packed);
++        encode(static_cast<uint64_t>(data.avgcount), report->packed);
++        encode(static_cast<uint64_t>(data.avgcount2), report->packed);
+       }
+     }
+     ENCODE_FINISH(report->packed);

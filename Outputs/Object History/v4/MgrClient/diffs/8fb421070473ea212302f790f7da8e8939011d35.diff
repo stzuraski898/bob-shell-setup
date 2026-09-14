@@ -1,0 +1,22 @@
+commit 8fb421070473ea212302f790f7da8e8939011d35
+Author: Rubab-Syed <rubab.syed21@gmail.com>
+Date:   Sat Jan 27 03:45:56 2018 +0500
+
+    mgr: add units to performance counters
+    
+    Signed-off-by: Rubab Syed<rubab.syed21@gmail.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 0c8246dd061..15be2e7ddd5 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -292,7 +292,8 @@ void MgrClient::send_report()
+ 	  type.nick = data.nick;
+ 	}
+ 	type.type = data.type;
+-        type.priority = perf_counters.get_adjusted_priority(data.prio);
++       type.priority = perf_counters.get_adjusted_priority(data.prio);
++	type.unit = data.unit;
+ 	report->declare_types.push_back(std::move(type));
+ 	session->declared.insert(path);
+       }

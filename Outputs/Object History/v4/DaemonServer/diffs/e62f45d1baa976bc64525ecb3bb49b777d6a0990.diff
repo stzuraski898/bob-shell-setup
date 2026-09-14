@@ -1,0 +1,51 @@
+commit e62f45d1baa976bc64525ecb3bb49b777d6a0990
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jan 16 15:45:32 2019 -0600
+
+    msg/Dispatcher: remove force_new arg from ms_get_authorizer()
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index e240e98fa7b..d9636ff914c 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -217,8 +217,9 @@ int DaemonServer::ms_handle_authentication(Connection *con)
+   return ret;
+ }
+ 
+-bool DaemonServer::ms_get_authorizer(int dest_type,
+-    AuthAuthorizer **authorizer, bool force_new)
++bool DaemonServer::ms_get_authorizer(
++  int dest_type,
++  AuthAuthorizer **authorizer)
+ {
+   dout(10) << "type=" << ceph_entity_type_name(dest_type) << dendl;
+ 
+@@ -226,12 +227,6 @@ bool DaemonServer::ms_get_authorizer(int dest_type,
+     return true;
+   }
+ 
+-  if (force_new) {
+-    auto timeout = g_conf().get_val<int64_t>("rotating_keys_renewal_timeout");
+-    if (monc->wait_auth_rotating(timeout) < 0)
+-      return false;
+-  }
+-
+   *authorizer = monc->build_authorizer(dest_type);
+   dout(20) << "got authorizer " << *authorizer << dendl;
+   return *authorizer != NULL;
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index d6a5aafbd6b..35901aad446 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -149,8 +149,7 @@ public:
+   bool ms_handle_reset(Connection *con) override;
+   void ms_handle_remote_reset(Connection *con) override {}
+   bool ms_handle_refused(Connection *con) override;
+-  bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer,
+-                         bool force_new) override;
++  bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer) override;
+   KeyStore *ms_get_auth1_authorizer_keystore() override;
+ 
+   bool handle_open(MMgrOpen *m);

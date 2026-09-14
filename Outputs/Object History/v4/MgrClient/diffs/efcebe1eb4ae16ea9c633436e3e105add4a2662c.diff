@@ -1,0 +1,121 @@
+commit efcebe1eb4ae16ea9c633436e3e105add4a2662c
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Tue Sep 10 09:49:04 2019 -0400
+
+    mgr: templatize/generalize metrics collection interface
+    
+    templatize metrics collection so as to reuse quering routines.
+    `MetricCollector` can be subclassed and along with implementing
+    ` process_reports()` to process incoming metrics data.
+    
+    also, generalize metrics data in `MMgrReport` and metric query
+    configuration in `MMgrConfigure`.
+    
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index fd22c05e998..4903fa3a083 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -400,7 +400,9 @@ void MgrClient::_send_report()
+ 			    &last_config_bl_version);
+ 
+   if (get_perf_report_cb) {
+-    get_perf_report_cb(&report->osd_perf_metric_reports);
++    MetricPayload payload = get_perf_report_cb();
++    MetricReportMessage message(payload);
++    report->metric_report_message = message;
+   }
+ 
+   session->con->send_message2(report);
+@@ -437,8 +439,11 @@ bool MgrClient::handle_mgr_configure(ref_t<MMgrConfigure> m)
+     stats_threshold = m->stats_threshold;
+   }
+ 
+-  if (set_perf_queries_cb) {
+-    set_perf_queries_cb(m->osd_perf_metric_queries);
++  if (!m->osd_perf_metric_queries.empty()) {
++    handle_config_payload(m->osd_perf_metric_queries);
++  } else if (m->metric_config_message) {
++    const MetricConfigMessage &message = *m->metric_config_message;
++    boost::apply_visitor(HandlePayloadVisitor(this), message.payload);
+   }
+ 
+   bool starting = (stats_period == 0) && (m->stats_period != 0);
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index e9053ccf1f0..6ac56fec970 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -14,13 +14,15 @@
+ #ifndef MGR_CLIENT_H_
+ #define MGR_CLIENT_H_
+ 
++#include <boost/variant.hpp>
++
+ #include "msg/Connection.h"
+ #include "msg/Dispatcher.h"
+ #include "mon/MgrMap.h"
+ #include "mgr/DaemonHealthMetric.h"
+ 
+ #include "messages/MMgrReport.h"
+-#include "mgr/OSDPerfMetricTypes.h"
++#include "mgr/MetricTypes.h"
+ 
+ #include "common/perf_counters.h"
+ #include "common/Timer.h"
+@@ -84,10 +86,8 @@ protected:
+   // If provided, use this to compose an MPGStats to send with
+   // our reports (hook for use by OSD)
+   std::function<MPGStats*()> pgstats_cb;
+-  std::function<void(const std::map<OSDPerfMetricQuery,
+-                                    OSDPerfMetricLimits> &)> set_perf_queries_cb;
+-  std::function<void(std::map<OSDPerfMetricQuery,
+-                              OSDPerfMetricReport> *)> get_perf_report_cb;
++  std::function<void(const ConfigPayload &)> set_perf_queries_cb;
++  std::function<MetricPayload()> get_perf_report_cb;
+ 
+   // for service registration and beacon
+   bool service_daemon = false;
+@@ -131,10 +131,8 @@ public:
+     int r);
+ 
+   void set_perf_metric_query_cb(
+-    std::function<void(const std::map<OSDPerfMetricQuery,
+-                                      OSDPerfMetricLimits> &)> cb_set,
+-          std::function<void(std::map<OSDPerfMetricQuery,
+-                                      OSDPerfMetricReport> *)> cb_get)
++    std::function<void(const ConfigPayload &)> cb_set,
++    std::function<MetricPayload()> cb_get)
+   {
+       std::lock_guard l(lock);
+       set_perf_queries_cb = cb_set;
+@@ -171,6 +169,29 @@ public:
+   bool is_initialized() const { return initialized; }
+ 
+ private:
++  void handle_config_payload(const OSDConfigPayload &payload) {
++    if (set_perf_queries_cb) {
++      set_perf_queries_cb(payload);
++    }
++  }
++
++  void handle_config_payload(const UnknownConfigPayload &payload) {
++    ceph_abort();
++  }
++
++  struct HandlePayloadVisitor : public boost::static_visitor<void> {
++    MgrClient *mgrc;
++
++    HandlePayloadVisitor(MgrClient *mgrc)
++      : mgrc(mgrc) {
++    }
++
++    template <typename ConfigPayload>
++    inline void operator()(const ConfigPayload &payload) const {
++      mgrc->handle_config_payload(payload);
++    }
++  };
++
+   void _send_stats();
+   void _send_pgstats();
+   void _send_report();

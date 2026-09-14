@@ -1,0 +1,30 @@
+commit 1bf4a89890d2312964f44b9b03640120a5a0cab2
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Jul 20 15:59:38 2017 -0400
+
+    mon/MgrMonitor: store mgr daemon metadata
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 6f83fc13f32..29e8b06af85 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -161,12 +161,16 @@ void MgrStandby::send_beacon()
+   dout(10) << "sending beacon as gid " << monc.get_global_id()
+ 	   << " modules " << modules << dendl;
+ 
++  map<string,string> metadata;
++  collect_sys_info(&metadata, g_ceph_context);
++
+   MMgrBeacon *m = new MMgrBeacon(monc.get_fsid(),
+ 				 monc.get_global_id(),
+                                  g_conf->name.get_id(),
+                                  addr,
+                                  available,
+-				 modules);
++				 modules,
++				 metadata);
+ 
+   if (available && !available_in_map) {
+     // We are informing the mon that we are done initializing: inform

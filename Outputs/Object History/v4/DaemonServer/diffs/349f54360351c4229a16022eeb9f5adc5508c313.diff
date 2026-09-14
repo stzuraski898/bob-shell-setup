@@ -1,0 +1,44 @@
+commit 349f54360351c4229a16022eeb9f5adc5508c313
+Author: Gu Zhongyan <guzhongyan@360.cn>
+Date:   Wed Mar 28 17:22:21 2018 +0800
+
+    mgr/DaemonServer: add overrides value to 'config show'
+    
+    config options can be overrided. If this happens,
+    values from different sources will be different.
+    display all source override values in 'config show'
+    would be helpful.
+    
+    Signed-off-by: Gu Zhongyan <guzhongyan@360.cn>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 0d5dac7a095..5df71507c56 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1427,9 +1427,12 @@ bool DaemonServer::handle_command(MCommand *m)
+ 	      for (--j; j != i.second.rbegin(); --j) {
+ 		if (j->second == i.second.rbegin()->second) {
+ 		  ov.push_front(string("(") + ceph_conf_level_name(j->first) +
++				string("[") + j->second + string("]") +
+ 				string(")"));
+ 		} else {
+-		  ov.push_front(ceph_conf_level_name(j->first));
++                  ov.push_front(ceph_conf_level_name(j->first) +
++                                string("[") + j->second + string("]"));
++
+ 		}
+ 	      }
+ 	      tbl << ov;
+@@ -1481,9 +1484,11 @@ bool DaemonServer::handle_command(MCommand *m)
+ 		for (--k; k != j->second.rbegin(); --k) {
+ 		  if (k->second == j->second.rbegin()->second) {
+ 		    ov.push_front(string("(") + ceph_conf_level_name(k->first) +
++				  string("[") + k->second + string("]") +
+ 				  string(")"));
+ 		  } else {
+-		    ov.push_front(ceph_conf_level_name(k->first));
++                    ov.push_front(ceph_conf_level_name(k->first) +
++                                  string("[") + k->second + string("]"));
+ 		  }
+ 		}
+ 		tbl << ov;

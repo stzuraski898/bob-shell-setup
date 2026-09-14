@@ -1,0 +1,23 @@
+commit 491d653632f8f06c69408a9a6d0f64d0a6ce2352
+Author: Chang Liu <liuchang0812@gmail.com>
+Date:   Wed Feb 15 21:39:38 2017 +0800
+
+    mgr: add override in mgr subsystem
+    
+    Fixes: http://tracker.ceph.com/issues/18922
+    
+    Signed-off-by: liuchang0812 <liuchang0812@gmail.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index aa68260ce30..a4ddcda38c1 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -399,7 +399,7 @@ public:
+   ServeThread(MgrPyModule *mod_)
+     : mod(mod_) {}
+ 
+-  void *entry()
++  void *entry() override
+   {
+     PyGILState_STATE gstate;
+     gstate = PyGILState_Ensure();

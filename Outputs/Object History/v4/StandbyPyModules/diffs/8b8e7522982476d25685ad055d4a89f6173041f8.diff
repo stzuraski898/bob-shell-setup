@@ -1,0 +1,23 @@
+commit 8b8e7522982476d25685ad055d4a89f6173041f8
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 29 18:46:36 2021 -0400
+
+    mgr: add get() for standby modules
+    
+    Fixes: https://tracker.ceph.com/issues/51446
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/StandbyPyModules.h b/src/mgr/StandbyPyModules.h
+index b434c917c7a..501dfc8c7e4 100644
+--- a/src/mgr/StandbyPyModules.h
++++ b/src/mgr/StandbyPyModules.h
+@@ -93,6 +93,9 @@ class StandbyPyModule : public PyModuleRunner
+   bool get_config(const std::string &key, std::string *value) const;
+   bool get_store(const std::string &key, std::string *value) const;
+   std::string get_active_uri() const;
++  entity_addrvec_t get_myaddrs() const {
++    return state.get_monc().get_myaddrs();
++  }
+ 
+   int load();
+ };

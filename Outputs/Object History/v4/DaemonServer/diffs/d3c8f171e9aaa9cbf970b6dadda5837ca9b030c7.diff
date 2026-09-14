@@ -1,0 +1,24 @@
+commit d3c8f171e9aaa9cbf970b6dadda5837ca9b030c7
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Dec 2 10:19:16 2021 -0500
+
+    mgr: stop issuing events that no modules consume
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 36ab66db999..5fcd3d403e0 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -678,9 +678,11 @@ bool DaemonServer::handle_report(const ref_t<MMgrReport>& m)
+   }
+ 
+   // if there are any schema updates, notify the python modules
++  /* no users currently
+   if (!m->declare_types.empty() || !m->undeclare_types.empty()) {
+     py_modules.notify_all("perf_schema_update", ceph::to_string(key));
+   }
++  */
+ 
+   if (m->get_connection()->peer_is_osd()) {
+     osd_perf_metric_collector.process_reports(m->osd_perf_metric_reports);

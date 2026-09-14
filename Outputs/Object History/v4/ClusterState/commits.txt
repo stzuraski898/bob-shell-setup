@@ -1,0 +1,74 @@
+# Non-merge commits touching src/mgr/ClusterState.cc and/or src/mgr/ClusterState.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+0bac6af3c18a989771e2d5bb9199f8aae64943f8 2026-05-19 Nitzan Mordechai | mgr/ClusterState: remove debug 30 memory spike
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b 2025-10-02 Edwin Rodriguez | Add blank line after header block
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 2025-10-02 Edwin Rodriguez | Add missing blank line after comment block
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+3ab70dd3e1150b2b3f66cbbee329ea95618747a5 2024-10-16 Max Kellermann | common/Formatter: move {JSON,Table,XML}Formatter to separate files
+70b41ea1ee8388d0e5910fd0a3ca3c9fb9e645ec 2025-06-06 Kamoltat Sirivadhna | src/mgr/ClusterState.cc: micro improve ingest_pgstats
+327b3de54eeca80d84fc4cd2da1b2917aca9b791 2024-10-29 Max Kellermann | mgr/ClusterState: move own header to the top
+dd9f9e268b5562bae8972bce03ec0970f353ae14 2023-11-02 Ramana Raja | mgr/Mgr: remove shutdown() and handle_signal()
+07ad8df2dd74f2fb4bbde6332a04cc5453bff435 2021-10-23 Sage Weil | common/admin_socket: pass inbl to sync call() method
+c63ecb602e5916d5e0beed137787fdfc67707f15 2021-08-11 Kefu Chai | mgr: build without "using namespace std"
+9c652fb305a3e3d1b4a752bac9bd8a85d15c7de9 2020-12-24 Kefu Chai | mgr/ActivePyModules.cc: use wrappers for acquiring/releasing GIL
+493ec9d3acd3f57eed3e4b96ad7c6739c2089ff1 2020-07-29 Zhi Zhang | mgr: don't update osd stat which is already out
+da362675da51de8b20a12e4cec479a77c7f5442b 2020-03-27 Radoslaw Zarzynski | mgr: synchronize ClusterState's health and mon_status.
+a54d0a90c06aed1ae26826d7d5317ba13e18c86e 2020-01-17 Chunmei Liu | crimson:common add TOPNSPC namespace for ceph and crimson
+5d5b0f96df39fd0c7e7ae5998043d53cd785b18e 2020-01-31 Kefu Chai | src/: drop cct from cmd_getval()
+adf1486e46cb1f7820c77adb7b6436c47c743242 2019-09-19 Sage Weil | common/admin_socket: pass Formatter from generic infrastructure
+a4c07734bf9e1da0c4f31c83f5dcb611cc8b449b 2019-09-13 Sage Weil | common/admin_socket: pass ostream to call() for error output
+9d772b8ea9e582075009cea6b8a6b6868e8e531a 2019-09-06 Sage Weil | common/admin_socket: return int from hook call()
+1a7cdedb56015485cfd6c9dcf767176d1e850f12 2019-09-05 Sage Weil | common/admin_socket: drop explicit prefix arg to register_command
+6d2e4cb109caff8dae5e5e18563b6305131b488b 2019-09-06 David Zafman | test: Allow fractional milliseconds to make test possible
+5f83a6158b29944cf8f5a069c50edba3e172cdcc 2019-09-04 David Zafman | osd doc mon mgr: To milliseconds for config value, user input and threshold out
+9d02e5d39d7b5e2806a5d98bdde24f4584e70528 2019-08-05 David Zafman | osd mon mgr: Convert all network ping time output to milliseconds
+048f8096265dd3a647adb970255e4b11c9617b2e 2019-07-22 David Zafman | osd mgr: Add osd_mon_heartbeat_stat_stale option to time out ping info after 1 hour
+0d1bbd34e96e2da2027861229b376805d5ea8aa6 2019-07-11 David Zafman | osd mgr mon: Add mon_warn_on_slow_ping_ratio config as 5% of osd_heartbeat_grace
+297a0e7b1de410c094fc9a6e42be14813d6dac5e 2019-07-12 David Zafman | osd mgr: Add minimum and maximum tracking to network ping time
+3f846d7c806b7f62ead08f0e9fb2ba927ffe0592 2019-07-15 David Zafman | osd mgr: Store last pingtime for possible graphing
+5d3c1856415f8b66e31361a0a7b9c75edc46e49e 2019-07-09 David Zafman | mgr: Add "dump_osd_network" mgr admin request to get a sorted report
+ea20d3522aaf644cef989c565e11dd781e420e18 2019-07-18 David Zafman | osd mon: Add last_update to osd_stat_t heartbeat info
+c93dc8849145c1630058e4c0e527f404929216ff 2019-07-07 Kefu Chai | mgr: s/Mutex/ceph::mutex/
+a075639ce746fe12cde1a3df8ad7b13c3fd9baf6 2019-04-15 Kefu Chai | mgr/DaemonServer: use ref_t<M>
+63df4060824316476e5e022e1a923c57090c2be7 2017-12-11 Igor Fedotov | osd,mon: start using per-pool statistics reported from OSD.
+03a761c980a1171fe6adf7a463f3ab80ec6d4052 2018-11-15 Sage Weil | mgr: lock pg_map too for osd_pool_stats and notify_osdmap
+60876ccce4e9de7e138dc04cfac056b29a607b4c 2018-11-15 Sage Weil | mgr/ClusterState: add with_osdmap_and_pgmap
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f 2018-10-16 Sage Weil | mgr: Mutex::Locker -> std::lock_guard
+9e906733fe07925f6956a592e2718000f62fef93 2018-07-29 Sage Weil | mgr/ClusterState: discard pg updates for pgs >= pg_num
+ab23c506964753990f9fe23e314b9f3e2547a773 2018-08-23 Adam C. Emerson | mgr: Use ceph_assert for asserts.
+86f0b811882de334f0d7e577b6c47bef6aba2422 2017-10-12 Sage Weil | mon/PGMap: add purged_snaps map to PGMapDigest
+83b9ef73c0c135ef7cd09edf33ae929693886ef5 2017-08-28 Sage Weil | mon/PGMap: remove osd_epochs
+1dcab1c770b07f523f15870d5bef201a93546acc 2017-08-28 Sage Weil | mon: drop PGMapStatService
+a7612d33d1e4184af7faa6712fc50d6487a09c40 2017-08-10 Sage Weil | mgr/ClusterState: record osd_stat for out osds too
+ae688fc4d72c10d5bfb15ab75ad700f1187f77f5 2017-07-11 Sage Weil | mgr/ClusterState: do not mangle PGMap outside of Incremental
+97cfc3cb694eb2723cae22d71057323773746cee 2017-06-26 Sage Weil | mgr: allow/track service registrations
+6c10417f7ed365425019108c2cb9f6d1e091b975 2017-06-27 Sage Weil | mgr: include MgrMap in ClusterState
+19810df09e0b4a3752d0ab138fe2263bd3afb569 2017-06-13 Greg Farnum | mon: mgr: enable "osd df" on the manager
+c2258991393fedf64f5747e44f03a04f3a853e88 2017-06-07 Sage Weil | mgr/ClusterState: dump pgmap and inc at dout 30
+aad1afcb96de1483ecaf93adf473d5732246ea7a 2017-05-30 Kefu Chai | mgr: reset pending_inc after applying it
+6afca3beb2a867195d971e0f37710aa3d6b5b4b8 2017-05-23 Sage Weil | mgr/ClusterState: make pg stat filtering less fragile
+d6d1db62edeb4c40a774fcb56e7619b2997ff2d0 2017-05-23 Sage Weil | mgr: apply PGMap incremental at same interval as reports
+0612b716275403f2bd34846c6082654f35115847 2017-05-19 Sage Weil | mgr: simplify handling of new pgs/pools
+681d37c05554b8d57cf70c9b4809e6967f03ccd2 2017-05-19 Sage Weil | mgr/ClusterState: apply latest osdmap to pgmap
+74752505bfc30de11821fc5c7e6a6631a1cba2b6 2017-05-17 Kefu Chai | mgr: add a command "mgr report"
+27bd39cd0550a25be39d93737c0dc91c25d34a33 2017-05-16 Sage Weil | mgr/ClusterState: report health about pgs
+b73e4374147210628a64267cfeaf3970c55a45eb 2017-05-12 Sage Weil | mgr: send PGMapDigest instead of PGMap to mon
+759c7d0aee11acf3a14492c239d2bc5493cb841f 2017-03-10 Greg Farnum | mon: mgr: send a pgmap in reports
+ff1258e7ef39f1f1a69ef6475445712c1dc6e037 2017-03-10 Greg Farnum | mgr: introduce tick() calls through the system
+983fe8ec888b998cee33680390173fe6636574f3 2017-05-20 Kefu Chai | mon,mgr: std::move(osd_stat) when possible
+3da07ea0a599c92f24053e5d6778fa2fda89a461 2017-03-20 Song Baisen | mgr: optimization some judgment and adjust the debug remove value in register_new_pgs
+6646b35ac76d518f7d764724b8a2cf7e4f8356ee 2017-04-09 Kefu Chai | mgr,mon,osdc: more constness
+c14b913bad3898e90630fcc7a4340783a985469f 2017-04-09 Kefu Chai | mgr/DaemonServer: always template the return value
+3f514bda1cfc6a0833f62edff98a279ebbd2a22b 2017-04-06 Wei Jin | mgr: clean nonused function declaration
+1113eb123b1470f19feb3539153cad5159e54509 2017-04-04 Sage Weil | mgr/Mgr: use cond (not context) for FSMap wait
+454da5e7b24c3e8bc4b0e61ca4460fdcc90d5168 2017-02-24 Kefu Chai | mon: pass const variables by const ref not pointer
+3893432646b7bb70a85b72ca1bd827c42fdd912a 2017-02-10 Sage Weil | mgr: mark stale PGs
+b9182564c716fdfcb39cc77314ba295990dd4312 2016-11-16 Adam C. Emerson | dout: Use dout_context
+45b33934e878908332c9fee239b47db7657302ee 2016-09-23 John Spray | mgr: fixup ClusterState with_*map fns
+afa7078763efc053814434d4b0dae08dd2295349 2016-09-22 John Spray | mon: refactor PGMap updating code for reuse in mgr
+ea46778e3681e5ed6b322f68ab40747b2e052433 2016-07-31 John Spray | mgr: expose "df" to python modules
+fa147e3a591a4d74a7a8692b17add420ffc9bf98 2016-07-31 John Spray | mgr: handle PGStats with a PGMap
+ac30e6cee2b2d3815438f1a392a951d511bddfd4 2016-06-30 John Spray | mgr: create ceph-mgr service

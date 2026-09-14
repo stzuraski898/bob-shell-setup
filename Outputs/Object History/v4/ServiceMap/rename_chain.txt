@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/ServiceMap.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/ServiceMap.cc f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 7fce6382f2c35e767dcf326c088bc31e650386d3
+#
+# Rename chain for src/mgr/ServiceMap.h
+#
+src/mgr/ServiceMap.h 85d82faac250716549ebffeb9eb48f3b4f53711f 7fce6382f2c35e767dcf326c088bc31e650386d3

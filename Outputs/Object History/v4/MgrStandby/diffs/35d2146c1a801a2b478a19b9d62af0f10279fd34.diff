@@ -1,0 +1,26 @@
+commit 35d2146c1a801a2b478a19b9d62af0f10279fd34
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Apr 13 10:11:31 2021 -0400
+
+    mgr/MgrStandby: add mgr_standby_modules option
+    
+    Add config option to control whether the standby modules are started.
+    Default to true (no change in behavior), but if set to false the standby
+    mgr modules don't do the redirect business.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 37a2219bccb..ea15a1456eb 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -425,7 +425,8 @@ void MgrStandby::handle_mgr_map(ref_t<MMgrMap> mmap)
+     if (map.active_gid != 0 && map.active_name != g_conf()->name.get_id()) {
+       // I am the standby and someone else is active, start modules
+       // in standby mode to do redirects if needed
+-      if (!py_module_registry.is_standby_running()) {
++      if (!py_module_registry.is_standby_running() &&
++	  g_conf().get_val<bool>("mgr_standby_modules")) {
+         py_module_registry.standby_start(monc, finisher);
+       }
+     }

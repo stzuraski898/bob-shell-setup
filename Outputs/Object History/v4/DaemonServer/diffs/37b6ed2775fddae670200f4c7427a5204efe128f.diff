@@ -1,0 +1,21 @@
+commit 37b6ed2775fddae670200f4c7427a5204efe128f
+Author: Samuel Just <sjust@redhat.com>
+Date:   Tue Feb 27 17:31:31 2024 -0800
+
+    mgr/DaemonServer: fix debug message typo (max->max_misplaced)
+    
+    Signed-off-by: Samuel Just <sjust@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index bb115ced20a..29a9acea533 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2889,7 +2889,7 @@ void DaemonServer::adjust_pgs()
+ 		     << " pgp_num_target " << p.get_pgp_num_target()
+ 		     << " pgp_num " << p.get_pgp_num()
+ 		     << " - misplaced_ratio " << misplaced_ratio
+-		     << " > max " << max_misplaced
++		     << " > max_misplaced " << max_misplaced
+ 		     << ", deferring pgp_num update" << dendl;
+ 	  } else {
+ 	    // NOTE: this calculation assumes objects are

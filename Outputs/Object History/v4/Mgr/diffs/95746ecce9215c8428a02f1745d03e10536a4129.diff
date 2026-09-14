@@ -1,0 +1,24 @@
+commit 95746ecce9215c8428a02f1745d03e10536a4129
+Author: Volker Theile <vtheile@suse.com>
+Date:   Mon Sep 24 12:18:56 2018 +0200
+
+    mgr: Add ability to trigger a cluster/audit log message from Python
+    
+    Fixes: https://tracker.ceph.com/issues/36194
+    
+    Signed-off-by: Volker Theile <vtheile@suse.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index eb60ee24538..573975988f3 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -286,7 +286,8 @@ void Mgr::init()
+   // assume finisher already initialized in background_init
+   dout(4) << "starting python modules..." << dendl;
+   py_module_registry->active_start(daemon_state, cluster_state,
+-      kv_store, *monc, clog, *objecter, *client, finisher, server);
++      kv_store, *monc, clog, audit_clog, *objecter, *client,
++      finisher, server);
+ 
+   dout(4) << "Complete." << dendl;
+   initializing = false;

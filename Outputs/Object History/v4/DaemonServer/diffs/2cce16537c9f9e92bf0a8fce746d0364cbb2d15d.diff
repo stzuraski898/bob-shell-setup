@@ -1,0 +1,107 @@
+commit 2cce16537c9f9e92bf0a8fce746d0364cbb2d15d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Mar 4 08:35:24 2021 -0500
+
+    mgr/DaemonServer: osd ok-to-stop: return json when there are unknown PGs
+    
+    In 791952cc01201010f298033003ba52374cc0159f we switched to return JSON
+    both on success and fail to describe which PGs are affected or are blocking
+    the ability to stop/restart OSDs.  Do the same for the case where
+    some PG states are unknown (i.e., just after a mgr restart) so that
+    the cephadm upgrade process can unconditionally expect a JSON result.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 88f325f10e4..b70ea066680 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -881,6 +881,10 @@ void DaemonServer::_check_offlines_pgs(
+   for (const auto& q : pgmap.pg_stat) {
+     set<int32_t> pg_acting;  // net acting sets (with no missing if degraded)
+     bool found = false;
++    if (q.second.state == 0) {
++      report->unknown.insert(q.first);
++      continue;
++    }
+     if (q.second.state & PG_STATE_DEGRADED) {
+       for (auto& anm : q.second.avail_no_missing) {
+ 	if (osds.count(anm.osd)) {
+@@ -931,7 +935,9 @@ void DaemonServer::_check_offlines_pgs(
+     }
+   }
+   dout(20) << osds << " -> " << report->ok.size() << " ok, "
+-	   << report->not_ok.size() << " not ok" << dendl;
++	   << report->not_ok.size() << " not ok, "
++	   << report->unknown.size() << " unknown"
++	   << dendl;
+ }
+ 
+ void DaemonServer::_maximize_ok_to_stop_set(
+@@ -1737,26 +1743,21 @@ bool DaemonServer::_handle_command(
+     }
+     offline_pg_report out_report;
+     cluster_state.with_osdmap_and_pgmap([&](const OSDMap& osdmap, const PGMap& pg_map) {
+-	if (pg_map.num_pg_unknown > 0) {
+-	  ss << pg_map.num_pg_unknown << " pgs have unknown state; "
+-	     << "cannot draw any conclusions";
+-	  r = -EAGAIN;
+-	  return;
+-	}
+ 	_maximize_ok_to_stop_set(
+ 	  osds, max, osdmap, pg_map,
+ 	  &out_report);
+       });
+-    if (r < 0) {
+-      cmdctx->reply(r, ss);
+-      return true;
+-    }
+     if (!f) {
+       f.reset(Formatter::create("json"));
+     }
+     f->dump_object("ok_to_stop", out_report);
+     f->flush(cmdctx->odata);
+     cmdctx->odata.append("\n");
++    if (!out_report.unknown.empty()) {
++      ss << out_report.unknown.size() << " pgs have unknown state; "
++	 << "cannot draw any conclusions";
++      cmdctx->reply(-EAGAIN, ss);
++    }
+     if (!out_report.ok_to_stop()) {
+       ss << "unsafe to stop osd(s)";
+       cmdctx->reply(-EBUSY, ss);
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 9119c6743f8..3adcf6ccaf9 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -48,12 +48,12 @@ struct MDSPerfMetricQuery;
+ 
+ struct offline_pg_report {
+   set<int> osds;
+-  set<pg_t> ok, not_ok;
++  set<pg_t> ok, not_ok, unknown;
+   set<pg_t> ok_become_degraded, ok_become_more_degraded;             // ok
+   set<pg_t> bad_no_pool, bad_already_inactive, bad_become_inactive;  // not ok
+ 
+   bool ok_to_stop() const {
+-    return not_ok.empty();
++    return not_ok.empty() && unknown.empty();
+   }
+ 
+   void dump(Formatter *f) const {
+@@ -66,6 +66,15 @@ struct offline_pg_report {
+     f->dump_unsigned("num_ok_pgs", ok.size());
+     f->dump_unsigned("num_not_ok_pgs", not_ok.size());
+ 
++    // ambiguous
++    if (!unknown.empty()) {
++      f->open_array_section("unknown_pgs");
++      for (auto pg : unknown) {
++	f->dump_stream("pg") << pg;
++      }
++      f->close_section();
++    }
++
+     // bad news
+     if (!bad_no_pool.empty()) {
+       f->open_array_section("bad_no_pool_pgs");

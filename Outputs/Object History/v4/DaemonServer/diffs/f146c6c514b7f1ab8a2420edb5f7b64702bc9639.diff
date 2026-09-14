@@ -1,0 +1,39 @@
+commit f146c6c514b7f1ab8a2420edb5f7b64702bc9639
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue May 15 23:56:39 2018 +0800
+
+    core: use const_iterator for decode
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index bacb485a210..b4582aabcc6 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -191,7 +191,7 @@ bool DaemonServer::ms_verify_authorizer(Connection *con,
+       s->caps.set_allow_all();
+     }
+     if (caps_info.caps.length() > 0) {
+-      bufferlist::iterator p = caps_info.caps.begin();
++      auto p = caps_info.caps.cbegin();
+       string str;
+       try {
+ 	decode(str, p);
+@@ -400,7 +400,7 @@ bool DaemonServer::handle_open(MMgrOpen *m)
+       }
+     }
+ 
+-    auto p = m->config_bl.begin();
++    auto p = m->config_bl.cbegin();
+     if (p != m->config_bl.end()) {
+       decode(daemon->config, p);
+       decode(daemon->ignored_mon_config, p);
+@@ -540,7 +540,7 @@ bool DaemonServer::handle_report(MMgrReport *m)
+     auto &daemon_counters = daemon->perf_counters;
+     daemon_counters.update(m);
+ 
+-    auto p = m->config_bl.begin();
++    auto p = m->config_bl.cbegin();
+     if (p != m->config_bl.end()) {
+       decode(daemon->config, p);
+       decode(daemon->ignored_mon_config, p);

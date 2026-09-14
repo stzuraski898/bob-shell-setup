@@ -1,0 +1,32 @@
+commit 21297a65a50fa2b81efa8f8fe3169f928eaf7011
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 14 09:56:56 2017 -0400
+
+    mgr/Session: keep inst, not addr
+    
+    For parity with log messages from other daemons etc.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index b6e2bc6079b..429db5faa53 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -128,7 +128,7 @@ bool DaemonServer::ms_verify_authorizer(Connection *con,
+   }
+ 
+   MgrSessionRef s(new MgrSession);
+-  s->addr = con->get_peer_addr();
++  s->inst.addr = con->get_peer_addr();
+   AuthCapsInfo caps_info;
+ 
+   is_valid = handler->verify_authorizer(
+@@ -383,6 +383,8 @@ bool DaemonServer::handle_command(MCommand *m)
+     return true;
+   }
+   session->put(); // SessionRef takes a ref
++  if (session->inst.name == entity_name_t())
++    session->inst.name = m->get_source();
+ 
+   string format;
+   boost::scoped_ptr<Formatter> f;

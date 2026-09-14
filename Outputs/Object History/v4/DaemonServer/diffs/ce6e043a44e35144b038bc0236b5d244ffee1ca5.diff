@@ -1,0 +1,24 @@
+commit ce6e043a44e35144b038bc0236b5d244ffee1ca5
+Author: Wilson E. Alvarez <wilson.e.alvarez1@gmail.com>
+Date:   Tue Mar 27 22:45:14 2018 -0400
+
+    src: Added const references to various function parameters
+    
+    Added const references to various function parameters in order to avoid
+    copying data unnecessarily and enhancing performance
+    
+    Signed-off-by: Wilson E. Alvarez <wilson.e.alvarez1@gmail.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 11ba41b3491..ae00a7902b7 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -672,7 +672,7 @@ bool DaemonServer::handle_command(MCommand *m)
+     bufferlist from_mon;
+     string outs;
+ 
+-    ReplyOnFinish(std::shared_ptr<CommandContext> cmdctx_)
++    ReplyOnFinish(const std::shared_ptr<CommandContext> &cmdctx_)
+       : cmdctx(cmdctx_)
+     {}
+     void finish(int r) override {

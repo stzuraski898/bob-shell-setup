@@ -1,0 +1,25 @@
+commit abfb05733496d7c1c9f50558f47f4adaf87a1f7f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Apr 6 11:40:27 2017 -0400
+
+    mgr/Mgr: unlock lock while blocking for metadata load
+    
+    Fixes: http://tracker.ceph.com/issues/19516
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 2c095135b0c..6be7216b2e4 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -223,9 +223,11 @@ void Mgr::load_all_metadata()
+   JSONCommand mon_cmd;
+   mon_cmd.run(monc, "{\"prefix\": \"mon metadata\"}");
+ 
++  lock.Unlock();
+   mds_cmd.wait();
+   osd_cmd.wait();
+   mon_cmd.wait();
++  lock.Lock();
+ 
+   assert(mds_cmd.r == 0);
+   assert(mon_cmd.r == 0);

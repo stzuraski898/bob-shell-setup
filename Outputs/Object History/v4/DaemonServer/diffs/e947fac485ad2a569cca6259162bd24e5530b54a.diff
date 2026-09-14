@@ -1,0 +1,61 @@
+commit e947fac485ad2a569cca6259162bd24e5530b54a
+Author: haoyixing <haoyixing@kuaishou.com>
+Date:   Sat Nov 21 22:31:00 2020 +0800
+
+    mgr: fix "ceph pg dump_json/dump_pools_json" format error
+    
+    When execute ceph pg dump_json, the expected result is json format,
+    but now is plain. Same to ceph pg dump_pools_json. So check args to
+    show right format result.
+    
+    Signed-off-by: haoyixing <haoyixing@kuaishou.com>
+    Co-authored-by: Kefu Chai <kefu@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 91e6c3759b9..001f8f81bbf 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -12,6 +12,7 @@
+  */
+ 
+ #include "DaemonServer.h"
++#include <boost/algorithm/string.hpp>
+ #include "mgr/Mgr.h"
+ 
+ #include "include/stringify.h"
+@@ -889,8 +890,6 @@ bool DaemonServer::_handle_command(
+     session->inst.name = m->get_source();
+   }
+ 
+-  std::string format;
+-  boost::scoped_ptr<Formatter> f;
+   map<string,string> param_str_map;
+   std::stringstream ss;
+   int r = 0;
+@@ -900,15 +899,20 @@ bool DaemonServer::_handle_command(
+     return true;
+   }
+ 
+-  {
+-    cmd_getval(cmdctx->cmdmap, "format", format, string("plain"));
+-    f.reset(Formatter::create(format));
+-  }
+-
+   string prefix;
+   cmd_getval(cmdctx->cmdmap, "prefix", prefix);
++  dout(10) << "decoded-size=" << cmdctx->cmdmap.size() << " prefix=" << prefix << dendl;
+ 
+-  dout(10) << "decoded-size=" << cmdctx->cmdmap.size() << " prefix=" << prefix  << dendl;
++  boost::scoped_ptr<Formatter> f;
++  {
++    std::string format;
++    if (boost::algorithm::ends_with(prefix, "_json")) {
++      format = "json";
++    } else {
++      cmd_getval(cmdctx->cmdmap, "format", format, string("plain"));
++    }
++    f.reset(Formatter::create(format));
++  }
+ 
+   // this is just for mgr commands - admin socket commands will fall
+   // through and use the admin socket version of

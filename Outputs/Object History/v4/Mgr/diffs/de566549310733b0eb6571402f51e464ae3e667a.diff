@@ -1,0 +1,22 @@
+commit de566549310733b0eb6571402f51e464ae3e667a
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Tue Aug 19 14:15:00 2025 +0200
+
+    mon/MgrContext: move JSONCommand to separate header
+    
+    To reduce header dependency on ceph_json.h.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 0225527c5ed..fc9b649f321 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -37,6 +37,7 @@
+ 
+ #include "MgrContext.h"
+ #include "DaemonServer.h"
++#include "JSONCommand.h"
+ #include "PyModule.h"
+ #include "Mgr.h"
+ 

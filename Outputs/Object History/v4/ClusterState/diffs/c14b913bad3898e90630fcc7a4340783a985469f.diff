@@ -1,0 +1,43 @@
+commit c14b913bad3898e90630fcc7a4340783a985469f
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Apr 9 02:43:44 2017 +0800
+
+    mgr/DaemonServer: always template the return value
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index 4b14d1a7d25..eced72ad90e 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -71,11 +71,13 @@ public:
+   }
+ 
+   template<typename Callback, typename...Args>
+-  void with_pgmap(Callback&& cb, Args&&...args)
++  auto with_pgmap(Callback&& cb, Args&&...args) ->
++    decltype(cb(const_cast<const PGMap&>(pg_map),
++		std::forward<Args>(args)...))
+   {
+     Mutex::Locker l(lock);
+-    std::forward<Callback>(cb)(const_cast<const PGMap&>(pg_map),
+-        std::forward<Args>(args)...);
++    return std::forward<Callback>(cb)(const_cast<const PGMap&>(pg_map),
++				      std::forward<Args>(args)...);
+   }
+ 
+   template<typename... Args>
+@@ -87,10 +89,11 @@ public:
+   }
+ 
+   template<typename... Args>
+-  void with_osdmap(Args &&... args)
++  auto with_osdmap(Args &&... args) ->
++    decltype(objecter->with_osdmap(std::forward<Args>(args)...))
+   {
+     assert(objecter != nullptr);
+-    objecter->with_osdmap(std::forward<Args>(args)...);
++    return objecter->with_osdmap(std::forward<Args>(args)...);
+   }
+ 
+ };

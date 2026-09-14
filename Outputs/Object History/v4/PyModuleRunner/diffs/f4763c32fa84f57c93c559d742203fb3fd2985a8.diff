@@ -1,0 +1,72 @@
+commit f4763c32fa84f57c93c559d742203fb3fd2985a8
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Nov 1 12:08:03 2017 -0400
+
+    mgr: emit cluster log message on serve() exception
+    
+    Fixes: http://tracker.ceph.com/issues/21999
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index 5e04e3da27c..881ad16b33f 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -54,6 +54,23 @@ int PyModuleRunner::serve()
+   if (pValue != NULL) {
+     Py_DECREF(pValue);
+   } else {
++    // This is not a very informative log message because it's an
++    // unknown/unexpected exception that we can't say much about.
++
++    // Peek at the exception for the cluster log, before
++    // dumping the backtrace to log log next.
++    PyObject *ptype, *pvalue, *ptraceback;
++    PyErr_Fetch(&ptype, &pvalue, &ptraceback);
++    assert(ptype);
++    assert(pvalue);
++    PyObject *pvalue_str = PyObject_Str(pvalue);
++    std::string exc_msg = PyString_AsString(pvalue_str);
++    Py_DECREF(pvalue_str);
++    PyErr_Restore(ptype, pvalue, ptraceback);
++    
++    clog->error() << "Unhandled exception from module '" << module_name
++                  << "' while running on mgr." << g_conf->name.get_id()
++                  << ": " << exc_msg;
+     derr << module_name << ".serve:" << dendl;
+     derr << handle_pyerror() << dendl;
+     return -EINVAL;
+diff --git a/src/mgr/PyModuleRunner.h b/src/mgr/PyModuleRunner.h
+index cb51df3eaaf..c4b861cf3b6 100644
+--- a/src/mgr/PyModuleRunner.h
++++ b/src/mgr/PyModuleRunner.h
+@@ -15,6 +15,7 @@
+ #pragma once
+ 
+ #include "common/Thread.h"
++#include "common/LogClient.h"
+ #include "mgr/Gil.h"
+ 
+ /**
+@@ -36,6 +37,8 @@ protected:
+   // Populated when we construct our instance of pClass in load()
+   PyObject *pClassInstance = nullptr;
+ 
++  LogChannelRef clog;
++
+   class PyModuleRunnerThread : public Thread
+   {
+     PyModuleRunner *mod;
+@@ -55,10 +58,12 @@ public:
+   PyModuleRunner(
+       const std::string &module_name_,
+       PyObject *pClass_,
+-      const SafeThreadState &pMyThreadState_)
++      const SafeThreadState &pMyThreadState_,
++      LogChannelRef clog_)
+     : 
+       module_name(module_name_),
+       pClass(pClass_), pMyThreadState(pMyThreadState_),
++      clog(clog_),
+       thread(this)
+   {
+     assert(pClass != nullptr);

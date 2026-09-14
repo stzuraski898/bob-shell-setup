@@ -1,0 +1,38 @@
+commit 74752505bfc30de11821fc5c7e6a6631a1cba2b6
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed May 17 15:30:28 2017 +0800
+
+    mgr: add a command "mgr report"
+    
+    * extract send_report() out of tick() so it can be reused.
+    * add a commmand "mgr report-mon" for mgr, so we are able to flush the
+      the mgr stats to mon actively without waiting for the tick. this
+      could help with the tests.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 158a8ac1a52..cbc443f3a32 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -27,7 +27,6 @@
+ #include "DaemonServer.h"
+ #include "messages/MMgrBeacon.h"
+ #include "messages/MMgrDigest.h"
+-#include "messages/MMonMgrReport.h"
+ #include "messages/MCommand.h"
+ #include "messages/MCommandReply.h"
+ #include "messages/MLog.h"
+@@ -587,11 +586,5 @@ void Mgr::handle_mgr_digest(MMgrDigest* m)
+ void Mgr::tick()
+ {
+   dout(0) << __func__ << dendl;
+-  MMonMgrReport *m = new MMonMgrReport();
+-  cluster_state.tick(m);
+-  server.tick(m);
+-  // TODO? We currently do not notify the PyModules
+-  if (m->needs_send) {
+-    monc->send_mon_message(m);
+-  }
++  server.send_report();
+ }

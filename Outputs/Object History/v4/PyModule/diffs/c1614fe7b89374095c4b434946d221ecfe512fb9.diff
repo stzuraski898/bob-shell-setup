@@ -1,0 +1,23 @@
+commit c1614fe7b89374095c4b434946d221ecfe512fb9
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Sun Feb 9 06:46:38 2025 +0000
+
+    PyModule: Fix memory leak in load_subclass_of
+    
+    Fix missing Py_DECREF on mgr_module_type when the plugin module import fails.
+    This prevents a memory leak that occurs during subclass loading.
+    
+    Signed-off-by: Nitzan Mordechai <nmordech@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 4f996489ba0..e4b70956299 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -667,6 +667,7 @@ int PyModule::load_subclass_of(const char* base_class, PyObject** py_class)
+     error_string = peek_pyerror();
+     derr << "Module not found: '" << module_name << "'" << dendl;
+     derr << handle_pyerror(true, module_name, "PyModule::load_subclass_of") << dendl;
++    Py_DECREF(mgr_module_type);
+     return -ENOENT;
+   }
+   auto locals = PyModule_GetDict(plugin_module);

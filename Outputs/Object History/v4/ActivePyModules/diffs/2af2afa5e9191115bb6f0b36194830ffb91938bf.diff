@@ -1,0 +1,48 @@
+commit 2af2afa5e9191115bb6f0b36194830ffb91938bf
+Author: Kamoltat Sirivadhna <ksirivad@redhat.com>
+Date:   Tue Sep 22 13:12:00 2020 +0000
+
+    mgr/progress: Global Recovery Event in ceph -s
+    
+    Modified the progress module and BaseMgrModule to
+    support Global Recovert Event. Adding more arguments
+    to update_progress_event, ceph_update_progress_event.
+    To only show global recovery event progress with `ceph -s`.
+    All sub events have been move to `ceph progress`
+    
+    Signed-off-by: Kamoltat <ksirivad@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index a7fc0940767..d08a9fd1c2f 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -986,12 +986,14 @@ void ActivePyModules::get_health_checks(health_check_map_t *checks)
+ void ActivePyModules::update_progress_event(
+   const std::string& evid,
+   const std::string& desc,
+-  float progress)
++  float progress,
++  bool add_to_ceph_s)
+ {
+   std::lock_guard l(lock);
+   auto& pe = progress_events[evid];
+   pe.message = desc;
+   pe.progress = progress;
++  pe.add_to_ceph_s = add_to_ceph_s;
+ }
+ 
+ void ActivePyModules::complete_progress_event(const std::string& evid)
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 4892f2705fc..a6d334bbdde 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -132,7 +132,8 @@ public:
+ 
+   void update_progress_event(const std::string& evid,
+ 			     const std::string& desc,
+-			     float progress);
++			     float progress,
++			     bool add_to_ceph_s);
+   void complete_progress_event(const std::string& evid);
+   void clear_all_progress_events();
+   void get_progress_events(std::map<std::string,ProgressEvent>* events);

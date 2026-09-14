@@ -1,0 +1,25 @@
+commit b24be6f0746ce9d68433e94deee34cb5bc099c73
+Author: João Eduardo Luís <joao@suse.de>
+Date:   Thu Dec 13 14:32:44 2018 +0000
+
+    mgr: make module error message more descriptive
+    
+    It was weird just seeing that there were 'modules' with errors; users
+    could be confused as to who own's those modules. Causually mentioning
+    'ceph-mgr' in the message should clarify.
+    
+    Signed-off-by: Joao Eduardo Luis <joao@suse.de>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index d7cea7fdded..5446e06681f 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -391,7 +391,7 @@ void PyModuleRegistry::get_health_checks(health_check_map_t *checks)
+         ss << "Module '" << iter->first << "' has failed dependency: "
+            << iter->second;
+       } else if (dependency_modules.size() > 1) {
+-        ss << dependency_modules.size() << " modules have failed dependencies";
++        ss << dependency_modules.size() << " ceph-mgr modules have failed dependencies";
+       }
+       checks->add("MGR_MODULE_DEPENDENCY", HEALTH_WARN, ss.str());
+     }

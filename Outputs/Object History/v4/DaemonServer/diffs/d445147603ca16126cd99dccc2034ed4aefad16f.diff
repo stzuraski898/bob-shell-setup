@@ -1,0 +1,24 @@
+commit d445147603ca16126cd99dccc2034ed4aefad16f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jul 30 08:56:28 2018 -0500
+
+    mgr/DaemonServer: osd purge: accept --yes-i-really-mean-it too
+    
+    This avoids breaking old scripts.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 41c7dad8b74..82f1ff7acf3 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1289,7 +1289,8 @@ bool DaemonServer::handle_command(MCommand *m)
+ 	      prefix == "osd purge")) {
+       string sure;
+       if (!cmd_getval(cct, cmdctx->cmdmap, "sure", sure) ||
+-	  sure != "--force") {
++	  (sure != "--force" &&
++	   sure != "--yes-i-really-mean-it" /* for backward compat */)) {
+ 	ss << "\nYou can proceed by passing --force, but be warned that this will likely mean real, permanent data loss.";
+       } else {
+ 	r = 0;

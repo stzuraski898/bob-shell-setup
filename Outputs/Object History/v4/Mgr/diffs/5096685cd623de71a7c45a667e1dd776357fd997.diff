@@ -1,0 +1,47 @@
+commit 5096685cd623de71a7c45a667e1dd776357fd997
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Nov 24 13:22:26 2021 -0500
+
+    mgr: fix locking for MetadataUpdate::finish
+    
+    We need to hold the DaemonState lock here since we are both reading and
+    writing its content.
+    
+    Fixes: https://tracker.ceph.com/issues/53393
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index b609c7d1d5c..5bbb8892cfe 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -113,17 +113,20 @@ void MetadataUpdate::finish(int r)
+ 
+       if (daemon_state.exists(key)) {
+         DaemonStatePtr state = daemon_state.get(key);
+-        state->hostname = daemon_meta.at("hostname").get_str();
+-
+-        if (key.type == "mds" || key.type == "mgr" || key.type == "mon") {
+-          daemon_meta.erase("name");
+-        } else if (key.type == "osd") {
+-          daemon_meta.erase("id");
+-        }
+-        daemon_meta.erase("hostname");
+ 	map<string,string> m;
+-        for (const auto &[key, val] : daemon_meta) {
+-          m.emplace(key, val.get_str());
++	{
++	  std::lock_guard l(state->lock);
++	  state->hostname = daemon_meta.at("hostname").get_str();
++
++	  if (key.type == "mds" || key.type == "mgr" || key.type == "mon") {
++	    daemon_meta.erase("name");
++	  } else if (key.type == "osd") {
++	    daemon_meta.erase("id");
++	  }
++	  daemon_meta.erase("hostname");
++	  for (const auto &[key, val] : daemon_meta) {
++	    m.emplace(key, val.get_str());
++	  }
+ 	}
+ 	daemon_state.update_metadata(state, m);
+       } else {

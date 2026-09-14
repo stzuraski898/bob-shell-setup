@@ -1,0 +1,37 @@
+commit 2449b3a5c365987746ada095fde30e3dc63ee0c7
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu Jul 13 14:49:48 2017 +0800
+
+    common,mds,mgr,mon,osd: store event only if it's added
+    
+    otherwise
+    * we will try to cancel it even it's never been added
+    * we will keep a dangling pointer around. which is, well,
+      scaring.
+    * static analyzer will yell at us:
+      Memory - illegal accesses  (USE_AFTER_FREE)
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 849590ba93c..e85aab6ebc5 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -114,11 +114,12 @@ void MgrClient::reconnect()
+     when += cct->_conf->mgr_connect_retry_interval;
+     if (now < when) {
+       if (!connect_retry_callback) {
+-	connect_retry_callback = new FunctionContext([this](int r){
+-	    connect_retry_callback = nullptr;
+-	    reconnect();
+-	  });
+-	timer.add_event_at(when, connect_retry_callback);
++	connect_retry_callback = timer.add_event_at(
++	  when,
++	  new FunctionContext([this](int r){
++	      connect_retry_callback = nullptr;
++	      reconnect();
++	    }));
+       }
+       ldout(cct, 4) << "waiting to retry connect until " << when << dendl;
+       return;

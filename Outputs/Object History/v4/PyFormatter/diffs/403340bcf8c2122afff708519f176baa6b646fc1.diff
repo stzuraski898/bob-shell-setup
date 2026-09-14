@@ -1,0 +1,274 @@
+commit 403340bcf8c2122afff708519f176baa6b646fc1
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Thu Jul 17 06:17:00 2025 +0000
+
+    mgr: replace TTLCache with MgrMapCache and protect api with readonly
+    
+    This patch removes the old TTLCache implementation and introduces
+    a new generic MgrMapCache driven by a runtime toggle:
+    
+    - Add `mgr_map_cache_enabled` config option in global.yaml
+    - Swap out `ttl_cache` for `api_cache` (MgrMapCache) in ActivePyModules
+    - Update cacheable_get_python() and get_python() to use LFU‐based api_cache
+    - add new get_mutable parameter to the get api call to get a copy.
+    - Invalidate api_cache on notify_all events
+    - Remove all TTLCache headers, sources, and tests
+    - Include MgrMapCache.cc in CMakeLists and update BaseMgrModule bindings
+    - Improve logging around cache hits, misses, and state changes
+    
+    - ActivePyModules
+      * Remove unused update_cache_metrics()
+      * Log cache hits/misses inline and only insert into cache when
+        enabled+cacheable (with proper Py_INCREF)
+      * Switch get_python() to use PyFormatterRO for cacheable routes, PyFormatter otherwise
+    
+    - MgrMapCache/LFUCache
+      * Add can_read_cache()/can_write_cache() helpers and use const& for key parameters
+      * Guard perf counter increments and improve debug logging
+    
+    - PyFormatter
+      * Add PyFormatterRO subclass that freezes dicts/lists into read-only
+        proxies on the fly
+    
+    - Python mgr_module
+      * Simplify get() to return raw result
+    
+    This change ensures immutable JSON output on cache hits and tightens up cache logic.
+    
+    mgr/cli: add cache flush command with proper status reporting
+    
+    Allow operators to invalidate individual mgr Python caches at runtime
+    without restarting the manager. Introduces a new CLI command:
+    
+      $ ceph mgr cli cache flush <map-name>
+    
+    which returns success or a clear error if the named cache entry doesn’t
+    exist or isn’t cacheable. This makes it easy to drop stale cached maps
+    (e.g. osd_map, mon_map) on demand.
+    
+    Fixes: https://tracker.ceph.com/issues/72447
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+    
+    mgr: add new unit tests for MgrMapCache
+    
+    - Guard against null perf‐counter before calling inc(), preventing crashes
+    - Add “foo” to allowed_keys list (for test coverage)
+    - Rename and refocus the CMake test target from TTLCache to MgrMapCache
+    - Introduce test_mgrmapcache.cc with LFUCache tests.
+    - Remove the obsolete test_ttlcache.cc
+    
+    Fixes: https://tracker.ceph.com/issues/72447
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+    
+    mgr/test_cache: add new tests
+    
+    adding new unit-test for mgrcache
+    
+    Fixes: https://tracker.ceph.com/issues/72447
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+
+diff --git a/src/mgr/PyFormatter.cc b/src/mgr/PyFormatter.cc
+index 7c333308ab5..9461cceab0a 100644
+--- a/src/mgr/PyFormatter.cc
++++ b/src/mgr/PyFormatter.cc
+@@ -18,6 +18,13 @@
+ 
+ #include "PyFormatter.h"
+ #include <fstream>
++#include "common/debug.h"
++
++#define dout_context g_ceph_context
++#define dout_subsys ceph_subsys_mgr
++#undef dout_prefix
++#define dout_prefix *_dout << __func__ << " "
++
+ 
+ #define LARGE_SIZE 1024
+ 
+@@ -131,16 +138,3 @@ void PyFormatter::finish_pending_streams()
+ 
+   pending_streams.clear();
+ }
+-
+-PyObject* PyJSONFormatter::get()
+-{
+-  if(json_formatter::stack_size()) {
+-    close_section();
+-  }
+-  ceph_assert(!json_formatter::stack_size());
+-  std::ostringstream ss;
+-  flush(ss);
+-  std::string s = ss.str();
+-  PyObject* obj = PyBytes_FromStringAndSize(s.c_str(), s.size());
+-  return obj;
+-}
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index e5ee0c29600..287fc0f55ec 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -115,7 +115,7 @@ public:
+       ceph_abort();
+   }
+ 
+-  PyObject *get()
++  virtual PyObject *get()
+   {
+     finish_pending_streams();
+ 
+@@ -125,13 +125,12 @@ public:
+ 
+   void finish_pending_streams();
+ 
+-private:
++protected:
+   PyObject *root;
+   PyObject *cursor;
+   std::stack<PyObject *> stack;
+-
+   void dump_pyobject(std::string_view name, PyObject *p);
+-
++private:
+   class PendingStream {
+     public:
+     PyObject *cursor;
+@@ -143,22 +142,128 @@ private:
+ 
+ };
+ 
+-class PyJSONFormatter : public JSONFormatter {
++class PyFormatterRO : public PyFormatter {
+ public:
+-  PyObject *get();
+-  PyJSONFormatter (const PyJSONFormatter&) = default;
+-  PyJSONFormatter(bool pretty=false, bool is_array=false) : JSONFormatter(pretty) {
+-    if(is_array) {
+-      open_array_section("");
+-    } else {
+-      open_object_section("");
++  using PyFormatter::PyFormatter;
++  PyObject* get() override {
++    finish_pending_streams();
++    if (!is_converted_to_readonly) {
++      convert_to_readonly();
+     }
+-}
++    Py_INCREF(root);
++    return root;
++  }
+ 
++  void reset() override {
++    PyFormatter::reset();
++    is_converted_to_readonly = false;
++  }
+ private:
+-  using json_formatter = JSONFormatter;
+-  template <class T> void add_value(std::string_view name, T val);
+-  void add_value(std::string_view name, std::string_view val, bool quoted);
++  bool is_converted_to_readonly = false;
++
++  /// Convert entire data structure to read-only once
++  void convert_to_readonly() {
++    PyObject* readonly_root = make_immutable(root);
++
++    if (readonly_root != root) {
++      Py_DECREF(root);
++      root = readonly_root;
++      cursor = root;
++    }
++    is_converted_to_readonly = true;
++  }
++
++  /// Recursively convert object to immutable equivalent
++  PyObject* make_immutable(PyObject* obj) {
++    if (PyList_Check(obj)) {
++      return convert_list_to_tuple(obj);
++    }
++    if (PyDict_Check(obj)) {
++      return convert_dict_to_proxy(obj);
++    }
++    if (PySet_Check(obj)) {
++      return convert_set_to_frozenset(obj);
++    }
++    if (PyTuple_Check(obj)) {
++      return convert_tuple_contents(obj);
++    }
++    // Already immutable
++    Py_INCREF(obj);
++    return obj;
++  }
++
++  PyObject* convert_list_to_tuple(PyObject* list) {
++    Py_ssize_t size = PyList_Size(list);
++    PyObject* tuple = PyTuple_New(size);
++
++    for (Py_ssize_t i = 0; i < size; i++) {
++      PyObject* item = PyList_GetItem(list, i);
++      PyObject* immutable_item = make_immutable(item);
++      if (!immutable_item) {
++        Py_DECREF(tuple);
++        Py_INCREF(list);
++        return list;
++      }
++      PyTuple_SET_ITEM(tuple, i, immutable_item);
++    }
++    return tuple;
++  }
++
++  PyObject* convert_dict_to_proxy(PyObject* dict) {
++    PyObject* immutable_dict = PyDict_New();
++    PyObject* key, *value;
++    Py_ssize_t pos = 0;
++
++    while (PyDict_Next(dict, &pos, &key, &value)) {
++      PyObject* immutable_value = make_immutable(value);
++      if (!immutable_value) {
++        Py_DECREF(immutable_dict);
++        Py_INCREF(dict);
++        return dict;
++      }
++      if (PyDict_SetItem(immutable_dict, key, immutable_value) < 0) {
++        Py_DECREF(immutable_value);
++        Py_DECREF(immutable_dict);
++        Py_INCREF(dict);
++        return dict;
++      }
++      Py_DECREF(immutable_value);
++    }
++    return immutable_dict;
++  }
++
++  PyObject* convert_set_to_frozenset(PyObject* set) {
++    PyObject* frozenset = PyFrozenSet_New(set);
++    if (frozenset) {
++      return frozenset;
++    }
++
++    // Fallback
++    Py_INCREF(set);
++    return set;
++  }
++
++  PyObject* convert_tuple_contents(PyObject* tuple) {
++    Py_ssize_t size = PyTuple_Size(tuple);
++    PyObject* new_tuple = PyTuple_New(size);
++    if (!new_tuple) {
++      Py_INCREF(tuple);
++      return tuple;
++    }
++
++    for (Py_ssize_t i = 0; i < size; i++) {
++      PyObject* item = PyTuple_GetItem(tuple, i);
++      PyObject* immutable_item = make_immutable(item);
++
++      if (!immutable_item) {
++        Py_DECREF(new_tuple);
++        Py_INCREF(tuple);
++        return tuple;
++      }
++      PyTuple_SET_ITEM(new_tuple, i, immutable_item);
++    }
++    return new_tuple;
++  }
+ };
+ 
+ #endif

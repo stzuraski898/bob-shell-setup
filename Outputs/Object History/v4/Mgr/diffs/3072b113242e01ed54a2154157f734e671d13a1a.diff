@@ -1,0 +1,27 @@
+commit 3072b113242e01ed54a2154157f734e671d13a1a
+Author: shimin <shimin@kuaishou.com>
+Date:   Fri Oct 13 15:54:53 2023 +0800
+
+    mgr: remove out&down osd from daemons
+    
+    When we meet a bad disk problem, we just out the osd (alreay DOWN
+     state). Before osd go to DOWN, it report slow ops to mgr, and `ceph -s`
+    command shows `18 slow ops, oldest one blocked for 259 sec...` warnings.
+    This warning never gone except we restart mgr.
+    
+    Fixes: https://tracker.ceph.com/issues/63195
+    Signed-off-by: shimin <shimin@kuaishou.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index cb988cf761c..63ad530fae2 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -525,7 +525,7 @@ void Mgr::handle_osd_map()
+   cluster_state.with_osdmap_and_pgmap([this, &names_exist](const OSDMap &osd_map,
+ 							   const PGMap &pg_map) {
+     for (int osd_id = 0; osd_id < osd_map.get_max_osd(); ++osd_id) {
+-      if (!osd_map.exists(osd_id)) {
++      if (!osd_map.exists(osd_id) || (osd_map.is_out(osd_id) && osd_map.is_down(osd_id))) {
+         continue;
+       }
+ 

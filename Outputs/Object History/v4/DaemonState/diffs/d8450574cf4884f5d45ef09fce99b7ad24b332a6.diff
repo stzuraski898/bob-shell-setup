@@ -1,0 +1,22 @@
+commit d8450574cf4884f5d45ef09fce99b7ad24b332a6
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Dec 4 16:51:33 2017 -0600
+
+    mgr/MgrClient: report running config to mgr
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 9a12b1187c6..352541583b3 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -106,6 +106,9 @@ class DaemonState
+   std::map<std::string, std::string> service_status;
+   utime_t last_service_beacon;
+ 
++  // running config
++  std::map<std::string,std::map<int32_t,std::string>> config;
++
+   // The perf counters received in MMgrReport messages
+   DaemonPerfCounters perf_counters;
+ 

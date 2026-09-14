@@ -1,0 +1,45 @@
+commit e417c1c935a35dbed838f1e664729647817a47e2
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Sat Feb 3 19:49:13 2024 +0800
+
+    mgr: set argv for python in PyModuleRegistry
+    
+    before this change, we setup the progname for Python interpreter,
+    but setup the argv for it in PyModule. and we are using deprecated
+    API to initialize Python interpreter.
+    
+    in this change, let's do this in a single place for better
+    maintainability. also, take this opportunity, to use the non-deprecated
+    API to initialize interpreter on Python >= 3.8.
+    
+    this silence the warning when compiling ceph-mgr with CPython 3.12:
+    ```
+    /var/ssd/ceph/src/mgr/PyModule.cc: In member function ‘int PyModule::load(PyThreadState*)’:
+    /var/ssd/ceph/src/mgr/PyModule.cc:363:20: warning: ‘void PySys_SetArgv(int, wchar_t**)’ is deprecated [-Wdeprecated-declarations]
+      363 |       PySys_SetArgv(1, (wchar_t**)argv);
+          |       ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+    In file included from /usr/include/python3.12/Python.h:96,
+                     from /var/ssd/ceph/src/mgr/BaseMgrModule.h:4,
+                     from /var/ssd/ceph/src/mgr/PyModule.cc:14:
+    /usr/include/python3.12/sysmodule.h:13:38: note: declared here
+       13 | Py_DEPRECATED(3.11) PyAPI_FUNC(void) PySys_SetArgv(int, wchar_t **);
+          |                                      ^~~~~~~~~~~~~
+    ```
+    
+    Signed-off-by: Kefu Chai <tchaikov@gmail.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 084cf3ffc1e..e27c3693f3c 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -357,10 +357,6 @@ int PyModule::load(PyThreadState *pMainThreadState)
+       return -EINVAL;
+     } else {
+       pMyThreadState.set(thread_state);
+-      // Some python modules do not cope with an unpopulated argv, so lets
+-      // fake one.  This step also picks up site-packages into sys.path.
+-      const wchar_t *argv[] = {L"ceph-mgr"};
+-      PySys_SetArgv(1, (wchar_t**)argv);
+       // Configure sys.path to include mgr_module_path
+       string paths = (g_conf().get_val<std::string>("mgr_module_path") + ':' +
+                       get_site_packages() + ':');

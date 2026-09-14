@@ -1,0 +1,653 @@
+# git blame -w -M -C src/mgr/MgrStandby.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman     2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/MgrStandby.cc                    (Edwin Rodriguez    2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+c8c1019d1962 src/mgr/MgrStandby.cc                    (Edwin Rodriguez    2025-10-02 15:31:35 -0400   3) 
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray         2016-05-19 12:58:22 +0100   4) /*
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray         2016-05-19 12:58:22 +0100   5)  * Ceph - scalable distributed file system
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray         2016-05-19 12:58:22 +0100   6)  *
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray         2016-05-19 12:58:22 +0100   7)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil          2007-10-17 23:34:54 +0000   8)  *
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil          2007-10-17 23:34:54 +0000   9)  * This is free software; you can redistribute it and/or
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil          2007-10-17 23:34:54 +0000  10)  * modify it under the terms of the GNU Lesser General Public
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil          2007-10-17 23:34:54 +0000  11)  * License version 2.1, as published by the Free Software
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil          2007-10-17 23:34:54 +0000  12)  * Foundation.  See file COPYING.
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray         2016-05-19 12:58:22 +0100  13)  */
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray         2016-05-19 12:58:22 +0100  14) 
+fa147e3a591a src/mgr/MgrStandby.cc                    (John Spray         2016-07-31 18:07:20 +0100  15) #include <Python.h>
+218f4cefea08 src/mgr/MgrStandby.cc                    (Sage Weil          2021-05-28 22:19:27 -0400  16) #include <boost/algorithm/string/replace.hpp>
+fa147e3a591a src/mgr/MgrStandby.cc                    (John Spray         2016-07-31 18:07:20 +0100  17) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100  18) #include "common/errno.h"
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400  19) #include "common/signal.h"
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800  20) #include "common/cmdparse.h"
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400  21) #include "include/compat.h"
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800  22) #include "include/str_list.h"
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800  23) #include "perfglue/heap_profiler.h"
+3746e209d881 src/mgr/MgrStandby.cc                    (John Spray         2017-03-30 10:07:23 -0400  24) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  25) #include "include/stringify.h"
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  26) #include "global/global_context.h"
+c81e542b3281 src/mgr/Mgr.cc                           (John Spray         2016-07-04 15:22:27 +0100  27) #include "global/signal_handler.h"
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  28) 
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100  29) #include "mgr/MgrContext.h"
+834bc2794050 src/mgr/MgrStandby.cc                    (John Spray         2017-11-23 08:01:33 -0500  30) #include "mgr/mgr_commands.h"
+15dfa71cf7c8 src/mgr/MgrStandby.cc                    (Pere Diaz Bou      2021-05-26 17:47:06 +0200  31) #include "mgr/mgr_perf_counters.h"
+84508408d9a9 src/mon/MgrMonitor.cc                    (John Spray         2016-05-19 12:58:22 +0100  32) 
+84508408d9a9 src/mon/MgrMonitor.cc                    (John Spray         2016-05-19 12:58:22 +0100  33) #include "messages/MMgrBeacon.h"
+84508408d9a9 src/mon/MgrMonitor.cc                    (John Spray         2016-05-19 12:58:22 +0100  34) #include "messages/MMgrMap.h"
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100  35) #include "Mgr.h"
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100  36) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100  37) #include "MgrStandby.h"
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100  38) 
+b9182564c716 src/mgr/MgrStandby.cc                    (Adam C. Emerson    2016-11-16 12:38:08 -0500  39) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  40) #define dout_subsys ceph_subsys_mgr
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  41) #undef dout_prefix
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  42) #define dout_prefix *_dout << "mgr " << __func__ << " "
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray         2016-06-30 14:05:02 +0100  43) 
+c63ecb602e59 src/mgr/MgrStandby.cc                    (Kefu Chai          2021-08-11 11:48:33 +0800  44) using std::map;
+c63ecb602e59 src/mgr/MgrStandby.cc                    (Kefu Chai          2021-08-11 11:48:33 +0800  45) using std::string;
+c63ecb602e59 src/mgr/MgrStandby.cc                    (Kefu Chai          2021-08-11 11:48:33 +0800  46) using std::vector;
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600  47) using namespace std::literals;
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800  48) using ceph::common::cmd_getval;
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100  49) 
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  50) class MgrHook : public AdminSocketHook {
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  51)   MgrStandby* mgr;
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  52) public:
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  53)   explicit MgrHook(MgrStandby *m) : mgr(m) {}
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  54)   int call(std::string_view admin_command,
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  55)            const cmdmap_t& cmdmap,
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  56)            const bufferlist& inbl,
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  57)            Formatter *f,
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  58)            std::ostream& errss,
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  59)            bufferlist& outbl) override {
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  60)     int r = 0;
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  61)     try {
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800  62)       r = mgr->asok_command(admin_command, cmdmap, f, errss, outbl);
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  63)     } catch (const TOPNSPC::common::bad_cmd_get& e) {
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  64)       errss << e.what();
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  65)       r = -EINVAL;
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  66)     }
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  67)     return r;
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  68)   }
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  69) };
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  70) 
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400  71) MgrStandby::MgrStandby(int argc, const char **argv) :
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100  72)   Dispatcher(g_ceph_context),
+306eebe05bec src/mgr/MgrStandby.cc                    (Adam C. Emerson    2020-04-28 17:32:56 -0400  73)   monc{g_ceph_context, poolctx},
+cf68ce511f31 src/mgr/MgrStandby.cc                    (Sage Weil          2018-01-05 14:55:12 -0600  74)   client_messenger(Messenger::create(
+cf68ce511f31 src/mgr/MgrStandby.cc                    (Sage Weil          2018-01-05 14:55:12 -0600  75) 		     g_ceph_context,
+c15e197ca00b src/mgr/MgrStandby.cc                    (Luo Runbing        2021-03-01 09:00:13 +0800  76) 		     cct->_conf.get_val<std::string>("ms_public_type").empty() ?
+c15e197ca00b src/mgr/MgrStandby.cc                    (Luo Runbing        2021-03-01 09:00:13 +0800  77) 			cct->_conf.get_val<std::string>("ms_type") : cct->_conf.get_val<std::string>("ms_public_type"),
+cf68ce511f31 src/mgr/MgrStandby.cc                    (Sage Weil          2018-01-05 14:55:12 -0600  78) 		     entity_name_t::MGR(),
+cf68ce511f31 src/mgr/MgrStandby.cc                    (Sage Weil          2018-01-05 14:55:12 -0600  79) 		     "mgr",
+e27f6c6a856d src/mgr/MgrStandby.cc                    (Radoslaw Zarzynski 2023-03-01 16:10:38 +0000  80) 		     Messenger::get_random_nonce())),
+a8a23747aa08 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2020-10-02 17:11:54 -0700  81)   objecter{g_ceph_context, client_messenger.get(), &monc, poolctx},
+6f35d2835268 src/mgr/MgrStandby.cc                    (Sage Weil          2019-09-27 16:01:44 -0500  82)   mgrc(g_ceph_context, client_messenger.get(), &monc.monmap),
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800  83)   log_client(g_ceph_context, client_messenger.get(), &monc.monmap, LogClient::NO_FLAGS),
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500  84)   clog(log_client.create_channel(CLOG_CHANNEL_CLUSTER)),
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500  85)   audit_clog(log_client.create_channel(CLOG_CHANNEL_AUDIT)),
+f22347db5509 src/mgr/MgrStandby.cc                    (Mykola Golub       2019-01-24 11:04:24 +0200  86)   finisher(g_ceph_context, "MgrStandby", "mgrsb-fin"),
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100  87)   timer(g_ceph_context, lock),
+9718896c8b84 src/mgr/MgrStandby.cc                    (John Spray         2017-08-14 06:31:18 -0400  88)   py_module_registry(clog),
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400  89)   active_mgr(nullptr),
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400  90)   orig_argc(argc),
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400  91)   orig_argv(argv),
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400  92)   available_in_map(false)
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100  93) {
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100  94) }
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100  95) 
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400  96) MgrStandby::~MgrStandby() {
+75b6149b294e src/mgr/MgrStandby.cc                    (Steven Zuraski     2026-05-21 19:23:54 +0000  97)   if (active_mgr) {
+75b6149b294e src/mgr/MgrStandby.cc                    (Steven Zuraski     2026-05-21 19:23:54 +0000  98)     active_mgr->shutdown();
+75b6149b294e src/mgr/MgrStandby.cc                    (Steven Zuraski     2026-05-21 19:23:54 +0000  99)     active_mgr.reset();
+75b6149b294e src/mgr/MgrStandby.cc                    (Steven Zuraski     2026-05-21 19:23:54 +0000 100)   }
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 101)   if (asok_hook) {
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 102)     g_ceph_context->get_admin_socket()->unregister_commands(asok_hook.get());
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 103)     asok_hook.reset();
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 104)   }
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 105) }
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 106) 
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600 107) std::vector<std::string> MgrStandby::get_tracked_keys() const noexcept
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 108) {
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600 109)   return {
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 110)     // clog & admin clog
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600 111)     "clog_to_monitors"s,
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600 112)     "clog_to_syslog"s,
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600 113)     "clog_to_syslog_facility"s,
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600 114)     "clog_to_syslog_level"s,
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600 115)     "clog_to_graylog"s,
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600 116)     "clog_to_graylog_host"s,
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600 117)     "clog_to_graylog_port"s,
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600 118)     "mgr_standby_modules"s,
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600 119)     "host"s,
+2d4b4235fc25 src/mgr/MgrStandby.cc                    (Ronen Friedman     2025-02-25 07:40:20 -0600 120)     "fsid"s
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 121)   };
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 122) }
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 123) 
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 124) void MgrStandby::handle_conf_change(
+f528475d9252 src/mgr/MgrStandby.cc                    (Kefu Chai          2018-07-06 23:08:00 +0800 125)   const ConfigProxy& conf,
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 126)   const std::set <std::string> &changed)
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 127) {
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 128)   if (changed.count("clog_to_monitors") ||
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 129)       changed.count("clog_to_syslog") ||
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 130)       changed.count("clog_to_syslog_level") ||
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 131)       changed.count("clog_to_syslog_facility") ||
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 132)       changed.count("clog_to_graylog") ||
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 133)       changed.count("clog_to_graylog_host") ||
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 134)       changed.count("clog_to_graylog_port") ||
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 135)       changed.count("host") ||
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 136)       changed.count("fsid")) {
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 137)     _update_log_config();
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 138)   }
+efc29fb3630a src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 12:12:01 -0400 139)   if (changed.count("mgr_standby_modules") && !active_mgr) {
+efc29fb3630a src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 12:12:01 -0400 140)     if (g_conf().get_val<bool>("mgr_standby_modules") != py_module_registry.have_standby_modules()) {
+efc29fb3630a src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 12:12:01 -0400 141)       dout(1) << "mgr_standby_modules now "
+efc29fb3630a src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 12:12:01 -0400 142) 	      << (int)g_conf().get_val<bool>("mgr_standby_modules")
+efc29fb3630a src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 12:12:01 -0400 143) 	      << ", standby modules are "
+efc29fb3630a src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 12:12:01 -0400 144) 	      << (py_module_registry.have_standby_modules() ? "":"not ")
+efc29fb3630a src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 12:12:01 -0400 145) 	      << "active, respawning"
+efc29fb3630a src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 12:12:01 -0400 146) 	      << dendl;
+efc29fb3630a src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 12:12:01 -0400 147)       respawn();
+efc29fb3630a src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 12:12:01 -0400 148)     }
+efc29fb3630a src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 12:12:01 -0400 149)   }
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 150) }
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 151) 
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 152) int MgrStandby::asok_command(std::string_view cmd, const cmdmap_t& cmdmap,
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 153) 			     Formatter* f, std::ostream& errss,
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 154) 			     ceph::buffer::list& outbl)
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 155) {
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 156)   dout(10) << __func__ << ": " << cmd << dendl;
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 157)   if (cmd == "status") {
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 158)     f->open_object_section("status");
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 159)     f->close_section();
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 160)     return 0;
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 161)   } else if (cmd == "heap") {
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 162)     if (!ceph_using_tcmalloc()) {
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 163)       errss << "could not issue heap profiler command -- not using tcmalloc!";
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 164)       return -EOPNOTSUPP;
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 165)     }
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 166)     std::string heapcmd;
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 167)     cmd_getval(cmdmap, "heapcmd", heapcmd);
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 168)     std::vector<std::string> cmd_vec;
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 169)     get_str_vec(heapcmd, cmd_vec);
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 170)     std::string val;
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 171)     if (cmd_getval(cmdmap, "value", val)) {
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 172)       cmd_vec.push_back(val);
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 173)     }
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 174)     std::ostringstream outss;
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 175)     ceph_heap_profiler_handle_command(cmd_vec, outss);
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 176)     outbl.append(outss.str());
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 177)     return 0;
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 178)   } else {
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 179)     return -ENOSYS;
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 180)   }
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 181) }
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 182) 
+a3dad559e876 src/mgr/MgrStandby.cc                    (Nitzan Mordechai   2026-06-14 07:55:36 +0000 183) static void handle_standby_mgr_signal(int signum)
+a3dad559e876 src/mgr/MgrStandby.cc                    (Nitzan Mordechai   2026-06-14 07:55:36 +0000 184) {
+a3dad559e876 src/mgr/MgrStandby.cc                    (Nitzan Mordechai   2026-06-14 07:55:36 +0000 185)   derr << " *** Got signal " << sig_str(signum) << " ***" << dendl;
+a3dad559e876 src/mgr/MgrStandby.cc                    (Nitzan Mordechai   2026-06-14 07:55:36 +0000 186)   _exit(0);
+a3dad559e876 src/mgr/MgrStandby.cc                    (Nitzan Mordechai   2026-06-14 07:55:36 +0000 187) }
+a3dad559e876 src/mgr/MgrStandby.cc                    (Nitzan Mordechai   2026-06-14 07:55:36 +0000 188) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 189) int MgrStandby::init()
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 190) {
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 191)   init_async_signal_handler();
+44354e008984 src/mgr/MgrStandby.cc                    (Dan van der Ster   2017-04-10 17:29:05 +0200 192)   register_async_signal_handler(SIGHUP, sighup_handler);
+a3dad559e876 src/mgr/MgrStandby.cc                    (Nitzan Mordechai   2026-06-14 07:55:36 +0000 193)   register_async_signal_handler_oneshot(SIGTERM, handle_standby_mgr_signal);
+a3dad559e876 src/mgr/MgrStandby.cc                    (Nitzan Mordechai   2026-06-14 07:55:36 +0000 194)   register_async_signal_handler_oneshot(SIGINT, handle_standby_mgr_signal);
+73af779d3149 src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 14:58:34 -0400 195)   cct->_conf.add_observer(this);
+73af779d3149 src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-16 14:58:34 -0400 196) 
+948635a8b213 src/mgr/MgrStandby.cc                    (Sage Weil          2018-10-16 14:11:33 -0500 197)   std::lock_guard l(lock);
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 198) 
+f22347db5509 src/mgr/MgrStandby.cc                    (Mykola Golub       2019-01-24 11:04:24 +0200 199)   // Start finisher
+f22347db5509 src/mgr/MgrStandby.cc                    (Mykola Golub       2019-01-24 11:04:24 +0200 200)   finisher.start();
+f22347db5509 src/mgr/MgrStandby.cc                    (Mykola Golub       2019-01-24 11:04:24 +0200 201) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 202)   // Initialize Messenger
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 203)   client_messenger->add_dispatcher_tail(this);
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 204)   client_messenger->add_dispatcher_head(&objecter);
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 205)   client_messenger->start();
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 206) 
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 207)   AdminSocket *admin_socket = g_ceph_context->get_admin_socket();
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 208)   asok_hook.reset(new MgrHook(this));
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 209)   {
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 210)     int r = admin_socket->register_command("status", asok_hook.get(), "show status");
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 211)     ceph_assert(r == 0);
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 212)     r = admin_socket->register_command(
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 213)       "heap " \
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 214)       "name=heapcmd,type=CephChoices,strings=" \
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 215)       "dump|start_profiler|stop_profiler|release|get_release_rate|set_release_rate|stats " \
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 216)       "name=value,type=CephString,req=false",
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 217)       asok_hook.get(),
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 218)       "show heap usage info (available only if compiled with tcmalloc)");
+d8dde402b6da src/mgr/MgrStandby.cc                    (Kefu Chai          2026-06-30 09:29:18 +0800 219)     ceph_assert(r == 0);
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 220)   }
+4a7976a57c1f src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-03-24 11:50:50 -0400 221) 
+306eebe05bec src/mgr/MgrStandby.cc                    (Adam C. Emerson    2020-04-28 17:32:56 -0400 222)   poolctx.start(2);
+306eebe05bec src/mgr/MgrStandby.cc                    (Adam C. Emerson    2020-04-28 17:32:56 -0400 223) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 224)   // Initialize MonClient
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 225)   if (monc.build_initial_monmap() < 0) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 226)     client_messenger->shutdown();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 227)     client_messenger->wait();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 228)     return -1;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 229)   }
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 230) 
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 231)   monc.sub_want("mgrmap", 0, 0);
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 232) 
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 233)   monc.set_want_keys(CEPH_ENTITY_TYPE_MON|CEPH_ENTITY_TYPE_OSD
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 234)       |CEPH_ENTITY_TYPE_MDS|CEPH_ENTITY_TYPE_MGR);
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 235)   monc.set_messenger(client_messenger.get());
+3193d40d0daf src/mgr/MgrStandby.cc                    (Rubab-Syed         2018-02-16 15:51:11 +0500 236) 
+3193d40d0daf src/mgr/MgrStandby.cc                    (Rubab-Syed         2018-02-16 15:51:11 +0500 237)   // We must register our config callback before calling init(), so
+3193d40d0daf src/mgr/MgrStandby.cc                    (Rubab-Syed         2018-02-16 15:51:11 +0500 238)   // that we see the initial configuration message
+3193d40d0daf src/mgr/MgrStandby.cc                    (Rubab-Syed         2018-02-16 15:51:11 +0500 239)   monc.register_config_callback([this](const std::string &k, const std::string &v){
+19000fad5731 src/mgr/MgrStandby.cc                    (Neha Ojha          2020-12-03 20:34:53 +0000 240)       // removing value to hide sensitive data going into mgr logs
+19000fad5731 src/mgr/MgrStandby.cc                    (Neha Ojha          2020-12-03 20:34:53 +0000 241)       // leaving this for debugging purposes
+19000fad5731 src/mgr/MgrStandby.cc                    (Neha Ojha          2020-12-03 20:34:53 +0000 242)       // dout(10) << "config_callback: " << k << " : " << v << dendl;
+19000fad5731 src/mgr/MgrStandby.cc                    (Neha Ojha          2020-12-03 20:34:53 +0000 243)       dout(10) << "config_callback: " << k << " : " << dendl;
+3193d40d0daf src/mgr/MgrStandby.cc                    (Rubab-Syed         2018-02-16 15:51:11 +0500 244)       if (k.substr(0, 4) == "mgr/") {
+95f80dda9dae src/mgr/MgrStandby.cc                    (Sage Weil          2021-02-16 18:24:20 -0500 245)         py_module_registry.handle_config(k, v);
+3193d40d0daf src/mgr/MgrStandby.cc                    (Rubab-Syed         2018-02-16 15:51:11 +0500 246) 	return true;
+3193d40d0daf src/mgr/MgrStandby.cc                    (Rubab-Syed         2018-02-16 15:51:11 +0500 247)       }
+3193d40d0daf src/mgr/MgrStandby.cc                    (Rubab-Syed         2018-02-16 15:51:11 +0500 248)       return false;
+3193d40d0daf src/mgr/MgrStandby.cc                    (Rubab-Syed         2018-02-16 15:51:11 +0500 249)     });
+f27a5dc61554 src/mgr/MgrStandby.cc                    (Sage Weil          2018-11-17 07:15:19 -0600 250)   monc.register_config_notify_callback([this]() {
+f27a5dc61554 src/mgr/MgrStandby.cc                    (Sage Weil          2018-11-17 07:15:19 -0600 251)       py_module_registry.handle_config_notify();
+f27a5dc61554 src/mgr/MgrStandby.cc                    (Sage Weil          2018-11-17 07:15:19 -0600 252)     });
+3193d40d0daf src/mgr/MgrStandby.cc                    (Rubab-Syed         2018-02-16 15:51:11 +0500 253)   dout(4) << "Registered monc callback" << dendl;
+3193d40d0daf src/mgr/MgrStandby.cc                    (Rubab-Syed         2018-02-16 15:51:11 +0500 254) 
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 255)   int r = monc.init();
+10bf5123f8f9 src/mgr/MgrStandby.cc                    (Xie Xingguo        2016-10-09 10:21:20 +0800 256)   if (r < 0) {
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 257)     monc.shutdown();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 258)     client_messenger->shutdown();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 259)     client_messenger->wait();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 260)     return r;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 261)   }
+cf68ce511f31 src/mgr/MgrStandby.cc                    (Sage Weil          2018-01-05 14:55:12 -0600 262)   mgrc.init();
+cf68ce511f31 src/mgr/MgrStandby.cc                    (Sage Weil          2018-01-05 14:55:12 -0600 263)   client_messenger->add_dispatcher_tail(&mgrc);
+cf68ce511f31 src/mgr/MgrStandby.cc                    (Sage Weil          2018-01-05 14:55:12 -0600 264) 
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 265)   r = monc.authenticate();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 266)   if (r < 0) {
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 267)     derr << "Authentication failed, did you specify a mgr ID with a valid keyring?" << dendl;
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 268)     monc.shutdown();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 269)     client_messenger->shutdown();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 270)     client_messenger->wait();
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 271)     return r;
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray         2016-06-30 14:05:02 +0100 272)   }
+430ba5e231d6 src/mgr/MgrStandby.cc                    (Xinying Song       2018-12-30 11:49:58 +0800 273)   // only forward monmap updates after authentication finishes, otherwise
+430ba5e231d6 src/mgr/MgrStandby.cc                    (Xinying Song       2018-12-30 11:49:58 +0800 274)   // monc.authenticate() will be waiting for MgrStandy::ms_dispatch()
+430ba5e231d6 src/mgr/MgrStandby.cc                    (Xinying Song       2018-12-30 11:49:58 +0800 275)   // to acquire the lock forever, as it is already locked in the beginning of
+430ba5e231d6 src/mgr/MgrStandby.cc                    (Xinying Song       2018-12-30 11:49:58 +0800 276)   // this method.
+430ba5e231d6 src/mgr/MgrStandby.cc                    (Xinying Song       2018-12-30 11:49:58 +0800 277)   monc.set_passthrough_monmap();
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 278) 
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 279)   client_t whoami = monc.get_global_id();
+cf68ce511f31 src/mgr/MgrStandby.cc                    (Sage Weil          2018-01-05 14:55:12 -0600 280)   client_messenger->set_myname(entity_name_t::MGR(whoami.v));
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 281)   monc.set_log_client(&log_client);
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 282)   _update_log_config();
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 283)   objecter.set_client_incarnation(0);
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 284)   objecter.init();
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 285)   objecter.start();
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 286)   timer.init();
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 287) 
+810369b0cc0e src/mgr/MgrStandby.cc                    (John Spray         2018-02-05 16:06:09 +0100 288)   py_module_registry.init();
+15dfa71cf7c8 src/mgr/MgrStandby.cc                    (Pere Diaz Bou      2021-05-26 17:47:06 +0200 289)   mgr_perf_start(g_ceph_context);
+15dfa71cf7c8 src/mgr/MgrStandby.cc                    (Pere Diaz Bou      2021-05-26 17:47:06 +0200 290) 
+810369b0cc0e src/mgr/MgrStandby.cc                    (John Spray         2018-02-05 16:06:09 +0100 291) 
+35fd964ec0d1 src/mgr/MgrStandby.cc                    (Greg Farnum        2017-03-10 15:02:50 -0800 292)   tick();
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 293) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 294)   dout(4) << "Complete." << dendl;
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 295)   return 0;
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 296) }
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 297) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 298) void MgrStandby::send_beacon()
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 299) {
+c93dc8849145 src/mgr/MgrStandby.cc                    (Kefu Chai          2019-07-07 11:14:49 +0800 300)   ceph_assert(ceph_mutex_is_locked_by_me(lock));
+dffce107fb68 src/mgr/MgrStandby.cc                    (Sebastian Wagner   2019-07-22 14:36:41 +0200 301)   dout(20) << state_str() << dendl;
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 302) 
+78576c9eecf2 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2019-12-02 17:57:48 -0800 303)   auto modules = py_module_registry.get_modules();
+712ad57d09a2 src/mgr/MgrStandby.cc                    (John Spray         2017-11-16 16:30:39 -0500 304) 
+712ad57d09a2 src/mgr/MgrStandby.cc                    (John Spray         2017-11-16 16:30:39 -0500 305)   // Construct a list of the info about each loaded module
+712ad57d09a2 src/mgr/MgrStandby.cc                    (John Spray         2017-11-16 16:30:39 -0500 306)   // which we will transmit to the monitor.
+6eb5c636dd5d src/mgr/MgrStandby.cc                    (John Spray         2017-11-28 08:57:28 -0500 307)   std::vector<MgrMap::ModuleInfo> module_info;
+712ad57d09a2 src/mgr/MgrStandby.cc                    (John Spray         2017-11-16 16:30:39 -0500 308)   for (const auto &module : modules) {
+6eb5c636dd5d src/mgr/MgrStandby.cc                    (John Spray         2017-11-28 08:57:28 -0500 309)     MgrMap::ModuleInfo info;
+712ad57d09a2 src/mgr/MgrStandby.cc                    (John Spray         2017-11-16 16:30:39 -0500 310)     info.name = module->get_name();
+712ad57d09a2 src/mgr/MgrStandby.cc                    (John Spray         2017-11-16 16:30:39 -0500 311)     info.error_string = module->get_error_string();
+712ad57d09a2 src/mgr/MgrStandby.cc                    (John Spray         2017-11-16 16:30:39 -0500 312)     info.can_run = module->get_can_run();
+1f3e9d4811b8 src/mgr/MgrStandby.cc                    (Sage Weil          2018-12-17 14:22:33 -0600 313)     info.module_options = module->get_options();
+712ad57d09a2 src/mgr/MgrStandby.cc                    (John Spray         2017-11-16 16:30:39 -0500 314)     module_info.push_back(std::move(info));
+712ad57d09a2 src/mgr/MgrStandby.cc                    (John Spray         2017-11-16 16:30:39 -0500 315)   }
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 316) 
+df507cde8d71 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2019-12-02 20:27:44 -0800 317)   auto clients = py_module_registry.get_clients();
+df507cde8d71 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2019-12-02 20:27:44 -0800 318)   for (const auto& client : clients) {
+dfd01d765304 src/mgr/MgrStandby.cc                    (Sage Weil          2020-06-15 10:27:03 -0500 319)     dout(15) << "noting RADOS client for blocklist: " << client << dendl;
+df507cde8d71 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2019-12-02 20:27:44 -0800 320)   }
+df507cde8d71 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2019-12-02 20:27:44 -0800 321) 
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 322)   // Whether I think I am available (request MgrMonitor to set me
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 323)   // as available in the map).
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 324)   //
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 325)   // The active mgr is marked available if:
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 326)   // 1. The mon has chosen a standby to be active
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 327)   // 2. The chosen active mgr has all of its modules initialized
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 328)   //
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 329)   // In extreme cases, if modules take very long to initialize (a buffer of extra time
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 330)   // is allowed; see "mgr_module_load_expiration"), we will proceed to mark the chosen
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 331)   // active mgr "available" to unblock other mgr functionality such as reporting PG
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 332)   // availability. If this happens, a health error will be issued indicating which
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 333)   // mgr modules got stuck initializing (See src/mgr/PyModuleRegistry.cc). This unblocks
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 334)   // the rest of the mgr's functionality while making it clear that some modules
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 335)   // are unusuable.
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 336)   bool available = false;
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 337)   if (active_mgr != nullptr) {
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 338)     available = active_mgr->is_initialized() || active_mgr->exceeded_initialization_expiration();
+bf25a08cc58c src/mgr/MgrStandby.cc                    (Laura Flores       2025-07-29 22:46:46 +0000 339)   }
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 340) 
+7f787704cdcd src/mgr/MgrStandby.cc                    (Sage Weil          2018-05-29 16:47:07 -0500 341)   auto addrs = available ? active_mgr->get_server_addrs() : entity_addrvec_t();
+8d1277fa5c57 src/mgr/MgrStandby.cc                    (John Spray         2017-08-03 13:00:56 -0400 342)   dout(10) << "sending beacon as gid " << monc.get_global_id() << dendl;
+d953198aff3e src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-27 18:12:35 -0400 343) 
+1bf4a89890d2 src/mgr/MgrStandby.cc                    (Sage Weil          2017-07-20 15:59:38 -0400 344)   map<string,string> metadata;
+b62520059767 src/mgr/MgrStandby.cc                    (Kefu Chai          2019-02-15 23:11:07 +0800 345)   metadata["addr"] = client_messenger->get_myaddr_legacy().ip_only_to_str();
+5f86c72825b5 src/mgr/MgrStandby.cc                    (Sage Weil          2019-02-17 09:26:44 -0600 346)   metadata["addrs"] = stringify(client_messenger->get_myaddrs());
+1bf4a89890d2 src/mgr/MgrStandby.cc                    (Sage Weil          2017-07-20 15:59:38 -0400 347)   collect_sys_info(&metadata, g_ceph_context);
+1bf4a89890d2 src/mgr/MgrStandby.cc                    (Sage Weil          2017-07-20 15:59:38 -0400 348) 
+12d301a1994e src/mgr/MgrStandby.cc                    (Kefu Chai          2019-09-18 12:46:09 +0800 349)   auto m = ceph::make_message<MMgrBeacon>(monc.get_fsid(),
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 350) 				 monc.get_global_id(),
+4718b7cb2fac src/mgr/MgrStandby.cc                    (Kefu Chai          2018-07-06 17:20:32 +0800 351)                                  g_conf()->name.get_id(),
+7f787704cdcd src/mgr/MgrStandby.cc                    (Sage Weil          2018-05-29 16:47:07 -0500 352)                                  addrs,
+d953198aff3e src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-27 18:12:35 -0400 353)                                  available,
+712ad57d09a2 src/mgr/MgrStandby.cc                    (John Spray         2017-11-16 16:30:39 -0500 354) 				 std::move(module_info),
+351a3b9d3867 src/mgr/MgrStandby.cc                    (Sage Weil          2019-09-04 14:08:14 -0500 355) 				 std::move(metadata),
+df507cde8d71 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2019-12-02 20:27:44 -0800 356)                                  std::move(clients),
+351a3b9d3867 src/mgr/MgrStandby.cc                    (Sage Weil          2019-09-04 14:08:14 -0500 357) 				 CEPH_FEATURES_ALL);
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 358) 
+a0183a63fa79 src/mgr/MgrStandby.cc                    (John Spray         2017-07-27 11:50:23 -0400 359)   if (available) {
+a0183a63fa79 src/mgr/MgrStandby.cc                    (John Spray         2017-07-27 11:50:23 -0400 360)     if (!available_in_map) {
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 361)       // We are informing the mon that we are done initializing: inform
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 362)       // it of our command set.  This has to happen after init() because
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 363)       // it needs the python modules to have loaded.
+834bc2794050 src/mgr/MgrStandby.cc                    (John Spray         2017-11-23 08:01:33 -0500 364)       std::vector<MonCommand> commands = mgr_commands;
+834bc2794050 src/mgr/MgrStandby.cc                    (John Spray         2017-11-23 08:01:33 -0500 365)       std::vector<MonCommand> py_commands = py_module_registry.get_commands();
+5c3846306b6b src/mgr/Mgr.cc                           (John Spray         2017-06-29 15:11:12 -0400 366)       commands.insert(commands.end(), py_commands.begin(), py_commands.end());
+218f4cefea08 src/mgr/MgrStandby.cc                    (Sage Weil          2021-05-28 22:19:27 -0400 367)       if (monc.monmap.min_mon_release < ceph_release_t::quincy) {
+218f4cefea08 src/mgr/MgrStandby.cc                    (Sage Weil          2021-05-28 22:19:27 -0400 368) 	dout(10) << " stripping out positional=false quincy-ism" << dendl;
+218f4cefea08 src/mgr/MgrStandby.cc                    (Sage Weil          2021-05-28 22:19:27 -0400 369) 	for (auto& i : commands) {
+218f4cefea08 src/mgr/MgrStandby.cc                    (Sage Weil          2021-05-28 22:19:27 -0400 370) 	  boost::replace_all(i.cmdstring, ",positional=false", "");
+218f4cefea08 src/mgr/MgrStandby.cc                    (Sage Weil          2021-05-28 22:19:27 -0400 371) 	}
+218f4cefea08 src/mgr/MgrStandby.cc                    (Sage Weil          2021-05-28 22:19:27 -0400 372)       }
+834bc2794050 src/mgr/MgrStandby.cc                    (John Spray         2017-11-23 08:01:33 -0500 373)       m->set_command_descs(commands);
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 374)       dout(4) << "going active, including " << m->get_command_descs().size()
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 375)               << " commands in beacon" << dendl;
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 376)     }
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 377) 
+a0183a63fa79 src/mgr/MgrStandby.cc                    (John Spray         2017-07-27 11:50:23 -0400 378)     m->set_services(active_mgr->get_services());
+a0183a63fa79 src/mgr/MgrStandby.cc                    (John Spray         2017-07-27 11:50:23 -0400 379)   }
+a0183a63fa79 src/mgr/MgrStandby.cc                    (John Spray         2017-07-27 11:50:23 -0400 380) 
+12d301a1994e src/mgr/MgrStandby.cc                    (Kefu Chai          2019-09-18 12:46:09 +0800 381)   monc.send_mon_message(std::move(m));
+35fd964ec0d1 src/mgr/MgrStandby.cc                    (Greg Farnum        2017-03-10 15:02:50 -0800 382) }
+35fd964ec0d1 src/mgr/MgrStandby.cc                    (Greg Farnum        2017-03-10 15:02:50 -0800 383) 
+35fd964ec0d1 src/mgr/MgrStandby.cc                    (Greg Farnum        2017-03-10 15:02:50 -0800 384) void MgrStandby::tick()
+35fd964ec0d1 src/mgr/MgrStandby.cc                    (Greg Farnum        2017-03-10 15:02:50 -0800 385) {
+617c96014bfb src/mgr/MgrStandby.cc                    (Dan Mick           2017-07-12 15:40:01 -0400 386)   dout(10) << __func__ << dendl;
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 387)   send_beacon();
+35fd964ec0d1 src/mgr/MgrStandby.cc                    (Greg Farnum        2017-03-10 15:02:50 -0800 388) 
+80ee71ab5aef src/mgr/MgrStandby.cc                    (Kefu Chai          2018-02-13 16:37:00 +0800 389)   timer.add_event_after(
+4718b7cb2fac src/mgr/MgrStandby.cc                    (Kefu Chai          2018-07-06 17:20:32 +0800 390)       g_conf().get_val<std::chrono::seconds>("mgr_tick_period").count(),
+489b30844e86 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2019-08-14 11:23:42 -0700 391)       new LambdaContext([this](int r){
+35fd964ec0d1 src/mgr/MgrStandby.cc                    (Greg Farnum        2017-03-10 15:02:50 -0800 392)           tick();
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 393)       }
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 394)   ));
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 395) }
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 396) 
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 397) void MgrStandby::respawn()
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 398) {
+8e070294542a src/mgr/MgrStandby.cc                    (Sage Weil          2019-03-07 08:50:53 -0600 399)   // --- WARNING TO FUTURE COPY/PASTERS ---
+8e070294542a src/mgr/MgrStandby.cc                    (Sage Weil          2019-03-07 08:50:53 -0600 400)   // You must also add a call like
+8e070294542a src/mgr/MgrStandby.cc                    (Sage Weil          2019-03-07 08:50:53 -0600 401)   //
+8e070294542a src/mgr/MgrStandby.cc                    (Sage Weil          2019-03-07 08:50:53 -0600 402)   //   ceph_pthread_setname(pthread_self(), "ceph-mgr");
+8e070294542a src/mgr/MgrStandby.cc                    (Sage Weil          2019-03-07 08:50:53 -0600 403)   //
+8e070294542a src/mgr/MgrStandby.cc                    (Sage Weil          2019-03-07 08:50:53 -0600 404)   // to main() so that /proc/$pid/stat field 2 contains "(ceph-mgr)"
+8e070294542a src/mgr/MgrStandby.cc                    (Sage Weil          2019-03-07 08:50:53 -0600 405)   // instead of "(exe)", so that killall (and log rotation) will work.
+8e070294542a src/mgr/MgrStandby.cc                    (Sage Weil          2019-03-07 08:50:53 -0600 406) 
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 407)   char *new_argv[orig_argc+1];
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 408)   dout(1) << " e: '" << orig_argv[0] << "'" << dendl;
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 409)   for (int i=0; i<orig_argc; i++) {
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 410)     new_argv[i] = (char *)orig_argv[i];
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 411)     dout(1) << " " << i << ": '" << orig_argv[i] << "'" << dendl;
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 412)   }
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 413)   new_argv[orig_argc] = NULL;
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 414) 
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 415)   /* Determine the path to our executable, test if Linux /proc/self/exe exists.
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 416)    * This allows us to exec the same executable even if it has since been
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 417)    * unlinked.
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 418)    */
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 419)   char exe_path[PATH_MAX] = "";
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 420)   if (readlink(PROCPREFIX "/proc/self/exe", exe_path, PATH_MAX-1) == -1) {
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 421)     /* Print CWD for the user's interest */
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 422)     char buf[PATH_MAX];
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 423)     char *cwd = getcwd(buf, sizeof(buf));
+ab23c5069647 src/mgr/MgrStandby.cc                    (Adam C. Emerson    2018-08-23 11:25:51 -0400 424)     ceph_assert(cwd);
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 425)     dout(1) << " cwd " << cwd << dendl;
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 426) 
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 427)     /* Fall back to a best-effort: just running in our CWD */
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 428)     strncpy(exe_path, orig_argv[0], PATH_MAX-1);
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 429)   } else {
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 430)     dout(1) << "respawning with exe " << exe_path << dendl;
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 431)     strcpy(exe_path, PROCPREFIX "/proc/self/exe");
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 432)   }
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 433) 
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 434)   dout(1) << " exe_path " << exe_path << dendl;
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 435) 
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 436)   unblock_all_signals(NULL);
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 437)   execv(exe_path, new_argv);
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 438) 
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 439)   derr << "respawn execv " << orig_argv[0]
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 440)        << " failed with " << cpp_strerror(errno) << dendl;
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 441)   ceph_abort();
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 442) }
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 443) 
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 444) void MgrStandby::_update_log_config()
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 445) {
+bb09a1d7e2c5 src/mgr/MgrStandby.cc                    (Ronen Friedman     2021-10-17 06:21:16 +0000 446)   clog->parse_client_options(cct);
+bb09a1d7e2c5 src/mgr/MgrStandby.cc                    (Ronen Friedman     2021-10-17 06:21:16 +0000 447)   audit_clog->parse_client_options(cct);
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 448) }
+d3a10d351204 src/mgr/MgrStandby.cc                    (Sage Weil          2017-03-21 20:24:24 -0500 449) 
+a50a91d24349 src/mgr/MgrStandby.cc                    (Kefu Chai          2019-04-15 14:39:11 +0800 450) void MgrStandby::handle_mgr_map(ref_t<MMgrMap> mmap)
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 451) {
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 452)   auto &map = mmap->get_map();
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 453)   dout(4) << "received map epoch " << map.get_epoch() << dendl;
+260fea0f59d2 src/mgr/MgrStandby.cc                    (Kefu Chai          2017-05-04 15:39:55 +0800 454)   const bool active_in_map = map.active_gid == monc.get_global_id();
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 455)   dout(4) << "active in map: " << active_in_map
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 456)           << " active is " << map.active_gid << dendl;
+9718896c8b84 src/mgr/MgrStandby.cc                    (John Spray         2017-08-14 06:31:18 -0400 457) 
+810369b0cc0e src/mgr/MgrStandby.cc                    (John Spray         2018-02-05 16:06:09 +0100 458)   // PyModuleRegistry may ask us to respawn if it sees that
+810369b0cc0e src/mgr/MgrStandby.cc                    (John Spray         2018-02-05 16:06:09 +0100 459)   // this MgrMap is changing its set of enabled modules
+9718896c8b84 src/mgr/MgrStandby.cc                    (John Spray         2017-08-14 06:31:18 -0400 460)   bool need_respawn = py_module_registry.handle_mgr_map(map);
+9718896c8b84 src/mgr/MgrStandby.cc                    (John Spray         2017-08-14 06:31:18 -0400 461)   if (need_respawn) {
+b835b07bc3c2 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2020-10-02 10:55:45 -0700 462)     dout(1) << "respawning because set of enabled modules changed!" << dendl;
+9718896c8b84 src/mgr/MgrStandby.cc                    (John Spray         2017-08-14 06:31:18 -0400 463)     respawn();
+9718896c8b84 src/mgr/MgrStandby.cc                    (John Spray         2017-08-14 06:31:18 -0400 464)   }
+9718896c8b84 src/mgr/MgrStandby.cc                    (John Spray         2017-08-14 06:31:18 -0400 465) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 466)   if (active_in_map) {
+6ea42d79ae1f src/mgr/MgrStandby.cc                    (John Spray         2017-02-04 21:14:13 +0000 467)     if (!active_mgr) {
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 468)       dout(1) << "Activating!" << dendl;
+9718896c8b84 src/mgr/MgrStandby.cc                    (John Spray         2017-08-14 06:31:18 -0400 469)       active_mgr.reset(new Mgr(&monc, map, &py_module_registry,
+9718896c8b84 src/mgr/MgrStandby.cc                    (John Spray         2017-08-14 06:31:18 -0400 470)                                client_messenger.get(), &objecter,
+f20df2eb8545 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-01-30 17:08:07 -0500 471) 			       clog, audit_clog));
+489b30844e86 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2019-08-14 11:23:42 -0700 472)       active_mgr->background_init(new LambdaContext(
+e0e87da6529d src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 09:35:39 -0400 473)             [this](int r){
+e0e87da6529d src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 09:35:39 -0400 474)               // Advertise our active-ness ASAP instead of waiting for
+e0e87da6529d src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 09:35:39 -0400 475)               // next tick.
+948635a8b213 src/mgr/MgrStandby.cc                    (Sage Weil          2018-10-16 14:11:33 -0500 476)               std::lock_guard l(lock);
+e0e87da6529d src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 09:35:39 -0400 477)               send_beacon();
+e0e87da6529d src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 09:35:39 -0400 478)             }));
+e0e87da6529d src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 09:35:39 -0400 479)       dout(1) << "I am now activating" << dendl;
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 480)     } else {
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 481)       dout(10) << "I was already active" << dendl;
+16fcee1f71fc src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-27 15:58:44 -0400 482)       bool need_respawn = active_mgr->got_mgr_map(map);
+16fcee1f71fc src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-27 15:58:44 -0400 483)       if (need_respawn) {
+16fcee1f71fc src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-27 15:58:44 -0400 484) 	respawn();
+16fcee1f71fc src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-27 15:58:44 -0400 485)       }
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 486)     }
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 487) 
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 488)     if (!available_in_map && map.get_available()) {
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 489)       dout(4) << "Map now says I am available" << dendl;
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 490)       available_in_map = true;
+5c3846306b6b src/mgr/MgrStandby.cc                    (John Spray         2017-06-29 15:11:12 -0400 491)     }
+c1471c750194 src/mgr/MgrStandby.cc                    (John Spray         2017-08-22 14:42:11 -0400 492)   } else if (active_mgr != nullptr) {
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 493)     derr << "I was active but no longer am" << dendl;
+2fd49a1a617f src/mgr/MgrStandby.cc                    (Sage Weil          2017-06-07 16:54:19 -0400 494)     respawn();
+c1471c750194 src/mgr/MgrStandby.cc                    (John Spray         2017-08-22 14:42:11 -0400 495)   } else {
+4718b7cb2fac src/mgr/MgrStandby.cc                    (Kefu Chai          2018-07-06 17:20:32 +0800 496)     if (map.active_gid != 0 && map.active_name != g_conf()->name.get_id()) {
+c1471c750194 src/mgr/MgrStandby.cc                    (John Spray         2017-08-22 14:42:11 -0400 497)       // I am the standby and someone else is active, start modules
+c1471c750194 src/mgr/MgrStandby.cc                    (John Spray         2017-08-22 14:42:11 -0400 498)       // in standby mode to do redirects if needed
+35d2146c1a80 src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-13 10:11:31 -0400 499)       if (!py_module_registry.is_standby_running() &&
+35d2146c1a80 src/mgr/MgrStandby.cc                    (Sage Weil          2021-04-13 10:11:31 -0400 500) 	  g_conf().get_val<bool>("mgr_standby_modules")) {
+f22347db5509 src/mgr/MgrStandby.cc                    (Mykola Golub       2019-01-24 11:04:24 +0200 501)         py_module_registry.standby_start(monc, finisher);
+c1471c750194 src/mgr/MgrStandby.cc                    (John Spray         2017-08-22 14:42:11 -0400 502)       }
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 503)     }
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 504)   }
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 505) }
+fd537bc696d6 src/mgr/MgrStandby.cc                    (John Spray         2016-07-16 22:04:39 +0100 506) 
+c9d0913f53b0 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-02-18 12:41:52 -0500 507) Dispatcher::dispatch_result_t MgrStandby::ms_dispatch2(const ref_t<Message>& m)
+fd537bc696d6 src/mgr/MgrStandby.cc                    (John Spray         2016-07-16 22:04:39 +0100 508) {
+948635a8b213 src/mgr/MgrStandby.cc                    (Sage Weil          2018-10-16 14:11:33 -0500 509)   std::lock_guard l(lock);
+dffce107fb68 src/mgr/MgrStandby.cc                    (Sebastian Wagner   2019-07-22 14:36:41 +0200 510)   dout(10) << state_str() << " " << *m << dendl;
+fd537bc696d6 src/mgr/MgrStandby.cc                    (John Spray         2016-07-16 22:04:39 +0100 511) 
+56cb05775a93 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-02-18 14:20:57 -0500 512)   Dispatcher::dispatch_result_t r;
+56cb05775a93 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-02-18 14:20:57 -0500 513) 
+f6ba8ab79777 src/mgr/MgrStandby.cc                    (John Spray         2017-06-15 15:57:36 -0400 514)   if (m->get_type() == MSG_MGR_MAP) {
+a50a91d24349 src/mgr/MgrStandby.cc                    (Kefu Chai          2019-04-15 14:39:11 +0800 515)     handle_mgr_map(ref_cast<MMgrMap>(m));
+56cb05775a93 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-02-18 14:20:57 -0500 516)     r = Dispatcher::ACKNOWLEDGED();
+cf68ce511f31 src/mgr/MgrStandby.cc                    (Sage Weil          2018-01-05 14:55:12 -0600 517)   }
+cf68ce511f31 src/mgr/MgrStandby.cc                    (Sage Weil          2018-01-05 14:55:12 -0600 518)   if (active_mgr) {
+890f48256857 src/mgr/MgrStandby.cc                    (Sage Weil          2017-05-25 18:25:27 -0400 519)     auto am = active_mgr;
+c93dc8849145 src/mgr/MgrStandby.cc                    (Kefu Chai          2019-07-07 11:14:49 +0800 520)     lock.unlock();
+56cb05775a93 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-02-18 14:20:57 -0500 521)     r = am->ms_dispatch2(m);
+c93dc8849145 src/mgr/MgrStandby.cc                    (Kefu Chai          2019-07-07 11:14:49 +0800 522)     lock.lock();
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 523)   }
+56cb05775a93 src/mgr/MgrStandby.cc                    (Patrick Donnelly   2025-02-18 14:20:57 -0500 524)   return r;
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 525) }
+fd537bc696d6 src/mgr/MgrStandby.cc                    (John Spray         2016-07-16 22:04:39 +0100 526) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 527) 
+58dd3db0be62 src/mgr/MgrStandby.cc                    (John Spray         2016-09-20 16:34:37 +0100 528) bool MgrStandby::ms_handle_refused(Connection *con)
+58dd3db0be62 src/mgr/MgrStandby.cc                    (John Spray         2016-09-20 16:34:37 +0100 529) {
+58dd3db0be62 src/mgr/MgrStandby.cc                    (John Spray         2016-09-20 16:34:37 +0100 530)   // do nothing for now
+58dd3db0be62 src/mgr/MgrStandby.cc                    (John Spray         2016-09-20 16:34:37 +0100 531)   return false;
+58dd3db0be62 src/mgr/MgrStandby.cc                    (John Spray         2016-09-20 16:34:37 +0100 532) }
+58dd3db0be62 src/mgr/MgrStandby.cc                    (John Spray         2016-09-20 16:34:37 +0100 533) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 534) int MgrStandby::main(vector<const char *> args)
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 535) {
+c81e542b3281 src/mgr/Mgr.cc                           (John Spray         2016-07-04 15:22:27 +0100 536)   client_messenger->wait();
+c81e542b3281 src/mgr/Mgr.cc                           (John Spray         2016-07-04 15:22:27 +0100 537) 
+c81e542b3281 src/mgr/Mgr.cc                           (John Spray         2016-07-04 15:22:27 +0100 538)   // Disable signal handlers
+44354e008984 src/mgr/MgrStandby.cc                    (Dan van der Ster   2017-04-10 17:29:05 +0200 539)   unregister_async_signal_handler(SIGHUP, sighup_handler);
+a3dad559e876 src/mgr/MgrStandby.cc                    (Nitzan Mordechai   2026-06-14 07:55:36 +0000 540)   unregister_async_signal_handler(SIGTERM, handle_standby_mgr_signal);
+a3dad559e876 src/mgr/MgrStandby.cc                    (Nitzan Mordechai   2026-06-14 07:55:36 +0000 541)   unregister_async_signal_handler(SIGINT, handle_standby_mgr_signal);
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 542)   shutdown_async_signal_handler();
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 543) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 544)   return 0;
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 545) }
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 546) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 547) 
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 548) std::string MgrStandby::state_str()
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 549) {
+c1471c750194 src/mgr/MgrStandby.cc                    (John Spray         2017-08-22 14:42:11 -0400 550)   if (active_mgr == nullptr) {
+c1471c750194 src/mgr/MgrStandby.cc                    (John Spray         2017-08-22 14:42:11 -0400 551)     return "standby";
+c1471c750194 src/mgr/MgrStandby.cc                    (John Spray         2017-08-22 14:42:11 -0400 552)   } else if (active_mgr->is_initialized()) {
+c1471c750194 src/mgr/MgrStandby.cc                    (John Spray         2017-08-22 14:42:11 -0400 553)     return "active";
+c1471c750194 src/mgr/MgrStandby.cc                    (John Spray         2017-08-22 14:42:11 -0400 554)   } else {
+c1471c750194 src/mgr/MgrStandby.cc                    (John Spray         2017-08-22 14:42:11 -0400 555)     return "active (starting)";
+c1471c750194 src/mgr/MgrStandby.cc                    (John Spray         2017-08-22 14:42:11 -0400 556)   }
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray         2016-07-15 00:39:22 +0100 557) }
+
+# git blame -w -M -C src/mgr/MgrStandby.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng    2020-04-08 10:35:40 +0800  1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/MgrStandby.h                                       (Edwin Rodriguez  2025-10-01 09:09:51 -0400  2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/MgrStandby.h                                       (Edwin Rodriguez  2025-10-02 15:34:08 -0400  3) 
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray       2016-05-19 12:58:22 +0100  4) /*
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray       2016-05-19 12:58:22 +0100  5)  * Ceph - scalable distributed file system
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray       2016-05-19 12:58:22 +0100  6)  *
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray       2016-05-19 12:58:22 +0100  7)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h                        (Sage Weil        2007-10-17 23:34:54 +0000  8)  *
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h                        (Sage Weil        2007-10-17 23:34:54 +0000  9)  * This is free software; you can redistribute it and/or
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h                        (Sage Weil        2007-10-17 23:34:54 +0000 10)  * modify it under the terms of the GNU Lesser General Public
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h                        (Sage Weil        2007-10-17 23:34:54 +0000 11)  * License version 2.1, as published by the Free Software
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h                        (Sage Weil        2007-10-17 23:34:54 +0000 12)  * Foundation.  See file COPYING.
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray       2016-05-19 12:58:22 +0100 13)  */
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray       2016-05-19 12:58:22 +0100 14) 
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray       2016-05-19 12:58:22 +0100 15) 
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 16) #ifndef MGR_STANDBY_H_
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 17) #define MGR_STANDBY_H_
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 18) 
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 19) #include "auth/Auth.h"
+306eebe05bec src/mgr/MgrStandby.h                                       (Adam C. Emerson  2020-04-28 17:32:56 -0400 20) #include "common/async/context_pool.h"
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100 21) #include "common/Finisher.h"
+ac30e6cee2b2 src/mgr/Mgr.h                                              (John Spray       2016-06-30 14:05:02 +0100 22) #include "common/Timer.h"
+d3a10d351204 src/mgr/MgrStandby.h                                       (Sage Weil        2017-03-21 20:24:24 -0500 23) #include "common/LogClient.h"
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 24) 
+7845f8d757ad src/mgr/MgrStandby.cc                                      (John Spray       2016-07-15 00:39:22 +0100 25) #include "mon/MonClient.h"
+3746e209d881 src/mgr/MgrStandby.cc                                      (John Spray       2017-03-30 10:07:23 -0400 26) #include "osdc/Objecter.h"
+9718896c8b84 src/mgr/MgrStandby.h                                       (John Spray       2017-08-14 06:31:18 -0400 27) #include "PyModuleRegistry.h"
+cf68ce511f31 src/mgr/MgrStandby.h                                       (Sage Weil        2018-01-05 14:55:12 -0600 28) #include "MgrClient.h"
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 29) 
+fd537bc696d6 src/mgr/MgrStandby.h                                       (John Spray       2016-07-16 22:04:39 +0100 30) class MMgrMap;
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 31) class Mgr;
+3193d40d0daf src/mgr/MgrStandby.h                                       (Rubab-Syed       2018-02-16 15:51:11 +0500 32) class PyModuleConfig;
+4a7976a57c1f src/mgr/MgrStandby.h                                       (Patrick Donnelly 2025-03-24 11:50:50 -0400 33) class MgrHook;
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 34) 
+d3a10d351204 src/mgr/MgrStandby.h                                       (Sage Weil        2017-03-21 20:24:24 -0500 35) class MgrStandby : public Dispatcher,
+d3a10d351204 src/mgr/MgrStandby.h                                       (Sage Weil        2017-03-21 20:24:24 -0500 36) 		   public md_config_obs_t {
+d3a10d351204 src/mgr/MgrStandby.h                                       (Sage Weil        2017-03-21 20:24:24 -0500 37) public:
+d3a10d351204 src/mgr/MgrStandby.h                                       (Sage Weil        2017-03-21 20:24:24 -0500 38)   // config observer bits
+2d4b4235fc25 src/mgr/MgrStandby.h                                       (Ronen Friedman   2025-02-25 07:40:20 -0600 39)   std::vector<std::string> get_tracked_keys() const noexcept override;
+f528475d9252 src/mgr/MgrStandby.h                                       (Kefu Chai        2018-07-06 23:08:00 +0800 40)   void handle_conf_change(const ConfigProxy& conf,
+d3a10d351204 src/mgr/MgrStandby.h                                       (Sage Weil        2017-03-21 20:24:24 -0500 41) 			  const std::set <std::string> &changed) override;
+d8dde402b6da src/mgr/MgrStandby.h                                       (Kefu Chai        2026-06-30 09:29:18 +0800 42)   int asok_command(std::string_view cmd, const cmdmap_t& cmdmap, Formatter* f,
+d8dde402b6da src/mgr/MgrStandby.h                                       (Kefu Chai        2026-06-30 09:29:18 +0800 43) 		   std::ostream& errss, ceph::buffer::list& outbl);
+d3a10d351204 src/mgr/MgrStandby.h                                       (Sage Weil        2017-03-21 20:24:24 -0500 44) 
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 45) protected:
+306eebe05bec src/mgr/MgrStandby.h                                       (Adam C. Emerson  2020-04-28 17:32:56 -0400 46)   ceph::async::io_context_pool poolctx;
+260fea0f59d2 src/mgr/MgrStandby.h                                       (Kefu Chai        2017-05-04 15:39:55 +0800 47)   MonClient monc;
+260fea0f59d2 src/mgr/MgrStandby.h                                       (Kefu Chai        2017-05-04 15:39:55 +0800 48)   std::unique_ptr<Messenger> client_messenger;
+260fea0f59d2 src/mgr/MgrStandby.h                                       (Kefu Chai        2017-05-04 15:39:55 +0800 49)   Objecter objecter;
+d3a10d351204 src/mgr/MgrStandby.h                                       (Sage Weil        2017-03-21 20:24:24 -0500 50) 
+cf68ce511f31 src/mgr/MgrStandby.h                                       (Sage Weil        2018-01-05 14:55:12 -0600 51)   MgrClient mgrc;
+cf68ce511f31 src/mgr/MgrStandby.h                                       (Sage Weil        2018-01-05 14:55:12 -0600 52) 
+d3a10d351204 src/mgr/MgrStandby.h                                       (Sage Weil        2017-03-21 20:24:24 -0500 53)   LogClient log_client;
+d3a10d351204 src/mgr/MgrStandby.h                                       (Sage Weil        2017-03-21 20:24:24 -0500 54)   LogChannelRef clog, audit_clog;
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 55) 
+c93dc8849145 src/mgr/MgrStandby.h                                       (Kefu Chai        2019-07-07 11:14:49 +0800 56)   ceph::mutex lock = ceph::make_mutex("MgrStandby::lock");
+f22347db5509 src/mgr/MgrStandby.h                                       (Mykola Golub     2019-01-24 11:04:24 +0200 57)   Finisher finisher;
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 58)   SafeTimer timer;
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 59) 
+9718896c8b84 src/mgr/MgrStandby.h                                       (John Spray       2017-08-14 06:31:18 -0400 60)   PyModuleRegistry py_module_registry;
+890f48256857 src/mgr/MgrStandby.h                                       (Sage Weil        2017-05-25 18:25:27 -0400 61)   std::shared_ptr<Mgr> active_mgr;
+4a7976a57c1f src/mgr/MgrStandby.h                                       (Patrick Donnelly 2025-03-24 11:50:50 -0400 62)   std::unique_ptr<MgrHook> asok_hook;
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 63) 
+2fd49a1a617f src/mgr/MgrStandby.h                                       (Sage Weil        2017-06-07 16:54:19 -0400 64)   int orig_argc;
+2fd49a1a617f src/mgr/MgrStandby.h                                       (Sage Weil        2017-06-07 16:54:19 -0400 65)   const char **orig_argv;
+2fd49a1a617f src/mgr/MgrStandby.h                                       (Sage Weil        2017-06-07 16:54:19 -0400 66) 
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 67)   std::string state_str();
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 68) 
+a50a91d24349 src/mgr/MgrStandby.h                                       (Kefu Chai        2019-04-15 14:39:11 +0800 69)   void handle_mgr_map(ceph::ref_t<MMgrMap> m);
+d3a10d351204 src/mgr/MgrStandby.h                                       (Sage Weil        2017-03-21 20:24:24 -0500 70)   void _update_log_config();
+35fd964ec0d1 src/mgr/MgrStandby.h                                       (Greg Farnum      2017-03-10 15:02:50 -0800 71)   void send_beacon();
+fd537bc696d6 src/mgr/MgrStandby.h                                       (John Spray       2016-07-16 22:04:39 +0100 72) 
+5c3846306b6b src/mgr/MgrStandby.h                                       (John Spray       2017-06-29 15:11:12 -0400 73)   bool available_in_map;
+5c3846306b6b src/mgr/MgrStandby.h                                       (John Spray       2017-06-29 15:11:12 -0400 74) 
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 75) public:
+2fd49a1a617f src/mgr/MgrStandby.h                                       (Sage Weil        2017-06-07 16:54:19 -0400 76)   MgrStandby(int argc, const char **argv);
+ecbcd591b785 src/mgr/MgrStandby.h                                       (Chang Liu        2017-02-22 19:52:46 +0800 77)   ~MgrStandby() override;
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 78) 
+c9d0913f53b0 src/mgr/MgrStandby.h                                       (Patrick Donnelly 2025-02-18 12:41:52 -0500 79)   Dispatcher::dispatch_result_t ms_dispatch2(const ceph::ref_t<Message>& m) override;
+ecbcd591b785 src/mgr/MgrStandby.h                                       (Chang Liu        2017-02-22 19:52:46 +0800 80)   bool ms_handle_reset(Connection *con) override { return false; }
+ecbcd591b785 src/mgr/MgrStandby.h                                       (Chang Liu        2017-02-22 19:52:46 +0800 81)   void ms_handle_remote_reset(Connection *con) override {}
+ecbcd591b785 src/mgr/MgrStandby.h                                       (Chang Liu        2017-02-22 19:52:46 +0800 82)   bool ms_handle_refused(Connection *con) override;
+58dd3db0be62 src/mgr/MgrStandby.h                                       (John Spray       2016-09-20 16:34:37 +0100 83) 
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 84)   int init();
+2fd49a1a617f src/mgr/MgrStandby.h                                       (Sage Weil        2017-06-07 16:54:19 -0400 85)   void respawn();
+c63ecb602e59 src/mgr/MgrStandby.h                                       (Kefu Chai        2021-08-11 11:48:33 +0800 86)   int main(std::vector<const char *> args);
+35fd964ec0d1 src/mgr/MgrStandby.h                                       (Greg Farnum      2017-03-10 15:02:50 -0800 87)   void tick();
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 88) };
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 89) 
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 90) #endif
+7845f8d757ad src/mgr/MgrStandby.h                                       (John Spray       2016-07-15 00:39:22 +0100 91) 

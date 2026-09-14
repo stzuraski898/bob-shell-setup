@@ -1,0 +1,28 @@
+commit 6540937a6d1865642dd799b4996d85d2ee9a99ad
+Author: Prashant D <pdhange@redhat.com>
+Date:   Fri Jun 24 11:10:03 2022 -0400
+
+    mgr: Remove service_daemon handling from MMgrUpdate
+    
+    The service_daemon is only required if client services
+    needs to be registered with mgr. The service_daemon
+    handling is not required in case of MMgrUpdate as it
+    handles mon metadata updates only.
+    
+    Fixes: https://tracker.ceph.com/issues/55322
+    
+    Signed-off-by: Prashant D <pdhange@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 03a5867a338..b1545b1a376 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -567,7 +567,7 @@ bool DaemonServer::handle_update(const ref_t<MMgrUpdate>& m)
+       dout(20) << "updating existing DaemonState for " << key << dendl;
+ 
+       daemon = daemon_state.get(key);
+-      if (m->need_metadata_update == true &&
++      if (m->need_metadata_update &&
+           !m->daemon_metadata.empty()) {
+         daemon_state.update_metadata(daemon, m->daemon_metadata);
+       }

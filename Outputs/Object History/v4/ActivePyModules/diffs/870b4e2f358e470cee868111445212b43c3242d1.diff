@@ -1,0 +1,33 @@
+commit 870b4e2f358e470cee868111445212b43c3242d1
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Oct 23 12:43:45 2019 -0500
+
+    mgr/ActivePyModules: expose 'mds_metadata' to modules
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 63782156421..27dbe175ee2 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -240,6 +240,20 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+     auto dmc = daemon_state.get_by_service("osd");
+     PyEval_RestoreThread(tstate);
+ 
++    for (const auto &[key, state] : dmc) {
++      std::lock_guard l(state->lock);
++      f.open_object_section(key.name.c_str());
++      f.dump_string("hostname", state->hostname);
++      for (const auto &[name, val] : state->metadata) {
++        f.dump_string(name.c_str(), val);
++      }
++      f.close_section();
++    }
++    return f.get();
++  } else if (what == "mds_metadata") {
++    auto dmc = daemon_state.get_by_service("mds");
++    PyEval_RestoreThread(tstate);
++
+     for (const auto &[key, state] : dmc) {
+       std::lock_guard l(state->lock);
+       f.open_object_section(key.name.c_str());

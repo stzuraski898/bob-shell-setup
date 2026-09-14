@@ -1,0 +1,29 @@
+commit b4316d257e928b3789b818054927c2e98bb3c0d6
+Author: Cory Snyder <csnyder@1111systems.com>
+Date:   Fri May 28 15:08:49 2021 -0400
+
+    mgr/DaemonServer.cc: prevent integer underflow that is triggered by large increases to pg_num/pgp_num
+    
+    This fixes a scenario where mgrs continually crash while attempting to apply large increases to pg_num/pgp_num. The max step size (estmax) for each incremental update to the pgp_num is calculated as a percentage of the pg_num, which permits the possibility for the max step size (estmax) to be greater than the current pgp_num when the increase is large; this causes an integer underflow when the max step size is subtracted from the pgp_num in order to calculate the next step size with std::clamp. The integer underflow causes hi < lo in args passed to std::clamp, which causes a failed assertion, SIGABRT, and ultimately crashing mgr.
+    
+    Fixes: https://tracker.ceph.com/issues/47738
+    Signed-off-by: Cory Snyder <csnyder@iland.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 1bb2e56edc0..7b7932c03a3 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2831,8 +2831,12 @@ void DaemonServer::adjust_pgs()
+ 				 max_misplaced / 2.0);
+ 	      unsigned estmax = std::max<unsigned>(
+ 		(double)p.get_pg_num() * room, 1u);
++	      unsigned next_min = 0;
++	      if (p.get_pgp_num() > estmax) {
++	        next_min = p.get_pgp_num() - estmax;
++	      }
+ 	      next = std::clamp(target,
+-				p.get_pgp_num() - estmax,
++				next_min,
+ 				p.get_pgp_num() + estmax);
+ 	      dout(20) << " room " << room << " estmax " << estmax
+ 		       << " delta " << (target-p.get_pgp_num())

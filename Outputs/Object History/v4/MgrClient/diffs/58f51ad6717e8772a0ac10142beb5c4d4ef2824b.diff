@@ -1,0 +1,23 @@
+commit 58f51ad6717e8772a0ac10142beb5c4d4ef2824b
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Mar 10 17:18:01 2017 -0500
+
+    mgr/MgrClient: fix uninitialize variable
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 69f676a3eba..adc35fe406f 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -58,8 +58,8 @@ protected:
+ 
+   Mutex lock = {"MgrClient::lock"};
+ 
+-  uint32_t stats_period;
+-  SafeTimer     timer;
++  uint32_t stats_period = 0;
++  SafeTimer timer;
+ 
+   CommandTable<MgrCommand> command_table;
+ 

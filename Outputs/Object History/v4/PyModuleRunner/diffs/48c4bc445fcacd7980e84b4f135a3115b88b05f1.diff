@@ -1,0 +1,21 @@
+commit 48c4bc445fcacd7980e84b4f135a3115b88b05f1
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Dec 18 19:03:29 2019 +0800
+
+    mgr: drop the compatibility with python2
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index c5408bd9da2..e27f7f40551 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -13,7 +13,7 @@
+ 
+ 
+ // Python.h comes first because otherwise it clobbers ceph's assert
+-#include "PythonCompat.h"
++#include <Python.h>
+ 
+ #include "PyModule.h"
+ 

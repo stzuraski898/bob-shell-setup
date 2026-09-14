@@ -1,0 +1,271 @@
+# git blame -w -M -C src/mgr/MgrOpRequest.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman 2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*- 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500   2) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500   3) #include "MgrOpRequest.h"
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500   4) #include <iostream>
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500   5) #include <vector>
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500   6) #include "common/debug.h"
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500   7) #include "common/config.h"
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500   8) #include "common/Formatter.h"
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500   9) #include "include/ceph_assert.h"
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  10) #include "msg/Message.h"
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  11) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  12) #ifdef WITH_LTTNG
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  13) #define TRACEPOINT_DEFINE
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  14) #define TRACEPOINT_PROBE_DYNAMIC_LINKAGE
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  15) #include "tracing/mgroprequest.h"
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  16) #undef TRACEPOINT_PROBE_DYNAMIC_LINKAGE
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  17) #undef TRACEPOINT_DEFINE
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  18) #else
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  19) #define tracepoint(...)
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  20) #endif
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  21) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  22) using std::ostream;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  23) using std::set;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  24) using std::string;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  25) using std::stringstream;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  26) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  27) using ceph::Formatter;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  28) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  29) MgrOpRequest::MgrOpRequest(MessageRef req, OpTracker* tracker)
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  30)     : TrackedOp(tracker, req->get_recv_stamp()),
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  31)       request(req) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  32)   req_src_inst = req->get_source_inst();
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  33) }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  34) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  35) void MgrOpRequest::_dump(Formatter *f) const
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  36) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  37)   MessageRef m = request;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  38)   f->dump_string("flag_point", state_string());
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  39)   if (m->get_orig_source().is_client()) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  40)     f->open_object_section("client_info");
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  41)     stringstream client_name, client_addr;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  42)     client_name << req_src_inst.name;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  43)     client_addr << req_src_inst.addr;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  44)     f->dump_string("client", client_name.str());
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  45)     f->dump_string("client_addr", client_addr.str());
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  46)     f->dump_unsigned("tid", m->get_tid());
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  47)     f->close_section(); // client_info
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  48)   }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  49) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  50)   {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  51)     f->open_array_section("events");
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  52)     std::lock_guard l(lock);
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  53) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  54)     for (auto i = events.begin(); i != events.end(); ++i) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  55)       f->open_object_section("event");
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  56)       f->dump_string("event", i->str);
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  57)       f->dump_stream("time") << i->stamp;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  58) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  59)       double duration = 0;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  60) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  61)       if (i != events.begin()) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  62)         auto i_prev = i - 1;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  63)         duration = i->stamp - i_prev->stamp;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  64)       }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  65) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  66)       f->dump_float("duration", duration);
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  67)       f->close_section();
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  68)     }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  69)     f->close_section();
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  70)   }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  71) }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  72) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  73) void MgrOpRequest::_dump_op_descriptor(ostream& stream) const
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  74) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  75)   get_req()->print(stream);
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  76) }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  77) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  78) void MgrOpRequest::_unregistered() {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  79)   request->clear_data();
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  80)   request->clear_payload();
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  81)   request->release_message_throttle();
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  82)   request->set_connection(nullptr);
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  83) }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  84) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  85) void MgrOpRequest::mark_flag_point(uint8_t flag, const char *s) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  86)   [[maybe_unused]] uint8_t old_flags = hit_flag_points;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  87)   mark_event(s);
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  88)   last_event_detail = s;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  89)   hit_flag_points |= flag;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  90)   latest_flag_point = flag;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  91) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  92)   tracepoint(mgroprequest, mark_flag_point,
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  93)              flag, s, old_flags, hit_flag_points);
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  94) }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  95) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  96) void MgrOpRequest::mark_flag_point_string(uint8_t flag, const string& s) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  97)   [[maybe_unused]] uint8_t old_flags = hit_flag_points;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  98)   mark_event(s);
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500  99)   hit_flag_points |= flag;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 100)   latest_flag_point = flag;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 101) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 102)   tracepoint(mgroprequest, mark_flag_point,
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 103)              flag, s.c_str(), old_flags, hit_flag_points);
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 104) }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 105) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 106) bool MgrOpRequest::filter_out(const set<string>& filters)
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 107) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 108)   set<entity_addr_t> addrs;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 109)   for (const auto& filter : filters) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 110)     entity_addr_t addr;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 111)     if (addr.parse(filter.c_str())) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 112)       addrs.insert(addr);
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 113)     }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 114)   }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 115)   if (addrs.empty())
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 116)     return true;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 117) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 118)   entity_addr_t cmp_addr = req_src_inst.addr;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 119)   if (addrs.count(cmp_addr)) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 120)     return true;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 121)   }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 122)   cmp_addr.set_nonce(0);
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 123)   if (addrs.count(cmp_addr)) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 124)     return true;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 125)   }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 126)   cmp_addr.set_port(0);
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 127)   if (addrs.count(cmp_addr)) {
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 128)     return true;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 129)   }
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 130) 
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 131)   return false;
+66efcaae7a05 src/mgr/MgrOpRequest.cc                  (Prashant D     2023-12-21 00:25:43 -0500 132) }
+
+# git blame -w -M -C src/mgr/MgrOpRequest.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng   2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/MgrOpRequest.h                                     (Edwin Rodriguez 2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/MgrOpRequest.h                                     (Edwin Rodriguez 2025-10-02 15:34:08 -0400   3) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500   4) /*
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500   5)  * Ceph - scalable distributed file system
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500   6)  *
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500   7)  * Copyright (C) 2023 Red Hat, Inc.
+ac30e6cee2b2 src/mgr/DaemonServer.h                                     (John Spray      2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/DaemonServer.h                                     (John Spray      2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/DaemonServer.h                                     (John Spray      2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/DaemonServer.h                                     (John Spray      2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/DaemonServer.h                                     (John Spray      2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  13)  *
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  14)  */
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  15) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  16) #ifndef OPREQUEST_H_
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  17) #define OPREQUEST_H_
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  18) 
+5c70e38a8a04 src/mgr/MgrOpRequest.h                                     (Max Kellermann  2024-10-26 20:54:58 +0200  19) #include "msg/Message.h"
+5c70e38a8a04 src/mgr/MgrOpRequest.h                                     (Max Kellermann  2024-10-26 20:54:58 +0200  20) #include "msg/MessageRef.h"
+5c70e38a8a04 src/mgr/MgrOpRequest.h                                     (Max Kellermann  2024-10-26 20:54:58 +0200  21) #include "msg/msg_types.h"
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  22) #include "common/TrackedOp.h"
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  23) #include "common/tracer.h"
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  24) /**
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  25)  * The MgrOpRequest takes in a MessageRef and takes over a single reference
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  26)  * to it, which it puts() when destroyed.
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  27)  */
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  28) struct MgrOpRequest : public TrackedOp {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  29)   friend class OpTracker;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  30) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  31) public:
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  32)   void _dump(ceph::Formatter *f) const override;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  33) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  34) private:
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  35)   MessageRef request; /// the logical request we are tracking
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  36)   entity_inst_t req_src_inst;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  37)   uint8_t hit_flag_points;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  38)   uint8_t latest_flag_point;
+16b3343bb44b src/mgr/MgrOpRequest.h                                     (Mohit Agrawal   2024-06-14 13:31:39 +0530  39)   std::string last_event_detail;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  40) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  41)   static const uint8_t flag_started =              1 << 0;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  42)   static const uint8_t flag_queued_for_module =    1 << 1;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  43)   static const uint8_t flag_reached_module =       1 << 2;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  44)   static const uint8_t flag_start_mon_command =    1 << 3;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  45)   static const uint8_t flag_finish_mon_command =   1 << 4;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  46) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  47)   MgrOpRequest(MessageRef req, OpTracker *tracker);
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  48) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  49) protected:
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  50)   void _dump_op_descriptor(std::ostream& stream) const override;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  51)   void _unregistered() override;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  52)   bool filter_out(const std::set<std::string>& filters) override;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  53) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  54) public:
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  55)   ~MgrOpRequest() override {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  56)   }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  57) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  58)   template<class T>
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  59)   const T* get_req() const { return static_cast<const T*>(request); }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  60) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  61)   const MessageRef get_req() const { return request; }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  62)   MessageRef get_nonconst_req() { return request; }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  63) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  64)   entity_name_t get_source() {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  65)     if (request) {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  66)       return request->get_source();
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  67)     } else {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  68)       return {};
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  69)     }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  70)   }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  71)   uint8_t state_flag() const {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  72)     return latest_flag_point;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  73)   }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  74) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  75)   std::string _get_state_string() const override {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  76)     switch(latest_flag_point) {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  77)     case flag_started: return "started";
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  78)     case flag_queued_for_module: return "queued for module";
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  79)     case flag_reached_module: return last_event_detail;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  80)     case flag_start_mon_command: return "start mon command";
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  81)     case flag_finish_mon_command: return "mon command finished";
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  82)     default: break;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  83)     }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  84)     return "no flag points reached";
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  85)   }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  86) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  87)   static std::string get_state_string(uint8_t flag) {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  88)     std::string flag_point;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  89)     switch(flag) {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  90)       case flag_started:
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  91)         flag_point = "started";
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  92)         break;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  93)       case flag_queued_for_module:
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  94)         flag_point = "queued for module";
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  95)         break;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  96)       case flag_reached_module:
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  97)         flag_point = "reached module";
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  98)         break;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500  99)       case flag_start_mon_command:
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 100)         flag_point = "start mon command";
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 101)         break;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 102)       case flag_finish_mon_command:
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 103)         flag_point = "mon command finished";
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 104)         break;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 105)     }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 106)     return flag_point;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 107)   }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 108) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 109)   void mark_started() {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 110)     mark_flag_point(flag_started, "started");
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 111)   }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 112)   void mark_queued_for_module() {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 113)     mark_flag_point(flag_queued_for_module, "queued_for_module");
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 114)   }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 115)   void mark_reached(const char *s) {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 116)     mark_flag_point(flag_reached_module, s);
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 117)   }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 118)   void mark_start_mon_command() {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 119)     mark_flag_point(flag_start_mon_command, "start_mon_command");
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 120)   }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 121)   void mark_finish_mon_command() {
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 122)     mark_flag_point(flag_start_mon_command, "mon_command_finished");
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 123)   }
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 124) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 125)   typedef boost::intrusive_ptr<MgrOpRequest> Ref;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 126) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 127) private:
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 128)   void mark_flag_point(uint8_t flag, const char *s);
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 129)   void mark_flag_point_string(uint8_t flag, const std::string& s);
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 130) };
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 131) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 132) typedef MgrOpRequest::Ref MgrOpRequestRef;
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 133) 
+66efcaae7a05 src/mgr/MgrOpRequest.h                                     (Prashant D      2023-12-21 00:25:43 -0500 134) #endif /* OPREQUEST_H_ */

@@ -1,0 +1,805 @@
+# git blame -w -M -C src/mgr/PyModuleRegistry.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman   2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/PyModuleRegistry.cc              (Edwin Rodriguez  2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+c8c1019d1962 src/mgr/PyModuleRegistry.cc              (Edwin Rodriguez  2025-10-02 15:31:35 -0400   3) 
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400   4) /*
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400   5)  * Ceph - scalable distributed file system
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400   6)  *
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400   7)  * Copyright (C) 2017 John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray       2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray       2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray       2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray       2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray       2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray       2016-06-30 14:05:02 +0100  13)  */
+ac30e6cee2b2 src/mgr/PyState.cc                       (John Spray       2016-06-30 14:05:02 +0100  14) 
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400  15) #include "PyModuleRegistry.h"
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400  16) 
+40d06ce623f1 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 10:43:01 +0800  17) #include <filesystem>
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  18) #include <boost/scope_exit.hpp>
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400  19) 
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400  20) #include "include/stringify.h"
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400  21) #include "common/errno.h"
+067adbf9a032 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 11:34:07 +0800  22) #include "common/split.h"
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400  23) 
+70d45a6b93c9 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-15 06:53:18 -0400  24) #include "BaseMgrModule.h"
+70d45a6b93c9 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-15 06:53:18 -0400  25) #include "PyOSDMap.h"
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400  26) #include "BaseMgrStandbyModule.h"
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400  27) #include "Gil.h"
+37484af0b860 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-09 15:25:45 -0400  28) #include "MgrContext.h"
+cf292dfa8f92 src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-07-16 22:24:48 -0700  29) #include "mgr/mgr_commands.h"
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400  30) 
+70d45a6b93c9 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-15 06:53:18 -0400  31) #include "ActivePyModules.h"
+70d45a6b93c9 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-15 06:53:18 -0400  32) 
+b9182564c716 src/mgr/MgrPyModule.cc                   (Adam C. Emerson  2016-11-16 12:38:08 -0500  33) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/MgrPyModule.cc                   (John Spray       2016-06-30 14:05:02 +0100  34) #define dout_subsys ceph_subsys_mgr
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai        2017-03-28 18:49:01 +0800  35) 
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai        2017-03-28 18:49:01 +0800  36) #undef dout_prefix
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai        2017-03-28 18:49:01 +0800  37) #define dout_prefix *_dout << "mgr[py] "
+f50d9f799dec src/mgr/PyModules.cc                     (Kefu Chai        2017-03-28 18:49:01 +0800  38) 
+40d06ce623f1 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 10:43:01 +0800  39) namespace fs = std::filesystem;
+756a3512ce74 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2021-06-07 16:31:11 +0800  40) 
+a59f4e5deb49 src/mgr/PyModuleRegistry.cc              (Sage Weil        2020-04-11 09:51:46 -0500  41) std::set<std::string> obsolete_modules = {
+a59f4e5deb49 src/mgr/PyModuleRegistry.cc              (Sage Weil        2020-04-11 09:51:46 -0500  42)   "orchestrator_cli",
+a59f4e5deb49 src/mgr/PyModuleRegistry.cc              (Sage Weil        2020-04-11 09:51:46 -0500  43) };
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400  44) 
+03283b0c72cd src/mgr/PyModuleRegistry.cc              (John Spray       2018-03-02 12:50:30 -0500  45) void PyModuleRegistry::init()
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400  46) {
+948635a8b213 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-10-16 14:11:33 -0500  47)   std::lock_guard locker(lock);
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400  48) 
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400  49)   // Set up global python interpreter
+46003075924b src/mgr/PyModuleRegistry.cc              (Kefu Chai        2018-01-24 01:13:50 +0800  50) #define WCHAR(s) L ## #s
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  51)   PyConfig py_config;
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  52)   // do not enable isolated mode, otherwise we would not be able to have access
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  53)   // to the site packages. since we cannot import any module before initializing
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  54)   // the interpreter, we would not be able to use "site" module for retrieving
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  55)   // the path to site packager. we import "site" module for retrieving
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  56)   // sitepackages in Python < 3.8 though, this does not apply to the
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  57)   // initialization with PyConfig.
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  58)   PyConfig_InitPythonConfig(&py_config);
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  59)   BOOST_SCOPE_EXIT_ALL(&py_config) {
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  60)     PyConfig_Clear(&py_config);
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  61)   };
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  62) #if PY_VERSION_HEX >= 0x030b0000
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  63)   py_config.safe_path = 0;
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  64) #endif
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  65)   py_config.parse_argv = 0;
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  66)   py_config.configure_c_stdio = 0;
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  67)   py_config.install_signal_handlers = 0;
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  68)   py_config.pathconfig_warnings = 0;
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  69) 
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  70)   PyStatus status;
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  71)   status = PyConfig_SetString(&py_config, &py_config.program_name, WCHAR(MGR_PYTHON_EXECUTABLE));
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  72)   ceph_assertf(!PyStatus_Exception(status), "PyConfig_SetString: %s:%s", status.func, status.err_msg);
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray       2016-06-30 14:05:02 +0100  73)   // Some python modules do not cope with an unpopulated argv, so lets
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray       2016-06-30 14:05:02 +0100  74)   // fake one.  This step also picks up site-packages into sys.path.
+46003075924b src/mgr/PyModule.cc                      (Kefu Chai        2018-01-24 01:13:50 +0800  75)   const wchar_t* argv[] = {L"ceph-mgr"};
+07773617f339 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:49:13 +0800  76)   status = PyConfig_SetArgv(&py_config, 1, (wchar_t *const *)argv);
+07773617f339 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:49:13 +0800  77)   ceph_assertf(!PyStatus_Exception(status), "PyConfig_SetArgv: %s:%s", status.func, status.err_msg);
+410ce76f62c1 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2018-02-08 19:01:19 +0800  78)   // Add more modules
+4718b7cb2fac src/mgr/PyModuleRegistry.cc              (Kefu Chai        2018-07-06 17:20:32 +0800  79)   if (g_conf().get_val<bool>("daemonize")) {
+410ce76f62c1 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2018-02-08 19:01:19 +0800  80)     PyImport_AppendInittab("ceph_logger", PyModule::init_ceph_logger);
+410ce76f62c1 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2018-02-08 19:01:19 +0800  81)   }
+410ce76f62c1 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2018-02-08 19:01:19 +0800  82)   PyImport_AppendInittab("ceph_module", PyModule::init_ceph_module);
+51a5774aa605 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 21:09:27 +0800  83)   // Configure sys.path to include mgr_module_path
+51a5774aa605 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 21:09:27 +0800  84)   auto pythonpath_env = g_conf().get_val<std::string>("mgr_module_path");
+51a5774aa605 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 21:09:27 +0800  85)   if (const char* pythonpath = getenv("PYTHONPATH")) {
+51a5774aa605 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 21:09:27 +0800  86)     pythonpath_env += ":";
+51a5774aa605 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 21:09:27 +0800  87)     pythonpath_env += pythonpath;
+51a5774aa605 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 21:09:27 +0800  88)   }
+51a5774aa605 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 21:09:27 +0800  89)   status = PyConfig_SetBytesString(&py_config, &py_config.pythonpath_env, pythonpath_env.data());
+51a5774aa605 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 21:09:27 +0800  90)   ceph_assertf(!PyStatus_Exception(status), "PyConfig_SetBytesString: %s:%s", status.func, status.err_msg);
+51a5774aa605 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 21:09:27 +0800  91)   dout(10) << "set PYTHONPATH to " << std::quoted(pythonpath_env) << dendl;
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  92)   status = Py_InitializeFromConfig(&py_config);
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  93)   ceph_assertf(!PyStatus_Exception(status), "Py_InitializeFromConfig: %s:%s", status.func, status.err_msg);
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  94) #undef WCHAR
+4cf9b36c66fd src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 19:22:15 +0800  95) 
+f36b0d9d4053 src/mgr/PyModules.cc                     (Tim Serong       2017-05-12 22:24:19 +1000  96)   // Drop the GIL and remember the main thread state (current
+f36b0d9d4053 src/mgr/PyModules.cc                     (Tim Serong       2017-05-12 22:24:19 +1000  97)   // thread state becomes NULL)
+f36b0d9d4053 src/mgr/PyModules.cc                     (Tim Serong       2017-05-12 22:24:19 +1000  98)   pMainThreadState = PyEval_SaveThread();
+ab23c5069647 src/mgr/PyModuleRegistry.cc              (Adam C. Emerson  2018-08-23 11:25:51 -0400  99)   ceph_assert(pMainThreadState != nullptr);
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 100) 
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 101)   std::list<std::string> failed_modules;
+95a90f7da8a3 src/mgr/PyModuleRegistry.cc              (Nitzan Mordechai 2024-12-08 18:08:39 +0000 102)   thread_monitor->start_monitoring();
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 103) 
+67a47951053b src/mgr/PyModuleRegistry.cc              (Tim Serong       2019-05-10 15:08:30 +1000 104)   const std::string module_path = g_conf().get_val<std::string>("mgr_module_path");
+7d2964bf782e src/mgr/PyModuleRegistry.cc              (Kefu Chai        2021-04-21 21:47:29 +0800 105)   auto module_names = probe_modules(module_path);
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 106)   // Load python code
+6a8da7ca7347 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-16 06:45:45 -0500 107)   for (const auto& module_name : module_names) {
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 108)     dout(1) << "Loading python module '" << module_name << "'" << dendl;
+6a8da7ca7347 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-16 06:45:45 -0500 109) 
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 110)     // Everything starts disabled, set enabled flag on module
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 111)     // when we see first MgrMap
+18f253aa3f1b src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-09-04 10:17:22 -0700 112)     auto mod = std::make_shared<PyModule>(module_name);
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 113)     int r = mod->load(pMainThreadState);
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray       2016-06-30 14:05:02 +0100 114)     if (r != 0) {
+f36b0d9d4053 src/mgr/PyModules.cc                     (Tim Serong       2017-05-12 22:24:19 +1000 115)       // Don't use handle_pyerror() here; we don't have the GIL
+3e0d14912e55 src/mgr/PyModules.cc                     (Tim Serong       2017-05-13 00:16:14 +1000 116)       // or the right thread state (this is deliberate).
+dc7ff92e5244 src/mgr/PyModules.cc                     (Kefu Chai        2017-04-13 23:12:09 +0800 117)       derr << "Error loading module '" << module_name << "': "
+c81e542b3281 src/mgr/PyModules.cc                     (John Spray       2016-07-04 15:22:27 +0100 118)         << cpp_strerror(r) << dendl;
+67bd8c40ed3a src/mgr/PyModules.cc                     (John Spray       2017-06-25 12:08:37 -0400 119)       failed_modules.push_back(module_name);
+fc3090fcddd8 src/mgr/PyModules.cc                     (John Spray       2016-08-08 17:09:12 +0100 120)       // Don't drop out here, load the other modules
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 121)     }
+7c80548dba38 src/mgr/PyModuleRegistry.cc              (John Spray       2018-03-15 12:28:17 +0000 122)     // Record the module even if the load failed, so that we can
+7c80548dba38 src/mgr/PyModuleRegistry.cc              (John Spray       2018-03-15 12:28:17 +0000 123)     // report its loading error
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 124)     modules[module_name] = std::move(mod);
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 125)   }
+67a47951053b src/mgr/PyModuleRegistry.cc              (Tim Serong       2019-05-10 15:08:30 +1000 126)   if (module_names.empty()) {
+67a47951053b src/mgr/PyModuleRegistry.cc              (Tim Serong       2019-05-10 15:08:30 +1000 127)     clog->error() << "No ceph-mgr modules found in " << module_path;
+67a47951053b src/mgr/PyModuleRegistry.cc              (Tim Serong       2019-05-10 15:08:30 +1000 128)   }
+67bd8c40ed3a src/mgr/PyModules.cc                     (John Spray       2017-06-25 12:08:37 -0400 129)   if (!failed_modules.empty()) {
+67bd8c40ed3a src/mgr/PyModules.cc                     (John Spray       2017-06-25 12:08:37 -0400 130)     clog->error() << "Failed to load ceph-mgr modules: " << joinify(
+67bd8c40ed3a src/mgr/PyModules.cc                     (John Spray       2017-06-25 12:08:37 -0400 131)         failed_modules.begin(), failed_modules.end(), std::string(", "));
+67bd8c40ed3a src/mgr/PyModules.cc                     (John Spray       2017-06-25 12:08:37 -0400 132)   }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 133) }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 134) 
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 135) bool PyModuleRegistry::handle_mgr_map(const MgrMap &mgr_map_)
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 136) {
+948635a8b213 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-10-16 14:11:33 -0500 137)   std::lock_guard l(lock);
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 138) 
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 139)   if (mgr_map.epoch == 0) {
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 140)     mgr_map = mgr_map_;
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 141) 
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 142)     // First time we see MgrMap, set the enabled flags on modules
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 143)     // This should always happen before someone calls standby_start
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 144)     // or active_start
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 145)     for (const auto &[module_name, module] : modules) {
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 146)       const bool enabled = (mgr_map.modules.count(module_name) > 0);
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 147)       module->set_enabled(enabled);
+18f253aa3f1b src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-09-04 10:17:22 -0700 148)       const bool always_on = (mgr_map.get_always_on_modules().count(module_name) > 0);
+18f253aa3f1b src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-09-04 10:17:22 -0700 149)       module->set_always_on(always_on);
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 150)     }
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 151) 
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 152)     return false;
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 153)   } else {
+18f253aa3f1b src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-09-04 10:17:22 -0700 154)     bool modules_changed = mgr_map_.modules != mgr_map.modules ||
+996277235804 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-19 01:08:07 +0530 155)       mgr_map_.always_on_modules != mgr_map.always_on_modules ||
+996277235804 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-19 01:08:07 +0530 156)       mgr_map_.force_disabled_modules != mgr_map.force_disabled_modules;
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 157)     mgr_map = mgr_map_;
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 158) 
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 159)     if (standby_modules != nullptr) {
+c1471c750194 src/mgr/PyModuleRegistry.h               (John Spray       2017-08-22 14:42:11 -0400 160)       standby_modules->handle_mgr_map(mgr_map_);
+c1471c750194 src/mgr/PyModuleRegistry.h               (John Spray       2017-08-22 14:42:11 -0400 161)     }
+c1471c750194 src/mgr/PyModuleRegistry.h               (John Spray       2017-08-22 14:42:11 -0400 162) 
+9718896c8b84 src/mgr/PyModuleRegistry.h               (John Spray       2017-08-14 06:31:18 -0400 163)     return modules_changed;
+9718896c8b84 src/mgr/PyModuleRegistry.h               (John Spray       2017-08-14 06:31:18 -0400 164)   }
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 165) }
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 166) 
+37484af0b860 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-09 15:25:45 -0400 167) 
+37484af0b860 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-09 15:25:45 -0400 168) 
+f22347db5509 src/mgr/PyModuleRegistry.cc              (Mykola Golub     2019-01-24 11:04:24 +0200 169) void PyModuleRegistry::standby_start(MonClient &mc, Finisher &f)
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 170) {
+948635a8b213 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-10-16 14:11:33 -0500 171)   std::lock_guard l(lock);
+ab23c5069647 src/mgr/PyModuleRegistry.cc              (Adam C. Emerson  2018-08-23 11:25:51 -0400 172)   ceph_assert(active_modules == nullptr);
+ab23c5069647 src/mgr/PyModuleRegistry.cc              (Adam C. Emerson  2018-08-23 11:25:51 -0400 173)   ceph_assert(standby_modules == nullptr);
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 174) 
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 175)   // Must have seen a MgrMap by this point, in order to know
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 176)   // which modules should be enabled
+ab23c5069647 src/mgr/PyModuleRegistry.cc              (Adam C. Emerson  2018-08-23 11:25:51 -0400 177)   ceph_assert(mgr_map.epoch > 0);
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 178) 
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 179)   dout(4) << "Starting modules in standby mode" << dendl;
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 180) 
+3193d40d0daf src/mgr/PyModuleRegistry.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 181)   standby_modules.reset(new StandbyPyModules(
+f22347db5509 src/mgr/PyModuleRegistry.cc              (Mykola Golub     2019-01-24 11:04:24 +0200 182)         mgr_map, module_config, clog, mc, f));
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 183) 
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 184)   std::set<std::string> failed_modules;
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 185)   for (const auto &i : modules) {
+7c80548dba38 src/mgr/PyModuleRegistry.cc              (John Spray       2018-03-15 12:28:17 +0000 186)     if (!(i.second->is_enabled() && i.second->get_can_run())) {
+cf292dfa8f92 src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-07-16 22:24:48 -0700 187)       // report always_on modules with a standby mode that won't run
+cf292dfa8f92 src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-07-16 22:24:48 -0700 188)       if (i.second->is_always_on() && i.second->pStandbyClass) {
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 189)         failed_modules.insert(i.second->get_name());
+cf292dfa8f92 src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-07-16 22:24:48 -0700 190)       }
+6a8da7ca7347 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-16 06:45:45 -0500 191)       continue;
+6a8da7ca7347 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-16 06:45:45 -0500 192)     }
+6a8da7ca7347 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-16 06:45:45 -0500 193) 
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 194)     if (i.second->pStandbyClass) {
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 195)       dout(4) << "starting module " << i.second->get_name() << dendl;
+f22347db5509 src/mgr/PyModuleRegistry.cc              (Mykola Golub     2019-01-24 11:04:24 +0200 196)       standby_modules->start_one(i.second);
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 197)     } else {
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 198)       dout(4) << "skipping module '" << i.second->get_name() << "' because "
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 199)                  "it does not implement a standby mode" << dendl;
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 200)     }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 201)   }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 202) 
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 203)   if (!failed_modules.empty()) {
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 204)     clog->error() << "Failed to execute ceph-mgr module(s) in standby mode: "
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 205)         << joinify(failed_modules.begin(), failed_modules.end(),
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 206)                    std::string(", "));
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 207)   }
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 208) }
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 209) 
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 210) void PyModuleRegistry::active_start(
+37484af0b860 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-09 15:25:45 -0400 211)             DaemonStateIndex &ds, ClusterState &cs,
+37484af0b860 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-09 15:25:45 -0400 212)             const std::map<std::string, std::string> &kv_store,
+edf1ea2f5092 src/mgr/PyModuleRegistry.cc              (Sage Weil        2021-02-16 14:47:23 -0500 213) 	    bool mon_provides_kv_sub,
+95746ecce921 src/mgr/PyModuleRegistry.cc              (Volker Theile    2018-09-24 12:18:56 +0200 214)             MonClient &mc, LogChannelRef clog_, LogChannelRef audit_clog_,
+f20df2eb8545 src/mgr/PyModuleRegistry.cc              (Patrick Donnelly 2025-01-30 17:08:07 -0500 215)             Objecter &objecter_, Finisher &f,
+95746ecce921 src/mgr/PyModuleRegistry.cc              (Volker Theile    2018-09-24 12:18:56 +0200 216)             DaemonServer &server)
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 217) {
+948635a8b213 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-10-16 14:11:33 -0500 218)   std::lock_guard locker(lock);
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 219) 
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 220)   dout(4) << "Starting modules in active mode" << dendl;
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 221) 
+ab23c5069647 src/mgr/PyModuleRegistry.cc              (Adam C. Emerson  2018-08-23 11:25:51 -0400 222)   ceph_assert(active_modules == nullptr);
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 223) 
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 224)   // Must have seen a MgrMap by this point, in order to know
+810369b0cc0e src/mgr/PyModuleRegistry.cc              (John Spray       2018-02-05 16:06:09 +0100 225)   // which modules should be enabled
+ab23c5069647 src/mgr/PyModuleRegistry.cc              (Adam C. Emerson  2018-08-23 11:25:51 -0400 226)   ceph_assert(mgr_map.epoch > 0);
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 227) 
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 228)   if (standby_modules != nullptr) {
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 229)     standby_modules->shutdown();
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 230)     standby_modules.reset();
+c1471c750194 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-22 14:42:11 -0400 231)   }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 232) 
+edf1ea2f5092 src/mgr/PyModuleRegistry.cc              (Sage Weil        2021-02-16 14:47:23 -0500 233)   active_modules.reset(
+edf1ea2f5092 src/mgr/PyModuleRegistry.cc              (Sage Weil        2021-02-16 14:47:23 -0500 234)     new ActivePyModules(
+edf1ea2f5092 src/mgr/PyModuleRegistry.cc              (Sage Weil        2021-02-16 14:47:23 -0500 235)       module_config,
+edf1ea2f5092 src/mgr/PyModuleRegistry.cc              (Sage Weil        2021-02-16 14:47:23 -0500 236)       kv_store, mon_provides_kv_sub,
+edf1ea2f5092 src/mgr/PyModuleRegistry.cc              (Sage Weil        2021-02-16 14:47:23 -0500 237)       ds, cs, mc,
+f20df2eb8545 src/mgr/PyModuleRegistry.cc              (Patrick Donnelly 2025-01-30 17:08:07 -0500 238)       clog_, audit_clog_, objecter_, f, server,
+95a90f7da8a3 src/mgr/PyModuleRegistry.cc              (Nitzan Mordechai 2024-12-08 18:08:39 +0000 239)       *this, thread_monitor.get()));
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 240) 
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 241)   for (const auto &i : modules) {
+7c80548dba38 src/mgr/PyModuleRegistry.cc              (John Spray       2018-03-15 12:28:17 +0000 242)     // Anything we're skipping because of !can_run will be flagged
+7c80548dba38 src/mgr/PyModuleRegistry.cc              (John Spray       2018-03-15 12:28:17 +0000 243)     // to the user separately via get_health_checks
+cf5ef59bcc43 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-23 17:09:37 -0400 244)     if (!(i.second->is_enabled() && i.second->is_loaded())) {
+996277235804 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-19 01:08:07 +0530 245)       dout(8) << __func__ << " Not starting module '" << i.first << "', it is "
+996277235804 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-19 01:08:07 +0530 246) 	      << "not enabled and loaded"  << dendl;
+996277235804 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-19 01:08:07 +0530 247)       continue;
+996277235804 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-19 01:08:07 +0530 248)     }
+996277235804 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-19 01:08:07 +0530 249) 
+996277235804 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-19 01:08:07 +0530 250)     // These are always-on modules but user force-disabled them.
+996277235804 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-19 01:08:07 +0530 251)     if (mgr_map.force_disabled_modules.find(i.first) !=
+996277235804 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-19 01:08:07 +0530 252) 	mgr_map.force_disabled_modules.end()) {
+996277235804 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-19 01:08:07 +0530 253)       dout(8) << __func__ << " Not starting module '" << i.first << "', it is "
+996277235804 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-19 01:08:07 +0530 254) 	      << "force-disabled" << dendl;
+6a8da7ca7347 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-16 06:45:45 -0500 255)       continue;
+6a8da7ca7347 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-16 06:45:45 -0500 256)     }
+6a8da7ca7347 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-16 06:45:45 -0500 257) 
+e830f89240e3 src/mgr/PyModuleRegistry.cc              (Rishabh Dave     2024-07-17 18:05:33 +0530 258)     dout(4) << "Starting module '" << i.first << "'" << dendl;
+f22347db5509 src/mgr/PyModuleRegistry.cc              (Mykola Golub     2019-01-24 11:04:24 +0200 259)     active_modules->start_one(i.second);
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 260)   }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 261) }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 262) 
+51a5774aa605 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2024-02-03 21:09:27 +0800 263) std::string PyModuleRegistry::get_site_packages()
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 264) {
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 265)   std::stringstream site_packages;
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 266) 
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 267)   // CPython doesn't auto-add site-packages dirs to sys.path for us,
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 268)   // but it does provide a module that we can ask for them.
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 269)   auto site_module = PyImport_ImportModule("site");
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson  2018-08-23 11:25:51 -0400 270)   ceph_assert(site_module);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 271) 
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 272)   auto site_packages_fn = PyObject_GetAttrString(site_module, "getsitepackages");
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 273)   if (site_packages_fn != nullptr) {
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 274)     auto site_packages_list = PyObject_CallObject(site_packages_fn, nullptr);
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson  2018-08-23 11:25:51 -0400 275)     ceph_assert(site_packages_list);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 276) 
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 277)     auto n = PyList_Size(site_packages_list);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 278)     for (Py_ssize_t i = 0; i < n; ++i) {
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 279)       if (i != 0) {
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 280)         site_packages << ":";
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 281)       }
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai        2019-12-18 19:03:29 +0800 282)       site_packages << PyUnicode_AsUTF8(PyList_GetItem(site_packages_list, i));
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 283)     }
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 284) 
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 285)     Py_DECREF(site_packages_list);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 286)     Py_DECREF(site_packages_fn);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 287)   } else {
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 288)     // Fall back to generating our own site-packages paths by imitating
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 289)     // what the standard site.py does.  This is annoying but it lets us
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 290)     // run inside virtualenvs :-/
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 291) 
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 292)     auto site_packages_fn = PyObject_GetAttrString(site_module, "addsitepackages");
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson  2018-08-23 11:25:51 -0400 293)     ceph_assert(site_packages_fn);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 294) 
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 295)     auto known_paths = PySet_New(nullptr);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 296)     auto pArgs = PyTuple_Pack(1, known_paths);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 297)     PyObject_CallObject(site_packages_fn, pArgs);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 298)     Py_DECREF(pArgs);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 299)     Py_DECREF(known_paths);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 300)     Py_DECREF(site_packages_fn);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 301) 
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 302)     auto sys_module = PyImport_ImportModule("sys");
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson  2018-08-23 11:25:51 -0400 303)     ceph_assert(sys_module);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 304)     auto sys_path = PyObject_GetAttrString(sys_module, "path");
+ab23c5069647 src/mgr/PyModule.cc                      (Adam C. Emerson  2018-08-23 11:25:51 -0400 305)     ceph_assert(sys_path);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 306) 
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 307)     dout(1) << "sys.path:" << dendl;
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 308)     auto n = PyList_Size(sys_path);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 309)     bool first = true;
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 310)     for (Py_ssize_t i = 0; i < n; ++i) {
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai        2019-12-18 19:03:29 +0800 311)       dout(1) << "  " << PyUnicode_AsUTF8(PyList_GetItem(sys_path, i)) << dendl;
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray       2017-11-16 06:45:45 -0500 312)       if (first) {
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray       2017-11-16 06:45:45 -0500 313)         first = false;
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray       2017-11-16 06:45:45 -0500 314)       } else {
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray       2017-11-16 06:45:45 -0500 315)         site_packages << ":";
+6a8da7ca7347 src/mgr/PyModule.cc                      (John Spray       2017-11-16 06:45:45 -0500 316)       }
+48c4bc445fca src/mgr/PyModule.cc                      (Kefu Chai        2019-12-18 19:03:29 +0800 317)       site_packages << PyUnicode_AsUTF8(PyList_GetItem(sys_path, i));
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 318)     }
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 319) 
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 320)     Py_DECREF(sys_path);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 321)     Py_DECREF(sys_module);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 322)   }
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 323) 
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 324)   Py_DECREF(site_module);
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 325) 
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 326)   return site_packages.str();
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 327) }
+f8514ef581b3 src/mgr/PyModules.cc                     (John Spray       2016-09-26 23:47:53 +0100 328) 
+7d2964bf782e src/mgr/PyModuleRegistry.cc              (Kefu Chai        2021-04-21 21:47:29 +0800 329) std::vector<std::string> PyModuleRegistry::probe_modules(const std::string &path) const
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 330) {
+067adbf9a032 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 11:34:07 +0800 331)   const auto opt = g_conf().get_val<std::string>("mgr_disabled_modules");
+067adbf9a032 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 11:34:07 +0800 332)   const auto disabled_modules = ceph::split(opt);
+067adbf9a032 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 11:34:07 +0800 333) 
+7d2964bf782e src/mgr/PyModuleRegistry.cc              (Kefu Chai        2021-04-21 21:47:29 +0800 334)   std::vector<std::string> modules;
+40d06ce623f1 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 10:43:01 +0800 335)   for (const auto& entry: fs::directory_iterator(path)) {
+40d06ce623f1 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 10:43:01 +0800 336)     if (!fs::is_directory(entry)) {
+40d06ce623f1 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 10:43:01 +0800 337)       continue;
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 338)     }
+067adbf9a032 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 11:34:07 +0800 339)     const std::string name = entry.path().filename();
+067adbf9a032 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 11:34:07 +0800 340)     if (std::count(disabled_modules.begin(), disabled_modules.end(), name)) {
+067adbf9a032 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 11:34:07 +0800 341)       dout(10) << "ignoring disabled module " << name << dendl;
+067adbf9a032 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 11:34:07 +0800 342)       continue;
+067adbf9a032 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 11:34:07 +0800 343)     }
+40d06ce623f1 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 10:43:01 +0800 344)     auto module_path = entry.path() / "module.py";
+40d06ce623f1 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 10:43:01 +0800 345)     if (fs::exists(module_path)) {
+7d2964bf782e src/mgr/PyModuleRegistry.cc              (Kefu Chai        2021-04-21 21:47:29 +0800 346)       modules.push_back(name);
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 347)     }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 348)   }
+40d06ce623f1 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-04-30 10:43:01 +0800 349)   return modules;
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 350) }
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 351) 
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 352) int PyModuleRegistry::handle_command(
+282c31c38385 src/mgr/PyModuleRegistry.cc              (Jason Dillaman   2019-10-14 10:39:54 -0400 353)   const ModuleCommand& module_command,
+282c31c38385 src/mgr/PyModuleRegistry.cc              (Jason Dillaman   2019-10-14 10:39:54 -0400 354)   const MgrSession& session,
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 355)   const cmdmap_t &cmdmap,
+140761f8a2df src/mgr/PyModuleRegistry.cc              (Dan Mick         2018-06-19 20:36:08 -0700 356)   const bufferlist &inbuf,
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 357)   std::stringstream *ds,
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 358)   std::stringstream *ss)
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 359) {
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 360)   if (active_modules) {
+282c31c38385 src/mgr/PyModuleRegistry.cc              (Jason Dillaman   2019-10-14 10:39:54 -0400 361)     return active_modules->handle_command(module_command, session, cmdmap,
+282c31c38385 src/mgr/PyModuleRegistry.cc              (Jason Dillaman   2019-10-14 10:39:54 -0400 362)                                           inbuf, ds, ss);
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 363)   } else {
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 364)     // We do not expect to be called before active modules is up, but
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 365)     // it's straightfoward to handle this case so let's do it.
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 366)     return -EAGAIN;
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 367)   }
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 368) }
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 369) 
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 370) std::vector<ModuleCommand> PyModuleRegistry::get_py_commands() const
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 371) {
+948635a8b213 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-10-16 14:11:33 -0500 372)   std::lock_guard l(lock);
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 373) 
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 374)   std::vector<ModuleCommand> result;
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 375)   for (const auto& i : modules) {
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 376)     i.second->get_commands(&result);
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 377)   }
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 378) 
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 379)   return result;
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 380) }
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 381) 
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 382) std::vector<MonCommand> PyModuleRegistry::get_commands() const
+5c3846306b6b src/mgr/PyModules.cc                     (John Spray       2017-06-29 15:11:12 -0400 383) {
+5c3846306b6b src/mgr/PyModules.cc                     (John Spray       2017-06-29 15:11:12 -0400 384)   std::vector<ModuleCommand> commands = get_py_commands();
+5c3846306b6b src/mgr/PyModules.cc                     (John Spray       2017-06-29 15:11:12 -0400 385)   std::vector<MonCommand> result;
+5c3846306b6b src/mgr/PyModules.cc                     (John Spray       2017-06-29 15:11:12 -0400 386)   for (auto &pyc: commands) {
+78e884dfb042 src/mgr/PyModuleRegistry.cc              (Mohamad Gebai    2018-02-28 09:20:44 -0500 387)     uint64_t flags = MonCommand::FLAG_MGR;
+78e884dfb042 src/mgr/PyModuleRegistry.cc              (Mohamad Gebai    2018-02-28 09:20:44 -0500 388)     if (pyc.polling) {
+78e884dfb042 src/mgr/PyModuleRegistry.cc              (Mohamad Gebai    2018-02-28 09:20:44 -0500 389)       flags |= MonCommand::FLAG_POLL;
+78e884dfb042 src/mgr/PyModuleRegistry.cc              (Mohamad Gebai    2018-02-28 09:20:44 -0500 390)     }
+5c3846306b6b src/mgr/PyModules.cc                     (John Spray       2017-06-29 15:11:12 -0400 391)     result.push_back({pyc.cmdstring, pyc.helpstring, "mgr",
+7734e9fa8872 src/mgr/PyModuleRegistry.cc              (John Spray       2018-09-27 10:37:36 -0400 392)                         pyc.perm, flags});
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 393)   }
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 394)   return result;
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 395) }
+834bc2794050 src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-23 08:01:33 -0500 396) 
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 397) void PyModuleRegistry::get_health_checks(health_check_map_t *checks)
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 398) {
+948635a8b213 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-10-16 14:11:33 -0500 399)   std::lock_guard l(lock);
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 400) 
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 401)   // Only the active mgr reports module issues
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 402)   if (active_modules) {
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 403)     active_modules->get_health_checks(checks);
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 404) 
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 405)     std::map<std::string, std::string> dependency_modules;
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 406)     std::map<std::string, std::string> failed_modules;
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 407) 
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 408)     /*
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 409)      * Break up broken modules into two categories:
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 410)      *  - can_run=false: the module is working fine but explicitly
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 411)      *    telling you that a dependency is missing.  Advise the user to
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 412)      *    read the message from the module and install what's missing.
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 413)      *  - failed=true or loaded=false: something unexpected is broken,
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 414)      *    either at runtime (from serve()) or at load time.  This indicates
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 415)      *    a bug and the user should be guided to inspect the mgr log
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 416)      *    to investigate and gather evidence.
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 417)      */
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 418) 
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 419)     for (const auto &i : modules) {
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 420)       auto module = i.second;
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 421)       if (module->is_enabled() && !module->get_can_run()) {
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 422)         dependency_modules[module->get_name()] = module->get_error_string();
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 423)       } else if ((module->is_enabled() && !module->is_loaded())
+cf5ef59bcc43 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-23 17:09:37 -0400 424)               || (module->is_failed() && module->get_can_run())) {
+cf5ef59bcc43 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-23 17:09:37 -0400 425)         // - Unloadable modules are only reported if they're enabled,
+cf5ef59bcc43 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-23 17:09:37 -0400 426)         //   to avoid spamming users about modules they don't have the
+cf5ef59bcc43 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-23 17:09:37 -0400 427)         //   dependencies installed for because they don't use it.
+cf5ef59bcc43 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-23 17:09:37 -0400 428)         // - Failed modules are only reported if they passed the can_run
+cf5ef59bcc43 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-23 17:09:37 -0400 429)         //   checks (to avoid outputting two health messages about a
+cf5ef59bcc43 src/mgr/PyModuleRegistry.cc              (John Spray       2018-04-23 17:09:37 -0400 430)         //   module that said can_run=false but we tried running it anyway)
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 431)         failed_modules[module->get_name()] = module->get_error_string();
+bf25a08cc58c src/mgr/PyModuleRegistry.cc              (Laura Flores     2025-07-29 22:46:46 +0000 432)       } else if ((active_modules->is_pending(module->get_name()))) {
+bf25a08cc58c src/mgr/PyModuleRegistry.cc              (Laura Flores     2025-07-29 22:46:46 +0000 433)         failed_modules[module->get_name()] = "Module failed to initialize.";
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 434)       }
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 435)     }
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 436) 
+cf292dfa8f92 src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-07-16 22:24:48 -0700 437)     // report failed always_on modules as health errors
+18f253aa3f1b src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-09-04 10:17:22 -0700 438)     for (const auto& name : mgr_map.get_always_on_modules()) {
+a59f4e5deb49 src/mgr/PyModuleRegistry.cc              (Sage Weil        2020-04-11 09:51:46 -0500 439)       if (obsolete_modules.count(name)) {
+a59f4e5deb49 src/mgr/PyModuleRegistry.cc              (Sage Weil        2020-04-11 09:51:46 -0500 440) 	continue;
+a59f4e5deb49 src/mgr/PyModuleRegistry.cc              (Sage Weil        2020-04-11 09:51:46 -0500 441)       }
+2d9b3abd1fc5 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-06-25 10:41:30 +0800 442)       if (active_modules->is_pending(name)) {
+2d9b3abd1fc5 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-06-25 10:41:30 +0800 443) 	continue;
+2d9b3abd1fc5 src/mgr/PyModuleRegistry.cc              (Kefu Chai        2020-06-25 10:41:30 +0800 444)       }
+cf292dfa8f92 src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-07-16 22:24:48 -0700 445)       if (!active_modules->module_exists(name)) {
+cf292dfa8f92 src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-07-16 22:24:48 -0700 446)         if (failed_modules.find(name) == failed_modules.end() &&
+cf292dfa8f92 src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-07-16 22:24:48 -0700 447)             dependency_modules.find(name) == dependency_modules.end()) {
+a26e6067c7ee src/mgr/PyModuleRegistry.cc              (John Spray       2018-08-20 09:24:58 +0100 448)           failed_modules[name] = "Not found or unloadable";
+cf292dfa8f92 src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-07-16 22:24:48 -0700 449)         }
+cf292dfa8f92 src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-07-16 22:24:48 -0700 450)       }
+cf292dfa8f92 src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-07-16 22:24:48 -0700 451)     }
+cf292dfa8f92 src/mgr/PyModuleRegistry.cc              (Noah Watkins     2018-07-16 22:24:48 -0700 452) 
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 453)     if (!dependency_modules.empty()) {
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 454)       std::ostringstream ss;
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 455)       if (dependency_modules.size() == 1) {
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 456)         auto iter = dependency_modules.begin();
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 457)         ss << "Module '" << iter->first << "' has failed dependency: "
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 458)            << iter->second;
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 459)       } else if (dependency_modules.size() > 1) {
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 460)         ss << dependency_modules.size()
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 461) 	   << " mgr modules have failed dependencies";
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 462)       }
+d0eb22f3ba55 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-07-31 04:14:01 -0500 463)       auto& d = checks->add("MGR_MODULE_DEPENDENCY", HEALTH_WARN, ss.str(),
+d0eb22f3ba55 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-07-31 04:14:01 -0500 464) 			    dependency_modules.size());
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 465)       for (auto& i : dependency_modules) {
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 466) 	std::ostringstream ss;
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 467)         ss << "Module '" << i.first << "' has failed dependency: " << i.second;
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 468) 	d.detail.push_back(ss.str());
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 469)       }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 470)     }
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 471) 
+9718896c8b84 src/mgr/PyModuleRegistry.cc              (John Spray       2017-08-14 06:31:18 -0400 472)     if (!failed_modules.empty()) {
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 473)       std::ostringstream ss;
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 474)       if (failed_modules.size() == 1) {
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 475)         auto iter = failed_modules.begin();
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 476)         ss << "Module '" << iter->first << "' has failed: " << iter->second;
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 477)       } else if (failed_modules.size() > 1) {
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 478)         ss << failed_modules.size() << " mgr modules have failed";
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 479)       }
+d0eb22f3ba55 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-07-31 04:14:01 -0500 480)       auto& d = checks->add("MGR_MODULE_ERROR", HEALTH_ERR, ss.str(),
+d0eb22f3ba55 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-07-31 04:14:01 -0500 481) 			    failed_modules.size());
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 482)       for (auto& i : failed_modules) {
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 483) 	std::ostringstream ss;
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 484)         ss << "Module '" << i.first << "' has failed: " << i.second;
+4a7aca7737e8 src/mgr/PyModuleRegistry.cc              (Sage Weil        2019-01-31 17:51:36 -0600 485) 	d.detail.push_back(ss.str());
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 486)       }
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 487)     }
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 488)   }
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 489) }
+d9a47181c45e src/mgr/PyModuleRegistry.cc              (John Spray       2017-11-27 07:42:37 -0500 490) 
+3193d40d0daf src/mgr/PyModuleRegistry.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 491) void PyModuleRegistry::handle_config(const std::string &k, const std::string &v)
+3193d40d0daf src/mgr/PyModuleRegistry.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 492) {
+948635a8b213 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-10-16 14:11:33 -0500 493)   std::lock_guard l(module_config.lock);
+3193d40d0daf src/mgr/PyModuleRegistry.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 494) 
+3193d40d0daf src/mgr/PyModuleRegistry.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 495)   if (!v.empty()) {
+19000fad5731 src/mgr/PyModuleRegistry.cc              (Neha Ojha        2020-12-03 20:34:53 +0000 496)     // removing value to hide sensitive data going into mgr logs
+19000fad5731 src/mgr/PyModuleRegistry.cc              (Neha Ojha        2020-12-03 20:34:53 +0000 497)     // leaving this for debugging purposes
+19000fad5731 src/mgr/PyModuleRegistry.cc              (Neha Ojha        2020-12-03 20:34:53 +0000 498)     // dout(10) << "Loaded module_config entry " << k << ":" << v << dendl;
+19000fad5731 src/mgr/PyModuleRegistry.cc              (Neha Ojha        2020-12-03 20:34:53 +0000 499)     dout(10) << "Loaded module_config entry " << k << ":" << dendl;
+3193d40d0daf src/mgr/PyModuleRegistry.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 500)     module_config.config[k] = v;
+3193d40d0daf src/mgr/PyModuleRegistry.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 501)   } else {
+3193d40d0daf src/mgr/PyModuleRegistry.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 502)     module_config.config.erase(k);
+3193d40d0daf src/mgr/PyModuleRegistry.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 503)   }
+3193d40d0daf src/mgr/PyModuleRegistry.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 504) }
+3193d40d0daf src/mgr/PyModuleRegistry.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 505) 
+f27a5dc61554 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-11-17 07:15:19 -0600 506) void PyModuleRegistry::handle_config_notify()
+f27a5dc61554 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-11-17 07:15:19 -0600 507) {
+f27a5dc61554 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-11-17 07:15:19 -0600 508)   std::lock_guard l(lock);
+f27a5dc61554 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-11-17 07:15:19 -0600 509)   if (active_modules) {
+f27a5dc61554 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-11-17 07:15:19 -0600 510)     active_modules->config_notify();
+f27a5dc61554 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-11-17 07:15:19 -0600 511)   }
+f27a5dc61554 src/mgr/PyModuleRegistry.cc              (Sage Weil        2018-11-17 07:15:19 -0600 512) }
+cbd1726fde08 src/mgr/PyModuleRegistry.cc              (Laura Flores     2025-04-25 22:11:19 +0000 513) 
+cbd1726fde08 src/mgr/PyModuleRegistry.cc              (Laura Flores     2025-04-25 22:11:19 +0000 514) void PyModuleRegistry::check_all_modules_started(Context *modules_start_complete) {
+cbd1726fde08 src/mgr/PyModuleRegistry.cc              (Laura Flores     2025-04-25 22:11:19 +0000 515)   active_modules->check_all_modules_started(modules_start_complete);
+cbd1726fde08 src/mgr/PyModuleRegistry.cc              (Laura Flores     2025-04-25 22:11:19 +0000 516) }
+
+# git blame -w -M -C src/mgr/PyModuleRegistry.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng                2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/PyModuleRegistry.h                                 (Edwin Rodriguez              2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/PyModuleRegistry.h                                 (Edwin Rodriguez              2025-10-02 15:34:08 -0400   3) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400   4) /*
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400   5)  * Ceph - scalable distributed file system
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400   6)  *
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400   7)  * Copyright (C) 2017 John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray                   2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray                   2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray                   2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray                   2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray                   2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray                   2016-06-30 14:05:02 +0100  13)  */
+ac30e6cee2b2 src/mgr/PyState.cc                                         (John Spray                   2016-06-30 14:05:02 +0100  14) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  15) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  16) #pragma once
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  17) 
+6a8da7ca7347 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-16 06:45:45 -0500  18) // First because it includes Python.h
+6a8da7ca7347 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-16 06:45:45 -0500  19) #include "PyModule.h"
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  20) 
+70d45a6b93c9 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-15 06:53:18 -0400  21) #include "common/LogClient.h"
+70d45a6b93c9 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-15 06:53:18 -0400  22) 
+70d45a6b93c9 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-15 06:53:18 -0400  23) #include "ActivePyModules.h"
+c1471c750194 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-22 14:42:11 -0400  24) #include "StandbyPyModules.h"
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  25) 
+706b2be41624 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2025-01-30 17:05:25 -0500  26) #include <map>
+706b2be41624 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2025-01-30 17:05:25 -0500  27) #include <memory>
+706b2be41624 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2025-01-30 17:05:25 -0500  28) #include <set>
+706b2be41624 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2025-01-30 17:05:25 -0500  29) #include <string>
+706b2be41624 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2025-01-30 17:05:25 -0500  30) #include <vector>
+706b2be41624 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2025-01-30 17:05:25 -0500  31) 
+282c31c38385 src/mgr/PyModuleRegistry.h                                 (Jason Dillaman               2019-10-14 10:39:54 -0400  32) class MgrSession;
+282c31c38385 src/mgr/PyModuleRegistry.h                                 (Jason Dillaman               2019-10-14 10:39:54 -0400  33) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  34) /**
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  35)  * This class is responsible for setting up the python runtime environment
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  36)  * and importing the python modules.
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  37)  *
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  38)  * It is *not* responsible for constructing instances of their BaseMgrModule
+6a8da7ca7347 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-16 06:45:45 -0500  39)  * subclasses: that is the job of ActiveMgrModule, which consumes the class
+6a8da7ca7347 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-16 06:45:45 -0500  40)  * references that we load here.
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  41)  */
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  42) class PyModuleRegistry
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  43) {
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  44) private:
+c93dc8849145 src/mgr/PyModuleRegistry.h                                 (Kefu Chai                    2019-07-07 11:14:49 +0800  45)   mutable ceph::mutex lock = ceph::make_mutex("PyModuleRegistry::lock");
+34525ba3af31 src/mgr/PyModuleRegistry.h                                 (Volker Theile                2018-09-28 14:55:32 +0200  46)   LogChannelRef clog;
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  47) 
+6a8da7ca7347 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-16 06:45:45 -0500  48)   std::map<std::string, PyModuleRef> modules;
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800  49)   std::multimap<std::string, entity_addrvec_t> clients;
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  50) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  51)   std::unique_ptr<ActivePyModules> active_modules;
+c1471c750194 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-22 14:42:11 -0400  52)   std::unique_ptr<StandbyPyModules> standby_modules;
+95a90f7da8a3 src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2024-12-08 18:08:39 +0000  53)   std::unique_ptr<ThreadMonitor> thread_monitor;
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  54) 
+29193a47e6cf src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-10-16 10:51:34 -0400  55)   PyThreadState *pMainThreadState;
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  56) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  57)   // We have our own copy of MgrMap, because we are constructed
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  58)   // before ClusterState exists.
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  59)   MgrMap mgr_map;
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  60) 
+51a5774aa605 src/mgr/PyModuleRegistry.h                                 (Kefu Chai                    2024-02-03 21:09:27 +0800  61)   static std::string get_site_packages();
+9999ddf67bc6 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-12-14 11:29:00 -0500  62)   /**
+9999ddf67bc6 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-12-14 11:29:00 -0500  63)    * Discover python modules from local disk
+9999ddf67bc6 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-12-14 11:29:00 -0500  64)    */
+7d2964bf782e src/mgr/PyModuleRegistry.h                                 (Kefu Chai                    2021-04-21 21:47:29 +0800  65)   std::vector<std::string> probe_modules(const std::string &path) const;
+9999ddf67bc6 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-12-14 11:29:00 -0500  66) 
+3193d40d0daf src/mgr/PyModuleRegistry.h                                 (Rubab-Syed                   2018-02-16 15:51:11 +0500  67)   PyModuleConfig module_config;
+95a90f7da8a3 src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2024-12-08 18:08:39 +0000  68)   PyObject* process_obj = nullptr;
+3193d40d0daf src/mgr/PyModuleRegistry.h                                 (Rubab-Syed                   2018-02-16 15:51:11 +0500  69) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400  70) public:
+3193d40d0daf src/mgr/PyModuleRegistry.h                                 (Rubab-Syed                   2018-02-16 15:51:11 +0500  71)   void handle_config(const std::string &k, const std::string &v);
+f27a5dc61554 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2018-11-17 07:15:19 -0600  72)   void handle_config_notify();
+3193d40d0daf src/mgr/PyModuleRegistry.h                                 (Rubab-Syed                   2018-02-16 15:51:11 +0500  73) 
+edf1ea2f5092 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-02-16 14:47:23 -0500  74)   void update_kv_data(
+edf1ea2f5092 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-02-16 14:47:23 -0500  75)     const std::string prefix,
+edf1ea2f5092 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-02-16 14:47:23 -0500  76)     bool incremental,
+706b2be41624 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2025-01-30 17:05:25 -0500  77)     const std::map<std::string, std::optional<bufferlist>, std::less<>>& data) {
+ab23c5069647 src/mgr/PyModuleRegistry.h                                 (Adam C. Emerson              2018-08-23 11:25:51 -0400  78)     ceph_assert(active_modules);
+edf1ea2f5092 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-02-16 14:47:23 -0500  79)     active_modules->update_kv_data(prefix, incremental, data);
+edf1ea2f5092 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-02-16 14:47:23 -0500  80)   }
+edf1ea2f5092 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-02-16 14:47:23 -0500  81) 
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  82)   /**
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  83)    * Look up a single mgr module config option by its full key ("mgr/<mod>/<opt>").
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  84)    * Returns true and sets *val if found.
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  85)    */
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  86)   bool get_module_option(const std::string& key, std::string *val) const {
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  87)     std::lock_guard l(module_config.lock);
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  88)     auto it = module_config.config.find(key);
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  89)     if (it == module_config.config.end()) {
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  90)       return false;
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  91)     }
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  92)     *val = it->second;
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  93)     return true;
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  94)   }
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  95) 
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  96)   /**
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  97)    * Return a snapshot of the entire module config map.
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  98)    */
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000  99)   std::map<std::string, std::string> get_module_config_snapshot() const {
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000 100)     std::lock_guard l(module_config.lock);
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000 101)     return module_config.config;
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000 102)   }
+4c7621dadc4d src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2026-06-01 11:29:31 +0000 103) 
+9999ddf67bc6 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-12-14 11:29:00 -0500 104)   /**
+9999ddf67bc6 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-12-14 11:29:00 -0500 105)    * Get references to all modules (whether they have loaded and/or
+9999ddf67bc6 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-12-14 11:29:00 -0500 106)    * errored) or not.
+9999ddf67bc6 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-12-14 11:29:00 -0500 107)    */
+78576c9eecf2 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 17:57:48 -0800 108)   auto get_modules() const
+712ad57d09a2 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-16 16:30:39 -0500 109)   {
+78576c9eecf2 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 17:57:48 -0800 110)     std::vector<PyModuleRef> modules_out;
+948635a8b213 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2018-10-16 14:11:33 -0500 111)     std::lock_guard l(lock);
+712ad57d09a2 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-16 16:30:39 -0500 112)     for (const auto &i : modules) {
+9999ddf67bc6 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-12-14 11:29:00 -0500 113)       modules_out.push_back(i.second);
+712ad57d09a2 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-16 16:30:39 -0500 114)     }
+9999ddf67bc6 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-12-14 11:29:00 -0500 115) 
+9999ddf67bc6 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-12-14 11:29:00 -0500 116)     return modules_out;
+712ad57d09a2 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-16 16:30:39 -0500 117)   }
+712ad57d09a2 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-16 16:30:39 -0500 118) 
+34525ba3af31 src/mgr/PyModuleRegistry.h                                 (Volker Theile                2018-09-28 14:55:32 +0200 119)   explicit PyModuleRegistry(LogChannelRef clog_)
+95a90f7da8a3 src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2024-12-08 18:08:39 +0000 120)     : clog(clog_),
+95a90f7da8a3 src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2024-12-08 18:08:39 +0000 121)       thread_monitor(std::make_unique<ThreadMonitor>(g_ceph_context))
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 122)   { }
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 123) 
+95a90f7da8a3 src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2024-12-08 18:08:39 +0000 124)   ~PyModuleRegistry() {
+95a90f7da8a3 src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2024-12-08 18:08:39 +0000 125)     thread_monitor->stop_monitoring();
+95a90f7da8a3 src/mgr/PyModuleRegistry.h                                 (Nitzan Mordechai             2024-12-08 18:08:39 +0000 126)   }
+810369b0cc0e src/mgr/PyModuleRegistry.h                                 (John Spray                   2018-02-05 16:06:09 +0100 127)   /**
+810369b0cc0e src/mgr/PyModuleRegistry.h                                 (John Spray                   2018-02-05 16:06:09 +0100 128)    * @return true if the mgrmap has changed such that the service needs restart
+810369b0cc0e src/mgr/PyModuleRegistry.h                                 (John Spray                   2018-02-05 16:06:09 +0100 129)    */
+810369b0cc0e src/mgr/PyModuleRegistry.h                                 (John Spray                   2018-02-05 16:06:09 +0100 130)   bool handle_mgr_map(const MgrMap &mgr_map_);
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 131) 
+efc29fb3630a src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-04-16 12:12:01 -0400 132)   bool have_standby_modules() const {
+efc29fb3630a src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-04-16 12:12:01 -0400 133)     return !!standby_modules;
+efc29fb3630a src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-04-16 12:12:01 -0400 134)   }
+efc29fb3630a src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-04-16 12:12:01 -0400 135) 
+03283b0c72cd src/mgr/PyModuleRegistry.h                                 (John Spray                   2018-03-02 12:50:30 -0500 136)   void init();
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 137) 
+37484af0b860 src/mgr/PyModuleRegistry.h                                 (John Spray                   2018-04-09 15:25:45 -0400 138)   void upgrade_config(
+37484af0b860 src/mgr/PyModuleRegistry.h                                 (John Spray                   2018-04-09 15:25:45 -0400 139)       MonClient *monc,
+37484af0b860 src/mgr/PyModuleRegistry.h                                 (John Spray                   2018-04-09 15:25:45 -0400 140)       const std::map<std::string, std::string> &old_config);
+37484af0b860 src/mgr/PyModuleRegistry.h                                 (John Spray                   2018-04-09 15:25:45 -0400 141) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 142)   void active_start(
+37484af0b860 src/mgr/PyModuleRegistry.h                                 (John Spray                   2018-04-09 15:25:45 -0400 143)                 DaemonStateIndex &ds, ClusterState &cs,
+37484af0b860 src/mgr/PyModuleRegistry.h                                 (John Spray                   2018-04-09 15:25:45 -0400 144)                 const std::map<std::string, std::string> &kv_store,
+edf1ea2f5092 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-02-16 14:47:23 -0500 145) 		bool mon_provides_kv_sub,
+95746ecce921 src/mgr/PyModuleRegistry.h                                 (Volker Theile                2018-09-24 12:18:56 +0200 146)                 MonClient &mc, LogChannelRef clog_, LogChannelRef audit_clog_,
+f20df2eb8545 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2025-01-30 17:08:07 -0500 147)                 Objecter &objecter_, Finisher &f,
+95746ecce921 src/mgr/PyModuleRegistry.h                                 (Volker Theile                2018-09-24 12:18:56 +0200 148)                 DaemonServer &server);
+f22347db5509 src/mgr/PyModuleRegistry.h                                 (Mykola Golub                 2019-01-24 11:04:24 +0200 149)   void standby_start(MonClient &mc, Finisher &f);
+c1471c750194 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-22 14:42:11 -0400 150) 
+c1471c750194 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-22 14:42:11 -0400 151)   bool is_standby_running() const
+c1471c750194 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-22 14:42:11 -0400 152)   {
+c1471c750194 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-22 14:42:11 -0400 153)     return standby_modules != nullptr;
+c1471c750194 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-22 14:42:11 -0400 154)   }
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 155) 
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 156)   std::vector<MonCommand> get_commands() const;
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 157)   std::vector<ModuleCommand> get_py_commands() const;
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 158) 
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 159)   /**
+5ac9e85a2130 src/mgr/PyModuleRegistry.h                                 (Volker Theile                2019-01-25 14:45:01 +0100 160)    * Get the specified module. The module does not have to be
+5ac9e85a2130 src/mgr/PyModuleRegistry.h                                 (Volker Theile                2019-01-25 14:45:01 +0100 161)    * loaded or runnable.
+5ac9e85a2130 src/mgr/PyModuleRegistry.h                                 (Volker Theile                2019-01-25 14:45:01 +0100 162)    *
+5ac9e85a2130 src/mgr/PyModuleRegistry.h                                 (Volker Theile                2019-01-25 14:45:01 +0100 163)    * Returns an empty reference if it does not exist.
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 164)    */
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 165)   PyModuleRef get_module(const std::string &module_name)
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 166)   {
+948635a8b213 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2018-10-16 14:11:33 -0500 167)     std::lock_guard l(lock);
+5ac9e85a2130 src/mgr/PyModuleRegistry.h                                 (Volker Theile                2019-01-25 14:45:01 +0100 168)     auto module_iter = modules.find(module_name);
+5ac9e85a2130 src/mgr/PyModuleRegistry.h                                 (Volker Theile                2019-01-25 14:45:01 +0100 169)     if (module_iter == modules.end()) {
+5ac9e85a2130 src/mgr/PyModuleRegistry.h                                 (Volker Theile                2019-01-25 14:45:01 +0100 170)         return {};
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 171)     }
+5ac9e85a2130 src/mgr/PyModuleRegistry.h                                 (Volker Theile                2019-01-25 14:45:01 +0100 172)     return module_iter->second;
+030e85bb9c6c src/mgr/PyModuleRegistry.h                                 (Volker Theile                2019-01-03 17:02:52 +0100 173)   }
+030e85bb9c6c src/mgr/PyModuleRegistry.h                                 (Volker Theile                2019-01-03 17:02:52 +0100 174) 
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 175)   /**
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 176)    * Pass through command to the named module for execution.
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 177)    *
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 178)    * The command must exist in the COMMANDS reported by the module.  If it
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 179)    * doesn't then this will abort.
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 180)    *
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 181)    * If ActivePyModules has not been instantiated yet then this will
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 182)    * return EAGAIN.
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 183)    */
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 184)   int handle_command(
+282c31c38385 src/mgr/PyModuleRegistry.h                                 (Jason Dillaman               2019-10-14 10:39:54 -0400 185)     const ModuleCommand& module_command,
+282c31c38385 src/mgr/PyModuleRegistry.h                                 (Jason Dillaman               2019-10-14 10:39:54 -0400 186)     const MgrSession& session,
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 187)     const cmdmap_t &cmdmap,
+140761f8a2df src/mgr/PyModuleRegistry.h                                 (Dan Mick                     2018-06-19 20:36:08 -0700 188)     const bufferlist &inbuf,
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 189)     std::stringstream *ds,
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 190)     std::stringstream *ss);
+834bc2794050 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-23 08:01:33 -0500 191) 
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 192)   /**
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 193)    * Pass through health checks reported by modules, and report any
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 194)    * modules that have failed (i.e. unhandled exceptions in serve())
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 195)    */
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 196)   void get_health_checks(health_check_map_t *checks);
+d9a47181c45e src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-11-27 07:42:37 -0500 197) 
+706b2be41624 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2025-01-30 17:05:25 -0500 198)   void get_progress_events(std::map<std::string,ProgressEvent> *events) {
+ef336075cf93 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2019-02-15 12:14:13 -0600 199)     if (active_modules) {
+ef336075cf93 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2019-02-15 12:14:13 -0600 200)       active_modules->get_progress_events(events);
+ef336075cf93 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2019-02-15 12:14:13 -0600 201)     }
+08d1a6fc3c57 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2019-02-05 10:16:22 -0600 202)   }
+08d1a6fc3c57 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2019-02-05 10:16:22 -0600 203) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 204)   // FIXME: breaking interface so that I don't have to go rewrite all
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 205)   // the places that call into these (for now)
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 206)   // >>>
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 207)   void notify_all(const std::string &notify_type,
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 208)                   const std::string &notify_id)
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 209)   {
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 210)     if (active_modules) {
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 211)       active_modules->notify_all(notify_type, notify_id);
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 212)     }
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 213)   }
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 214) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 215)   void notify_all(const LogEntry &log_entry)
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 216)   {
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 217)     if (active_modules) {
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 218)       active_modules->notify_all(log_entry);
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 219)     }
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 220)   }
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 221) 
+ee4e3ecd6e07 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-12-02 10:23:45 -0500 222)   bool should_notify(const std::string& name,
+ee4e3ecd6e07 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-12-02 10:23:45 -0500 223) 		     const std::string& notify_type) {
+ee4e3ecd6e07 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-12-02 10:23:45 -0500 224)     return modules.at(name)->should_notify(notify_type);
+ee4e3ecd6e07 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-12-02 10:23:45 -0500 225)   }
+ee4e3ecd6e07 src/mgr/PyModuleRegistry.h                                 (Sage Weil                    2021-12-02 10:23:45 -0500 226) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 227)   std::map<std::string, std::string> get_services() const
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 228)   {
+ab23c5069647 src/mgr/PyModuleRegistry.h                                 (Adam C. Emerson              2018-08-23 11:25:51 -0400 229)     ceph_assert(active_modules);
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 230)     return active_modules->get_services();
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 231)   }
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 232) 
+e72194b42ce1 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2023-02-27 15:00:08 -0500 233)   void register_client(std::string_view name, entity_addrvec_t addrs, bool replace)
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 234)   {
+a586dcc57ab3 src/mgr/PyModuleRegistry.h                                 (Ramana Raja                  2023-02-15 13:41:00 -0500 235)     std::lock_guard l(lock);
+e72194b42ce1 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2023-02-27 15:00:08 -0500 236)     auto n = std::string(name);
+e72194b42ce1 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2023-02-27 15:00:08 -0500 237)     if (replace) {
+e72194b42ce1 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2023-02-27 15:00:08 -0500 238)       clients.erase(n);
+e72194b42ce1 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2023-02-27 15:00:08 -0500 239)     }
+e72194b42ce1 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2023-02-27 15:00:08 -0500 240)     clients.emplace(n, std::move(addrs));
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 241)   }
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 242)   void unregister_client(std::string_view name, const entity_addrvec_t& addrs)
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 243)   {
+a586dcc57ab3 src/mgr/PyModuleRegistry.h                                 (Ramana Raja                  2023-02-15 13:41:00 -0500 244)     std::lock_guard l(lock);
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 245)     auto itp = clients.equal_range(std::string(name));
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 246)     for (auto it = itp.first; it != itp.second; ++it) {
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 247)       if (it->second == addrs) {
+12375a4cf5d6 src/mgr/PyModuleRegistry.h                                 (Venky Shankar                2020-09-04 00:33:13 -0400 248)         clients.erase(it);
+12375a4cf5d6 src/mgr/PyModuleRegistry.h                                 (Venky Shankar                2020-09-04 00:33:13 -0400 249)         return;
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 250)       }
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 251)     }
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 252)   }
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 253) 
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 254)   auto get_clients() const
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 255)   {
+a586dcc57ab3 src/mgr/PyModuleRegistry.h                                 (Ramana Raja                  2023-02-15 13:41:00 -0500 256)     std::lock_guard l(lock);
+b545fb9f5660 src/mgr/PyModuleRegistry.h                                 (Ramana Raja                  2023-01-30 02:21:54 -0500 257)     return clients;
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 258)   }
+df507cde8d71 src/mgr/PyModuleRegistry.h                                 (Patrick Donnelly             2019-12-02 20:27:44 -0800 259) 
+46de6431603a src/mgr/PyModuleRegistry.h                                 (Kotresh Hiremath Ravishankar 2022-10-17 17:19:17 +0530 260)   bool is_module_active(const std::string &name) {
+ab23c5069647 src/mgr/PyModuleRegistry.h                                 (Adam C. Emerson              2018-08-23 11:25:51 -0400 261)     ceph_assert(active_modules);
+46de6431603a src/mgr/PyModuleRegistry.h                                 (Kotresh Hiremath Ravishankar 2022-10-17 17:19:17 +0530 262)     return active_modules->module_exists(name);
+46de6431603a src/mgr/PyModuleRegistry.h                                 (Kotresh Hiremath Ravishankar 2022-10-17 17:19:17 +0530 263)   }
+46de6431603a src/mgr/PyModuleRegistry.h                                 (Kotresh Hiremath Ravishankar 2022-10-17 17:19:17 +0530 264) 
+46de6431603a src/mgr/PyModuleRegistry.h                                 (Kotresh Hiremath Ravishankar 2022-10-17 17:19:17 +0530 265)   auto& get_active_module_finisher(const std::string &name) {
+ab23c5069647 src/mgr/PyModuleRegistry.h                                 (Adam C. Emerson              2018-08-23 11:25:51 -0400 266)     ceph_assert(active_modules);
+46de6431603a src/mgr/PyModuleRegistry.h                                 (Kotresh Hiremath Ravishankar 2022-10-17 17:19:17 +0530 267)     return active_modules->get_module_finisher(name);
+46de6431603a src/mgr/PyModuleRegistry.h                                 (Kotresh Hiremath Ravishankar 2022-10-17 17:19:17 +0530 268)   }
+46de6431603a src/mgr/PyModuleRegistry.h                                 (Kotresh Hiremath Ravishankar 2022-10-17 17:19:17 +0530 269) 
+cbd1726fde08 src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-04-25 22:11:19 +0000 270)   // Sends the "active" beacon right away if all mgr modules
+cbd1726fde08 src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-04-25 22:11:19 +0000 271)   // have finished startup. If some modules are still pending
+cbd1726fde08 src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-04-25 22:11:19 +0000 272)   // startup, the "active" beacon is scheduled to send later
+cbd1726fde08 src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-04-25 22:11:19 +0000 273)   // after all modules are ready.
+cbd1726fde08 src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-04-25 22:11:19 +0000 274)   // See "Mgr::background_init()".
+cbd1726fde08 src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-04-25 22:11:19 +0000 275)   void check_all_modules_started(Context *modules_start_complete);
+cbd1726fde08 src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-04-25 22:11:19 +0000 276) 
+68221661b00f src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-09-11 22:13:51 +0000 277)   // Return set of active modules where class instances are not yet created.
+68221661b00f src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-09-11 22:13:51 +0000 278)   // Protected by const; we only want to view the contents- not modify anything.
+68221661b00f src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-09-11 22:13:51 +0000 279)   const std::set<std::string, std::less<>>& get_pending_modules() const {
+68221661b00f src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-09-11 22:13:51 +0000 280)     return active_modules->get_pending_modules();
+68221661b00f src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-09-11 22:13:51 +0000 281)   }
+68221661b00f src/mgr/PyModuleRegistry.h                                 (Laura Flores                 2025-09-11 22:13:51 +0000 282) 
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 283)   // <<< (end of ActivePyModules cheeky call-throughs)
+9718896c8b84 src/mgr/PyModuleRegistry.h                                 (John Spray                   2017-08-14 06:31:18 -0400 284) };

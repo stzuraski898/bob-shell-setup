@@ -1,0 +1,19 @@
+commit c8c1019d1962166fa290d2f8cc8f2c40cd016168
+Author: Edwin Rodriguez <edwin.rodriguez1@ibm.com>
+Date:   Thu Oct 2 15:31:35 2025 -0400
+
+    Add missing blank line after comment block
+    
+    Signed-off-by: Edwin Rodriguez <edwin.rodriguez1@ibm.com>
+
+diff --git a/src/mgr/StandbyPyModules.cc b/src/mgr/StandbyPyModules.cc
+index b550739ad48..e34c17c90bc 100644
+--- a/src/mgr/StandbyPyModules.cc
++++ b/src/mgr/StandbyPyModules.cc
+@@ -1,5 +1,6 @@
+ // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+ // vim: ts=8 sw=2 sts=2 expandtab
++
+ /*
+  * Ceph - scalable distributed file system
+  *

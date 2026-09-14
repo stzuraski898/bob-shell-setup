@@ -1,0 +1,42 @@
+commit 98dfce1c36f8f594d2a771855db72abae45d18f1
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Mar 2 20:45:03 2020 +0800
+
+    mgr/MgrCap.h: avoid forward declare CephContext in different ways
+    
+    this addresses the FTBFS like
+    ```
+    home/jenkins/workspace/ceph-master/src/mgr/MgrCap.h:12:1: error: declaration conflicts with target of using declaration already in scope
+    class CephContext;
+    ^
+    /home/jenkins/workspace/ceph-master/src/include/common_fwd.h:10:9: note: target of using declaration
+      class CephContext;
+            ^
+    /home/jenkins/workspace/ceph-master/src/include/common_fwd.h:22:24: note: using declaration
+    using TOPNSPC::common::CephContext;
+                           ^
+    In file included from /home/jenkins/workspace/ceph-master/src/mgr/MgrCap.cc:24:
+    ```
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrCap.h b/src/mgr/MgrCap.h
+index 3482ff21eed..f7a8bd5f8e6 100644
+--- a/src/mgr/MgrCap.h
++++ b/src/mgr/MgrCap.h
+@@ -4,13 +4,12 @@
+ #ifndef CEPH_MGRCAP_H
+ #define CEPH_MGRCAP_H
+ 
+-#include <ostream>
++#include <iosfwd>
+ 
++#include "include/common_fwd.h"
+ #include "include/types.h"
+ #include "common/entity_name.h"
+ 
+-class CephContext;
+-
+ static const __u8 MGR_CAP_R     = (1 << 1);      // read
+ static const __u8 MGR_CAP_W     = (1 << 2);      // write
+ static const __u8 MGR_CAP_X     = (1 << 3);      // execute

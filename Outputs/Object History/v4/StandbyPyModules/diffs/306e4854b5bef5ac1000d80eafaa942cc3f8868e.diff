@@ -1,0 +1,36 @@
+commit 306e4854b5bef5ac1000d80eafaa942cc3f8868e
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Apr 4 09:19:57 2018 -0400
+
+    mgr: separate out module_config and store_cache
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/StandbyPyModules.h b/src/mgr/StandbyPyModules.h
+index b115cee13e4..fe2de8f279a 100644
+--- a/src/mgr/StandbyPyModules.h
++++ b/src/mgr/StandbyPyModules.h
+@@ -26,8 +26,6 @@
+ #include "mon/MgrMap.h"
+ #include "mgr/PyModuleRunner.h"
+ 
+-//typedef std::map<std::string, std::string> PyModuleConfig;
+-
+ /**
+  * State that is read by all modules running in standby mode
+  */
+@@ -36,13 +34,10 @@ class StandbyPyModuleState
+   mutable Mutex lock{"StandbyPyModuleState::lock"};
+ 
+   MgrMap mgr_map;
+-  //PyModuleConfig config_cache;
+-
+-  
++  PyModuleConfig &module_config;
+ 
+ public:
+ 
+-  PyModuleConfig &module_config;
+   
+   StandbyPyModuleState(PyModuleConfig &module_config_)
+     : module_config(module_config_)

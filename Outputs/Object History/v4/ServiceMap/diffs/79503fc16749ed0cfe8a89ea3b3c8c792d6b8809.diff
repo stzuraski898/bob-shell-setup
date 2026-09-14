@@ -1,0 +1,36 @@
+commit 79503fc16749ed0cfe8a89ea3b3c8c792d6b8809
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Sat Feb 8 04:36:42 2020 -0500
+
+    mgr: helper function to check if a service is a normal ceph service
+    
+    This would be widely required since ceph metadata server entries are
+    maintained in service map (DaemonServer::pending_service_map). Such
+    normal ceph services would need to filtered when processing the service
+    map to avoid extraneous entries getting processed.
+    
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/ServiceMap.h b/src/mgr/ServiceMap.h
+index 3b6dd72068c..169038f3044 100644
+--- a/src/mgr/ServiceMap.h
++++ b/src/mgr/ServiceMap.h
+@@ -138,6 +138,18 @@ struct ServiceMap {
+     }
+     return true;
+   }
++
++  static inline bool is_normal_ceph_entity(std::string_view type) {
++    if (type == "osd" ||
++        type == "client" ||
++        type == "mon" ||
++        type == "mds" ||
++        type == "mgr") {
++      return true;
++    }
++
++    return false;
++  }
+ };
+ WRITE_CLASS_ENCODER_FEATURES(ServiceMap)
+ WRITE_CLASS_ENCODER_FEATURES(ServiceMap::Service)

@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/Gil.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/Gil.cc fb26bcd9865b336a043453c9c50aa935f68fdf90 23c3a075ee1a27e1b57fcb452a4d6ce53080264e
+#
+# Rename chain for src/mgr/Gil.h
+#
+src/mgr/Gil.h 4adaf64d7187778965f1a0f6e7d04efc809a2a7b f36b0d9d4053e167f59b89286cc9378e8e1563f7

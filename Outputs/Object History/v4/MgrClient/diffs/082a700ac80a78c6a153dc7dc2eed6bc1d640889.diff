@@ -1,0 +1,106 @@
+commit 082a700ac80a78c6a153dc7dc2eed6bc1d640889
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 13 15:13:56 2018 -0500
+
+    mgr/MgrClient: close mgr session on daemon MgrClient shutdown
+    
+    If we are a service daemon, send a MMgrClose on shutdown to clear ourselves
+    out of the ServiceMap.
+    
+    Note that this is a best-effort attempt; we don't block shutdown if the
+    mgr isn't currently available.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 5fadf1fe722..65617a521ff 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -20,6 +20,7 @@
+ #include "messages/MMgrMap.h"
+ #include "messages/MMgrReport.h"
+ #include "messages/MMgrOpen.h"
++#include "messages/MMgrClose.h"
+ #include "messages/MMgrConfigure.h"
+ #include "messages/MCommand.h"
+ #include "messages/MCommandReply.h"
+@@ -48,6 +49,7 @@ void MgrClient::init()
+ void MgrClient::shutdown()
+ {
+   Mutex::Locker l(lock);
++  ldout(cct, 10) << dendl;
+ 
+   if (connect_retry_callback) {
+     timer.cancel_event(connect_retry_callback);
+@@ -57,6 +59,20 @@ void MgrClient::shutdown()
+   // forget about in-flight commands if we are prematurely shut down
+   // (e.g., by control-C)
+   command_table.clear();
++  if (service_daemon &&
++      session &&
++      session->con &&
++      HAVE_FEATURE(session->con->get_features(), SERVER_MIMIC)) {
++    ldout(cct, 10) << "closing mgr session" << dendl;
++    MMgrClose *m = new MMgrClose();
++    m->daemon_name = daemon_name;
++    m->service_name = service_name;
++    session->con->send_message(m);
++    utime_t timeout;
++    timeout.set_from_double(cct->_conf->get_val<double>(
++			      "mgr_client_service_daemon_unregister_timeout"));
++    shutdown_cond.WaitInterval(lock, timeout);
++  }
+ 
+   timer.shutdown();
+   if (session) {
+@@ -74,6 +90,8 @@ bool MgrClient::ms_dispatch(Message *m)
+     return handle_mgr_map(static_cast<MMgrMap*>(m));
+   case MSG_MGR_CONFIGURE:
+     return handle_mgr_configure(static_cast<MMgrConfigure*>(m));
++  case MSG_MGR_CLOSE:
++    return handle_mgr_close(static_cast<MMgrClose*>(m));
+   case MSG_COMMAND_REPLY:
+     if (m->get_source().type() == CEPH_ENTITY_TYPE_MGR) {
+       handle_command_reply(static_cast<MCommandReply*>(m));
+@@ -379,6 +397,13 @@ bool MgrClient::handle_mgr_configure(MMgrConfigure *m)
+   return true;
+ }
+ 
++bool MgrClient::handle_mgr_close(MMgrClose *m)
++{
++  service_daemon = false;
++  shutdown_cond.Signal();
++  return true;
++}
++
+ int MgrClient::start_command(const vector<string>& cmd, const bufferlist& inbl,
+                   bufferlist *outbl, string *outs,
+                   Context *onfinish)
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 2a502ecc57e..4a044b5d5e3 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -25,6 +25,7 @@
+ 
+ class MMgrMap;
+ class MMgrConfigure;
++class MMgrClose;
+ class Messenger;
+ class MCommandReply;
+ class MPGStats;
+@@ -57,6 +58,7 @@ protected:
+   unique_ptr<MgrSessionState> session;
+ 
+   Mutex lock = {"MgrClient::lock"};
++  Cond shutdown_cond;
+ 
+   uint32_t stats_period = 0;
+   uint32_t stats_threshold = 0;
+@@ -101,6 +103,7 @@ public:
+ 
+   bool handle_mgr_map(MMgrMap *m);
+   bool handle_mgr_configure(MMgrConfigure *m);
++  bool handle_mgr_close(MMgrClose *m);
+   bool handle_command_reply(MCommandReply *m);
+ 
+   void send_pgstats();

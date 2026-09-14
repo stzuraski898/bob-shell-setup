@@ -1,0 +1,26 @@
+commit fb725f7cc3d1f3dff81b94c5cf17fcc097cd8b3c
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Oct 23 15:40:41 2020 +0800
+
+    mgr: use make_unique<> when appropriate
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonHealthMetricCollector.cc b/src/mgr/DaemonHealthMetricCollector.cc
+index ca864dd5899..6467fed0497 100644
+--- a/src/mgr/DaemonHealthMetricCollector.cc
++++ b/src/mgr/DaemonHealthMetricCollector.cc
+@@ -90,10 +90,10 @@ DaemonHealthMetricCollector::create(daemon_metric m)
+ {
+   switch (m) {
+   case daemon_metric::SLOW_OPS:
+-    return unique_ptr<DaemonHealthMetricCollector>{new SlowOps};
++    return std::make_unique<SlowOps>();
+   case daemon_metric::PENDING_CREATING_PGS:
+-    return unique_ptr<DaemonHealthMetricCollector>{new PendingPGs};
++    return std::make_unique<PendingPGs>();
+   default:
+-    return unique_ptr<DaemonHealthMetricCollector>{};
++    return {};
+   }
+ }

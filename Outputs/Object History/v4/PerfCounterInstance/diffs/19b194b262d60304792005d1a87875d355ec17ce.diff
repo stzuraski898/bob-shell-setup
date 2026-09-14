@@ -1,0 +1,56 @@
+commit 19b194b262d60304792005d1a87875d355ec17ce
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed May 11 16:34:12 2005 +0000
+
+    timers work
+    
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@220 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/ceph/common/Clock.h b/ceph/common/Clock.h
+index cf5ee1b6c85..52e9584d6a6 100644
+--- a/ceph/common/Clock.h
++++ b/ceph/common/Clock.h
+@@ -7,17 +7,37 @@
+ 
+ class Clock {
+  protected:
+-  struct timeval curtime;
++  struct timeval faketime;      // if we're faking.
++  struct timeval start_offset;  // time of process startup.
++
+ 
+  public:
+   Clock();
+   
+-  void settime(double tm);
++  time_t gettime(struct timeval *ts=0);
++
+ 
+-  double gettime();
+-  time_t get_unixtime() {
+-	return time(0);
++  void sub(struct timeval *a, struct timeval *b) {
++	a->tv_sec -= b->tv_sec;
++
++	if (a->tv_usec - b->tv_usec >= 0)
++	  a->tv_usec -= b->tv_usec;
++	else { // borrow from seconds
++	  a->tv_usec = a->tv_usec + 1000000 - b->tv_usec;
++	  a->tv_sec--;
++	}
+   }
++  
++  
++  void add(struct timeval *a, struct timeval *b) {
++	a->tv_sec += b->tv_sec;
++	a->tv_usec += b->tv_usec;
++	if (a->tv_usec > 1000000) {
++	  a->tv_sec++;
++	  a->tv_usec -= 1000000;
++	}
++  }
++  
+ 
+ };
+ 

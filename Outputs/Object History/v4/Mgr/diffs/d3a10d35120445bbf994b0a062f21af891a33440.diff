@@ -1,0 +1,45 @@
+commit d3a10d35120445bbf994b0a062f21af891a33440
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 21 20:24:24 2017 -0500
+
+    mgr/MgrStandby: add LogClient
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index f9a51315446..cdbbb9d0953 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -37,7 +37,8 @@
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ 
+ 
+-Mgr::Mgr(MonClient *monc_, Messenger *clientm_, Objecter *objecter_) :
++Mgr::Mgr(MonClient *monc_, Messenger *clientm_, Objecter *objecter_,
++	 LogChannelRef clog_, LogChannelRef audit_clog_) :
+   monc(monc_),
+   objecter(objecter_),
+   client_messenger(clientm_),
+@@ -47,7 +48,7 @@ Mgr::Mgr(MonClient *monc_, Messenger *clientm_, Objecter *objecter_) :
+   waiting_for_fs_map(NULL),
+   py_modules(daemon_state, cluster_state, *monc, finisher),
+   cluster_state(monc, nullptr),
+-  server(monc, daemon_state, cluster_state, py_modules),
++  server(monc, daemon_state, cluster_state, py_modules, clog_, audit_clog_),
+   initialized(false),
+   initializing(false)
+ {
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index ffe1d1460c9..9c882ec35f9 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -69,7 +69,8 @@ protected:
+   bool initializing;
+ 
+ public:
+-  Mgr(MonClient *monc_, Messenger *clientm_, Objecter *objecter_);
++  Mgr(MonClient *monc_, Messenger *clientm_, Objecter *objecter_,
++      LogChannelRef clog_, LogChannelRef audit_clog_);
+   ~Mgr();
+ 
+   bool is_initialized() const {return initialized;}

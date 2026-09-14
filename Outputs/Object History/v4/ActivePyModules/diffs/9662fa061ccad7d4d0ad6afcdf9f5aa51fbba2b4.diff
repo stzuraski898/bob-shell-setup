@@ -1,0 +1,46 @@
+commit 9662fa061ccad7d4d0ad6afcdf9f5aa51fbba2b4
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jun 8 17:45:25 2018 -0500
+
+    mgr/ActivePyModules: add get for 'device <devid>'
+    
+    This is slightly different than the usual pattern because it is
+    parameterized.  I want to avoid fetching *all* devices if we don't need
+    it.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 707a6333c92..0c411435b79 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -281,10 +281,10 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+     return f.get();
+   } else if (what == "pg_dump") {
+     PyFormatter f;
+-        cluster_state.with_pgmap(
+-        [&f](const PGMap &pg_map) {
+-	  pg_map.dump(&f);
+-        }
++    cluster_state.with_pgmap(
++      [&f](const PGMap &pg_map) {
++	pg_map.dump(&f);
++      }
+     );
+     return f.get();
+   } else if (what == "devices") {
+@@ -295,6 +295,14 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+       });
+     f.close_section();
+     return f.get();
++  } else if (what.size() > 7 &&
++	     what.substr(0, 7) == "device ") {
++    string devid = what.substr(7);
++    PyFormatter f;
++    daemon_state.with_device(devid, [&f] (const DeviceState& dev) {
++	f.dump_object("device", dev);
++      });
++    return f.get();
+   } else if (what == "io_rate") {
+     PyFormatter f;
+     cluster_state.with_pgmap(

@@ -1,0 +1,23 @@
+commit 31a34946f7aa0ad2b9848cbc808d209394a9ad44
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Sep 21 10:30:57 2017 -0400
+
+    osd: PG_STATE_BACKFILL -> PG_STATE_BACKFILLING
+    
+    Match user-facing string
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index e1321f0b2a0..e0b7c9f6f8c 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1181,7 +1181,7 @@ bool DaemonServer::handle_command(MCommand *m)
+ 		  }
+ 		  break;
+ 		case OFR_BACKFILL:
+-		  if ((workpg.state & (PG_STATE_DEGRADED | PG_STATE_BACKFILL_WAIT | PG_STATE_BACKFILL)) == 0) {
++		  if ((workpg.state & (PG_STATE_DEGRADED | PG_STATE_BACKFILL_WAIT | PG_STATE_BACKFILLING)) == 0) {
+ 		    ss << "pg " << pstr << " doesn't require backfilling; ";
+ 		    continue;
+ 		  } else  if (workpg.state & PG_STATE_FORCED_BACKFILL) {

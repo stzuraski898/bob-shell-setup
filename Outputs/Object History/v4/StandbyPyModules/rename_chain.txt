@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/StandbyPyModules.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/StandbyPyModules.cc c8c1019d1962166fa290d2f8cc8f2c40cd016168 c1471c7501948004096581ee415ab4a1fa2d9379
+#
+# Rename chain for src/mgr/StandbyPyModules.h
+#
+src/mgr/StandbyPyModules.h 4adaf64d7187778965f1a0f6e7d04efc809a2a7b c1471c7501948004096581ee415ab4a1fa2d9379

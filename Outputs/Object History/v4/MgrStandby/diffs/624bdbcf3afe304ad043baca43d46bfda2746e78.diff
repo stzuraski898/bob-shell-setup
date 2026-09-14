@@ -1,0 +1,25 @@
+commit 624bdbcf3afe304ad043baca43d46bfda2746e78
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Nov 9 19:52:03 2016 +0000
+
+    mgr: remove unnecessary C_StdFunction
+    
+    FunctionContext works fine and already existed.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 0beb8937d76..fdaea9670c0 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -118,8 +118,8 @@ void MgrStandby::send_beacon()
+                                  available);
+                                  
+   monc->send_mon_message(m);
+-  timer.add_event_after(g_conf->mgr_beacon_period, new C_StdFunction(
+-        [this](){
++  timer.add_event_after(g_conf->mgr_beacon_period, new FunctionContext(
++        [this](int r){
+           send_beacon();
+         }
+   )); 

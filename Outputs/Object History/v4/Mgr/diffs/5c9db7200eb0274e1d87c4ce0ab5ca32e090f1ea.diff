@@ -1,0 +1,46 @@
+commit 5c9db7200eb0274e1d87c4ce0ab5ca32e090f1ea
+Author: Jan Fajerski <jfajerski@suse.com>
+Date:   Tue Mar 13 16:21:27 2018 +0100
+
+    mgr: add mgr daemon to DaemonStateIndex with metadata (hostname)
+    
+    This commit changes when (and how) the mgr daemons are added to the
+    DaemonStateIndex. A change in the mgr map now doesn't immediately
+    trigger the addition of a mgr daemon, but triggers a MetadataUpdate
+    operation so that the mgr daemon is added with metadata queried from the
+    mon (most notably the hostname).
+    Fixes: http://tracker.ceph.com/issues/23286
+    
+    Signed-off-by: Jan Fajerski <jfajerski@suse.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index be39b575342..5e74350d93f 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -72,7 +72,7 @@ void MetadataUpdate::finish(int r)
+ {
+   daemon_state.clear_updating(key);
+   if (r == 0) {
+-    if (key.first == "mds" || key.first == "osd") {
++    if (key.first == "mds" || key.first == "osd" || key.first == "mgr") {
+       json_spirit::mValue json_result;
+       bool read_ok = json_spirit::read(
+           outbl.to_str(), json_result);
+@@ -97,7 +97,7 @@ void MetadataUpdate::finish(int r)
+       if (daemon_state.exists(key)) {
+         state = daemon_state.get(key);
+ 	Mutex::Locker l(state->lock);
+-        if (key.first == "mds") {
++        if (key.first == "mds" || key.first == "mgr") {
+           daemon_meta.erase("name");
+         } else if (key.first == "osd") {
+           daemon_meta.erase("id");
+@@ -112,7 +112,7 @@ void MetadataUpdate::finish(int r)
+         state->key = key;
+         state->hostname = daemon_meta.at("hostname").get_str();
+ 
+-        if (key.first == "mds") {
++        if (key.first == "mds" || key.first == "mgr") {
+           daemon_meta.erase("name");
+         } else if (key.first == "osd") {
+           daemon_meta.erase("id");

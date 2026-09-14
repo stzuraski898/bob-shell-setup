@@ -1,0 +1,44 @@
+commit b306e9e0ac1b7f885295f4302709eec5b020fc4f
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue May 16 13:52:51 2017 +0800
+
+    osd: stop sending pgstat if luminous
+    
+    we don't send pgstat to mon from osd once we set
+    CEPH_OSDMAP_REQUIRE_LUMINOUS. and cleanup the pgstat queue when we
+    do the switch.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 45d2707af25..d096c9ccf3f 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -259,9 +259,13 @@ void MgrClient::send_report()
+     timer.add_event_after(stats_period, report_callback);
+   }
+ 
++  send_pgstats();
++}
++
++void MgrClient::send_pgstats()
++{
+   if (pgstats_cb) {
+-    MPGStats *m_stats = pgstats_cb();
+-    session->con->send_message(m_stats);
++    session->con->send_message(pgstats_cb());
+   }
+ }
+ 
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index f9385b8be6d..87df28650a2 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -92,6 +92,7 @@ public:
+   bool handle_command_reply(MCommandReply *m);
+ 
+   void send_report();
++  void send_pgstats();
+ 
+   void set_pgstats_cb(std::function<MPGStats*()> cb_)
+   {

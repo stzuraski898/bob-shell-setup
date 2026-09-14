@@ -1,0 +1,24 @@
+commit 983fe8ec888b998cee33680390173fe6636574f3
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sat May 20 13:11:23 2017 +0800
+
+    mon,mgr: std::move(osd_stat) when possible
+    
+    osd_stat_t could be a relatively large struct, so use std::move() when
+    possible
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 81bcdb728de..153dc34cdf3 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -58,7 +58,7 @@ void ClusterState::ingest_pgstats(MPGStats *stats)
+   });
+ 
+   if (is_in) {
+-    pending_inc.update_stat(from, stats->epoch, stats->osd_stat);
++    pending_inc.update_stat(from, stats->epoch, std::move(stats->osd_stat));
+   } else {
+     pending_inc.update_stat(from, stats->epoch, osd_stat_t());
+   }

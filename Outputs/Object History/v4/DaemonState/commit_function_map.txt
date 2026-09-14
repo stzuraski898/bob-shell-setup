@@ -1,0 +1,86 @@
+# Commit → function map for DaemonState
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+35f6dd06dd0b3c78235e21ac309e4226aa733af1 | cull_services
+d2d4c7d3f865a69fd6ec0fb06fcc5e7150a77c00 | _get_config_defaults
+e9abc5ce0bb784d2bdca887dfe8e7b003316eb38 | (no functions)
+7bfbdb328a75cf36cc5e1fd0245cfbee914113bb | (no functions)
+1aef3773f3b5c72e962c80706b46e81200b22e57 | (no functions)
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b | (no functions)
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+a17349b87afd4b4e66dfe50796e1594b47b13aba | (no functions)
+b4304d521f61b61515cade872824210e7d67f6db | (no functions)
+2d2982e74209a28293d207c67a6f7d60360aa8b5 | (no functions)
+6e1a6f0aa1fa44ab8580444dc3ce5937248cd75e | print
+95a96cffc3007fe6ec7eec79ed997ff8c9e67e13 | (no functions)
+bb09a1d7e2c5dd29bbdfc70a24bd35ab5a0ce60a | (no functions)
+c63ecb602e5916d5e0beed137787fdfc67707f15 | (no functions)
+a343f181861b8733c2a5abd40823cc4681305095 | (no functions)
+c52fcb51afb6da2dccd6954a40f0f1c616324855 | rm_life_expectancy print set_metadata dump
+78b72b0be752fce855203b28b558133a0d47eba8 | set_life_expectancy
+f9a11737ea5c37abcc2a11dbf67016d7d3057d58 | get_by_server
+d6ad0a255a27c5e3da20c7ae03066a692a6d49bb | (no functions)
+2c0fd7d86827aa76b8d923870018365cdae4a6ad | _erase _insert dump
+7534737030b3b51e00f9ffc519574bcb10f6c950 | cull
+5aac7eba36be99861eb8726872e339ff55360f47 | cull print get_by_service dump
+ff6b3997caa43d3eac0fc462f3be9ec4fa5ae6ed | (no functions)
+517bdca529db390e7ebc4e596570f80522060485 | (no functions)
+5c25a018643b10aa78db8270cae1476f71d8f4f4 | (no functions)
+675606bf712ee2a22b6dbc6b568d79d9de05539f | get get_by_server cull _erase print get_by_service
+c93dc8849145c1630058e4c0e527f404929216ff | _insert
+9b6aa95ff4013e3f09f92f5dae5b6ca85403ffc8 | cull
+dac649753bcb49bcbeafd70b5128349cfc6f6856 | (no functions)
+5b6037aeb43aff90111fdae08807ddda290bc570 | (no functions)
+0b14f926ec238ba2e0185bed87561cac38edec78 | (no functions)
+1c2bc53df73d9891330cf0b18f5193167d64df61 | (no functions)
+8a2f4429b129a24a72fdbc374075bba954be5bd3 | get print
+c52fc7b5d34f951bc10abbd86a8fb3553ef3a416 | (no functions)
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f | (no functions)
+a9b04900366d238ba78036e3c4b3e6bc77461059 | set_life_expectancy
+b421142b1c6fb0a6cbd2f76d007ee07502a8d689 | (no functions)
+90463754ed6295dc55eb55e5acce7fc5b63e5a21 | (no functions)
+ab23c506964753990f9fe23e314b9f3e2547a773 | insert
+4920bbd6cb49290122eaa0542b7a81ffaa0f4aed | print dump
+6b6fe52aacf645ce3cac08c8bd540691fcc15f8a | insert _erase dump
+7add8da7b00a646e78948c647d3e19c2c6dcca88 | (no functions)
+f222375cbced5efecb4d52ef4955701a7ba38474 | rm_life_expectancy
+46ab713e1f237d8b4c41b0731a14a98e0c11f771 | (no functions)
+47abea157cf415a132d9a35311e5b5362708b8d3 | (no functions)
+45d4dfed1ded628abcbb9f1c62dfb90095414f0d | _erase
+38afbae02696afdab973a5ec739c1e68cd45e4d1 | insert _erase
+67b5d3e343c51c9015d55a7c03e6dcc32f4c89e2 | (no functions)
+946e1803453a08db7f78962a8bf8c40fac5a0dcc | (no functions)
+72883956c26fdc4345324e9b27b45c3dfac17fa2 | (no functions)
+1164ef2f32d81d4f35623c3f6a77af2b6871f962 | (no functions)
+f146c6c514b7f1ab8a2420edb5f7b64702bc9639 | (no functions)
+62382040ee9b655a68b15ccb43cebb39c9dc3a45 | (no functions)
+39ffec281af577c766c619d568f7a7051d108b00 | (no functions)
+a6832cb610ba50fb634b45ff395b1b621ec5b92d | get
+714ffe0d5f078e4106ddbd8b57918ae2a0c899af | (no functions)
+4af9c9677b0091ad3a5f99289230b83ebd42b53a | (no functions)
+926ec5b4c505bbef1f9574d6df5548b470f3bf57 | (no functions)
+e8b32359731be7e8ac5c50f125e5ad10c254aeca | (no functions)
+86cf85e0a2c5086df63ee8fc287502cb901b1073 | (no functions)
+d8450574cf4884f5d45ef09fce99b7ad24b332a6 | (no functions)
+156c941ad0d27c3cd487a085e04df9faeeffa768 | (no functions)
+7e7978732d20c506eca581f2b153ede70ceefa3d | (no functions)
+dc415f1ae09a308bd448614934a4c168eb9cf07b | (no functions)
+806f10847cefe5c7a78fc319b1b130d372197dd3 | insert get_by_server cull _erase get_by_service
+f9a4ca07acecd15986cbce61a6e118a6cb05af29 | get
+f236b5e78338f85a0ac82440ae44cdf4db83a04f | get_by_service
+97cfc3cb694eb2723cae22d71057323773746cee | (no functions)
+a22b256bad1f6a4fcb9ffc10015b17bab7216afb | get cull _erase
+28c83737345e9b9547a87105ab4d32b6f636bd4b | (no functions)
+c93daaf92b643a06a822558973d377733dbd9d85 | (no functions)
+0e7137aa6a1f1d9f6d1276acc2cd89f5787ecce3 | insert get
+a46690c6230b868b3a17cf6720119067891a1620 | cull
+750ad8340c827d2f8896e1251e45f921dddb9f30 | (no functions)
+b9182564c716fdfcb39cc77314ba295990dd4312 | (no functions)
+9501bfdd711499c1314a3495549da24fbc02257e | (no functions)
+d9dfb436ea588a43be135a0808b28039d9ca2546 | (no functions)
+b7c9561accefb81dec73bdd1635ec808a9d23a1f | get_by_server _erase
+ac30e6cee2b2d3815438f1a392a951d511bddfd4 | (no functions)

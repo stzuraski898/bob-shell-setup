@@ -1,0 +1,46 @@
+commit e62f45d1baa976bc64525ecb3bb49b777d6a0990
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jan 16 15:45:32 2019 -0600
+
+    msg/Dispatcher: remove force_new arg from ms_get_authorizer()
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 466a703787a..04cac542826 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -429,18 +429,11 @@ bool MgrStandby::ms_dispatch(Message *m)
+ }
+ 
+ 
+-bool MgrStandby::ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer,
+-                         bool force_new)
++bool MgrStandby::ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer)
+ {
+   if (dest_type == CEPH_ENTITY_TYPE_MON)
+     return true;
+ 
+-  if (force_new) {
+-    auto timeout = cct->_conf.get_val<int64_t>("rotating_keys_renewal_timeout");
+-    if (monc.wait_auth_rotating(timeout) < 0)
+-      return false;
+-  }
+-
+   *authorizer = monc.build_authorizer(dest_type);
+   return *authorizer != NULL;
+ }
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index 9b1071117ee..cdbd572e2ec 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -73,8 +73,7 @@ public:
+   bool ms_dispatch(Message *m) override;
+   bool ms_handle_reset(Connection *con) override { return false; }
+   void ms_handle_remote_reset(Connection *con) override {}
+-  bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer,
+-                         bool force_new) override;
++  bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer) override;
+   bool ms_handle_refused(Connection *con) override;
+ 
+   int init();

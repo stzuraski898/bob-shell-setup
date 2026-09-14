@@ -1,0 +1,20 @@
+commit 3f857b9ae434274d0cf8b6288cefe9f703471870
+Author: Wei Jin <jinwei15@wanda.cn>
+Date:   Tue Apr 4 17:47:30 2017 +0800
+
+    mgr: rm nonused main function
+    
+    Signed-off-by: Wei Jin <wjin.cn@gmail.com>
+
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index d72db7c3e40..c83144dfa4a 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -86,7 +86,6 @@ public:
+ 
+   void background_init();
+   void shutdown();
+-  int main(vector<const char *> args);
+ };
+ 
+ #endif

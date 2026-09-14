@@ -1,0 +1,28 @@
+commit 0d94eebb0dd1b3e2afdde92e1c1051affded46f2
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Fri Apr 19 14:31:09 2024 -0400
+
+    mgr: allow specifying module option level
+    
+    Some are for development purposes and should be filtered out by the dashboard.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 084cf3ffc1e..20234ec5768 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -609,6 +609,13 @@ int PyModule::load_options()
+ 	option.type = t;
+       }
+     }
++    p = PyDict_GetItemString(pOption, "level");
++    if (p && PyLong_Check(p)) {
++      long v = PyLong_AsLong(p);
++      option.level = static_cast<Option::level_t>(v);
++    } else {
++      option.level = Option::level_t::LEVEL_ADVANCED;
++    }
+     p = PyDict_GetItemString(pOption, "desc");
+     if (p && PyObject_TypeCheck(p, &PyUnicode_Type)) {
+       option.desc = PyUnicode_AsUTF8(p);

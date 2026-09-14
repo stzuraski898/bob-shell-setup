@@ -1,0 +1,30 @@
+# Non-merge commits touching src/mgr/PyFormatter.cc and/or src/mgr/PyFormatter.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+7c68a00cce5b7769c2e34fb7611d14825283fcda 2026-01-21 NitzanMordhai | mgr/PyFormatter: prevent segfault on non-printable characters
+403340bcf8c2122afff708519f176baa6b646fc1 2025-07-17 Nitzan Mordechai | mgr: replace TTLCache with MgrMapCache and protect api with readonly
+7fadf6a8d464456668550e1f85c6c5a86f94bb49 2025-08-26 Nitzan Mordechai | mgr/TTLCache: fix PyObject* lifetime management and cleanup logic
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b 2025-10-02 Edwin Rodriguez | Add blank line after header block
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 2025-10-02 Edwin Rodriguez | Add missing blank line after comment block
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+3ab70dd3e1150b2b3f66cbbee329ea95618747a5 2024-10-16 Max Kellermann | common/Formatter: move {JSON,Table,XML}Formatter to separate files
+5f57c526b22af16e8a079aacefcb26cc14202ad2 2023-07-21 Patrick Donnelly | common/Formatter: add support for dumping null
+15dfa71cf7c8ff761f305638a89438b0551d64cf 2021-05-26 Pere Diaz Bou | mgr: TTLCache basic implementation
+6712393fbc534c6c7040bfc9ee2d1268f3adc9dd 2020-02-10 Kefu Chai | common,mgr: pass string_view as "name"
+48c4bc445fcacd7980e84b4f135a3115b88b05f1 2019-12-18 Kefu Chai | mgr: drop the compatibility with python2
+104c88cfea8e3d2d6bca1a22c26010256919862c 2019-07-19 Kefu Chai | mgr/PyFormatter.h: add necessary #include
+ac8b016b7237dfa14af74128ea051a83f9e44670 2018-11-14 Mykola Golub | mgr: fix PyFormatter's dump_unsigned
+34975103eae6e9c0061512e6e000d6f8e1093f20 2018-09-18 Kefu Chai | mgr/PyFormatter: fix typos
+5009d9ecc692076360ff777e47db9902c7bff669 2018-09-14 Brad Hubbard | Rename "include/assert.h"
+938189e8f280c71fbf542f5f84f57dd7a737dda6 2018-09-07 Jan Fajerski | mgr: remove PyFormatter copy constructor; shouldn't be called
+ab23c506964753990f9fe23e314b9f3e2547a773 2018-08-23 Adam C. Emerson | mgr: Use ceph_assert for asserts.
+0c8ec93af7d7437d1ffd646be407c4bf64f505b4 2018-01-15 Patrick Donnelly | mds: convert to allocator agnostic string_view
+46003075924bb16b41149e7c12f31e9a6b7a3f15 2018-01-24 Kefu Chai | mgr: be compatible with py3
+992829d38cb89732f6994642c1bdaa2448e610b7 2017-08-09 Song Weibin | rbd: adding newline operation when only '--format' used
+86c851e138ae00cbcc2854ba75ad8d40ef2a2270 2017-06-12 Sage Weil | mgr/PyFormatter: implement dump_format_va
+9ea37c223f92b8f228c57a4c17d4da02d99be756 2016-11-14 John Spray | mgr: pass through cluster log to plugins
+ecbcd591b785009e8a28a41125868024d86c112d 2017-02-22 Chang Liu | mgr: add override in headers
+61fca96c29104683da74c913cfbf4005ba95cf77 2016-11-21 Sage Weil | assert(0) -> ceph_abort()
+ac30e6cee2b2d3815438f1a392a951d511bddfd4 2016-06-30 John Spray | mgr: create ceph-mgr service

@@ -1,0 +1,70 @@
+commit a41b62bd85688bec566a7760cea95341bcb7a953
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jun 27 12:01:17 2021 +0800
+
+    mgr,mon: s/boost::optional/std::optional/
+    
+    since the encoding schemes of boost::optional and std::optional are
+    identical, they can be used interchangeably.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index e78cc458fc7..58e51e30ad5 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -661,7 +661,7 @@ PyObject *ActivePyModules::get_store_prefix(const std::string &module_name,
+ }
+ 
+ void ActivePyModules::set_store(const std::string &module_name,
+-    const std::string &key, const boost::optional<std::string>& val)
++    const std::string &key, const std::optional<std::string>& val)
+ {
+   const std::string global_key = PyModule::mgr_store_prefix
+                                    + module_name + "/" + key;
+@@ -708,7 +708,7 @@ void ActivePyModules::set_store(const std::string &module_name,
+ std::pair<int, std::string> ActivePyModules::set_config(
+   const std::string &module_name,
+   const std::string &key,
+-  const boost::optional<std::string>& val)
++  const std::optional<std::string>& val)
+ {
+   return module_config.set_config(&monc, module_name, key, val);
+ }
+@@ -730,7 +730,7 @@ std::map<std::string, std::string> ActivePyModules::get_services() const
+ void ActivePyModules::update_kv_data(
+   const std::string prefix,
+   bool incremental,
+-  const map<std::string, boost::optional<bufferlist>, std::less<>>& data)
++  const map<std::string, std::optional<bufferlist>, std::less<>>& data)
+ {
+   std::lock_guard l(lock);
+   bool do_config = false;
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index d1e90f8bd3c..da21bb99fe3 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -127,12 +127,12 @@ public:
+   PyObject *get_store_prefix(const std::string &module_name,
+ 			      const std::string &prefix) const;
+   void set_store(const std::string &module_name,
+-      const std::string &key, const boost::optional<std::string> &val);
++      const std::string &key, const std::optional<std::string> &val);
+ 
+   bool get_config(const std::string &module_name,
+       const std::string &key, std::string *val) const;
+   std::pair<int, std::string> set_config(const std::string &module_name,
+-      const std::string &key, const boost::optional<std::string> &val);
++      const std::string &key, const std::optional<std::string> &val);
+ 
+   PyObject *get_typed_config(const std::string &module_name,
+ 			     const std::string &key,
+@@ -174,7 +174,7 @@ public:
+   void update_kv_data(
+     const std::string prefix,
+     bool incremental,
+-    const map<std::string, boost::optional<bufferlist>, std::less<>>& data);
++    const map<std::string, std::optional<bufferlist>, std::less<>>& data);
+   void _refresh_config_map();
+ 
+   // Public so that MonCommandCompletion can use it

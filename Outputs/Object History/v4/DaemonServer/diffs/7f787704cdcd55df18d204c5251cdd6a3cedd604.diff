@@ -1,0 +1,43 @@
+commit 7f787704cdcd55df18d204c5251cdd6a3cedd604
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue May 29 16:47:07 2018 -0500
+
+    mgr: use entity_addrvec_t for MgrMap
+    
+    This does several entity_addr_t -> entity_addrvec_t conversions across the
+    mgr code.
+    
+    (Note that entity_addr_t and entity_addrvec_t already encode in an
+    interoperable way.)
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 36341b463b6..bda7c632369 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -138,9 +138,9 @@ int DaemonServer::init(uint64_t gid, entity_addr_t client_addr)
+   return 0;
+ }
+ 
+-entity_addr_t DaemonServer::get_myaddr() const
++entity_addrvec_t DaemonServer::get_myaddrs() const
+ {
+-  return msgr->get_myaddr();
++  return msgr->get_myaddrs();
+ }
+ 
+ 
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 7972a1d8476..ba9546b41e8 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -107,7 +107,7 @@ public:
+   int init(uint64_t gid, entity_addr_t client_addr);
+   void shutdown();
+ 
+-  entity_addr_t get_myaddr() const;
++  entity_addrvec_t get_myaddrs() const;
+ 
+   DaemonServer(MonClient *monc_,
+                Finisher &finisher_,

@@ -1,0 +1,127 @@
+commit 6b365d79e812f16f9293046cd7ec62474212d713
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed May 16 21:53:22 2007 +0000
+
+    merged branches/sage/cephmds2 into trunk/ceph
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@1359 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/trunk/ceph/common/Clock.h b/trunk/ceph/common/Clock.h
+index 106e9e9f237..9f4e581cf27 100644
+--- a/trunk/ceph/common/Clock.h
++++ b/trunk/ceph/common/Clock.h
+@@ -21,113 +21,10 @@
+ 
+ #include <sys/time.h>
+ #include <time.h>
+-#include <math.h>
+ 
+ #include "Mutex.h"
+ 
+-
+-// --------
+-// utime_t
+-
+-class utime_t {
+- private:
+-  struct timeval tv;
+-
+-  struct timeval& timeval()  { return tv; }
+-  friend class Clock;
+-
+- 
+- public:
+-  void normalize() {
+-    if (tv.tv_usec > 1000*1000) {
+-      tv.tv_sec += tv.tv_usec / (1000*1000);
+-      tv.tv_usec %= 1000*1000;
+-    }
+-  }
+-
+-  // cons
+-  utime_t() { tv.tv_sec = 0; tv.tv_usec = 0; normalize(); }
+-  utime_t(time_t s, int u) { tv.tv_sec = s; tv.tv_usec = u; normalize(); }
+-  
+-  // accessors
+-  time_t        sec()  const { return tv.tv_sec; } 
+-  long          usec() const { return tv.tv_usec; }
+-  int           nsec() const { return tv.tv_usec*1000; }
+-
+-  // ref accessors/modifiers
+-  time_t&         sec_ref()  { return tv.tv_sec; }
+-  // FIXME: tv.tv_usec is a __darwin_suseconds_t on Darwin.
+-  // is just casting it to long& OK? 
+-  long&           usec_ref() { return (long&) tv.tv_usec; }
+-
+-  // cast to double
+-  operator double() {
+-    return (double)sec() + ((double)usec() / 1000000.0L);
+-  }
+-};
+-
+-// arithmetic operators
+-inline utime_t operator+(const utime_t& l, const utime_t& r) {
+-  return utime_t( l.sec() + r.sec() + (l.usec()+r.usec())/1000000L,
+-                  (l.usec()+r.usec())%1000000L );
+-}
+-inline utime_t& operator+=(utime_t& l, const utime_t& r) {
+-  l.sec_ref() += r.sec() + (l.usec()+r.usec())/1000000L;
+-  l.usec_ref() += r.usec();
+-  l.usec_ref() %= 1000000L;
+-  return l;
+-}
+-inline utime_t& operator+=(utime_t& l, double f) {
+-  double fs = trunc(f);
+-  double us = (f - fs) / (double)1000000.0;
+-  l.sec_ref() += (long)fs;
+-  l.usec_ref() += (long)us;
+-  l.normalize();
+-  return l;
+-}
+-
+-inline utime_t operator-(const utime_t& l, const utime_t& r) {
+-  return utime_t( l.sec() - r.sec() - (l.usec()<r.usec() ? 1:0),
+-                  l.usec() - r.usec() + (l.usec()<r.usec() ? 1000000:0) );
+-}
+-inline utime_t& operator-=(utime_t& l, const utime_t& r) {
+-  l.sec_ref() -= r.sec();
+-  if (l.usec() >= r.usec())
+-    l.usec_ref() -= r.usec();
+-  else {
+-    l.usec_ref() += 1000000L - r.usec();
+-    l.sec_ref()--;
+-  }
+-  return l;
+-}
+-inline utime_t& operator-=(utime_t& l, double f) {
+-  l += -f;
+-  return l;
+-}
+-
+-inline bool operator>(const utime_t& a, const utime_t& b)
+-{
+-  return (a.sec() > b.sec()) || (a.sec() == b.sec() && a.usec() > b.usec());
+-}
+-inline bool operator<(const utime_t& a, const utime_t& b)
+-{
+-  return (a.sec() < b.sec()) || (a.sec() == b.sec() && a.usec() < b.usec());
+-}
+-
+-// ostream
+-inline std::ostream& operator<<(std::ostream& out, const utime_t& t)
+-{
+-  //return out << t.sec() << "." << t.usec();
+-  out << (long)t.sec() << ".";
+-  out.setf(std::ios::right);
+-  out.fill('0');
+-  out << std::setw(6) << t.usec();
+-  out.unsetf(std::ios::right);
+-  return out;
+-  
+-  //return out << (long)t.sec << "." << ios::setf(ios::right) << ios::fill('0') << t.usec() << ios::usetf();
+-}
+-
++#include "include/utime.h"
+ 
+ 
+ 

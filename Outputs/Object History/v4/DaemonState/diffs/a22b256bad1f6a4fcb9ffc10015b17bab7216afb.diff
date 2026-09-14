@@ -1,0 +1,95 @@
+commit a22b256bad1f6a4fcb9ffc10015b17bab7216afb
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Jun 22 14:19:17 2017 -0400
+
+    mgr: index daemon state by string service type
+    
+    If we use a string we can allow for other service names like
+    'rgw' and 'rbd-mirror' and 'iscsigw' and so on.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 290fde65134..2c7f52f30fa 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -46,14 +46,15 @@ void DaemonStateIndex::_erase(const DaemonKey& dmk)
+   all.erase(to_erase);
+ }
+ 
+-DaemonStateCollection DaemonStateIndex::get_by_type(uint8_t type) const
++DaemonStateCollection DaemonStateIndex::get_by_service(
++  const std::string& svc) const
+ {
+   Mutex::Locker l(lock);
+ 
+   DaemonStateCollection result;
+ 
+   for (const auto &i : all) {
+-    if (i.first.first == type) {
++    if (i.first.first == svc) {
+       result[i.first] = i.second;
+     }
+   }
+@@ -86,17 +87,17 @@ DaemonStatePtr DaemonStateIndex::get(const DaemonKey &key)
+   return all.at(key);
+ }
+ 
+-void DaemonStateIndex::cull(entity_type_t daemon_type,
++void DaemonStateIndex::cull(const std::string& svc_name,
+ 			    const std::set<std::string>& names_exist)
+ {
+   std::vector<string> victims;
+ 
+   Mutex::Locker l(lock);
+-  auto begin = all.lower_bound({daemon_type, ""});
++  auto begin = all.lower_bound({svc_name, ""});
+   auto end = all.end();
+   for (auto &i = begin; i != end; ++i) {
+     const auto& daemon_key = i->first;
+-    if (daemon_key.first != daemon_type)
++    if (daemon_key.first != svc_name)
+       break;
+     if (names_exist.count(daemon_key.second) == 0) {
+       victims.push_back(daemon_key.second);
+@@ -105,7 +106,7 @@ void DaemonStateIndex::cull(entity_type_t daemon_type,
+ 
+   for (auto &i : victims) {
+     dout(4) << "Removing data for " << i << dendl;
+-    _erase({daemon_type, i});
++    _erase({svc_name, i});
+   }
+ }
+ 
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 91160d7f082..bad83bb8fec 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -29,7 +29,7 @@
+ 
+ 
+ // Unique reference to a daemon within a cluster
+-typedef std::pair<entity_type_t, std::string> DaemonKey;
++typedef std::pair<std::string, std::string> DaemonKey;
+ 
+ // An instance of a performance counter type, within
+ // a particular daemon.
+@@ -146,7 +146,7 @@ class DaemonStateIndex
+   bool exists(const DaemonKey &key) const;
+   DaemonStatePtr get(const DaemonKey &key);
+   DaemonStateCollection get_by_server(const std::string &hostname) const;
+-  DaemonStateCollection get_by_type(uint8_t type) const;
++  DaemonStateCollection get_by_service(const std::string &svc_name) const;
+ 
+   const DaemonStateCollection &get_all() const {return all;}
+   const std::map<std::string, DaemonStateCollection> &get_all_servers() const
+@@ -164,7 +164,8 @@ class DaemonStateIndex
+    * a cluster map and want to ensure that anything absent in the map
+    * is also absent in this class.
+    */
+-  void cull(entity_type_t daemon_type, const std::set<std::string>& names_exist);
++  void cull(const std::string& svc_name,
++	    const std::set<std::string>& names_exist);
+ };
+ 
+ #endif

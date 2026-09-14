@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/DaemonPerfCounters.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/DaemonPerfCounters.cc 35f6dd06dd0b3c78235e21ac309e4226aa733af1 35f6dd06dd0b3c78235e21ac309e4226aa733af1
+#
+# Rename chain for src/mgr/DaemonPerfCounters.h
+#
+src/mgr/DaemonPerfCounters.h 35f6dd06dd0b3c78235e21ac309e4226aa733af1 35f6dd06dd0b3c78235e21ac309e4226aa733af1

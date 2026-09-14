@@ -1,0 +1,54 @@
+commit 2ef005196ba2eb49c34c32def624938c7a8beb03
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jul 10 23:23:19 2017 -0400
+
+    mgr: add trivial OSDMap wrapper class
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index d78640d44a0..7c221d1ab5e 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -793,6 +793,29 @@ PyObject *PyModules::get_context()
+   return capsule;
+ }
+ 
++static void delete_osdmap(PyObject *object)
++{
++  OSDMap *osdmap = static_cast<OSDMap*>(PyCapsule_GetPointer(object, nullptr));
++  assert(osdmap);
++  dout(10) << __func__ << " " << osdmap << dendl;
++  delete osdmap;
++}
++
++PyObject *PyModules::get_osdmap()
++{
++  PyThreadState *tstate = PyEval_SaveThread();
++  Mutex::Locker l(lock);
++  PyEval_RestoreThread(tstate);
++
++  // Construct a capsule containing an OSDMap.
++  OSDMap *newmap = new OSDMap;
++  cluster_state.with_osdmap([&](const OSDMap& o) {
++      newmap->deepish_copy_from(o);
++    });
++  dout(10) << __func__ << " " << newmap << dendl;
++  return PyCapsule_New(newmap, nullptr, &delete_osdmap);
++}
++
+ static void _list_modules(
+   const std::string path,
+   std::set<std::string> *modules)
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index c7aad4e5df8..894c42db3f3 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -83,6 +83,7 @@ public:
+      const std::string svc_type,
+      const std::string &svc_id);
+   PyObject *get_context();
++  PyObject *get_osdmap();
+ 
+   std::map<std::string, std::string> config_cache;
+ 

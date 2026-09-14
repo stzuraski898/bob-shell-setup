@@ -1,0 +1,23 @@
+commit 3283ed588393756af3309d0ab913f61445f125bc
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Dec 14 11:41:02 2017 +0000
+
+    mgr: fix "access denied" message
+    
+    As pointed out on https://github.com/ceph/ceph/pull/18716
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index d4c9416ddaf..d0f4bfc467e 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -726,7 +726,7 @@ bool DaemonServer::handle_command(MCommand *m)
+       audit_clog->info() << "from='" << session->inst << "' "
+                          << "entity='" << session->entity_name << "' "
+                          << "cmd=" << m->cmd << ":  access denied";
+-      ss << "access denied' does your client key have mgr caps? "
++      ss << "access denied: does your client key have mgr caps? "
+             "See http://docs.ceph.com/docs/master/mgr/administrator/"
+             "#client-authentication";
+       cmdctx->reply(-EACCES, ss);

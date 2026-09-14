@@ -1,0 +1,73 @@
+commit 5d818acf18cc412ebf601e900f36cc95b4689914
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jan 10 17:34:44 2018 -0600
+
+    mgr/DaemonServer: add IGNORES column to 'config show'
+    
+    If the daemon is ignoring a mon config, show that.  Note that this
+    column only ever says 'mon', which might be confusing to users.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 71aed90f22b..7715a48098f 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1387,6 +1387,7 @@ bool DaemonServer::handle_command(MCommand *m)
+ 	tbl.define_column("VALUE", TextTable::LEFT, TextTable::LEFT);
+ 	tbl.define_column("SOURCE", TextTable::LEFT, TextTable::LEFT);
+ 	tbl.define_column("OVERRIDES", TextTable::LEFT, TextTable::LEFT);
++	tbl.define_column("IGNORES", TextTable::LEFT, TextTable::LEFT);
+       }
+       if (prefix == "config show") {
+ 	// show
+@@ -1412,6 +1413,9 @@ bool DaemonServer::handle_command(MCommand *m)
+ 	      }
+ 	      f->close_section();
+ 	    }
++	    if (daemon->ignored_mon_config.count(i.first)) {
++	      f->dump_string("ignores", "mon");
++	    }
+ 	    f->close_section();
+ 	  } else {
+ 	    tbl << i.first;
+@@ -1429,7 +1433,10 @@ bool DaemonServer::handle_command(MCommand *m)
+ 		}
+ 	      }
+ 	      tbl << ov;
++	    } else {
++	      tbl << "";
+ 	    }
++	    tbl << (daemon->ignored_mon_config.count(i.first) ? "mon" : "");
+ 	    tbl << TextTable::endrow;
+ 	  }
+ 	}
+@@ -1461,6 +1468,9 @@ bool DaemonServer::handle_command(MCommand *m)
+ 		}
+ 		f->close_section();
+ 	      }
++	      if (daemon->ignored_mon_config.count(i.first)) {
++		f->dump_string("ignores", "mon");
++	      }
+ 	      f->close_section();
+ 	    } else {
+ 	      tbl << j->second.rbegin()->second;
+@@ -1477,7 +1487,10 @@ bool DaemonServer::handle_command(MCommand *m)
+ 		  }
+ 		}
+ 		tbl << ov;
++	      } else {
++		tbl << "";
+ 	      }
++	      tbl << (daemon->ignored_mon_config.count(i.first) ? "mon" : "");
+ 	      tbl << TextTable::endrow;
+ 	    }
+ 	  } else {
+@@ -1490,6 +1503,7 @@ bool DaemonServer::handle_command(MCommand *m)
+ 	      tbl << i.second;
+ 	      tbl << ceph_conf_level_name(CONF_DEFAULT);
+ 	      tbl << "";
++	      tbl << "";
+ 	      tbl << TextTable::endrow;
+ 	    }
+ 	  }

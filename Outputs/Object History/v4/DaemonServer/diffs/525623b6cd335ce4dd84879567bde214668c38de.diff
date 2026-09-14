@@ -1,0 +1,39 @@
+commit 525623b6cd335ce4dd84879567bde214668c38de
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Oct 31 12:59:20 2018 -0400
+
+    ceph_argparse: introduce CephBool arguments
+    
+    This replaces use of CephChoices for cases like
+    --yes-i-really-really-mean-it.
+    
+    It's a relatively invasive change, because both
+    client and server need to handle backward compatibility:
+     - Clients are easy, they just cope with the server's
+       use of CephChoices/CephString with a few special case
+       strings to recognise --yes-i-really-mean-it and similar
+     - Servers are harder, they have to convert CephBool arguments
+       into a similar CephChoices argument that older clients will
+       understand.  This involves propagating feature flags into
+       some code paths that couldn't see them before.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 3f69ff76915..b5c404e2377 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -830,10 +830,11 @@ bool DaemonServer::_handle_command(
+     JSONFormatter f;
+     f.open_object_section("command_descriptions");
+ 
+-    auto dump_cmd = [&cmdnum, &f](const MonCommand &mc){
++    auto dump_cmd = [&cmdnum, &f, m](const MonCommand &mc){
+       ostringstream secname;
+       secname << "cmd" << setfill('0') << std::setw(3) << cmdnum;
+-      dump_cmddesc_to_json(&f, secname.str(), mc.cmdstring, mc.helpstring,
++      dump_cmddesc_to_json(&f, m->get_connection()->get_features(),
++                           secname.str(), mc.cmdstring, mc.helpstring,
+                            mc.module, mc.req_perms, 0);
+       cmdnum++;
+     };

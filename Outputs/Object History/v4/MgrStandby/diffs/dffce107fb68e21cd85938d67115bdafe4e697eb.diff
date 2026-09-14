@@ -1,0 +1,35 @@
+commit dffce107fb68e21cd85938d67115bdafe4e697eb
+Author: Sebastian Wagner <swagner@suse.com>
+Date:   Mon Jul 22 14:36:41 2019 +0200
+
+    mgr: cleanup idle debug log at level 4.
+    
+    Changed all messages to 10 that are printed repeatedly in an idle cluster.
+    
+    This makes debugging Python modules easier as the log
+    is no longer pullued by mgr core messages.
+    
+    Signed-off-by: Sebastian Wagner <sebastian.wagner@suse.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 13d03a69efd..a40d02b1712 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -191,7 +191,7 @@ int MgrStandby::init()
+ void MgrStandby::send_beacon()
+ {
+   ceph_assert(lock.is_locked_by_me());
+-  dout(4) << state_str() << dendl;
++  dout(20) << state_str() << dendl;
+ 
+   std::list<PyModuleRef> modules = py_module_registry.get_modules();
+ 
+@@ -432,7 +432,7 @@ void MgrStandby::handle_mgr_map(ref_t<MMgrMap> mmap)
+ bool MgrStandby::ms_dispatch2(const ref_t<Message>& m)
+ {
+   std::lock_guard l(lock);
+-  dout(4) << state_str() << " " << *m << dendl;
++  dout(10) << state_str() << " " << *m << dendl;
+ 
+   if (m->get_type() == MSG_MGR_MAP) {
+     handle_mgr_map(ref_cast<MMgrMap>(m));

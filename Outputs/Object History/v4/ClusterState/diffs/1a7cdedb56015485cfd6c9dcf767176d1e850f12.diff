@@ -1,0 +1,27 @@
+commit 1a7cdedb56015485cfd6c9dcf767176d1e850f12
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Sep 5 17:19:50 2019 -0500
+
+    common/admin_socket: drop explicit prefix arg to register_command
+    
+    This is always the cmddesc prefix.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 55bd0e1cbc8..12b30adc0ff 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -200,9 +200,9 @@ void ClusterState::final_init()
+ {
+   AdminSocket *admin_socket = g_ceph_context->get_admin_socket();
+   asok_hook = new ClusterSocketHook(this);
+-  int r = admin_socket->register_command("dump_osd_network",
+-		      "dump_osd_network name=value,type=CephInt,req=false", asok_hook,
+-		      "Dump osd heartbeat network ping times");
++  int r = admin_socket->register_command(
++    "dump_osd_network name=value,type=CephInt,req=false", asok_hook,
++    "Dump osd heartbeat network ping times");
+   ceph_assert(r == 0);
+ }
+ 

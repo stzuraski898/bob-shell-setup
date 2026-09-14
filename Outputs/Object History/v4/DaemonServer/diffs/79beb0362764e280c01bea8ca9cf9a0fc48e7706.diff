@@ -1,0 +1,42 @@
+commit 79beb0362764e280c01bea8ca9cf9a0fc48e7706
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Feb 19 00:32:26 2021 +0800
+
+    mgr/DaemonServer: do not support osd < octopus
+    
+    as we've moved to quincy.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 50d828d44d3..f73c89671b7 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1098,20 +1098,13 @@ bool DaemonServer::_handle_command(
+       return true;
+     }
+     for (auto& con : p->second) {
+-      if (HAVE_FEATURE(con->get_features(), SERVER_MIMIC)) {
+-	vector<spg_t> pgs = { spgid };
+-	con->send_message(new MOSDScrub2(monc->get_fsid(),
+-					 epoch,
+-					 pgs,
+-					 scrubop == "repair",
+-					 scrubop == "deep-scrub"));
+-      } else {
+-	vector<pg_t> pgs = { pgid };
+-	con->send_message(new MOSDScrub(monc->get_fsid(),
+-					pgs,
+-					scrubop == "repair",
+-					scrubop == "deep-scrub"));
+-      }
++      assert(HAVE_FEATURE(con->get_features(), SERVER_OCTOPUS));
++      vector<spg_t> pgs = { spgid };
++      con->send_message(new MOSDScrub2(monc->get_fsid(),
++				       epoch,
++				       pgs,
++				       scrubop == "repair",
++				       scrubop == "deep-scrub"));
+     }
+     ss << "instructing pg " << spgid << " on osd." << acting_primary
+        << " to " << scrubop;

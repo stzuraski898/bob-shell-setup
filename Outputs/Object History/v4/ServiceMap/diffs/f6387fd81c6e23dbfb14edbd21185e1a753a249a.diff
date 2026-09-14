@@ -1,0 +1,53 @@
+commit f6387fd81c6e23dbfb14edbd21185e1a753a249a
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Tue Aug 26 13:28:56 2025 +0800
+
+    src: replace push_back(T{}) with emplace_back()
+    
+    in ed6b7124, we switched from some instances of `push_back(Type{})`
+    patterns to `emplace_back()` to simplify the code and to avoid
+    unnecessary overhead of copy/move constructor calls. but there were
+    still remaining instances of them in `generate_test_instance()`
+    member function implementations.
+    
+    in this change, we switched all of them to be more consistent.
+    
+    Signed-off-by: Kefu Chai <tchaikov@gmail.com>
+
+diff --git a/src/mgr/ServiceMap.cc b/src/mgr/ServiceMap.cc
+index 10d2cd9fc98..de9bfcafa3e 100644
+--- a/src/mgr/ServiceMap.cc
++++ b/src/mgr/ServiceMap.cc
+@@ -61,8 +61,8 @@ void ServiceMap::Daemon::dump(Formatter *f) const
+ auto ServiceMap::Daemon::generate_test_instances() -> std::list<Daemon>
+ {
+   std::list<Daemon> ls;
+-  ls.push_back(Daemon{});
+-  ls.push_back(Daemon{});
++  ls.emplace_back();
++  ls.emplace_back();
+   ls.back().gid = 222;
+   ls.back().metadata["this"] = "that";
+   ls.back().task_status["task1"] = "running";
+@@ -199,8 +199,8 @@ void ServiceMap::Service::dump(Formatter *f) const
+ auto ServiceMap::Service::generate_test_instances() -> std::list<Service>
+ {
+   std::list<Service> ls;
+-  ls.push_back(Service{});
+-  ls.push_back(Service{});
++  ls.emplace_back();
++  ls.emplace_back();
+   ls.back().daemons["one"].gid = 1;
+   ls.back().daemons["two"].gid = 2;
+   return ls;
+@@ -240,8 +240,8 @@ void ServiceMap::dump(Formatter *f) const
+ std::list<ServiceMap> ServiceMap::generate_test_instances()
+ {
+   std::list<ServiceMap> ls;
+-  ls.push_back(ServiceMap{});
+-  ls.push_back(ServiceMap{});
++  ls.emplace_back();
++  ls.emplace_back();
+   ls.back().epoch = 123;
+   ls.back().services["rgw"].daemons["one"].gid = 123;
+   ls.back().services["rgw"].daemons["two"].gid = 344;

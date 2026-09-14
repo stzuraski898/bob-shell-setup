@@ -1,0 +1,36 @@
+commit 6846f4830c61c5e79888d255a25970229921d551
+Author: Greg Farnum <gfarnum@redhat.com>
+Date:   Wed Jun 14 15:00:04 2017 -0700
+
+    mgr: print a more helpful error message for when users lack mgr cephx caps
+    
+    Add some brief documentation on updating their caps and link to it.
+    
+    Fixes: http://tracker.ceph.com/issues/20296
+    
+    Signed-off-by: Greg Farnum <gfarnum@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 9446a125744..93891673d95 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -550,7 +550,8 @@ bool DaemonServer::handle_command(MCommand *m)
+     if (!_allowed_command(session.get(), py_command.module, prefix, cmdctx->cmdmap,
+                           param_str_map, &py_command)) {
+       dout(1) << " access denied" << dendl;
+-      ss << "access denied";
++      ss << "access denied; does your client key have mgr caps?"
++	" See http://docs.ceph.com/docs/master/mgr/administrator/#client-authentication";
+       cmdctx->reply(-EACCES, ss);
+       return true;
+     }
+@@ -562,7 +563,8 @@ bool DaemonServer::handle_command(MCommand *m)
+       audit_clog->info() << "from='" << session->inst << "' "
+                          << "entity='" << session->entity_name << "' "
+                          << "cmd=" << m->cmd << ":  access denied";
+-      ss << "access denied";
++      ss << "access denied' does your client key have mgr caps?"
++	" See http://docs.ceph.com/docs/master/mgr/administrator/#client-authentication";
+       cmdctx->reply(-EACCES, ss);
+       return true;
+     }

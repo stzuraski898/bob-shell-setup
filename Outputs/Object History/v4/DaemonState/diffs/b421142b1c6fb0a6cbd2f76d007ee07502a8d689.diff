@@ -1,0 +1,34 @@
+commit b421142b1c6fb0a6cbd2f76d007ee07502a8d689
+Author: Jan Fajerski <jfajerski@suse.com>
+Date:   Fri Sep 7 10:26:31 2018 +0200
+
+    mgr: add get_latest_counter() to C++ -> Python interface.
+    
+    This allows Python land to only retrieve the latest perf counters,
+    instead of of retrieving all from C++ land and pick out the latest.
+    
+    Signed-off-by: Jan Fajerski <jfajerski@suse.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 0a083ac5617..5732178390a 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -74,10 +74,18 @@ class PerfCounterInstance
+   {
+     return buffer;
+   }
++  const DataPoint& get_latest_data() const
++  {
++    return buffer.back();
++  }
+   const boost::circular_buffer<AvgDataPoint> & get_data_avg() const
+   {
+     return avg_buffer;
+   }
++  const AvgDataPoint& get_latest_data_avg() const
++  {
++    return avg_buffer.back();
++  }
+   void push(utime_t t, uint64_t const &v);
+   void push_avg(utime_t t, uint64_t const &s, uint64_t const &c);
+ 

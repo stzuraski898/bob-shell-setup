@@ -1,0 +1,20 @@
+commit ae9cc1d7238ba72b21471e2660a76c6e38550027
+Author: Wu Jian <wujian@t2cloud.net>
+Date:   Fri May 31 04:05:59 2019 -0400
+
+    mgr: remove unused variable pool_name
+    
+    Signed-off-by: Alex Wu <wujian3659@163.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index d5520c310e9..57ab93a74c6 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -346,7 +346,6 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+     return f.get();
+   } else if (what == "osd_pool_stats") {
+     int64_t poolid = -ENOENT;
+-    string pool_name;
+     cluster_state.with_osdmap_and_pgmap([&](const OSDMap& osdmap,
+ 					    const PGMap& pg_map) {
+         PyEval_RestoreThread(tstate);

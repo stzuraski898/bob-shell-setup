@@ -1,0 +1,29 @@
+commit 2e92ae2471b560af6f728dcbe404eea18868b38d
+Author: Luo Runbing <luo.runbing@zte.com.cn>
+Date:   Tue Apr 17 14:03:49 2018 +0800
+
+    mgr/MgrClient: service registration filtered by service name instead of daemon name
+    
+    Signed-off-by: runsisi <runsisi@zte.com.cn>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 5fadf1fe722..19313ec5e9a 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -446,11 +446,11 @@ int MgrClient::service_daemon_register(
+   const std::map<std::string,std::string>& metadata)
+ {
+   Mutex::Locker l(lock);
+-  if (name == "osd" ||
+-      name == "mds" ||
+-      name == "client" ||
+-      name == "mon" ||
+-      name == "mgr") {
++  if (service == "osd" ||
++      service == "mds" ||
++      service == "client" ||
++      service == "mon" ||
++      service == "mgr") {
+     // normal ceph entity types are not allowed!
+     return -EINVAL;
+   }

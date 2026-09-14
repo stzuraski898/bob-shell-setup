@@ -1,0 +1,77 @@
+commit bf25a08cc58c8e872806e92dd36d9ff91e5523d9
+Author: Laura Flores <lflores@ibm.com>
+Date:   Tue Jul 29 22:46:46 2025 +0000
+
+    mgr, common, qa, doc: issue health error after max expiration is exceeded
+    
+    ----------------- Enhancement to the Original Fix -----------------
+    
+    During a mgr failover, the active mgr is marked available if:
+      1. The mon has chosen a standby to be active
+      2. The chosen active mgr has all of its modules initialized
+    
+    Now that we've improved the criteria for sending the "active" beacon
+    by enforcing it to retry initializing mgr modules, we need to account
+    for extreme cases in which the modules are stuck loading for a very long
+    time, or even indefinitely. In these extreme cases where the modules might
+    never initialize, we don't want to delay sending the "active" beacon for
+    too long. This can result in blocking other important mgr functionality,
+    such as reporting PG availability in the health status. We want
+    to avoid sending warnings about PGs being unknown in the health status when
+    that's not ultimately the problem.
+    
+    To account for an exeptionally long module loading time, I added a new
+    configurable `mgr_module_load_expiration`. If we exceed this maximum amount
+    of time (in ms) allotted for the active mgr to load the mgr modules before declaring
+    availability, the standby will then proceed to mark itself "available" and
+    send the "active" beacon to the mon and unblock other critical mgr functionality.
+    
+    If this happens, a health error will be issued at this time, indicating
+    which mgr modules got stuck initializing (See src/mgr/PyModuleRegistry.cc). The
+    idea is to unblock the rest of the mgr's critical functionality while making it
+    clear to Ceph operators that some modules are unusable.
+    
+    --------------------- Integration Testing --------------------
+    
+    The workunit was rewritten so it tests for these scenarios:
+    
+    1. Normal module loading behavior (no health error should be issued)
+    2. Acceptable delay in module loading behavior (no health error should be
+       issued)
+    3. Unacceptable delay in module loading behavior (a health error should be
+       issued)
+    
+    --------------------- Documentation --------------------
+    
+    This documentation explains the "Module failed to initialize"
+    cluster error.
+    
+    Users are advised to try failing over
+    the mgr to reboot the module initialization process,
+    then if the error persists, file a bug report. I decided
+    to write it this way instead of providing more complex
+    debugging tips such as advising to disable some mgr modules
+    since every case will be different depending on which modules
+    failed to initialize.
+    
+    In the bug report, developers can ask for the health detail
+    output to narrow down which module is causing a bottleneck,
+    and then ask the user to try disabling certain modules until
+    the mgr is able to fully initialize.
+    
+    Fixes: https://tracker.ceph.com/issues/71631
+    Signed-off-by: Laura Flores <lflores@ibm.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 8ff9062cab2..6a8a59dcad1 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -429,6 +429,8 @@ void PyModuleRegistry::get_health_checks(health_check_map_t *checks)
+         //   checks (to avoid outputting two health messages about a
+         //   module that said can_run=false but we tried running it anyway)
+         failed_modules[module->get_name()] = module->get_error_string();
++      } else if ((active_modules->is_pending(module->get_name()))) {
++        failed_modules[module->get_name()] = "Module failed to initialize.";
+       }
+     }
+ 

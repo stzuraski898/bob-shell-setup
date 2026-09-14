@@ -1,0 +1,34 @@
+commit 6f35d2835268eade059535b62378d6d407ef9e87
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Sep 27 16:01:44 2019 -0500
+
+    mgr,mgr/MgrClient: use fsid to signal mon-mgr vs cli MCommands
+    
+    We can't use the feature bit for the MCommand connection to tell whether
+    it is a tell or CLI command because new clients may have to send CLI
+    commands via MCommand for old clusters, and they don't always know whether
+    this mgr is new or old yet.
+    
+    Prior to octopus, MCommand contained a mon/mgr CLI command, and did not
+    have the fsid field set.  Start populating the fsid field, and use this
+    to signal whether a client is a new MgrClient that knows MCommand vs
+    MMgrCommand.  If we get an MCommand with the fsid set, that means it is
+    a tell command; otherwise, it's an old client sending a CLI command.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index de894ad0b85..b5ad5e9323a 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -791,7 +791,9 @@ public:
+ bool DaemonServer::handle_command(const ref_t<MCommand>& m)
+ {
+   std::lock_guard l(lock);
+-  if (HAVE_FEATURE(m->get_connection()->get_features(), SERVER_OCTOPUS)) {
++  // a blank fsid in MCommand signals a legacy client sending a "mon-mgr" CLI
++  // command.
++  if (m->fsid != uuid_d()) {
+     cct->get_admin_socket()->queue_tell_command(m);
+     return true;
+   } else {

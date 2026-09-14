@@ -1,0 +1,39 @@
+commit a6832cb610ba50fb634b45ff395b1b621ec5b92d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 6 16:30:38 2018 -0600
+
+    mgr/DaemonState: add rm()
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 313ba807666..e9b72274191 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -95,6 +95,14 @@ DaemonStatePtr DaemonStateIndex::get(const DaemonKey &key)
+   }
+ }
+ 
++void DaemonStateIndex::rm(const DaemonKey &key)
++{
++  RWLock::WLocker l(lock);
++  if (all.count(key)) {
++    _erase(key);
++  }
++}
++
+ void DaemonStateIndex::cull(const std::string& svc_name,
+ 			    const std::set<std::string>& names_exist)
+ {
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 15106f7f07b..3cbf8e52594 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -169,6 +169,7 @@ class DaemonStateIndex
+   void insert(DaemonStatePtr dm);
+   bool exists(const DaemonKey &key) const;
+   DaemonStatePtr get(const DaemonKey &key);
++  void rm(const DaemonKey &key);
+ 
+   // Note that these return by value rather than reference to avoid
+   // callers needing to stay in lock while using result.  Callers must

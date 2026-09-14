@@ -1,0 +1,58 @@
+commit fa92db1b37e5633e89fc39a4653c39973bf23867
+Author: Kamoltat Sirivadhna <ksirivad@redhat.com>
+Date:   Mon Oct 5 09:38:35 2020 +0000
+
+    mgr/progress: optimize global recovery module
+    
+    Instead of fetching `pg_stats` from the python
+    part of manager module, we filter out the pgs
+    that are in active + clean state in ActivePyModules.cc
+    then parse these pgs along with `reported_epoch` and
+    the `total_num_pgs` of the clusters to global recovery
+    module.
+    
+    Signed-off-by: Kamoltat <ksirivad@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index e1179d4debb..27b1baf8d1e 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -21,7 +21,7 @@
+ 
+ #include "osd/OSDMap.h"
+ #include "mon/MonMap.h"
+-
++#include "osd/osd_types.h"
+ #include "mgr/MgrContext.h"
+ 
+ // For ::mgr_store_prefix
+@@ -446,6 +446,29 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+     with_gil_t with_gil{no_gil};
+     f.dump_bool("have_local_config_map", have_local_config_map);
+     return f.get();
++  } else if (what == "active_clean_pgs"){
++    cluster_state.with_pgmap(
++        [&](const PGMap &pg_map) {
++      with_gil_t with_gil{no_gil};
++      f.open_array_section("pg_stats");
++      for (auto &i : pg_map.pg_stat) {
++        const auto state = i.second.state;
++	const auto pgid_raw = i.first;
++	const auto pgid = stringify(pgid_raw.m_pool) + "." + stringify(pgid_raw.m_seed);
++	const auto reported_epoch = i.second.reported_epoch;
++	if (state & PG_STATE_ACTIVE && state & PG_STATE_CLEAN) {
++	  f.open_object_section("pg_stat");
++	  f.dump_string("pgid", pgid);
++	  f.dump_string("state", pg_state_string(state));
++	  f.dump_unsigned("reported_epoch", reported_epoch);
++	  f.close_section();
++	}
++      }
++      f.close_section();
++      const auto num_pg = pg_map.num_pg;
++      f.dump_unsigned("total_num_pgs", num_pg);
++    });
++    return f.get();
+   } else {
+     derr << "Python module requested unknown data '" << what << "'" << dendl;
+     with_gil_t with_gil{no_gil};

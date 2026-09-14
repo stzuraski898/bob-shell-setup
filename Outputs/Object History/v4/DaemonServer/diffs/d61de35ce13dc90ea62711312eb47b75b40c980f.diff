@@ -1,0 +1,35 @@
+commit d61de35ce13dc90ea62711312eb47b75b40c980f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Dec 22 15:23:33 2016 -0500
+
+    mon/MonClient: use std::unique_ptr<>; fix leak
+    
+    We were leaking several heap items from
+    LibRadosMiscConnectFailure.ConnectFailure when connect() was called
+    multiple times (after failure).  Use std::unique_ptr to avoid maintaining
+    fragile cleanup paths.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 57d115269cc..995228ae401 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -89,11 +89,12 @@ bool DaemonServer::ms_verify_authorizer(Connection *con,
+   EntityName name;
+   uint64_t global_id = 0;
+ 
+-  is_valid = handler->verify_authorizer(cct, monc->rotating_secrets,
+-						  authorizer_data,
+-                                                  authorizer_reply, name,
+-                                                  global_id, caps_info,
+-                                                  session_key);
++  is_valid = handler->verify_authorizer(
++    cct, monc->rotating_secrets.get(),
++    authorizer_data,
++    authorizer_reply, name,
++    global_id, caps_info,
++    session_key);
+ 
+   // TODO: invent some caps suitable for ceph-mgr
+ 

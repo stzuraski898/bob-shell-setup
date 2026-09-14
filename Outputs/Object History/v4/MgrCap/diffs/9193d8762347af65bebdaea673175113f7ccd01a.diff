@@ -1,0 +1,90 @@
+commit 9193d8762347af65bebdaea673175113f7ccd01a
+Author: Jason Dillaman <dillaman@redhat.com>
+Date:   Thu Oct 17 09:37:13 2019 -0400
+
+    mgr: validate that profile caps are actually valid
+    
+    Signed-off-by: Jason Dillaman <dillaman@redhat.com>
+
+diff --git a/src/mgr/MgrCap.cc b/src/mgr/MgrCap.cc
+index ed5ed46d62c..5c990a1bdf6 100644
+--- a/src/mgr/MgrCap.cc
++++ b/src/mgr/MgrCap.cc
+@@ -131,7 +131,7 @@ void MgrCapGrant::parse_network() {
+                                   &network_prefix);
+ }
+ 
+-void MgrCapGrant::expand_profile() const {
++void MgrCapGrant::expand_profile(std::ostream *err) const {
+   // only generate this list once
+   if (!profile_grants.empty()) {
+     return;
+@@ -160,6 +160,12 @@ void MgrCapGrant::expand_profile() const {
+     for (auto& [key, constraint] : arguments) {
+       if (key == "pool" || key == "namespace") {
+         filtered_arguments[key] = std::move(constraint);
++      } else {
++        if (err != nullptr) {
++          *err << "profile '" << profile << "' does not recognize key '" << key
++               << "'";
++        }
++        return;
+       }
+     }
+ 
+@@ -174,6 +180,10 @@ void MgrCapGrant::expand_profile() const {
+                               std::move(filtered_arguments), perms});
+     return;
+   }
++
++  if (err != nullptr) {
++    *err << "unrecognized profile '" << profile << "'";
++  }
+ }
+ 
+ bool MgrCapGrant::validate_arguments(
+@@ -218,7 +228,7 @@ mgr_rwxa_t MgrCapGrant::get_allowed(
+     const std::string& m, const std::string& c,
+     const std::map<std::string, std::string>& args) const {
+   if (!profile.empty()) {
+-    expand_profile();
++    expand_profile(nullptr);
+     mgr_rwxa_t a;
+     for (auto& grant : profile_grants) {
+       a = a | grant.get_allowed(cct, name, s, m, c, args);
+@@ -523,8 +533,22 @@ bool MgrCap::parse(const std::string& str, ostream *err) {
+   bool r = qi::parse(iter, end, exp, *this);
+   if (r && iter == end) {
+     text = str;
++
++    std::stringstream profile_err;
+     for (auto& g : grants) {
+       g.parse_network();
++
++      if (!g.profile.empty()) {
++        g.expand_profile(&profile_err);
++      }
++    }
++
++    if (!profile_err.str().empty()) {
++      if (err != nullptr) {
++        *err << "mgr capability parse failed during profile evaluation: "
++             << profile_err.str();
++      }
++      return false;
+     }
+     return true;
+   }
+diff --git a/src/mgr/MgrCap.h b/src/mgr/MgrCap.h
+index dc14ac2d2a9..3482ff21eed 100644
+--- a/src/mgr/MgrCap.h
++++ b/src/mgr/MgrCap.h
+@@ -104,7 +104,7 @@ struct MgrCapGrant {
+   // needed by expand_profile() (via is_match()) and cached here.
+   mutable std::list<MgrCapGrant> profile_grants;
+ 
+-  void expand_profile() const;
++  void expand_profile(std::ostream *err=nullptr) const;
+ 
+   MgrCapGrant() : allow(0) {}
+   MgrCapGrant(std::string&& service,

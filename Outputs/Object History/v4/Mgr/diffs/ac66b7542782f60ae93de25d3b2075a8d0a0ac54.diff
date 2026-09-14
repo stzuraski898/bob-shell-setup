@@ -1,0 +1,36 @@
+commit ac66b7542782f60ae93de25d3b2075a8d0a0ac54
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Mar 1 19:12:41 2017 +0000
+
+    mgr: update for start_mon_command int->void
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 090e0aa2f19..facfc2ea646 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -404,10 +404,9 @@ void Mgr::handle_osd_map()
+         std::ostringstream cmd;
+         cmd << "{\"prefix\": \"osd metadata\", \"id\": "
+             << osd_id << "}";
+-        int r = monc->start_mon_command(
++        monc->start_mon_command(
+             {cmd.str()},
+             {}, &c->outbl, &c->outs, c);
+-        assert(r == 0);  // start_mon_command defined to not fail
+       }
+     }
+ 
+@@ -517,10 +516,9 @@ void Mgr::handle_fs_map(MFSMap* m)
+       std::ostringstream cmd;
+       cmd << "{\"prefix\": \"mds metadata\", \"who\": \""
+           << info.name << "\"}";
+-      int r = monc->start_mon_command(
++      monc->start_mon_command(
+           {cmd.str()},
+           {}, &c->outbl, &c->outs, c);
+-      assert(r == 0);  // start_mon_command defined to not fail
+     }
+   }
+ }

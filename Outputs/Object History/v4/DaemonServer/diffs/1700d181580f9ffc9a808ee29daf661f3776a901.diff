@@ -1,0 +1,44 @@
+commit 1700d181580f9ffc9a808ee29daf661f3776a901
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Mar 19 16:52:01 2020 -0500
+
+    mgr/DaemonServer: add explicit check that acting matches for merge
+    
+    Add an explicit check that the PG acting for the source and target
+    match before merging.
+    
+    Fixes: https://tracker.ceph.com/issues/44684
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 67b23938968..becd428aca6 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2528,6 +2528,7 @@ void DaemonServer::adjust_pgs()
+ 		       << dendl;
+ 	      ok = false;
+ 	    }
++	    vector<int32_t> source_acting;
+             for (auto &merge_participant : {merge_source, merge_target}) {
+               bool is_merge_source = merge_participant == merge_source;
+               if (osdmap.have_pg_upmaps(merge_participant)) {
+@@ -2560,6 +2561,19 @@ void DaemonServer::adjust_pgs()
+ 		         << ")" << dendl;
+ 	        ok = false;
+ 	      }
++	      if (is_merge_source) {
++		source_acting = q->second.acting;
++	      } else if (ok && q->second.acting != source_acting) {
++		dout(10) << "pool " << i.first
++		         << " pg_num_target " << p.get_pg_num_target()
++		         << " pg_num " << p.get_pg_num()
++		         << (is_merge_source ? " - merge source " : " - merge target ")
++                         << merge_participant
++			 << " acting does not match (source " << source_acting
++			 << " != target " << q->second.acting
++			 << ")" << dendl;
++		ok = false;
++	      }
+             }
+ 
+ 	    if (ok) {

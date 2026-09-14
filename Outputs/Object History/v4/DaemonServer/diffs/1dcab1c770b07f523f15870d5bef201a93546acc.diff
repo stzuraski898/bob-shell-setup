@@ -1,0 +1,27 @@
+commit 1dcab1c770b07f523f15870d5bef201a93546acc
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Aug 28 16:21:13 2017 -0400
+
+    mon: drop PGMapStatService
+    
+    There is only one user and one implementation; this just makes the
+    code hard to read.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ff520b17359..c5f31c8503a 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -914,9 +914,9 @@ bool DaemonServer::handle_command(MCommand *m)
+   } else if (prefix == "osd df") {
+     string method;
+     cmd_getval(g_ceph_context, cmdctx->cmdmap, "output_method", method);
+-    r = cluster_state.with_pgservice([&](const PGMapStatService& pgservice) {
++    r = cluster_state.with_pgmap([&](const PGMap& pgmap) {
+ 	return cluster_state.with_osdmap([&](const OSDMap& osdmap) {
+-	    print_osd_utilization(osdmap, &pgservice, ss,
++	    print_osd_utilization(osdmap, pgmap, ss,
+ 				  f.get(), method == "tree");
+ 				  
+ 	    cmdctx->odata.append(ss);

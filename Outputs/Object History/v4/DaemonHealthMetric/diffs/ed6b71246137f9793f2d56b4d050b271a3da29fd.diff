@@ -1,0 +1,67 @@
+commit ed6b71246137f9793f2d56b4d050b271a3da29fd
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Mon Jun 9 20:35:44 2025 +0800
+
+    src: Fix memory leaks in generate_test_instance() by returning values instead of pointers
+    
+    Problem:
+    
+    The current `generate_test_instance()` function returns `std::list<T*>`,
+    which creates memory management issues:
+    
+    - Inconsistent lifecycle management of test instances
+    - Callers don't always properly clean up allocated memory
+    - Results in ASan memory leak reports in unit tests and ceph-dencoder
+    
+    Solution:
+    
+    Change `generate_test_instance()` to return `std::list<T>` instead of `std::list<T*>`:
+    
+    Core Changes:
+    
+    - Modified all classes with `generate_test_instance()` to return `std::list<T>`
+    - Use `emplace_back()` without parameters** to avoid copy/move
+      constructors for classes that don't define them
+    - Updated ceph-dencoder to handle the new return type
+    
+    ceph-dencoder Adaptations:
+    
+    Since `m_list` now holds `T` objects instead of `T*`, and we can't
+    assume `T` is copyable/moveable:
+    
+    - Keep `m_object` as a pointer for flexibility
+    - Handle two scenarios:
+      1. `m_object` points to an element in `m_list`
+      2. `m_object` points to a decoded instance (requires manual cleanup)
+    - Introduce `make_ptr()` as a factory function to create a smart pointer
+      to conditionally free the managed pointer.
+    
+    Additional Cleanup:
+    
+    - Simplify DencoderBase constructor from template to plain
+      function (extra parameters were never used in derived classes)
+    
+    With this change, object lifecycles are now managed by value semantics
+    instead of raw pointers, eliminating memory leaks.
+    
+    Signed-off-by: Kefu Chai <tchaikov@gmail.com>
+
+diff --git a/src/mgr/DaemonHealthMetric.h b/src/mgr/DaemonHealthMetric.h
+index 2bc382dde40..b4b8c9d3196 100644
+--- a/src/mgr/DaemonHealthMetric.h
++++ b/src/mgr/DaemonHealthMetric.h
+@@ -74,9 +74,11 @@ public:
+     f->dump_int("n1", get_n1());
+     f->dump_int("n2", get_n2());
+   }
+-  static void generate_test_instances(std::list<DaemonHealthMetric*>& o) {
+-    o.push_back(new DaemonHealthMetric(daemon_metric::SLOW_OPS, 1));
+-    o.push_back(new DaemonHealthMetric(daemon_metric::PENDING_CREATING_PGS, 1, 2));
++  static std::list<DaemonHealthMetric> generate_test_instances() {
++    std::list<DaemonHealthMetric> o;
++    o.push_back(DaemonHealthMetric(daemon_metric::SLOW_OPS, 1));
++    o.push_back(DaemonHealthMetric(daemon_metric::PENDING_CREATING_PGS, 1, 2));
++    return o;
+   }
+   std::string get_type_name() const {
+     return daemon_metric_name(get_type());

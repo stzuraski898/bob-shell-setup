@@ -1,0 +1,108 @@
+commit 88db7b190a974d70c08a1951b06b7fc9957b1b60
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu Feb 18 12:11:24 2021 +0800
+
+    mgr: move GIL helpers to Gil.{h,cc}
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/Gil.cc b/src/mgr/Gil.cc
+index d476c7177fb..de27b9acd66 100644
+--- a/src/mgr/Gil.cc
++++ b/src/mgr/Gil.cc
+@@ -77,3 +77,38 @@ Gil::~Gil()
+   dout(25) << "GIL released for thread state " << pThreadState.ts << dendl;
+ }
+ 
++without_gil_t::without_gil_t()
++{
++  assert(PyGILState_Check());
++  release_gil();
++}
++
++without_gil_t::~without_gil_t()
++{
++  if (save) {
++    acquire_gil();
++  }
++}
++
++void without_gil_t::release_gil()
++{
++  save = PyEval_SaveThread();
++}
++
++void without_gil_t::acquire_gil()
++{
++  assert(save);
++  PyEval_RestoreThread(save);
++  save = nullptr;
++}
++
++with_gil_t::with_gil_t(without_gil_t& allow_threads)
++  : allow_threads{allow_threads}
++{
++  allow_threads.acquire_gil();
++}
++
++with_gil_t::~with_gil_t()
++{
++  allow_threads.release_gil();
++}
+diff --git a/src/mgr/Gil.h b/src/mgr/Gil.h
+index bff2d23329e..ffade120fd3 100644
+--- a/src/mgr/Gil.h
++++ b/src/mgr/Gil.h
+@@ -14,6 +14,9 @@
+ 
+ #pragma once
+ 
++#include <cassert>
++#include <functional>
++
+ struct _ts;
+ typedef struct _ts PyThreadState;
+ 
+@@ -70,3 +73,42 @@ private:
+   PyThreadState *pNewThreadState = nullptr;
+ };
+ 
++// because the Python runtime could relinquish the GIL when performing GC
++// and re-acquire it afterwards, we should enforce following locking policy:
++// 1. do not acquire locks when holding the GIL, use a without_gil or
++//    without_gil_t to guard the code which acquires non-gil locks.
++// 2. always hold a GIL when calling python functions, for example, when
++//    constructing a PyFormatter instance.
++//
++// a wrapper that provides a convenient RAII-style mechinary for acquiring
++// and releasing GIL, like the macros of Py_BEGIN_ALLOW_THREADS and
++// Py_END_ALLOW_THREADS.
++struct without_gil_t {
++  without_gil_t();
++  ~without_gil_t();
++private:
++  void release_gil();
++  void acquire_gil();
++  PyThreadState *save = nullptr;
++  friend struct with_gil_t;
++};
++
++struct with_gil_t {
++  with_gil_t(without_gil_t& allow_threads);
++  ~with_gil_t();
++private:
++  without_gil_t& allow_threads;
++};
++
++// invoke func with GIL acquired
++template<typename Func>
++auto with_gil(without_gil_t& no_gil, Func&& func) {
++  with_gil_t gil{no_gil};
++  return std::invoke(std::forward<Func>(func));
++}
++
++template<typename Func>
++auto without_gil(Func&& func) {
++  without_gil_t no_gil;
++  return std::invoke(std::forward<Func>(func));
++}

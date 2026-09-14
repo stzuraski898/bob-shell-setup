@@ -1,0 +1,36 @@
+commit ba1cfdbd4b1cc93c2da34cba1c89377f13c05a15
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue May 10 16:40:07 2005 +0000
+
+    *** empty log message ***
+    
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@219 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/ceph/common/Clock.h b/ceph/common/Clock.h
+index 7951abaa34d..cf5ee1b6c85 100644
+--- a/ceph/common/Clock.h
++++ b/ceph/common/Clock.h
+@@ -3,6 +3,7 @@
+ #define __CLOCK_H
+ 
+ #include <sys/time.h>
++#include <time.h>
+ 
+ class Clock {
+  protected:
+@@ -11,8 +12,13 @@ class Clock {
+  public:
+   Clock();
+   
+-  double gettime();
+   void settime(double tm);
++
++  double gettime();
++  time_t get_unixtime() {
++	return time(0);
++  }
++
+ };
+ 
+ extern Clock g_clock;

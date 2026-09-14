@@ -1,0 +1,23 @@
+commit 5ac9e85a213017322e0fbdc604a9fc26f157a815
+Author: Volker Theile <vtheile@suse.com>
+Date:   Fri Jan 25 14:45:01 2019 +0100
+
+    mgr: Improve ActivePyModules::get_typed_config implementation
+    
+    - Remove PyModuleRegistry::module_exists method
+    - Refactor PyModuleRegistry::get_module method
+    
+    Signed-off-by: Volker Theile <vtheile@suse.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index f256c2c548d..be403112bf7 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2082,6 +2082,7 @@ bool DaemonServer::_handle_command(
+ 
+     // Validate that the module is enabled
+     PyModuleRef module = py_modules.get_module(handler_name);
++    ceph_assert(module);
+     if (!module->is_enabled()) {
+       ss << "Module '" << handler_name << "' is not enabled (required by "
+             "command '" << prefix << "'): use `ceph mgr module enable "

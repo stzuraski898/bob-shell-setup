@@ -1,0 +1,24 @@
+commit e48353bbdd52a4288e9839d2a99fec1ef95147f3
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Jul 3 13:17:09 2018 +0100
+
+    mgr: reduce log spam
+    
+    Several things at level 1 that shouldn't have been, especially
+    the big dump of all possible commands every time we handle one.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index cee35c3dc3d..22a7de3febe 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -180,7 +180,7 @@ int MgrStandby::init()
+ void MgrStandby::send_beacon()
+ {
+   assert(lock.is_locked_by_me());
+-  dout(1) << state_str() << dendl;
++  dout(4) << state_str() << dendl;
+ 
+   std::list<PyModuleRef> modules = py_module_registry.get_modules();
+ 

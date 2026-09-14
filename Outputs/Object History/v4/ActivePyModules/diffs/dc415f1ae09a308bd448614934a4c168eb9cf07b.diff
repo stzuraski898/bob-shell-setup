@@ -1,0 +1,35 @@
+commit dc415f1ae09a308bd448614934a4c168eb9cf07b
+Author: John Spray <jspray@redhat.com>
+Date:   Sat Sep 23 11:55:55 2017 -0400
+
+    mgr: store declared_types in MgrSession
+    
+    Because we don't (yet) properly prevent multiple sessions
+    from daemons reporting the same name (e.g. rgws), storing
+    it in the DaemonPerfCounters meant that one daemon's report
+    was referring to another daemon's set of reported types.
+    
+    This should always have been a property of the session.
+    
+    The behaviour will still be ugly when multiple daemons
+    are using the same name (stomping on each other's stats/statsu)
+    but it shouldn't crash.
+    
+    Fixes: http://tracker.ceph.com/issues/21197
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 0fdf21654ab..003a0b9bee5 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -761,7 +761,9 @@ PyObject* PyModules::get_perf_schema_python(
+       f.open_object_section(daemon_name.str().c_str());
+ 
+       Mutex::Locker l(state->lock);
+-      for (auto typestr : state->perf_counters.declared_types) {
++      for (const auto &ctr_inst_iter : state->perf_counters.instances) {
++        const auto &typestr = ctr_inst_iter.first;
++
+ 	f.open_object_section(typestr.c_str());
+ 	auto type = state->perf_counters.types[typestr];
+ 	f.dump_string("description", type.description);

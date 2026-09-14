@@ -1,0 +1,54 @@
+commit 1ebc3f12aabb3534f6218a0478dc6fe2f02d3201
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jun 2 10:24:39 2017 -0400
+
+    mgr: add get_config_prefix
+    
+    Fetch a dict of all config options with a given prefix.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 3b3962241d9..6a3929d67cc 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -512,6 +512,26 @@ bool PyModules::get_config(const std::string &handle,
+   }
+ }
+ 
++PyObject *PyModules::get_config_prefix(const std::string &handle,
++    const std::string &prefix) const
++{
++  PyThreadState *tstate = PyEval_SaveThread();
++  Mutex::Locker l(lock);
++  PyEval_RestoreThread(tstate);
++
++  const std::string base_prefix = config_prefix + handle + "/";
++  const std::string global_prefix = base_prefix + prefix;
++  dout(4) << __func__ << "prefix: " << global_prefix << dendl;
++
++  PyFormatter f;
++  for (auto p = config_cache.lower_bound(global_prefix);
++       p != config_cache.end() && p->first.find(global_prefix) == 0;
++       ++p) {
++    f.dump_string(p->first.c_str() + base_prefix.size(), p->second);
++  }
++  return f.get();
++}
++
+ void PyModules::set_config(const std::string &handle,
+     const std::string &key, const std::string &val)
+ {
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index 4c858747306..6a71b649331 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -92,6 +92,8 @@ public:
+ 
+   bool get_config(const std::string &handle,
+       const std::string &key, std::string *val) const;
++  PyObject *get_config_prefix(const std::string &handle,
++			      const std::string &prefix) const;
+   void set_config(const std::string &handle,
+       const std::string &key, const std::string &val);
+ 

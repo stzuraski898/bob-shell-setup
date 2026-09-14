@@ -1,0 +1,29 @@
+commit ae688fc4d72c10d5bfb15ab75ad700f1187f77f5
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jul 11 11:34:30 2017 -0400
+
+    mgr/ClusterState: do not mangle PGMap outside of Incremental
+    
+    Fixes: http://tracker.ceph.com/issues/20208
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 6dee866c7d8..7e01a811ef1 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -98,10 +98,12 @@ void ClusterState::ingest_pgstats(MPGStats *stats)
+     }
+     // In case we already heard about more recent stats from this PG
+     // from another OSD
+-    if (pg_map.pg_stat[pgid].get_version_pair() > pg_stats.get_version_pair()) {
++    const auto q = pg_map.pg_stat.find(pgid);
++    if (q != pg_map.pg_stat.end() &&
++	q->second.get_version_pair() > pg_stats.get_version_pair()) {
+       dout(15) << " had " << pgid << " from "
+-	       << pg_map.pg_stat[pgid].reported_epoch << ":"
+-               << pg_map.pg_stat[pgid].reported_seq << dendl;
++	       << q->second.reported_epoch << ":"
++               << q->second.reported_seq << dendl;
+       continue;
+     }
+ 

@@ -1,0 +1,70 @@
+commit 834bc27940507737f064bca7362b4c7f4cd54c98
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Nov 23 08:01:33 2017 -0500
+
+    mgr: load command definitions earlier
+    
+    ...and for all modules, not just the active ones.
+    
+    This enables us to give better feedback to the user
+    when they try and use a command from a disabled module,
+    and also fixes the race between enabling a module and
+    trying to use its commands.
+    
+    Fixes: http://tracker.ceph.com/issues/21683
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index eed2bae7200..6c92395bcfa 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -22,9 +22,7 @@
+ #include "global/signal_handler.h"
+ 
+ #include "mgr/MgrContext.h"
+-#include "mgr/mgr_commands.h"
+ 
+-//#include "MgrPyModule.h"
+ #include "DaemonServer.h"
+ #include "messages/MMgrBeacon.h"
+ #include "messages/MMgrDigest.h"
+@@ -218,8 +216,8 @@ void Mgr::init()
+ 
+   // assume finisher already initialized in background_init
+   dout(4) << "starting python modules..." << dendl;
+-  py_module_registry->active_start(loaded_config, daemon_state, cluster_state, *monc,
+-      clog, *objecter, *client, finisher);
++  py_module_registry->active_start(loaded_config, daemon_state, cluster_state,
++      *monc, clog, *objecter, *client, finisher);
+ 
+   dout(4) << "Complete." << dendl;
+   initializing = false;
+@@ -624,16 +622,6 @@ void Mgr::tick()
+   server.send_report();
+ }
+ 
+-std::vector<MonCommand> Mgr::get_command_set() const
+-{
+-  Mutex::Locker l(lock);
+-
+-  std::vector<MonCommand> commands = mgr_commands;
+-  std::vector<MonCommand> py_commands = py_module_registry->get_commands();
+-  commands.insert(commands.end(), py_commands.begin(), py_commands.end());
+-  return commands;
+-}
+-
+ std::map<std::string, std::string> Mgr::get_services() const
+ {
+   Mutex::Locker l(lock);
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index a4d8aad39ff..912114c380b 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -101,7 +101,6 @@ public:
+   void background_init(Context *completion);
+   void shutdown();
+ 
+-  std::vector<MonCommand> get_command_set() const;
+   std::map<std::string, std::string> get_services() const;
+ };
+ 

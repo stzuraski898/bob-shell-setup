@@ -1,0 +1,31 @@
+commit a89074c6bee999a10952c24c5b6afc2bc05e54bf
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Sun Mar 29 14:23:31 2026 +0800
+
+    mgr: replace deprecated PyImport_ImportModuleNoBlock with PyImport_ImportModule
+    
+    PyImport_ImportModuleNoBlock was deprecated in Python 3.13:
+    
+      PyModule.cc:374:21: warning: 'PyImport_ImportModuleNoBlock' is deprecated
+      [-Wdeprecated-declarations]
+    
+    The "no block" variant was introduced to avoid deadlocking on Python 2's
+    single global import lock, but Python 3's per-module locking (since
+    3.3) made the distinction meaningless. PyImport_ImportModule is the
+    direct replacement and is compatible with all Python versions.
+    
+    Signed-off-by: Kefu Chai <k.chai@proxmox.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 1c75d70f466..b974a60b265 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -371,7 +371,7 @@ int PyModule::load(PyThreadState *pMainThreadState)
+ 
+     int r;
+ 
+-    pPickleModule = PyImport_ImportModuleNoBlock("pickle");
++    pPickleModule = PyImport_ImportModule("pickle");
+     if (!pPickleModule) {
+       derr << "Unable to load pickle" << dendl;
+       return -EINVAL;

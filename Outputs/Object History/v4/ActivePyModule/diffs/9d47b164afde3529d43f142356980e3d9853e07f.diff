@@ -1,0 +1,29 @@
+commit 9d47b164afde3529d43f142356980e3d9853e07f
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Thu Oct 10 08:19:20 2024 +0200
+
+    mgr/ActivePyModule: return std::string_view instead of std::string copy
+    
+    This impliciy heap allocation is unnecessary.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/ActivePyModule.h b/src/mgr/ActivePyModule.h
+index 187fb68f846..fb4a43e2de7 100644
+--- a/src/mgr/ActivePyModule.h
++++ b/src/mgr/ActivePyModule.h
+@@ -97,12 +97,12 @@ public:
+     uri = str;
+   }
+ 
+-  std::string get_uri() const
++  std::string_view get_uri() const
+   {
+     return uri;
+   }
+ 
+-  std::string get_fin_thread_name() const
++  std::string_view get_fin_thread_name() const
+   {
+     return fin_thread_name;
+   }

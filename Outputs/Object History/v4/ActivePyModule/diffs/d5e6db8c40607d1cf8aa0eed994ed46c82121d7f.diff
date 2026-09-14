@@ -1,0 +1,36 @@
+commit d5e6db8c40607d1cf8aa0eed994ed46c82121d7f
+Author: Radoslaw Zarzynski <rzarzynski@redhat.com>
+Date:   Tue Jan 21 17:06:35 2020 +0100
+
+    *: switch trivial users of bufferlist::copy{_in} to iterators.
+    
+    This commits switches the most straightforward occurrences of:
+      * ceph::bufferlist::copy(off, len, dst) and
+      * ceph::bufferlist::copy_in(off, len, src)
+    to use iterators. After extending `bufferlist::begin()` with
+    the `offset` parameter and eradication of the `last_p` hint,
+    these method look rudimentary. There is no huge benefit from
+    
+      bl.copy_in(off, len, dst)
+    
+    instead of:
+    
+      bl.begin(off).copy_in(len, dst)
+    
+    especially when `off` is `0`.
+    
+    Signed-off-by: Radoslaw Zarzynski <rzarzyns@redhat.com>
+
+diff --git a/src/mgr/ActivePyModule.cc b/src/mgr/ActivePyModule.cc
+index 2110dea5725..88d6502749c 100644
+--- a/src/mgr/ActivePyModule.cc
++++ b/src/mgr/ActivePyModule.cc
+@@ -209,7 +209,7 @@ int ActivePyModule::handle_command(
+   cmdmap_dump(cmdmap, &f);
+   PyObject *py_cmd = f.get();
+   string instr;
+-  inbuf.copy(0, inbuf.length(), instr);
++  inbuf.begin().copy(inbuf.length(), instr);
+ 
+   ceph_assert(m_session == nullptr);
+   m_command_perms = module_command.perm;

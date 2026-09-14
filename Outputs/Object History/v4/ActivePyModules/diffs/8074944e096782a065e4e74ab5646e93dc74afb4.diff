@@ -1,0 +1,45 @@
+commit 8074944e096782a065e4e74ab5646e93dc74afb4
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jun 26 15:55:19 2017 -0400
+
+    mgr: expose daemon status to modules
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 5b5d379abc3..113dd665d9c 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -131,6 +131,18 @@ PyObject *PyModules::get_metadata_python(
+   return f.get();
+ }
+ 
++PyObject *PyModules::get_daemon_status_python(
++  std::string const &handle,
++  const std::string &svc_name,
++  const std::string &svc_id)
++{
++  auto metadata = daemon_state.get(DaemonKey(svc_name, svc_id));
++  PyFormatter f;
++  for (const auto &i : metadata->service_status) {
++    f.dump_string(i.first.c_str(), i.second);
++  }
++  return f.get();
++}
+ 
+ PyObject *PyModules::get_python(const std::string &what)
+ {
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index 80f8813d5ee..8e52e173062 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -67,6 +67,9 @@ public:
+   PyObject *get_metadata_python(
+     std::string const &handle,
+     const std::string &svc_name, const std::string &svc_id);
++  PyObject *get_daemon_status_python(
++    std::string const &handle,
++    const std::string &svc_name, const std::string &svc_id);
+   PyObject *get_counter_python(
+     std::string const &handle,
+     const std::string &svc_name,

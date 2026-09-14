@@ -1,0 +1,25 @@
+commit a26e6067c7ee00cdc65ba64a0b87d7994a6940aa
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Aug 20 09:24:58 2018 +0100
+
+    mgr: replace "Unknown error" string on always_on
+    
+    It's always hard to say what went wrong when a module
+    couldn't be imported at all, but let's be a little
+    bit more helpful.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index c09e0eec518..179785ad4a8 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -378,7 +378,7 @@ void PyModuleRegistry::get_health_checks(health_check_map_t *checks)
+       if (!active_modules->module_exists(name)) {
+         if (failed_modules.find(name) == failed_modules.end() &&
+             dependency_modules.find(name) == dependency_modules.end()) {
+-          failed_modules[name] = "Unknown error";
++          failed_modules[name] = "Not found or unloadable";
+         }
+       }
+     }

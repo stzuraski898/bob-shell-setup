@@ -1,0 +1,69 @@
+commit 7c68a00cce5b7769c2e34fb7611d14825283fcda
+Author: NitzanMordhai <nmordech@ibm.com>
+Date:   Wed Jan 21 13:07:56 2026 +0000
+
+    mgr/PyFormatter: prevent segfault on non-printable characters
+    
+    If PyFormatter::dump_string attempting to format non-printable characters
+    can result in a nullptr being passed to dump_pyobject, causing a segfault.
+    
+    It occured in the following case - crash module tried to load the crash entries
+    containing matedata with non-printable characters.
+    when these were passed to PyFormatter, the resulting crash prevented ceph-mgr
+    from starting.
+    
+    Fix this by attempting to create a python object using PyUnicode_FromString.
+    If it returns nullptr (indicating a decoding failure), the code now falls
+    back to decoding using Latin1.
+    Additionally, add a guard in dump_pyobject to prevent processing nullptr objects,
+    providing a secondary layer of protection against segfaults.
+    
+    Fixes: https://tracker.ceph.com/issues/74379
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+
+diff --git a/src/mgr/PyFormatter.cc b/src/mgr/PyFormatter.cc
+index 9461cceab0a..39e93244c80 100644
+--- a/src/mgr/PyFormatter.cc
++++ b/src/mgr/PyFormatter.cc
+@@ -71,7 +71,12 @@ void PyFormatter::dump_float(std::string_view name, double d)
+ 
+ void PyFormatter::dump_string(std::string_view name, std::string_view s)
+ {
+-  dump_pyobject(name, PyUnicode_FromString(s.data()));
++  PyObject *p = PyUnicode_FromStringAndSize(s.data(), s.size());
++  if (!p) {
++    PyErr_Clear();
++    return;
++  }
++  dump_pyobject(name, p);
+ }
+ 
+ void PyFormatter::dump_bool(std::string_view name, bool b)
+@@ -112,6 +117,9 @@ void PyFormatter::dump_format_va(std::string_view name, const char *ns, bool quo
+  */
+ void PyFormatter::dump_pyobject(std::string_view name, PyObject *p)
+ {
++  if (!p) {
++    ceph_abort_msg("PyFormatter::dump_pyobject received null PyObject");
++  }
+   if (PyList_Check(cursor)) {
+     PyList_Append(cursor, p);
+     Py_DECREF(p);
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index 287fc0f55ec..7e3c80f506a 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -125,11 +125,12 @@ public:
+ 
+   void finish_pending_streams();
+ 
++  void dump_pyobject(std::string_view name, PyObject *p);
++
+ protected:
+   PyObject *root;
+   PyObject *cursor;
+   std::stack<PyObject *> stack;
+-  void dump_pyobject(std::string_view name, PyObject *p);
+ private:
+   class PendingStream {
+     public:

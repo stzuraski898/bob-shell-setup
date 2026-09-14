@@ -1,0 +1,74 @@
+commit dd9f9e268b5562bae8972bce03ec0970f353ae14
+Author: Ramana Raja <rraja@redhat.com>
+Date:   Thu Nov 2 14:38:02 2023 -0400
+
+    mgr/Mgr: remove shutdown() and handle_signal()
+    
+    Mgr::shutdown() and Mgr::handle_signal() are never called since
+    3363a10. The mgr just exits on SIGINT or SIGTERM.
+    
+    Also found and removed other unreachable code associated with
+    shutdown in mgr codebase.
+    
+    Fixes: https://tracker.ceph.com/issues/63410
+    Signed-off-by: Ramana Raja <rraja@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 63ad530fae2..5bd2ffb246c 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -214,12 +214,6 @@ std::map<std::string, std::string> Mgr::load_store()
+   return loaded;
+ }
+ 
+-void Mgr::handle_signal(int signum)
+-{
+-  ceph_assert(signum == SIGINT || signum == SIGTERM);
+-  shutdown();
+-}
+-
+ static void handle_mgr_signal(int signum)
+ {
+   derr << " *** Got signal " << sig_str(signum) << " ***" << dendl;
+@@ -490,27 +484,6 @@ void Mgr::load_all_metadata()
+   }
+ }
+ 
+-
+-void Mgr::shutdown()
+-{
+-  dout(10) << "mgr shutdown init" << dendl;
+-  finisher.queue(new LambdaContext([&](int) {
+-    {
+-      std::lock_guard l(lock);
+-      // First stop the server so that we're not taking any more incoming
+-      // requests
+-      server.shutdown();
+-    }
+-    // after the messenger is stopped, signal modules to shutdown via finisher
+-    py_module_registry->active_shutdown();
+-  }));
+-
+-  // Then stop the finisher to ensure its enqueued contexts aren't going
+-  // to touch references to the things we're about to tear down
+-  finisher.wait_for_empty();
+-  finisher.stop();
+-}
+-
+ void Mgr::handle_osd_map()
+ {
+   ceph_assert(ceph_mutex_is_locked_by_me(lock));
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index 22ebdb68041..65931c331f3 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -94,9 +94,6 @@ public:
+   bool ms_dispatch2(const ceph::ref_t<Message>& m);
+ 
+   void background_init(Context *completion);
+-  void shutdown();
+-
+-  void handle_signal(int signum);
+ 
+   std::map<std::string, std::string> get_services() const;
+ 

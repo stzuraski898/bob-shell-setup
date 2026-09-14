@@ -1,0 +1,29 @@
+commit 9999ddf67bc6211982523a2b51af9ec1d0b77b63
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Dec 14 11:29:00 2017 -0500
+
+    mgr: refactor get_modules/list_modules
+    
+    list_modules is really about searching for them
+    on disk, so it's now probe_modules and private.
+    
+    Both methods now return values instead of populating
+    an argument, since when called they were always writing into
+    a newly constructed container.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 335e134141a..8aaaefccfbf 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -152,8 +152,7 @@ void MgrStandby::send_beacon()
+   assert(lock.is_locked_by_me());
+   dout(1) << state_str() << dendl;
+ 
+-  std::list<PyModuleRef> modules;
+-  py_module_registry.get_modules(&modules);
++  std::list<PyModuleRef> modules = py_module_registry.get_modules();
+ 
+   // Construct a list of the info about each loaded module
+   // which we will transmit to the monitor.

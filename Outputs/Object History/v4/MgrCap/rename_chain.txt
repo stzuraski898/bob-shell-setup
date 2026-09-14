@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/MgrCap.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/MgrCap.cc 488cb91e47036475637bc7bb4fd1941daaa85663 6350bee5c873cb1cef0ca1345b89bff66817e0c1
+#
+# Rename chain for src/mgr/MgrCap.h
+#
+src/mgr/MgrCap.h 85d82faac250716549ebffeb9eb48f3b4f53711f 1123fc293f0ced3da3a2507c05786eb4c168388f

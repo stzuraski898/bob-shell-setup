@@ -1,0 +1,38 @@
+commit 58135db31757c45f9c92c37f9ebb263c68125f31
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jul 26 10:05:36 2019 -0500
+
+    mgr/telemetry: separate out cluster config vs running daemons
+    
+    This indirectly tells us whether the cluster config is being used (vs
+    ceph.conf).
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index a3c4c41df1c..2676d6c5ae9 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -199,6 +199,22 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+       }
+     });
+     return f.get();
++  } else if (what == "modified_config_options") {
++    PyEval_RestoreThread(tstate);
++    auto all_daemons = daemon_state.get_all();
++    set<string> names;
++    for (auto& [key, daemon] : all_daemons) {
++      std::lock_guard l(daemon->lock);
++      for (auto& [name, valmap] : daemon->config) {
++	names.insert(name);
++      }
++    }
++    f.open_array_section("options");
++    for (auto& name : names) {
++      f.dump_string("name", name);
++    }
++    f.close_section();
++    return f.get();
+   } else if (what.substr(0, 6) == "config") {
+     PyEval_RestoreThread(tstate);
+     if (what == "config_options") {

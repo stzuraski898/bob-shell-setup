@@ -1,0 +1,23 @@
+commit 1112584621016c4a8cac1bedb1a1b8b17c394f7f
+Author: David Zafman <dzafman@redhat.com>
+Date:   Tue Jan 7 14:40:38 2020 -0800
+
+    mgr mon: Expose network ping information except for python pg_dump
+    
+    Caused by: ffb8a2a904426c8a3d6fc2fd70266418a98623c5
+    
+    Signed-off-by: David Zafman <dzafman@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index e30da4cb0dd..b29a61459d8 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -323,7 +323,7 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+     cluster_state.with_pgmap(
+       [&f, &tstate](const PGMap &pg_map) {
+         PyEval_RestoreThread(tstate);
+-	pg_map.dump(&f);
++	pg_map.dump(&f, false);
+       }
+     );
+     return f.get();

@@ -1,0 +1,20 @@
+commit c93dc8849145c1630058e4c0e527f404929216ff
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jul 7 11:14:49 2019 +0800
+
+    mgr: s/Mutex/ceph::mutex/
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ActivePyModule.h b/src/mgr/ActivePyModule.h
+index c3780269ee0..beafa629982 100644
+--- a/src/mgr/ActivePyModule.h
++++ b/src/mgr/ActivePyModule.h
+@@ -20,7 +20,6 @@
+ 
+ #include "common/cmdparse.h"
+ #include "common/LogEntry.h"
+-#include "common/Mutex.h"
+ #include "common/Thread.h"
+ #include "mon/health_check.h"
+ #include "mgr/Gil.h"

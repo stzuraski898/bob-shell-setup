@@ -1,0 +1,24 @@
+commit e6755fa59678553b6b62cc4c05fd53177b179c76
+Author: Chang Liu <liuchang0812@gmail.com>
+Date:   Tue Mar 21 21:53:41 2017 +0800
+
+    common: convert ms_type option to SAFE_OPTION
+    
+    We need to modify ms_type in unittest. That use SAFE_OPTION to declare ms_type
+    is safer than pass `safe=false` to set_val.
+    
+    Signed-off-by: liuchang0812 <liuchang0812@gmail.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index c2243bfee09..10f70004811 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -48,7 +48,7 @@ DaemonServer::~DaemonServer() {
+ int DaemonServer::init(uint64_t gid, entity_addr_t client_addr)
+ {
+   // Initialize Messenger
+-  std::string public_msgr_type = g_conf->ms_public_type.empty() ? g_conf->ms_type : g_conf->ms_public_type;
++  std::string public_msgr_type = g_conf->ms_public_type.empty() ? g_conf->get_val<std::string>("ms_type") : g_conf->ms_public_type;
+   msgr = Messenger::create(g_ceph_context, public_msgr_type,
+ 			   entity_name_t::MGR(gid), "server", getpid(), 0);
+   int r = msgr->bind(g_conf->public_addr);

@@ -1,0 +1,116 @@
+# git blame -w -M -C src/mgr/DaemonHealthMetric.cc
+#
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200  1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200  2) // vim: ts=8 sw=2 smarttab
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200  3) 
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200  4) #include "DaemonHealthMetric.h"
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200  5) 
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200  6) #include <ostream>
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200  7) 
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200  8) #include "common/Formatter.h"
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200  9) 
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200 10) void DaemonHealthMetric::dump(ceph::Formatter *f) const {
+899276a5aa9f src/mgr/DaemonHealthMetric.h  (Nitzan Mordechai 2023-06-28 09:57:11 +0000 11)   f->dump_string("type", get_type_name());
+899276a5aa9f src/mgr/DaemonHealthMetric.h  (Nitzan Mordechai 2023-06-28 09:57:11 +0000 12)   f->dump_int("n", get_n());
+899276a5aa9f src/mgr/DaemonHealthMetric.h  (Nitzan Mordechai 2023-06-28 09:57:11 +0000 13)   f->dump_int("n1", get_n1());
+899276a5aa9f src/mgr/DaemonHealthMetric.h  (Nitzan Mordechai 2023-06-28 09:57:11 +0000 14)   f->dump_int("n2", get_n2());
+899276a5aa9f src/mgr/DaemonHealthMetric.h  (Nitzan Mordechai 2023-06-28 09:57:11 +0000 15) }
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200 16) 
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200 17) std::list<DaemonHealthMetric> DaemonHealthMetric::generate_test_instances() {
+ed6b71246137 src/mgr/DaemonHealthMetric.h  (Kefu Chai        2025-06-09 20:35:44 +0800 18)   std::list<DaemonHealthMetric> o;
+ed6b71246137 src/mgr/DaemonHealthMetric.h  (Kefu Chai        2025-06-09 20:35:44 +0800 19)   o.push_back(DaemonHealthMetric(daemon_metric::SLOW_OPS, 1));
+ed6b71246137 src/mgr/DaemonHealthMetric.h  (Kefu Chai        2025-06-09 20:35:44 +0800 20)   o.push_back(DaemonHealthMetric(daemon_metric::PENDING_CREATING_PGS, 1, 2));
+ed6b71246137 src/mgr/DaemonHealthMetric.h  (Kefu Chai        2025-06-09 20:35:44 +0800 21)   return o;
+899276a5aa9f src/mgr/DaemonHealthMetric.h  (Nitzan Mordechai 2023-06-28 09:57:11 +0000 22) }
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200 23) 
+437e8949ea6a src/mgr/DaemonHealthMetric.cc (Max Kellermann   2025-08-14 10:53:50 +0200 24) std::ostream& operator<<(std::ostream& out, const DaemonHealthMetric& m) {
+adc480e3b31f src/mgr/DaemonHealthMetric.h  (Sage Weil        2018-04-30 15:54:46 -0500 25)   return out << daemon_metric_name(m.get_type()) << "("
+adc480e3b31f src/mgr/DaemonHealthMetric.h  (Sage Weil        2018-04-30 15:54:46 -0500 26) 	     << m.get_n() << "|(" << m.get_n1() << "," << m.get_n2() << "))";
+adc480e3b31f src/mgr/DaemonHealthMetric.h  (Sage Weil        2018-04-30 15:54:46 -0500 27) }
+
+# git blame -w -M -C src/mgr/DaemonHealthMetric.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng   2020-04-08 10:35:40 +0800  1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/DaemonHealthMetric.h                               (Edwin Rodriguez 2025-10-01 09:09:51 -0400  2) // vim: ts=8 sw=2 sts=2 expandtab
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800  3) 
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800  4) #pragma once
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800  5) 
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800  6) #include <cstdint>
+55da168fa07e src/mgr/DaemonHealthMetric.h                               (Max Kellermann  2026-03-19 11:58:05 +0100  7) #include <list>
+437e8949ea6a src/mgr/DaemonHealthMetric.h                               (Max Kellermann  2025-08-14 10:53:50 +0200  8) #include <iosfwd>
+55da168fa07e src/mgr/DaemonHealthMetric.h                               (Max Kellermann  2026-03-19 11:58:05 +0100  9) #include <string>
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 10) #include "include/denc.h"
+437e8949ea6a src/mgr/DaemonHealthMetric.h                               (Max Kellermann  2025-08-14 10:53:50 +0200 11) 
+437e8949ea6a src/mgr/DaemonHealthMetric.h                               (Max Kellermann  2025-08-14 10:53:50 +0200 12) namespace ceph { class Formatter; }
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 13) 
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 14) enum class daemon_metric : uint8_t {
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 15)   SLOW_OPS,
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 16)   PENDING_CREATING_PGS,
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 17)   NONE,
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 18) };
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 19) 
+adc480e3b31f src/mgr/DaemonHealthMetric.h                               (Sage Weil       2018-04-30 15:54:46 -0500 20) static inline const char *daemon_metric_name(daemon_metric t) {
+adc480e3b31f src/mgr/DaemonHealthMetric.h                               (Sage Weil       2018-04-30 15:54:46 -0500 21)   switch (t) {
+adc480e3b31f src/mgr/DaemonHealthMetric.h                               (Sage Weil       2018-04-30 15:54:46 -0500 22)   case daemon_metric::SLOW_OPS: return "SLOW_OPS";
+adc480e3b31f src/mgr/DaemonHealthMetric.h                               (Sage Weil       2018-04-30 15:54:46 -0500 23)   case daemon_metric::PENDING_CREATING_PGS: return "PENDING_CREATING_PGS";
+adc480e3b31f src/mgr/DaemonHealthMetric.h                               (Sage Weil       2018-04-30 15:54:46 -0500 24)   case daemon_metric::NONE: return "NONE";
+adc480e3b31f src/mgr/DaemonHealthMetric.h                               (Sage Weil       2018-04-30 15:54:46 -0500 25)   default: return "???";
+adc480e3b31f src/mgr/DaemonHealthMetric.h                               (Sage Weil       2018-04-30 15:54:46 -0500 26)   }
+adc480e3b31f src/mgr/DaemonHealthMetric.h                               (Sage Weil       2018-04-30 15:54:46 -0500 27) }
+adc480e3b31f src/mgr/DaemonHealthMetric.h                               (Sage Weil       2018-04-30 15:54:46 -0500 28) 
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 29) union daemon_metric_t {
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 30)   struct {
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 31)     uint32_t n1;
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 32)     uint32_t n2;
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 33)   };
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 34)   uint64_t n;
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 35)   daemon_metric_t(uint32_t x, uint32_t y)
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 36)     : n1(x), n2(y)
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 37)   {}
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 38)   daemon_metric_t(uint64_t x = 0)
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 39)     : n(x)
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 40)   {}
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 41) };
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 42) 
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 43) class DaemonHealthMetric
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 44) {
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 45) public:
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 46)   DaemonHealthMetric() = default;
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 47)   DaemonHealthMetric(daemon_metric type_, uint64_t n)
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 48)     : type(type_), value(n)
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 49)   {}
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 50)   DaemonHealthMetric(daemon_metric type_, uint32_t n1, uint32_t n2)
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 51)     : type(type_), value(n1, n2) 
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 52)   {}
+5a2b7c25b68f src/mgr/DaemonHealthMetric.h                               (Pere Diaz Bou   2022-11-11 10:43:01 +0100 53) 
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 54)   daemon_metric get_type() const {
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 55)     return type;
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 56)   }
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 57)   uint64_t get_n() const {
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 58)     return value.n;
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 59)   }
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 60)   uint32_t get_n1() const {
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 61)     return value.n1;
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 62)   }
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 63)   uint32_t get_n2() const {
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 64)     return value.n2;
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 65)   }
+5a2b7c25b68f src/mgr/DaemonHealthMetric.h                               (Pere Diaz Bou   2022-11-11 10:43:01 +0100 66) 
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 67)   DENC(DaemonHealthMetric, v, p) {
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 68)     DENC_START(1, 1, p);
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 69)     denc(v.type, p);
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 70)     denc(v.value.n, p);
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 71)     DENC_FINISH(p);
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 72)   }
+437e8949ea6a src/mgr/DaemonHealthMetric.h                               (Max Kellermann  2025-08-14 10:53:50 +0200 73)   void dump(ceph::Formatter *f) const;
+437e8949ea6a src/mgr/DaemonHealthMetric.h                               (Max Kellermann  2025-08-14 10:53:50 +0200 74)   static std::list<DaemonHealthMetric> generate_test_instances();
+5a2b7c25b68f src/mgr/DaemonHealthMetric.h                               (Pere Diaz Bou   2022-11-11 10:43:01 +0100 75)   std::string get_type_name() const {
+5a2b7c25b68f src/mgr/DaemonHealthMetric.h                               (Pere Diaz Bou   2022-11-11 10:43:01 +0100 76)     return daemon_metric_name(get_type());
+5a2b7c25b68f src/mgr/DaemonHealthMetric.h                               (Pere Diaz Bou   2022-11-11 10:43:01 +0100 77)   }
+5a2b7c25b68f src/mgr/DaemonHealthMetric.h                               (Pere Diaz Bou   2022-11-11 10:43:01 +0100 78) 
+437e8949ea6a src/mgr/DaemonHealthMetric.h                               (Max Kellermann  2025-08-14 10:53:50 +0200 79)   friend std::ostream& operator<<(std::ostream& out, const DaemonHealthMetric& m);
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 80) private:
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 81)   daemon_metric type = daemon_metric::NONE;
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 82)   daemon_metric_t value;
+f4b74125e44f src/osd/OSDHealthMetric.h                                  (Kefu Chai       2017-10-23 12:29:31 +0800 83) };
+714ffe0d5f07 src/mgr/DaemonHealthMetric.h                               (Shanchun Lv     2018-03-13 14:41:14 +0800 84) WRITE_CLASS_DENC(DaemonHealthMetric)

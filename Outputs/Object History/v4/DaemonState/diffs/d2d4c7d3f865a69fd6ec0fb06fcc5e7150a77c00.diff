@@ -1,0 +1,65 @@
+commit d2d4c7d3f865a69fd6ec0fb06fcc5e7150a77c00
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Thu Aug 14 13:55:25 2025 +0200
+
+    mgr/DaemonState: forward-declare types from MMgrReport.h
+    
+    This requires un-inlining constructor and destructor.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index def6aa4f38f..37231285f67 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -22,6 +22,7 @@
+ #include "common/Clock.h" // for ceph_clock_now()
+ #include "common/debug.h"
+ #include "common/Formatter.h"
++#include "messages/MMgrReport.h"
+ 
+ #define dout_context g_ceph_context
+ #define dout_subsys ceph_subsys_mgr
+@@ -212,6 +213,9 @@ const std::map<std::string,std::string>& DaemonState::_get_config_defaults()
+   return config_defaults;
+ }
+ 
++DaemonStateIndex::DaemonStateIndex() = default;
++DaemonStateIndex::~DaemonStateIndex() = default;
++
+ void DaemonStateIndex::insert(DaemonStatePtr dm)
+ {
+   std::unique_lock l{lock};
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 1dbfc69da12..5f591525222 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -30,8 +30,6 @@
+ 
+ #include "msg/msg_types.h"
+ 
+-// For PerfCounterType
+-#include "messages/MMgrReport.h"
+ #include "DaemonHealthMetric.h"
+ #include "DaemonKey.h"
+ 
+@@ -39,6 +37,9 @@ namespace ceph {
+   class Formatter;
+ }
+ 
++class PerfCounterType;
++class MMgrReport;
++
+ // An instance of a performance counter type, within
+ // a particular daemon.
+ class PerfCounterInstance
+@@ -244,7 +245,8 @@ private:
+   }
+ 
+ public:
+-  DaemonStateIndex() {}
++  DaemonStateIndex();
++  ~DaemonStateIndex();
+ 
+   // FIXME: shouldn't really be public, maybe construct DaemonState
+   // objects internally to avoid this.

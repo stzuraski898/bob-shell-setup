@@ -1,0 +1,23 @@
+commit 97ef5a85100d3166910fc401465950c59a6664f1
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jun 25 16:00:02 2018 -0500
+
+    mgr/DaemonServer: avoid dereferencing end() iterator
+    
+    Fixes: http://tracker.ceph.com/issues/23249
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 388b6ca2484..405a22cdbb8 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1237,8 +1237,7 @@ bool DaemonServer::handle_command(MCommand *m)
+ 		auto p = pg_map.osd_stat.find(osd);
+ 		if (p == pg_map.osd_stat.end()) {
+ 		  missing_stats.insert(osd);
+-		}
+-		if (p->second.num_pgs > 0) {
++		} else if (p->second.num_pgs > 0) {
+ 		  stored_pgs.insert(osd);
+ 		}
+ 	      }

@@ -1,0 +1,73 @@
+commit f222375cbced5efecb4d52ef4955701a7ba38474
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Jun 7 21:48:19 2018 -0500
+
+    mgr: use prettified durations for life expectancy
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 777c84db845..7f1e1cfb951 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1671,7 +1671,8 @@ bool DaemonServer::handle_command(MCommand *m)
+       tbl.define_column("HOST:DEV", TextTable::LEFT, TextTable::LEFT);
+       tbl.define_column("DAEMONS", TextTable::LEFT, TextTable::LEFT);
+       tbl.define_column("LIFE EXPECTANCY", TextTable::LEFT, TextTable::LEFT);
+-      daemon_state.with_devices([&tbl](const DeviceState& dev) {
++      auto now = ceph_clock_now();
++      daemon_state.with_devices([&tbl, now](const DeviceState& dev) {
+ 	  string h;
+ 	  for (auto& i : dev.devnames) {
+ 	    if (h.size()) {
+@@ -1689,7 +1690,7 @@ bool DaemonServer::handle_command(MCommand *m)
+ 	  tbl << dev.devid
+ 	      << h
+ 	      << d
+-	      << dev.get_life_expectancy_str()
++	      << dev.get_life_expectancy_str(now)
+ 	      << TextTable::endrow;
+ 	});
+       cmdctx->odata.append(stringify(tbl));
+@@ -1721,8 +1722,10 @@ bool DaemonServer::handle_command(MCommand *m)
+ 	  tbl.define_column("HOST:DEV", TextTable::LEFT, TextTable::LEFT);
+ 	  tbl.define_column("EXPECTED FAILURE", TextTable::LEFT,
+ 			    TextTable::LEFT);
++	  auto now = ceph_clock_now();
+ 	  for (auto& i : dm->devices) {
+-	    daemon_state.with_device(i.first, [&tbl] (const DeviceState& dev) {
++	    daemon_state.with_device(
++	      i.first, [&tbl, now] (const DeviceState& dev) {
+ 		string h;
+ 		for (auto& i : dev.devnames) {
+ 		  if (h.size()) {
+@@ -1732,7 +1735,7 @@ bool DaemonServer::handle_command(MCommand *m)
+ 		}
+ 		tbl << dev.devid
+ 		    << h
+-		    << dev.get_life_expectancy_str()
++		    << dev.get_life_expectancy_str(now)
+ 		    << TextTable::endrow;
+ 	      });
+ 	  }
+@@ -1765,9 +1768,10 @@ bool DaemonServer::handle_command(MCommand *m)
+       tbl.define_column("DEV", TextTable::LEFT, TextTable::LEFT);
+       tbl.define_column("DAEMONS", TextTable::LEFT, TextTable::LEFT);
+       tbl.define_column("EXPECTED FAILURE", TextTable::LEFT, TextTable::LEFT);
++      auto now = ceph_clock_now();
+       for (auto& devid : devids) {
+ 	daemon_state.with_device(
+-	  devid, [&tbl, &host] (const DeviceState& dev) {
++	  devid, [&tbl, &host, now] (const DeviceState& dev) {
+ 	    string n;
+ 	    for (auto& j : dev.devnames) {
+ 	      if (j.first == host) {
+@@ -1787,7 +1791,7 @@ bool DaemonServer::handle_command(MCommand *m)
+ 	    tbl << dev.devid
+ 		<< n
+ 		<< d
+-		<< dev.get_life_expectancy_str()
++		<< dev.get_life_expectancy_str(now)
+ 		<< TextTable::endrow;
+ 	  });
+       }

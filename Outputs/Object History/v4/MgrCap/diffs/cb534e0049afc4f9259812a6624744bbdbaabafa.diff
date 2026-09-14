@@ -1,0 +1,291 @@
+commit cb534e0049afc4f9259812a6624744bbdbaabafa
+Author: Jason Dillaman <dillaman@redhat.com>
+Date:   Fri Oct 11 12:44:01 2019 -0400
+
+    mgr: support optional arguments for module and profile caps
+    
+    This allows an optional, arbitrary key/value constraint clauses to
+    be appended to "profile XYZ" and "allow module XYZ" caps. A module
+    can then provide additional validatation against these meta-arguments.
+    
+    Example:
+    profile rbd pool=rbd
+    allow module rbd_support with pool=rbd
+    
+    Signed-off-by: Jason Dillaman <dillaman@redhat.com>
+
+diff --git a/src/mgr/MgrCap.cc b/src/mgr/MgrCap.cc
+index 0e9f36118f4..37a256f3fe4 100644
+--- a/src/mgr/MgrCap.cc
++++ b/src/mgr/MgrCap.cc
+@@ -86,19 +86,20 @@ ostream& operator<<(ostream& out, const MgrCapGrant& m) {
+       out << " module " << maybe_quote_string(m.module);
+     } else if (!m.command.empty()) {
+       out << " command " << maybe_quote_string(m.command);
+-      if (!m.command_args.empty()) {
+-        out << " with";
+-        for (auto& [key, constraint] : m.command_args) {
+-          out << " " << maybe_quote_string(key) << constraint;
+-        }
+-      }
+     }
++  }
+ 
+-    if (m.allow != 0) {
+-      out << " " << m.allow;
++  if (!m.arguments.empty()) {
++    out << (!m.profile.empty() ? "" : " with");
++    for (auto& [key, constraint] : m.arguments) {
++      out << " " << maybe_quote_string(key) << constraint;
+     }
+   }
+ 
++  if (m.allow != 0) {
++    out << " " << m.allow;
++  }
++
+   if (m.network.size()) {
+     out << " network " << m.network;
+   }
+@@ -115,7 +116,7 @@ BOOST_FUSION_ADAPT_STRUCT(MgrCapGrant,
+                           (std::string, module)
+                           (std::string, profile)
+                           (std::string, command)
+-                          (kvmap, command_args)
++                          (kvmap, arguments)
+                           (mgr_rwxa_t, allow)
+                           (std::string, network))
+ 
+@@ -155,15 +156,52 @@ void MgrCapGrant::expand_profile() const {
+   }
+ }
+ 
++bool MgrCapGrant::validate_arguments(
++      const std::map<std::string, std::string>& args) const {
++  for (auto& [key, constraint] : arguments) {
++    auto q = args.find(key);
++
++    // argument must be present if a constraint exists
++    if (q == args.end()) {
++      return false;
++    }
++
++    switch (constraint.match_type) {
++    case MgrCapGrantConstraint::MATCH_TYPE_EQUAL:
++      if (constraint.value != q->second)
++        return false;
++      break;
++    case MgrCapGrantConstraint::MATCH_TYPE_PREFIX:
++      if (q->second.find(constraint.value) != 0)
++        return false;
++      break;
++    case MgrCapGrantConstraint::MATCH_TYPE_REGEX:
++      try {
++        std::regex pattern(constraint.value, std::regex::extended);
++        if (!std::regex_match(q->second, pattern)) {
++          return false;
++        }
++      } catch(const std::regex_error&) {
++        return false;
++      }
++      break;
++    default:
++      return false;
++    }
++  }
++
++  return true;
++}
++
+ mgr_rwxa_t MgrCapGrant::get_allowed(
+     CephContext *cct, EntityName name, const std::string& s,
+     const std::string& m, const std::string& c,
+-    const std::map<std::string, std::string>& c_args) const {
++    const std::map<std::string, std::string>& args) const {
+   if (!profile.empty()) {
+     expand_profile();
+     mgr_rwxa_t a;
+     for (auto& grant : profile_grants) {
+-      a = a | grant.get_allowed(cct, name, s, m, c, c_args);
++      a = a | grant.get_allowed(cct, name, s, m, c, args);
+     }
+     return a;
+   }
+@@ -179,6 +217,11 @@ mgr_rwxa_t MgrCapGrant::get_allowed(
+     if (module != m) {
+       return mgr_rwxa_t{};
+     }
++
++    // don't test module arguments when validating a specific command
++    if (c.empty() && !validate_arguments(args)) {
++      return mgr_rwxa_t{};
++    }
+     return allow;
+   }
+ 
+@@ -186,37 +229,8 @@ mgr_rwxa_t MgrCapGrant::get_allowed(
+     if (command != c) {
+       return mgr_rwxa_t{};
+     }
+-
+-    for (auto& [key, constraint] : command_args) {
+-      auto q = c_args.find(key);
+-
+-      // argument must be present if a constraint exists
+-      if (q == c_args.end()) {
+-        return mgr_rwxa_t{};
+-      }
+-
+-      switch (constraint.match_type) {
+-      case MgrCapGrantConstraint::MATCH_TYPE_EQUAL:
+-        if (constraint.value != q->second)
+-          return mgr_rwxa_t{};
+-        break;
+-      case MgrCapGrantConstraint::MATCH_TYPE_PREFIX:
+-        if (q->second.find(constraint.value) != 0)
+-          return mgr_rwxa_t{};
+-        break;
+-      case MgrCapGrantConstraint::MATCH_TYPE_REGEX:
+-        try {
+-          std::regex pattern(constraint.value, std::regex::extended);
+-          if (!std::regex_match(q->second, pattern)) {
+-            return mgr_rwxa_t{};
+-          }
+-        } catch(const std::regex_error&) {
+-          return mgr_rwxa_t{};
+-        }
+-        break;
+-      default:
+-        break;
+-      }
++    if (!validate_arguments(args)) {
++      return mgr_rwxa_t{};
+     }
+     return mgr_rwxa_t{MGR_CAP_ANY};
+   }
+@@ -345,6 +359,10 @@ void MgrCap::generate_test_instances(list<MgrCap*>& ls) {
+   ls.back()->parse("allow command bar with k1=v1 x");
+   ls.push_back(new MgrCap);
+   ls.back()->parse("allow command bar with k1=v1 k2=v2 x");
++  ls.push_back(new MgrCap);
++  ls.back()->parse("allow module bar with k1=v1 k2=v2 x");
++  ls.push_back(new MgrCap);
++  ls.back()->parse("profile rbd pool=rbd");
+ }
+ 
+ // grammar
+@@ -412,7 +430,7 @@ struct MgrCapParser : qi::grammar<Iterator, MgrCap()> {
+                             >> str
+                             >> qi::attr(std::string())
+                             >> qi::attr(std::string())
+-                            >> qi::attr(map<std::string, MgrCapGrantConstraint>())
++                            >> -(spaces >> lit("with") >> spaces >> kv_map)
+                             >> spaces >> rwxa
+                             >> -(spaces >> lit("network") >> spaces >> network_str);
+ 
+@@ -423,7 +441,7 @@ struct MgrCapParser : qi::grammar<Iterator, MgrCap()> {
+                              >> qi::attr(std::string())
+                              >> str
+                              >> qi::attr(std::string())
+-                             >> qi::attr(std::map<std::string, MgrCapGrantConstraint>())
++                             >> -(spaces >> kv_map)
+                              >> qi::attr(0)
+                              >> -(spaces >> lit("network") >> spaces >> network_str);
+ 
+diff --git a/src/mgr/MgrCap.h b/src/mgr/MgrCap.h
+index 96b5b96934b..dc14ac2d2a9 100644
+--- a/src/mgr/MgrCap.h
++++ b/src/mgr/MgrCap.h
+@@ -63,26 +63,30 @@ struct MgrCapGrant {
+    *  - a service allow ('allow service mds rw')
+    *    - this will match against a specific service and the r/w/x flags.
+    *
+-   *  - a module allow ('allow module rbd_support rw')
++   *  - a module allow ('allow module rbd_support rw, allow module rbd_support with pool=rbd rw')
+    *    - this will match against a specific python add-on module and the r/w/x
+    *      flags.
+    *
+-   *  - a profile ('profile read-only')
++   *  - a profile ('profile read-only, profile rbd pool=rbd')
+    *    - this will match against specific MGR-enforced semantics of what
+    *      this type of user should need to do.  examples include 'read-write',
+    *      'read-only', 'crash'.
+    *
+    *  - a command ('allow command foo', 'allow command bar with arg1=val1 arg2 prefix val2')
+-   *      this includes the command name (the prefix string), and a set
+-   *      of key/value pairs that constrain use of that command.  if no pairs
+-   *      are specified, any arguments are allowed; if a pair is specified, that
+-   *      argument must be present and equal or match a prefix.
++   *      this includes the command name (the prefix string)
++   *
++   *  The command, module, and profile caps can also accept an optional
++   *  key/value map. If not provided, all command arguments and module
++   *  meta-arguments are allowed. If a key/value pair is specified, that
++   *  argument must be present and must match the provided constraint.
+    */
++  typedef std::map<std::string, MgrCapGrantConstraint> Arguments;
++
+   std::string service;
+   std::string module;
+   std::string profile;
+   std::string command;
+-  std::map<std::string, MgrCapGrantConstraint> command_args;
++  Arguments arguments;
+ 
+   // restrict by network
+   std::string network;
+@@ -107,13 +111,16 @@ struct MgrCapGrant {
+               std::string&& module,
+               std::string&& profile,
+               std::string&& command,
+-              std::map<std::string, MgrCapGrantConstraint>&& command_args,
++              Arguments&& arguments,
+               mgr_rwxa_t allow)
+     : service(std::move(service)), module(std::move(module)),
+       profile(std::move(profile)), command(std::move(command)),
+-      command_args(std::move(command_args)), allow(allow) {
++      arguments(std::move(arguments)), allow(allow) {
+   }
+ 
++  bool validate_arguments(
++      const std::map<std::string, std::string>& arguments) const;
++
+   /**
+    * check if given request parameters match our constraints
+    *
+@@ -122,7 +129,7 @@ struct MgrCapGrant {
+    * @param service service (if any)
+    * @param module module (if any)
+    * @param command command (if any)
+-   * @param command_args command args (if any)
++   * @param arguments profile/module/command args (if any)
+    * @return bits we allow
+    */
+   mgr_rwxa_t get_allowed(
+@@ -131,7 +138,7 @@ struct MgrCapGrant {
+       const std::string& service,
+       const std::string& module,
+       const std::string& command,
+-      const std::map<std::string, std::string>& command_args) const;
++      const std::map<std::string, std::string>& arguments) const;
+ 
+   bool is_allow_all() const {
+     return (allow == MGR_CAP_ANY &&
+@@ -168,7 +175,7 @@ struct MgrCap {
+    * @param service service name
+    * @param module module name
+    * @param command command id
+-   * @param command_args
++   * @param arguments
+    * @param op_may_read whether the operation may need to read
+    * @param op_may_write whether the operation may need to write
+    * @param op_may_exec whether the operation may exec
+@@ -179,7 +186,7 @@ struct MgrCap {
+ 		  const std::string& service,
+ 		  const std::string& module,
+ 		  const std::string& command,
+-		  const std::map<std::string, std::string>& command_args,
++		  const std::map<std::string, std::string>& arguments,
+ 		  bool op_may_read, bool op_may_write, bool op_may_exec,
+ 		  const entity_addr_t& addr) const;
+ 

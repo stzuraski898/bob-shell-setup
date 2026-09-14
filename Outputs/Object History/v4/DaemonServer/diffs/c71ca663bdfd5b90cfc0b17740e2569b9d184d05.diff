@@ -1,0 +1,23 @@
+commit c71ca663bdfd5b90cfc0b17740e2569b9d184d05
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Mar 30 08:29:38 2020 -0500
+
+    mgr/DaemonServer: add missing ceph_abort
+    
+    This was dropped for no good reason by ea274a1
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index de0a99cb870..6828906f272 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -406,6 +406,8 @@ void DaemonServer::fetch_missing_metadata(const DaemonKey& key,
+     } else if (key.type == "mon") {
+       oss << "{\"prefix\": \"mon metadata\", \"id\": \""
+ 	  << key.name << "\"}";
++    } else {
++      ceph_abort();
+     }
+     monc->start_mon_command({oss.str()}, {}, &c->outbl, &c->outs, c);
+   }

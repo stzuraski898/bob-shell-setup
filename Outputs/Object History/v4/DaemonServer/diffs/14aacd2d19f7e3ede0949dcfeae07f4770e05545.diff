@@ -1,0 +1,35 @@
+commit 14aacd2d19f7e3ede0949dcfeae07f4770e05545
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue Apr 30 21:16:49 2019 +0800
+
+    mgr/DaemonServer: refactor pgp_num changes throttling
+    
+    for better readability
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 1b7f0ce1f08..cf95f1d985d 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2571,15 +2571,12 @@ void DaemonServer::adjust_pgs()
+ 				 max_misplaced / 2.0);
+ 	      unsigned estmax = std::max<unsigned>(
+ 		(double)p.get_pg_num() * room, 1u);
+-	      int delta = target - p.get_pgp_num();
+-	      next = p.get_pgp_num();
+-	      if (delta < 0) {
+-		next += std::max<int>(-estmax, delta);
+-	      } else {
+-		next += std::min<int>(estmax, delta);
+-	      }
++	      next = std::clamp(target,
++				p.get_pgp_num() - estmax,
++				p.get_pgp_num() + estmax);
+ 	      dout(20) << " room " << room << " estmax " << estmax
+-		       << " delta " << delta << " next " << next << dendl;
++		       << " delta " << (target-p.get_pgp_num())
++		       << " next " << next << dendl;
+ 	      if (p.get_pgp_num_target() == p.get_pg_num_target() &&
+ 		  p.get_pgp_num_target() < p.get_pg_num()) {
+ 		// since pgp_num is tracking pg_num, ceph is handling

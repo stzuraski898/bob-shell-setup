@@ -1,0 +1,79 @@
+commit 517bdca529db390e7ebc4e596570f80522060485
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Wed Feb 6 14:48:57 2019 -0800
+
+    common/RefCountedObj: cleanup con/des
+    
+    Also, don't allow children to set nref (to 0). This is the more significant
+    change as it required fixing various code to not do this:
+    
+        <reftype> ptr = new RefCountedObjectFoo(..., 0);
+    
+    as a way to create a starting reference with nref==1. This is a pretty
+    bad code smell so I've converted all the code doing this to use the new
+    factory method which produces the reference safely:
+    
+        auto ptr = ceph::make_ref<RefCountedObjectFoo>(...);
+    
+    libradosstriper was particularly egregious in its abuse of setting the starting
+    nref. :(
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index ff8bf8f2c41..8c5a8021eaf 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -211,10 +211,6 @@ struct DeviceState : public RefCountedObject
+   pair<utime_t,utime_t> life_expectancy;  ///< when device failure is expected
+   utime_t life_expectancy_stamp;          ///< when life expectency was recorded
+ 
+-  DeviceState(const std::string& n)
+-    : RefCountedObject(nullptr, 0),
+-      devid(n) {}
+-
+   void set_metadata(map<string,string>&& m);
+ 
+   void set_life_expectancy(utime_t from, utime_t to, utime_t now);
+@@ -229,9 +225,11 @@ struct DeviceState : public RefCountedObject
+ 
+   void dump(Formatter *f) const;
+   void print(ostream& out) const;
+-};
+ 
+-typedef boost::intrusive_ptr<DeviceState> DeviceStateRef;
++private:
++  FRIEND_MAKE_REF(DeviceState);
++  DeviceState(const std::string& n) : devid(n) {}
++};
+ 
+ /**
+  * Fuse the collection of per-daemon metadata from Ceph into
+@@ -248,19 +246,19 @@ private:
+   DaemonStateCollection all;
+   std::set<DaemonKey> updating;
+ 
+-  std::map<std::string,DeviceStateRef> devices;
++  std::map<std::string,ceph::ref_t<DeviceState>> devices;
+ 
+   void _erase(const DaemonKey& dmk);
+ 
+-  DeviceStateRef _get_or_create_device(const std::string& dev) {
+-    auto p = devices.find(dev);
+-    if (p != devices.end()) {
+-      return p->second;
++  ceph::ref_t<DeviceState> _get_or_create_device(const std::string& dev) {
++    auto em = devices.try_emplace(dev, nullptr);
++    auto& d = em.first->second;
++    if (em.second) {
++      d = ceph::make_ref<DeviceState>(dev);
+     }
+-    devices[dev] = new DeviceState(dev);
+-    return devices[dev];
++    return d;
+   }
+-  void _erase_device(DeviceStateRef d) {
++  void _erase_device(const ceph::ref_t<DeviceState>& d) {
+     devices.erase(d->devid);
+   }
+ 

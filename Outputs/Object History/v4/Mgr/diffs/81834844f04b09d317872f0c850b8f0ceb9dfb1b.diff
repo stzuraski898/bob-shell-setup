@@ -1,0 +1,21 @@
+commit 81834844f04b09d317872f0c850b8f0ceb9dfb1b
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Mar 10 15:41:16 2017 -0500
+
+    mgr/Mgr: less noisy about ms_dispatch
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 6207cd88db2..61b09fe191b 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -422,7 +422,7 @@ void Mgr::handle_osd_map()
+ 
+ bool Mgr::ms_dispatch(Message *m)
+ {
+-  derr << *m << dendl;
++  dout(4) << *m << dendl;
+   Mutex::Locker l(lock);
+ 
+   switch (m->get_type()) {

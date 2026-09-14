@@ -1,0 +1,164 @@
+commit 834bc27940507737f064bca7362b4c7f4cd54c98
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Nov 23 08:01:33 2017 -0500
+
+    mgr: load command definitions earlier
+    
+    ...and for all modules, not just the active ones.
+    
+    This enables us to give better feedback to the user
+    when they try and use a command from a disabled module,
+    and also fixes the race between enabling a module and
+    trying to use its commands.
+    
+    Fixes: http://tracker.ceph.com/issues/21683
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 3d4eb7e90fc..d2d825ca0d5 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -210,6 +210,7 @@ int PyModule::load(PyThreadState *pMainThreadState)
+   // Environment is all good, import the external module
+   {
+     Gil gil(pMyThreadState);
++
+     int r;
+     r = load_subclass_of("MgrModule", &pClass);
+     if (r) {
+@@ -217,6 +218,15 @@ int PyModule::load(PyThreadState *pMainThreadState)
+       return r;
+     }
+ 
++    r = load_commands();
++    if (r != 0) {
++      std::ostringstream oss;
++      oss << "Missing COMMAND attribute in module '" << module_name << "'";
++      error_string = oss.str();
++      derr << oss.str() << dendl;
++      return r;
++    }
++
+     // We've imported the module and found a MgrModule subclass, at this
+     // point the module is considered loaded.  It might still not be
+     // runnable though, can_run populated later...
+@@ -268,6 +278,56 @@ int PyModule::load(PyThreadState *pMainThreadState)
+   return 0;
+ }
+ 
++int PyModule::load_commands()
++{
++  // Don't need a Gil here -- this is called from load(),
++  // which already has one.
++  PyObject *command_list = PyObject_GetAttrString(pClass, "COMMANDS");
++  if (command_list == nullptr) {
++    // Even modules that don't define command should still have the COMMANDS
++    // from the MgrModule definition.  Something is wrong!
++    derr << "Module " << get_name() << " has missing COMMANDS member" << dendl;
++    return -EINVAL;
++  }
++  if (!PyObject_TypeCheck(command_list, &PyList_Type)) {
++    // Relatively easy mistake for human to make, e.g. defining COMMANDS
++    // as a {} instead of a []
++    derr << "Module " << get_name() << " has COMMANDS member of wrong type ("
++            "should be a list)" << dendl;
++    return -EINVAL;
++  }
++  const size_t list_size = PyList_Size(command_list);
++  for (size_t i = 0; i < list_size; ++i) {
++    PyObject *command = PyList_GetItem(command_list, i);
++    assert(command != nullptr);
++
++    ModuleCommand item;
++
++    PyObject *pCmd = PyDict_GetItemString(command, "cmd");
++    assert(pCmd != nullptr);
++    item.cmdstring = PyString_AsString(pCmd);
++
++    dout(20) << "loaded command " << item.cmdstring << dendl;
++
++    PyObject *pDesc = PyDict_GetItemString(command, "desc");
++    assert(pDesc != nullptr);
++    item.helpstring = PyString_AsString(pDesc);
++
++    PyObject *pPerm = PyDict_GetItemString(command, "perm");
++    assert(pPerm != nullptr);
++    item.perm = PyString_AsString(pPerm);
++
++    item.module_name = module_name;
++
++    commands.push_back(item);
++  }
++  Py_DECREF(command_list);
++
++  dout(10) << "loaded " << commands.size() << " commands" << dendl;
++
++  return 0;
++}
++
+ int PyModule::load_subclass_of(const char* base_class, PyObject** py_class)
+ {
+   // load the base class
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index d3c39f4abb3..14f418e446e 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -22,6 +22,19 @@
+ 
+ std::string handle_pyerror();
+ 
++/**
++ * A Ceph CLI command description provided from a Python module
++ */
++class ModuleCommand {
++public:
++  std::string cmdstring;
++  std::string helpstring;
++  std::string perm;
++
++  // Call the ActivePyModule of this name to handle the command
++  std::string module_name;
++};
++
+ class PyModule
+ {
+   mutable Mutex lock{"PyModule::lock"};
+@@ -48,6 +61,9 @@ private:
+   // Populated if loaded, can_run or failed indicates a problem
+   std::string error_string;
+ 
++  int load_commands();
++  std::vector<ModuleCommand> commands;
++
+ public:
+   SafeThreadState pMyThreadState;
+   PyObject *pClass = nullptr;
+@@ -62,6 +78,18 @@ public:
+ 
+   int load(PyThreadState *pMainThreadState);
+ 
++
++  /**
++   * Extend `out` with the contents of `this->commands`
++   */
++  void get_commands(std::vector<ModuleCommand> *out) const
++  {
++    Mutex::Locker l(lock);
++    assert(out != nullptr);
++    out->insert(out->end(), commands.begin(), commands.end());
++  }
++
++
+   /**
+    * Mark the module as failed, recording the reason in the error
+    * string.
+@@ -74,6 +102,9 @@ public:
+   }
+ 
+   bool is_enabled() const { Mutex::Locker l(lock) ; return enabled; }
++  bool is_failed() const { Mutex::Locker l(lock) ; return failed; }
++  bool is_loaded() const { Mutex::Locker l(lock) ; return loaded; }
++
+   const std::string &get_name() const {
+     Mutex::Locker l(lock) ; return module_name;
+   }

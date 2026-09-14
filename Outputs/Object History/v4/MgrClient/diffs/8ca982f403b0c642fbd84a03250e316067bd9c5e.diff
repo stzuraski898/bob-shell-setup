@@ -1,0 +1,23 @@
+commit 8ca982f403b0c642fbd84a03250e316067bd9c5e
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 14 10:02:38 2017 -0400
+
+    mgr/MgrClient: do not assert on control-c
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index cb5a39ade64..1defc2c9f0a 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -49,6 +49,10 @@ void MgrClient::shutdown()
+ {
+   Mutex::Locker l(lock);
+ 
++  // forget about in-flight commands if we are prematurely shut down
++  // (e.g., by control-C)
++  command_table.clear();
++
+   timer.shutdown();
+   session.reset();
+ }

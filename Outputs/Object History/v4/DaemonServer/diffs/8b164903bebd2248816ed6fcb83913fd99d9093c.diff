@@ -1,0 +1,31 @@
+commit 8b164903bebd2248816ed6fcb83913fd99d9093c
+Author: Greg Farnum <gfarnum@redhat.com>
+Date:   Wed May 31 18:36:47 2017 -0700
+
+    mon: mgr: pgstats: do available-space calculations on mgr instead of mon
+    
+    This means we don't need the osd_stat map on the monitor at all. We're
+    about to remove it entirely!
+    
+    Signed-off-by: Greg Farnum <gfarnum@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index d061b204753..3be8dd87b6f 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -821,11 +821,12 @@ void DaemonServer::send_report()
+   cluster_state.with_pgmap([&](const PGMap& pg_map) {
+       cluster_state.update_delta_stats();
+ 
+-      // FIXME: no easy way to get mon features here.  this will do for
+-      // now, though, as long as we don't make a backward-incompat change.
+-      pg_map.encode_digest(m->get_data(), CEPH_FEATURES_ALL);
+       // FIXME: reporting health detail here might be a bad idea?
+       cluster_state.with_osdmap([&](const OSDMap& osdmap) {
++	  // FIXME: no easy way to get mon features here.  this will do for
++	  // now, though, as long as we don't make a backward-incompat change.
++	  pg_map.encode_digest(osdmap, m->get_data(), CEPH_FEATURES_ALL);
++
+ 	  pg_map.get_health(g_ceph_context, osdmap,
+ 			    m->health_summary,
+ 			    &m->health_detail);

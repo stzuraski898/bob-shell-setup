@@ -1,0 +1,63 @@
+commit 75b6149b294e16b9463c05d270adf0e9f51a4268
+Author: Steven Zuraski <steven.zuraski@ibm.com>
+Date:   Thu May 21 19:23:54 2026 +0000
+
+    common/TrackedOp: make OpHistory::on_shutdown() idempotent
+    
+    Make on_shutdown() idempotent using shutdown.exchange(true) to ensure
+    thread shutdown and join happens exactly once, even if on_shutdown() is
+    called multiple times.
+    
+    The atomic exchange returns the previous value of shutdown:
+    - If it was already true, return early (already shut down)
+    - If it was false, proceed with shutdown: break_thread(), conditionally
+      join if started, and clear history containers
+    
+    Add an is_started() check before joining the opsvc thread in on_shutdown().
+    This prevents attempting to join a thread that hasn't started yet, making the
+    shutdown process safe for rapidly created and destroyed objects.
+    
+    Add history.on_shutdown() call in OpTracker destructor as a failsafe,
+    with documentation explaining that on_shutdown() should be called before
+    destruction. The idempotent design makes this safe even if on_shutdown()
+    was already called explicitly during shutdown sequences in OSD::shutdown(),
+    Monitor::shutdown(), MDSRank::~MDSRank(), and DaemonServer::~DaemonServer().
+    
+    Fixes: https://tracker.ceph.com/issues/76334
+    Signed-off-by: stzuraski898 <steven.zuraski@ibm.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 8a539a12986..e9450f92e81 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -81,6 +81,18 @@ Mgr::Mgr(MonClient *monc_, const MgrMap& mgrmap,
+ 
+ Mgr::~Mgr()
+ {
++}
++
++void Mgr::shutdown()
++{
++  if (initialized) {
++    AdminSocket *admin_socket = g_ceph_context->get_admin_socket();
++    admin_socket->unregister_commands(this);
++  }
++
++  finisher.wait_for_empty();
++  finisher.stop();
++
+   server.shutdown();
+ }
+ 
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index 952e446751d..018d78c6c5e 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -75,6 +75,7 @@ public:
+       Messenger *clientm_, Objecter *objecter_,
+       LogChannelRef clog_, LogChannelRef audit_clog_);
+   ~Mgr();
++  void shutdown();
+ 
+   bool is_initialized() const {return initialized;}
+   bool exceeded_initialization_expiration();

@@ -1,0 +1,42 @@
+commit f27a5dc6155440f0add91213d68bb690d8bf9cd7
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sat Nov 17 07:15:19 2018 -0600
+
+    mgr: call config_notify method when mgr's config has changed
+    
+    This provides a hook for the module to refresh any config values it has
+    cached in module-local variables.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 87bf6a1d532..d7cea7fdded 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -422,6 +422,14 @@ void PyModuleRegistry::handle_config(const std::string &k, const std::string &v)
+   }
+ }
+ 
++void PyModuleRegistry::handle_config_notify()
++{
++  std::lock_guard l(lock);
++  if (active_modules) {
++    active_modules->config_notify();
++  }
++}
++
+ void PyModuleRegistry::upgrade_config(
+     MonClient *monc,
+     const std::map<std::string, std::string> &old_config)
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index d0cbe1881a9..8c46ab2923d 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -61,6 +61,7 @@ private:
+ 
+ public:
+   void handle_config(const std::string &k, const std::string &v);
++  void handle_config_notify();
+ 
+   /**
+    * Get references to all modules (whether they have loaded and/or

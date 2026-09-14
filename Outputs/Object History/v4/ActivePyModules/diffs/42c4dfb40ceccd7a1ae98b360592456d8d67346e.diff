@@ -1,0 +1,50 @@
+commit 42c4dfb40ceccd7a1ae98b360592456d8d67346e
+Author: Nitzan Mordechai <nmordech@ibm.com>
+Date:   Tue Aug 11 07:07:12 2026 +0000
+
+    mgr: don't log NotImplementedError from dispatch_remote as an error
+    
+    Even after the crash dump was suppressed, BaseMgrModule.cc still
+    logged "Remote method threw exception: ..." at error level for every
+    NotImplementedError. Since that's not actually an error, log it at
+    debug level instead same crash_dump flag, threaded up from dispatch_remote()
+    through to the log call.
+    
+    Fixes: https://tracker.ceph.com/issues/79106
+    Signed-off-by: Nitzan Mordechai <nmordech@ibm.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index bf8114346c6..0a82230942a 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -675,13 +675,14 @@ std::optional<std::vector<std::byte>> ActivePyModules::dispatch_remote(
+     const std::string &method,
+     std::span<std::byte const> pickled_args,
+     std::span<std::byte const> pickled_kwargs,
+-    std::string *err)
++    std::string *err,
++    bool *crash_dump)
+ {
+   auto mod_iter = modules.find(other_module);
+   ceph_assert(mod_iter != modules.end());
+ 
+   return mod_iter->second->dispatch_remote(
+-    method, pickled_args, pickled_kwargs, err);
++    method, pickled_args, pickled_kwargs, err, crash_dump);
+ }
+ 
+ 
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 3a5a129ef9c..55a70115e02 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -253,7 +253,8 @@ public:
+       const std::string &method,
+       std::span<std::byte const> pickled_args,
+       std::span<std::byte const> pickled_kwargs,
+-      std::string *err);
++      std::string *err,
++      bool *crash_dump = nullptr);
+ 
+   int init();
+ 

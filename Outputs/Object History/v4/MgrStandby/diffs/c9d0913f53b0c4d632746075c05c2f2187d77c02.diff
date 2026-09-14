@@ -1,0 +1,50 @@
+commit c9d0913f53b0c4d632746075c05c2f2187d77c02
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Tue Feb 18 12:41:52 2025 -0500
+
+    msg: add alternate statuses for ms_dispatch2 handling
+    
+    Many dispatchers return false to allow other dispatchers also common messages
+    like MOSDMap or MFSMap. They implicitly depend on some dispatcher which is
+    always at the "tail" of the dispatcher queue to return "true" indicating the
+    msg was processed to avoid messages like:
+    
+        2025-02-18T05:31:17.738+0000 7f5206546640  0 ms_deliver_dispatch: unhandled message 0x5632d05f0700 fsmap(e 9) from mon.0 v2:172.21.3.230:40412/0
+    
+    but this cannot always happen when some libraries like the RadosClient used standalone.
+    
+    So, add a variant for encapsulating other indications for how the message was
+    processed by dispatch2.  For example, a message may be "acknowledged" but
+    explicitly allow other dispatchers to try processing the message.
+    
+    Note: we're using a variant to avoid updating all of the ms_dispatch code to
+    use the sentinel classes.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@ibm.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 3fc14d9eb29..cb2bd10f92d 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -402,7 +402,7 @@ void MgrStandby::handle_mgr_map(ref_t<MMgrMap> mmap)
+   }
+ }
+ 
+-bool MgrStandby::ms_dispatch2(const ref_t<Message>& m)
++Dispatcher::dispatch_result_t MgrStandby::ms_dispatch2(const ref_t<Message>& m)
+ {
+   std::lock_guard l(lock);
+   dout(10) << state_str() << " " << *m << dendl;
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index 35ce43c0c80..ab5a8d05cbf 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -71,7 +71,7 @@ public:
+   MgrStandby(int argc, const char **argv);
+   ~MgrStandby() override;
+ 
+-  bool ms_dispatch2(const ceph::ref_t<Message>& m) override;
++  Dispatcher::dispatch_result_t ms_dispatch2(const ceph::ref_t<Message>& m) override;
+   bool ms_handle_reset(Connection *con) override { return false; }
+   void ms_handle_remote_reset(Connection *con) override {}
+   bool ms_handle_refused(Connection *con) override;

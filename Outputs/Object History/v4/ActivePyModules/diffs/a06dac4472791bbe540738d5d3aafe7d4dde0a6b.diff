@@ -1,0 +1,27 @@
+commit a06dac4472791bbe540738d5d3aafe7d4dde0a6b
+Author: Weibing Zhang <atheism.zhang@gmail.com>
+Date:   Tue Oct 25 15:07:12 2016 +0800
+
+    mgr: PyModules.cc: remove duplicated if condition for fs_map
+    
+    Signed-off-by: Weibing Zhang <zhangweibing@unitedstack.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index de9a4ce24d2..35b6ed0687b 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -153,14 +153,6 @@ PyObject *PyModules::get_python(const std::string &what)
+       }
+     );
+     return f.get();
+-  } else if (what == "fs_map") {
+-    PyFormatter f;
+-    cluster_state.with_fsmap(
+-      [&f](const FSMap &fsmap) {
+-        fsmap.dump(&f);
+-      }
+-    );
+-    return f.get();
+   } else if (what == "osd_metadata") {
+     PyFormatter f;
+     auto dmc = daemon_state.get_by_type(CEPH_ENTITY_TYPE_OSD);

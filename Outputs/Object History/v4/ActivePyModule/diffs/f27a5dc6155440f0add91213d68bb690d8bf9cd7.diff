@@ -1,0 +1,46 @@
+commit f27a5dc6155440f0add91213d68bb690d8bf9cd7
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sat Nov 17 07:15:19 2018 -0600
+
+    mgr: call config_notify method when mgr's config has changed
+    
+    This provides a hook for the module to refresh any config values it has
+    cached in module-local variables.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ActivePyModule.cc b/src/mgr/ActivePyModule.cc
+index d8a416bfde5..4d07222b7d7 100644
+--- a/src/mgr/ActivePyModule.cc
++++ b/src/mgr/ActivePyModule.cc
+@@ -155,7 +155,17 @@ PyObject *ActivePyModule::dispatch_remote(
+   return remoteResult;
+ }
+ 
+-
++void ActivePyModule::config_notify()
++{
++  Gil gil(py_module->pMyThreadState, true);
++  dout(20) << "Calling " << py_module->get_name() << ".config_notify..."
++	   << dendl;
++  auto remoteResult = PyObject_CallMethod(pClassInstance, "config_notify",
++					  (char*)NULL);
++  if (remoteResult != nullptr) {
++    Py_DECREF(remoteResult);
++  }
++}
+ 
+ int ActivePyModule::handle_command(
+   const cmdmap_t &cmdmap,
+diff --git a/src/mgr/ActivePyModule.h b/src/mgr/ActivePyModule.h
+index 149d297faf1..c3780269ee0 100644
+--- a/src/mgr/ActivePyModule.h
++++ b/src/mgr/ActivePyModule.h
+@@ -76,6 +76,7 @@ public:
+     return changed;
+   }
+   void get_health_checks(health_check_map_t *checks);
++  void config_notify();
+ 
+   void set_uri(const std::string &str)
+   {

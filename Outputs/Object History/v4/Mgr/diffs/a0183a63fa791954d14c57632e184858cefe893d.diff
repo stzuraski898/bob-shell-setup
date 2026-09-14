@@ -1,0 +1,36 @@
+commit a0183a63fa791954d14c57632e184858cefe893d
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Jul 27 11:50:23 2017 -0400
+
+    mgr: enable python modules to advertise their service URI
+    
+    Fixes: http://tracker.ceph.com/issues/17460
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index de60b4c771f..782710c9ae2 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -658,3 +658,10 @@ std::vector<MonCommand> Mgr::get_command_set() const
+   return commands;
+ }
+ 
++std::map<std::string, std::string> Mgr::get_services() const
++{
++  Mutex::Locker l(lock);
++
++  return py_modules.get_services();
++}
++
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index 68f2b40b461..e37b1b9bee6 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -100,6 +100,7 @@ public:
+   void shutdown();
+ 
+   std::vector<MonCommand> get_command_set() const;
++  std::map<std::string, std::string> get_services() const;
+ };
+ 
+ #endif

@@ -1,0 +1,25 @@
+commit 4042bec19dbb477d032a9b964da949aa952cc6d1
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Thu Jan 11 14:46:32 2018 -0800
+
+    mon: revert mds metadata argument name change
+    
+    Partial revert of PR #18512: d1877b68d90163897245a9801cff0ea419ff28e4
+    
+    Fixes: http://tracker.ceph.com/issues/22527
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index d4ab6fd1a34..6c2f007a94b 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -436,7 +436,7 @@ bool DaemonServer::handle_report(MMgrReport *m)
+ 
+       } else if (key.first == "mds") {
+         c->set_default("addr", stringify(m->get_source_addr()));
+-        oss << "{\"prefix\": \"mds metadata\", \"role\": \""
++        oss << "{\"prefix\": \"mds metadata\", \"who\": \""
+             << key.second << "\"}";
+  
+       } else {

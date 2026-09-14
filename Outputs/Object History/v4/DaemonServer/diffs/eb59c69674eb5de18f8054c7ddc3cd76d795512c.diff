@@ -1,0 +1,21 @@
+commit eb59c69674eb5de18f8054c7ddc3cd76d795512c
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Thu Aug 23 16:27:11 2018 -0400
+
+    cleanup: Replace always-false assertions with abort
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 47fde57a653..0a802227ce0 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1533,7 +1533,7 @@ bool DaemonServer::handle_command(MCommand *m)
+ 		  }
+ 		  break;
+ 		default:
+-		  ceph_assert(0 == "actual_op value is not supported");
++		  ceph_abort_msg("actual_op value is not supported");
+ 	      }
+ 
+ 	      parsed_pgs.push_back(std::move(parsed_pg));

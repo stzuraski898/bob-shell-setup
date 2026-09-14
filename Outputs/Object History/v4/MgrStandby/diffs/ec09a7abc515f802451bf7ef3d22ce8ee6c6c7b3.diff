@@ -1,0 +1,26 @@
+commit ec09a7abc515f802451bf7ef3d22ce8ee6c6c7b3
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Aug 30 13:56:39 2017 +0100
+
+    mgr: remove old-style config opt usage
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 07157736137..70542754ece 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -194,10 +194,10 @@ void MgrStandby::tick()
+     active_mgr->tick();
+   }
+ 
+-  timer.add_event_after(g_conf->mgr_tick_period, new FunctionContext(
+-        [this](int r){
++  timer.add_event_after(g_conf->get_val<int64_t>("mgr_tick_period"),
++      new FunctionContext([this](int r){
+           tick();
+-        }
++      }
+   )); 
+ }
+ 

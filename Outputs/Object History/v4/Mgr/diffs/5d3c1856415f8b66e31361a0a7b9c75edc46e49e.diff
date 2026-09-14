@@ -1,0 +1,21 @@
+commit 5d3c1856415f8b66e31361a0a7b9c75edc46e49e
+Author: David Zafman <dzafman@redhat.com>
+Date:   Tue Jul 9 17:22:12 2019 +0000
+
+    mgr: Add "dump_osd_network" mgr admin request to get a sorted report
+    
+    Signed-off-by: David Zafman <dzafman@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 46179fde085..9620ca769bf 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -297,6 +297,8 @@ void Mgr::init()
+       kv_store, *monc, clog, audit_clog, *objecter, *client,
+       finisher, server);
+ 
++  cluster_state.final_init();
++
+   dout(4) << "Complete." << dendl;
+   initializing = false;
+   initialized = true;

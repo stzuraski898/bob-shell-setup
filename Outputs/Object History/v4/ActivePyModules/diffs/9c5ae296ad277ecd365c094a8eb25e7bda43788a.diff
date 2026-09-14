@@ -1,0 +1,27 @@
+commit 9c5ae296ad277ecd365c094a8eb25e7bda43788a
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jun 26 15:54:59 2017 -0400
+
+    mgr/PyModules: expose service_map to modules
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index e561c9e481a..5b5d379abc3 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -175,6 +175,14 @@ PyObject *PyModules::get_python(const std::string &what)
+       }
+     );
+     return f.get();
++  } else if (what == "service_map") {
++    PyFormatter f;
++    cluster_state.with_servicemap(
++      [&f](const ServiceMap &service_map) {
++        service_map.dump(&f);
++      }
++    );
++    return f.get();
+   } else if (what == "osd_metadata") {
+     PyFormatter f;
+     auto dmc = daemon_state.get_by_service("osd");

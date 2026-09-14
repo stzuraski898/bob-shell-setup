@@ -1,0 +1,33 @@
+commit f79ae2504ad5355d20b137019afddb4d3f3cd204
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Apr 20 17:15:51 2017 -0400
+
+    mgr: fix message refcounting
+    
+    Let's be consistent and push the m->put down into
+    the handle_(M<class>* m) functions the way
+    we do in the rest of the codebase.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index daa482b9325..613a075e7ed 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -242,6 +242,8 @@ void MgrStandby::handle_mgr_map(MMgrMap* mmap)
+       active_mgr.reset();
+     }
+   }
++
++  mmap->put();
+ }
+ 
+ bool MgrStandby::ms_dispatch(Message *m)
+@@ -264,7 +266,6 @@ bool MgrStandby::ms_dispatch(Message *m)
+       }
+   }
+ 
+-  m->put();
+   return true;
+ }
+ 

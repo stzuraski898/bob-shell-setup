@@ -1,0 +1,21 @@
+commit ac8b016b7237dfa14af74128ea051a83f9e44670
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Wed Nov 14 09:26:03 2018 +0200
+
+    mgr: fix PyFormatter's dump_unsigned
+    
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/PyFormatter.cc b/src/mgr/PyFormatter.cc
+index 4c71a2cb1de..a90674734ea 100644
+--- a/src/mgr/PyFormatter.cc
++++ b/src/mgr/PyFormatter.cc
+@@ -38,7 +38,7 @@ void PyFormatter::open_object_section(const char *name)
+ 
+ void PyFormatter::dump_unsigned(const char *name, uint64_t u)
+ {
+-  PyObject *p = PyLong_FromLongLong(u);
++  PyObject *p = PyLong_FromUnsignedLong(u);
+   ceph_assert(p);
+   dump_pyobject(name, p);
+ }

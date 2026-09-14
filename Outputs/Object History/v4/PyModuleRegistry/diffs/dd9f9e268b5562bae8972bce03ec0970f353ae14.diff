@@ -1,0 +1,87 @@
+commit dd9f9e268b5562bae8972bce03ec0970f353ae14
+Author: Ramana Raja <rraja@redhat.com>
+Date:   Thu Nov 2 14:38:02 2023 -0400
+
+    mgr/Mgr: remove shutdown() and handle_signal()
+    
+    Mgr::shutdown() and Mgr::handle_signal() are never called since
+    3363a10. The mgr just exits on SIGINT or SIGTERM.
+    
+    Also found and removed other unreachable code associated with
+    shutdown in mgr codebase.
+    
+    Fixes: https://tracker.ceph.com/issues/63410
+    Signed-off-by: Ramana Raja <rraja@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index f5f5008023f..eb2d2babe75 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -217,53 +217,6 @@ void PyModuleRegistry::active_start(
+   }
+ }
+ 
+-void PyModuleRegistry::active_shutdown()
+-{
+-  std::lock_guard locker(lock);
+-
+-  if (active_modules != nullptr) {
+-    active_modules->shutdown();
+-    active_modules.reset();
+-  }
+-}
+-
+-void PyModuleRegistry::shutdown()
+-{
+-  std::lock_guard locker(lock);
+-
+-  if (standby_modules != nullptr) {
+-    standby_modules->shutdown();
+-    standby_modules.reset();
+-  }
+-
+-  // Ideally, now, we'd be able to do this for all modules:
+-  //
+-  //    Py_EndInterpreter(pMyThreadState);
+-  //    PyThreadState_Swap(pMainThreadState);
+-  //
+-  // Unfortunately, if the module has any other *python* threads active
+-  // at this point, Py_EndInterpreter() will abort with:
+-  //
+-  //    Fatal Python error: Py_EndInterpreter: not the last thread
+-  //
+-  // This can happen when using CherryPy in a module, becuase CherryPy
+-  // runs an extra thread as a timeout monitor, which spends most of its
+-  // life inside a time.sleep(60).  Unless you are very, very lucky with
+-  // the timing calling this destructor, that thread will still be stuck
+-  // in a sleep, and Py_EndInterpreter() will abort.
+-  //
+-  // This could of course also happen with a poorly written module which
+-  // made no attempt to clean up any additional threads it created.
+-  //
+-  // The safest thing to do is just not call Py_EndInterpreter(), and
+-  // let Py_Finalize() kill everything after all modules are shut down.
+-
+-  modules.clear();
+-
+-  PyEval_RestoreThread(pMainThreadState);
+-  Py_Finalize();
+-}
+-
+ std::vector<std::string> PyModuleRegistry::probe_modules(const std::string &path) const
+ {
+   const auto opt = g_conf().get_val<std::string>("mgr_disabled_modules");
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 9af9abb5762..9d6d9c2cdd0 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -122,9 +122,6 @@ public:
+     return standby_modules != nullptr;
+   }
+ 
+-  void active_shutdown();
+-  void shutdown();
+-
+   std::vector<MonCommand> get_commands() const;
+   std::vector<ModuleCommand> get_py_commands() const;
+ 

@@ -1,0 +1,78 @@
+commit 306eebe05bec1220b2477a66b6501da222bacdfc
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Tue Apr 28 17:32:56 2020 -0400
+
+    monc: Asifoact MonClient
+    
+    Of course now everyone has to feed an io_context into the MonClient.
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 296494ece14..7e30eac6181 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -38,7 +38,7 @@
+ 
+ MgrStandby::MgrStandby(int argc, const char **argv) :
+   Dispatcher(g_ceph_context),
+-  monc{g_ceph_context},
++  monc{g_ceph_context, poolctx},
+   client_messenger(Messenger::create(
+ 		     g_ceph_context,
+ 		     cct->_conf.get_val<std::string>("ms_type"),
+@@ -115,6 +115,8 @@ int MgrStandby::init()
+   client_messenger->add_dispatcher_tail(&client);
+   client_messenger->start();
+ 
++  poolctx.start(2);
++
+   // Initialize MonClient
+   if (monc.build_initial_monmap() < 0) {
+     client_messenger->shutdown();
+@@ -272,20 +274,21 @@ void MgrStandby::shutdown()
+ 
+     dout(4) << "Shutting down" << dendl;
+ 
+-    // stop sending beacon first, i use monc to talk with monitors
++    py_module_registry.shutdown();
++    // stop sending beacon first, I use monc to talk with monitors
+     timer.shutdown();
+     // client uses monc and objecter
+     client.shutdown();
+     mgrc.shutdown();
++    // Stop asio threads, so leftover events won't call into shut down
++    // monclient/objecter.
++    poolctx.finish();
+     // stop monc, so mon won't be able to instruct me to shutdown/activate after
+     // the active_mgr is stopped
+     monc.shutdown();
+     if (active_mgr) {
+       active_mgr->shutdown();
+     }
+-
+-    py_module_registry.shutdown();
+-
+     // objecter is used by monc and active_mgr
+     objecter.shutdown();
+     // client_messenger is used by all of them, so stop it in the end
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index d79fef2d5e5..cac31a57640 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -16,6 +16,7 @@
+ #define MGR_STANDBY_H_
+ 
+ #include "auth/Auth.h"
++#include "common/async/context_pool.h"
+ #include "common/Finisher.h"
+ #include "common/Timer.h"
+ #include "common/LogClient.h"
+@@ -39,6 +40,7 @@ public:
+ 			  const std::set <std::string> &changed) override;
+ 
+ protected:
++  ceph::async::io_context_pool poolctx;
+   MonClient monc;
+   std::unique_ptr<Messenger> client_messenger;
+   Objecter objecter;

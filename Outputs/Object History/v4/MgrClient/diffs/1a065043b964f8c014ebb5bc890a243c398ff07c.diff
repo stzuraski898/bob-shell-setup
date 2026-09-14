@@ -1,0 +1,121 @@
+commit 1a065043b964f8c014ebb5bc890a243c398ff07c
+Author: Prashant D <pdhange@redhat.com>
+Date:   Mon Mar 28 14:02:08 2022 +0100
+
+    mgr, mon: Keep upto date metadata with mgr for MONs
+    
+    The mgr updates mon metadata through handle_mon_map which
+    gets triggered when MONs were removed/added from/to cluster or
+    the active mgr is restarted or mgr failsover.
+    We could have handled metadata update through MMgrOpen or
+    early MMgrReport messages but these are sent before monitor
+    electin completes and lead monitor updates pending metadata
+    in monstore. Instead of relying on fetching mon metadata using
+    'ceph mon metadata <id>' command, explicitly send metadata
+    update request with mon metadata to mgr.
+    
+    Fixes: https://tracker.ceph.com/issues/55088
+    
+    Signed-off-by: Prashant D <pdhange@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 66ac5901e50..cfb2e99672e 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -21,6 +21,7 @@
+ #include "messages/MMgrMap.h"
+ #include "messages/MMgrReport.h"
+ #include "messages/MMgrOpen.h"
++#include "messages/MMgrUpdate.h"
+ #include "messages/MMgrClose.h"
+ #include "messages/MMgrConfigure.h"
+ #include "messages/MCommand.h"
+@@ -245,6 +246,25 @@ void MgrClient::_send_open()
+   }
+ }
+ 
++void MgrClient::_send_update()
++{
++  if (session && session->con) {
++    auto update = make_message<MMgrUpdate>();
++    if (!service_name.empty()) {
++      update->service_name = service_name;
++      update->daemon_name = daemon_name;
++    } else {
++      update->daemon_name = cct->_conf->name.get_id();
++    }
++    if (service_daemon) {
++      update->service_daemon = service_daemon;
++      update->daemon_metadata = daemon_metadata;
++    }
++    update->need_metadata_update = need_metadata_update;
++    session->con->send_message2(update);
++  }
++}
++
+ bool MgrClient::handle_mgr_map(ref_t<MMgrMap> m)
+ {
+   ceph_assert(ceph_mutex_is_locked_by_me(lock));
+@@ -566,6 +586,31 @@ bool MgrClient::handle_command_reply(
+   return true;
+ }
+ 
++int MgrClient::update_daemon_metadata(
++  const std::string& service,
++  const std::string& name,
++  const std::map<std::string,std::string>& metadata)
++{
++  std::lock_guard l(lock);
++  if (service_daemon) {
++    return -EEXIST;
++  }
++  ldout(cct,1) << service << "." << name << " metadata " << metadata << dendl;
++  service_daemon = true;
++  service_name = service;
++  daemon_name = name;
++  daemon_metadata = metadata;
++  daemon_dirty_status = true;
++
++  if (need_metadata_update == true &&
++      !daemon_metadata.empty()) {
++    _send_update();
++    need_metadata_update = false;
++  }
++
++  return 0;
++}
++
+ int MgrClient::service_daemon_register(
+   const std::string& service,
+   const std::string& name,
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index f09ba91b712..a48ae163e18 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -94,6 +94,7 @@ protected:
+   bool service_daemon = false;
+   bool daemon_dirty_status = false;
+   bool task_dirty_status = false;
++  bool need_metadata_update = true;
+   std::string service_name, daemon_name;
+   std::map<std::string,std::string> daemon_metadata;
+   std::map<std::string,std::string> daemon_status;
+@@ -102,6 +103,7 @@ protected:
+ 
+   void reconnect();
+   void _send_open();
++  void _send_update();
+ 
+   // In pre-luminous clusters, the ceph-mgr service is absent or optional,
+   // so we must not block in start_command waiting for it.
+@@ -157,6 +159,10 @@ public:
+     ceph::buffer::list *outbl, std::string *outs,
+     Context *onfinish);
+ 
++  int update_daemon_metadata(
++    const std::string& service,
++    const std::string& name,
++    const std::map<std::string,std::string>& metadata);
+   int service_daemon_register(
+     const std::string& service,
+     const std::string& name,

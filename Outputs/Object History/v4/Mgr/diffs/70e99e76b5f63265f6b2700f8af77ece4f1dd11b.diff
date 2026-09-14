@@ -1,0 +1,32 @@
+commit 70e99e76b5f63265f6b2700f8af77ece4f1dd11b
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Nov 25 18:44:04 2020 +0800
+
+    mgr: do not migrate conf from config-key store to new-style conf
+    
+    since all module options are using the new-style config framework.
+    the migration is offered for the use case of upgrade from luminous to mimic,
+    since pacific can only be upgraded from octopus. the mimic monitors are alreay
+    able to populate the configurations to mgr, not to mention the octopus
+    monitors, so there is no need to migrate the options stored in config-key
+    store anymore.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 781017a2689..1e9675944f5 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -308,12 +308,6 @@ void Mgr::init()
+   // Load module KV store
+   auto kv_store = load_store();
+ 
+-  // Migrate config from KV store on luminous->mimic
+-  // drop lock because we do blocking config sets to mon
+-  lock.unlock();
+-  py_module_registry->upgrade_config(monc, kv_store);
+-  lock.lock();
+-
+   // assume finisher already initialized in background_init
+   dout(4) << "starting python modules..." << dendl;
+   py_module_registry->active_start(daemon_state, cluster_state,

@@ -1,0 +1,163 @@
+commit 806f10847cefe5c7a78fc319b1b130d372197dd3
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Aug 24 12:53:24 2017 -0400
+
+    mgr: clean up DaemonStateIndex locking
+    
+    Various things here were dangerously operating
+    outside locks.
+    
+    Additionally switch to a RWLock because this lock
+    will be relatively read-hot when it's taken every time
+    a MMgrReport is handled, to look up the DaemonState
+    for the sender.
+    
+    Fixes: http://tracker.ceph.com/issues/21158
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index f304b18c6fc..8da32174735 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -20,7 +20,7 @@
+ 
+ void DaemonStateIndex::insert(DaemonStatePtr dm)
+ {
+-  Mutex::Locker l(lock);
++  RWLock::WLocker l(lock);
+ 
+   if (all.count(dm->key)) {
+     _erase(dm->key);
+@@ -32,7 +32,7 @@ void DaemonStateIndex::insert(DaemonStatePtr dm)
+ 
+ void DaemonStateIndex::_erase(const DaemonKey& dmk)
+ {
+-  assert(lock.is_locked_by_me());
++  assert(lock.is_wlocked());
+ 
+   const auto to_erase = all.find(dmk);
+   assert(to_erase != all.end());
+@@ -49,7 +49,7 @@ void DaemonStateIndex::_erase(const DaemonKey& dmk)
+ DaemonStateCollection DaemonStateIndex::get_by_service(
+   const std::string& svc) const
+ {
+-  Mutex::Locker l(lock);
++  RWLock::RLocker l(lock);
+ 
+   DaemonStateCollection result;
+ 
+@@ -65,7 +65,7 @@ DaemonStateCollection DaemonStateIndex::get_by_service(
+ DaemonStateCollection DaemonStateIndex::get_by_server(
+   const std::string &hostname) const
+ {
+-  Mutex::Locker l(lock);
++  RWLock::RLocker l(lock);
+ 
+   if (by_server.count(hostname)) {
+     return by_server.at(hostname);
+@@ -76,14 +76,14 @@ DaemonStateCollection DaemonStateIndex::get_by_server(
+ 
+ bool DaemonStateIndex::exists(const DaemonKey &key) const
+ {
+-  Mutex::Locker l(lock);
++  RWLock::RLocker l(lock);
+ 
+   return all.count(key) > 0;
+ }
+ 
+ DaemonStatePtr DaemonStateIndex::get(const DaemonKey &key)
+ {
+-  Mutex::Locker l(lock);
++  RWLock::RLocker l(lock);
+ 
+   auto iter = all.find(key);
+   if (iter != all.end()) {
+@@ -98,7 +98,7 @@ void DaemonStateIndex::cull(const std::string& svc_name,
+ {
+   std::vector<string> victims;
+ 
+-  Mutex::Locker l(lock);
++  RWLock::WLocker l(lock);
+   auto begin = all.lower_bound({svc_name, ""});
+   auto end = all.end();
+   for (auto &i = begin; i != end; ++i) {
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 98853a2ec2c..7dbdeb657cd 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -20,7 +20,7 @@
+ #include <set>
+ #include <boost/circular_buffer.hpp>
+ 
+-#include "common/Mutex.h"
++#include "common/RWLock.h"
+ 
+ #include "msg/msg_types.h"
+ 
+@@ -133,38 +133,52 @@ typedef std::map<DaemonKey, DaemonStatePtr> DaemonStateCollection;
+ class DaemonStateIndex
+ {
+   private:
++  mutable RWLock lock = {"DaemonStateIndex", true, true, true};
++
+   std::map<std::string, DaemonStateCollection> by_server;
+   DaemonStateCollection all;
+-
+   std::set<DaemonKey> updating;
+ 
+-  mutable Mutex lock;
++  void _erase(const DaemonKey& dmk);
+ 
+   public:
+-
+-  DaemonStateIndex() : lock("DaemonState") {}
++  DaemonStateIndex() {}
+ 
+   // FIXME: shouldn't really be public, maybe construct DaemonState
+   // objects internally to avoid this.
+   PerfCounterTypes types;
+ 
+   void insert(DaemonStatePtr dm);
+-  void _erase(const DaemonKey& dmk);
+-
+   bool exists(const DaemonKey &key) const;
+   DaemonStatePtr get(const DaemonKey &key);
++
++  // Note that these return by value rather than reference to avoid
++  // callers needing to stay in lock while using result.  Callers must
++  // still take the individual DaemonState::lock on each entry though.
+   DaemonStateCollection get_by_server(const std::string &hostname) const;
+   DaemonStateCollection get_by_service(const std::string &svc_name) const;
+-
+-  const DaemonStateCollection &get_all() const {return all;}
+-  const std::map<std::string, DaemonStateCollection> &get_all_servers() const
+-  {
+-    return by_server;
++  DaemonStateCollection get_all() const {return all;}
++
++  template<typename Callback, typename...Args>
++  auto with_daemons_by_server(Callback&& cb, Args&&... args) const ->
++    decltype(cb(by_server, std::forward<Args>(args)...)) {
++    RWLock::RLocker l(lock);
++    
++    return std::forward<Callback>(cb)(by_server, std::forward<Args>(args)...);
+   }
+ 
+-  void notify_updating(const DaemonKey &k) { updating.insert(k); }
+-  void clear_updating(const DaemonKey &k) { updating.erase(k); }
+-  bool is_updating(const DaemonKey &k) { return updating.count(k) > 0; }
++  void notify_updating(const DaemonKey &k) {
++    RWLock::WLocker l(lock);
++    updating.insert(k);
++  }
++  void clear_updating(const DaemonKey &k) {
++    RWLock::WLocker l(lock);
++    updating.erase(k);
++  }
++  bool is_updating(const DaemonKey &k) {
++    RWLock::RLocker l(lock);
++    return updating.count(k) > 0;
++  }
+ 
+   /**
+    * Remove state for all daemons of this type whose names are

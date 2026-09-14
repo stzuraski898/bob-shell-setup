@@ -1,0 +1,142 @@
+commit 95a90f7da8a32dd2a5a1e3b381aaeacea378437b
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Sun Dec 8 18:08:39 2024 +0000
+
+    mgr: Add per-module performance counters to mgr
+    
+    This commit introduces performance counters for individual Ceph mgr modules.
+    These counters allow monitoring module behavior, debugging latency issues,
+    and identifying performance bottlenecks, all without modifying the modules themselves.
+    
+    The following counters are now exposed under:
+      > ceph daemon mgr.<id> perf dump
+    
+    Example structure:
+    "mgr_module_<module_name>": {
+        "notify_avg_usec": {     <- Average time spent handling notify events
+            "avgcount": 0,
+            "sum": 0
+        },
+        "cmd_avg_usec": {        <- Average time spent processing CLI/admin commands
+            "avgcount": 0,
+            "sum": 0
+        },
+        "serve_avg_usec": {      <- Average time spent in module serve loop (if applicable)
+            "avgcount": 0,
+            "sum": 0
+        },
+        "alive": 1               <- Module is alive (1 = running, 0 = exited)
+        "cpu_usage": 0,          <- CPU usage in percent
+        "mem_rss_change": 0,     <- Memory RSS change in bytes
+        "mem_rss_current": 490737664 <- Memory RSS current in bytes
+    
+    }
+    
+    Signed-off-by: Nitzan Mordechai <nmordech@ibm.com>
+    
+    Conflicts:
+      src/mgr/ActivePyModules.cc - finisher.queue changed by 63859, adding py_module to the parameter list
+      src/mgr/PyModuleRegistry.cc - check_all_modules_started added by 63859
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index 36f8bc98044..e7469995110 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -44,7 +44,9 @@ int PyModuleRunner::serve()
+   // This method is called from a separate OS thread (i.e. a thread not
+   // created by Python), so tell Gil to wrap this in a new thread state.
+   Gil gil(py_module->pMyThreadState, true);
+-
++  if (py_module->perfcounter) {
++    py_module->perfcounter->set(py_module->l_pym_alive, 1);
++  }
+   auto pValue = PyObject_CallMethod(pClassInstance,
+       const_cast<char*>("serve"), nullptr);
+ 
+@@ -71,6 +73,10 @@ int PyModuleRunner::serve()
+     return -EINVAL;
+   }
+ 
++  if (py_module->perfcounter) {
++    py_module->perfcounter->set(py_module->l_pym_alive, 0);
++  }
++
+   return r;
+ }
+ 
+@@ -89,7 +95,9 @@ void PyModuleRunner::shutdown()
+     derr << "Failed to invoke shutdown() on " << get_name() << dendl;
+     derr << handle_pyerror(true, get_name(), "PyModuleRunner::shutdown") << dendl;
+   }
+-
++  if (py_module->perfcounter) {
++    py_module->perfcounter->set(py_module->l_pym_alive, 0);
++  }
+   dead = true;
+ }
+ 
+@@ -106,6 +114,7 @@ void* PyModuleRunner::PyModuleRunnerThread::entry()
+ {
+   // No need to acquire the GIL here; the module does it.
+   dout(4) << "Entering thread for " << mod->get_name() << dendl;
++  runner_tid.store(ceph_gettid(), std::memory_order_release); 
+   mod->serve();
+   return nullptr;
+ }
+diff --git a/src/mgr/PyModuleRunner.h b/src/mgr/PyModuleRunner.h
+index 187002745e1..3b9596ea9e3 100644
+--- a/src/mgr/PyModuleRunner.h
++++ b/src/mgr/PyModuleRunner.h
+@@ -20,6 +20,8 @@
+ #include "mgr/Gil.h"
+ 
+ #include "PyModule.h"
++#include "mgr/ThreadMonitor.h"
++#include <future>
+ 
+ /**
+  * Implement the pattern of calling serve() on a module in a thread,
+@@ -36,16 +38,18 @@ protected:
+   PyObject *pClassInstance = nullptr;
+ 
+   LogChannelRef clog;
+-
++  pid_t m_native_tid = 0;
++  ThreadMonitor* m_thread_monitor = nullptr;
+   class PyModuleRunnerThread : public Thread
+   {
+     PyModuleRunner *mod;
+-
++    std::atomic<pid_t> runner_tid{0};
+   public:
+     explicit PyModuleRunnerThread(PyModuleRunner *mod_)
+       : mod(mod_) {}
+ 
+     void *entry() override;
++    pid_t get_tid() const { return runner_tid.load(); }
+   };
+ 
+   bool is_dead() const { return dead; }
+@@ -64,10 +68,12 @@ public:
+ 
+   PyModuleRunner(
+       const PyModuleRef &py_module_,
+-      LogChannelRef clog_)
++      LogChannelRef clog_,
++      ThreadMonitor* monitor_ = nullptr)
+     : 
+       py_module(py_module_),
+       clog(clog_),
++      m_thread_monitor(monitor_),
+       thread(this)
+   {
+     // Shortened name for use as thread name, because thread names
+@@ -82,6 +88,8 @@ public:
+   PyModuleRunnerThread thread;
+ 
+   std::string const &get_name() const { return py_module->get_name(); }
++  void set_native_tid(pid_t tid) { m_native_tid = tid; }
++  pid_t get_native_tid() const { return m_native_tid; }
+ 
+ private:
+   bool dead = false;

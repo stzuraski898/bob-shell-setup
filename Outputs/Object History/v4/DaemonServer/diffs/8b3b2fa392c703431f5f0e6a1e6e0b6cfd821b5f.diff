@@ -1,0 +1,89 @@
+commit 8b3b2fa392c703431f5f0e6a1e6e0b6cfd821b5f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 13 12:19:42 2018 -0500
+
+    mgr/DaemonServer: handle MMgrClose
+    
+    Close will close out an open mgr session (unwind MMgrOpen).
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 700347ebbaf..3e4a5377d3a 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -24,6 +24,7 @@
+ #include "mon/MonCommand.h"
+ 
+ #include "messages/MMgrOpen.h"
++#include "messages/MMgrClose.h"
+ #include "messages/MMgrConfigure.h"
+ #include "messages/MMonMgrReport.h"
+ #include "messages/MCommand.h"
+@@ -284,6 +285,8 @@ bool DaemonServer::ms_dispatch(Message *m)
+       return handle_report(static_cast<MMgrReport*>(m));
+     case MSG_MGR_OPEN:
+       return handle_open(static_cast<MMgrOpen*>(m));
++    case MSG_MGR_CLOSE:
++      return handle_close(static_cast<MMgrClose*>(m));
+     case MSG_COMMAND:
+       return handle_command(static_cast<MCommand*>(m));
+     default:
+@@ -417,6 +420,37 @@ bool DaemonServer::handle_open(MMgrOpen *m)
+   return true;
+ }
+ 
++bool DaemonServer::handle_close(MMgrClose *m)
++{
++  Mutex::Locker l(lock);
++
++  DaemonKey key;
++  if (!m->service_name.empty()) {
++    key.first = m->service_name;
++  } else {
++    key.first = ceph_entity_type_name(m->get_connection()->get_peer_type());
++  }
++  key.second = m->daemon_name;
++
++  dout(4) << "from " << m->get_connection() << "  " << key << dendl;
++
++  if (daemon_state.exists(key)) {
++    DaemonStatePtr daemon = daemon_state.get(key);
++    daemon_state.rm(key);
++    {
++      Mutex::Locker l(daemon->lock);
++      if (daemon->service_daemon) {
++	pending_service_map.rm_daemon(m->service_name, m->daemon_name);
++	pending_service_map_dirty = pending_service_map.epoch;
++      }
++    }
++  }
++
++  // send same message back as a reply
++  m->get_connection()->send_message(m);
++  return true;
++}
++
+ bool DaemonServer::handle_report(MMgrReport *m)
+ {
+   DaemonKey key;
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 6a01714c4f0..7972a1d8476 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -33,6 +33,7 @@
+ 
+ class MMgrReport;
+ class MMgrOpen;
++class MMgrClose;
+ class MMonMgrReport;
+ class MCommand;
+ struct MonCommand;
+@@ -132,6 +133,7 @@ public:
+       CryptoKey& session_key) override;
+ 
+   bool handle_open(MMgrOpen *m);
++  bool handle_close(MMgrClose *m);
+   bool handle_report(MMgrReport *m);
+   bool handle_command(MCommand *m);
+   void send_report();

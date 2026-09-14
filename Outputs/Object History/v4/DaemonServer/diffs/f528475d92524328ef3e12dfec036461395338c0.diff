@@ -1,0 +1,42 @@
+commit f528475d92524328ef3e12dfec036461395338c0
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Jul 6 23:08:00 2018 +0800
+
+    common: move ConfigValues out of md_config_t
+    
+    by moving ConfigValues out of md_config_t, we are able to point
+    md_config_t to a new ConfigValues instance at runtime, without
+    destroying the old one.
+    
+    also remove ConfigReader, because all md_config_obs_t will be updated
+    with ConfigProxy now. as md_config_t is not able to offer the *data*
+    anymore.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 63eca2f6b6d..d94e663ae1e 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2206,7 +2206,7 @@ const char** DaemonServer::get_tracked_conf_keys() const
+   return KEYS;
+ }
+ 
+-void DaemonServer::handle_conf_change(const md_config_t *conf,
++void DaemonServer::handle_conf_change(const ConfigProxy& conf,
+ 				      const std::set <std::string> &changed)
+ {
+   // We may be called within lock (via MCommand `config set`) or outwith the
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index c10b4708125..26554a47283 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -145,7 +145,7 @@ public:
+   void _send_configure(ConnectionRef c);
+ 
+   virtual const char** get_tracked_conf_keys() const override;
+-  virtual void handle_conf_change(const md_config_t *conf,
++  virtual void handle_conf_change(const ConfigProxy& conf,
+                           const std::set <std::string> &changed) override;
+ };
+ 

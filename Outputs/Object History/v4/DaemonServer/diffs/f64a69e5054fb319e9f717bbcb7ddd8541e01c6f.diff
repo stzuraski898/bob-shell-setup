@@ -1,0 +1,26 @@
+commit f64a69e5054fb319e9f717bbcb7ddd8541e01c6f
+Author: Neha Ojha <nojha@redhat.com>
+Date:   Wed Jan 23 19:25:12 2019 -0800
+
+    mgr/DaemonServer: log pgmap usage to cluster log
+    
+    - change default of mon_cluster_log_file_level to debug
+    - log to clog->debug()
+    
+    Fixes: https://tracker.ceph.com/issues/37886
+    Signed-off-by: Neha Ojha <nojha@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index d9636ff914c..3289efaf0d4 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2220,6 +2220,9 @@ void DaemonServer::send_report()
+ 	  jf.dump_object("health_checks", m->health_checks);
+ 	  jf.flush(*_dout);
+ 	  *_dout << dendl;
++          if (osdmap.require_osd_release >= CEPH_RELEASE_LUMINOUS) {
++              clog->debug() << "pgmap v" << pg_map.version << ": " << pg_map;
++          }
+ 	});
+     });
+ 

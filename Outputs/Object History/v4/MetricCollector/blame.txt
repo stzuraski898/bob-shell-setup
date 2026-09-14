@@ -1,0 +1,281 @@
+# git blame -w -M -C src/mgr/MetricCollector.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman  2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/MetricCollector.cc               (Edwin Rodriguez 2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400   3) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400   4) #include "common/debug.h"
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400   5) #include "common/errno.h"
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400   6) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400   7) #include "mgr/MetricCollector.h"
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400   8) #include "mgr/OSDPerfMetricTypes.h"
+f6ba1eea4cde src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:53:09 -0400   9) #include "mgr/MDSPerfMetricTypes.h"
+ac30e6cee2b2 src/mgr/DaemonServer.cc                  (John Spray      2016-06-30 14:05:02 +0100  10) 
+b9182564c716 src/mgr/DaemonServer.cc                  (Adam C. Emerson 2016-11-16 12:38:08 -0500  11) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/DaemonServer.cc                  (John Spray      2016-06-30 14:05:02 +0100  12) #define dout_subsys ceph_subsys_mgr
+ac30e6cee2b2 src/mgr/DaemonServer.cc                  (John Spray      2016-06-30 14:05:02 +0100  13) #undef dout_prefix
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  14) #define dout_prefix *_dout << "mgr.metric_collector " << __func__ << ": "
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  15) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  16) template <typename Query, typename Limit, typename Key, typename Report>
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  17) MetricCollector<Query, Limit, Key, Report>::MetricCollector(MetricListener &listener)
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  18)   : listener(listener)
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  19) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  20) }
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  21) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  22) template <typename Query, typename Limit, typename Key, typename Report>
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  23) MetricQueryID MetricCollector<Query, Limit, Key, Report>::add_query(
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  24)     const Query &query,
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  25)     const std::optional<Limit> &limit) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  26)   dout(20) << "query=" << query << ", limit=" << limit << dendl;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  27)   uint64_t query_id;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  28)   bool notify = false;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  29) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  30)   {
+948635a8b213 src/mgr/OSDPerfMetricCollector.cc        (Sage Weil       2018-10-16 14:11:33 -0500  31)     std::lock_guard locker(lock);
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  32) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  33)     query_id = next_query_id++;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  34)     auto it = queries.find(query);
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  35)     if (it == queries.end()) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  36)       it = queries.emplace(query, std::map<MetricQueryID, OptionalLimit>{}).first;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  37)       notify = true;
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-23 15:25:22 +0200  38)     } else if (is_limited(it->second)) {
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-23 15:25:22 +0200  39)       notify = true;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  40)     }
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  41) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  42)     it->second.emplace(query_id, limit);
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  43)     counters.emplace(query_id, std::map<Key, PerformanceCounters>{});
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  44)   }
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  45) 
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-23 15:25:22 +0200  46)   dout(10) << query << " " << (limit ? stringify(*limit) : "unlimited")
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-23 15:25:22 +0200  47)            << " query_id=" << query_id << dendl;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  48) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  49)   if (notify) {
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  50)     listener.handle_query_updated();
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  51)   }
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  52) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  53)   return query_id;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  54) }
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  55) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  56) template <typename Query, typename Limit, typename Key, typename Report>
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  57) int MetricCollector<Query, Limit, Key, Report>::remove_query(MetricQueryID query_id) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  58)   dout(20) << "query_id=" << query_id << dendl;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  59)   bool found = false;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  60)   bool notify = false;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  61) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  62)   {
+948635a8b213 src/mgr/OSDPerfMetricCollector.cc        (Sage Weil       2018-10-16 14:11:33 -0500  63)     std::lock_guard locker(lock);
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  64) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  65)     for (auto it = queries.begin() ; it != queries.end();) {
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-23 15:25:22 +0200  66)       auto iter = it->second.find(query_id);
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-23 15:25:22 +0200  67)       if (iter == it->second.end()) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  68)         ++it;
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-23 15:25:22 +0200  69)         continue;
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-23 15:25:22 +0200  70)       }
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  71) 
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-23 15:25:22 +0200  72)       it->second.erase(iter);
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-23 15:25:22 +0200  73)       if (it->second.empty()) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  74)         it = queries.erase(it);
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  75)         notify = true;
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  76)       } else if (is_limited(it->second)) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400  77)         ++it;
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-23 15:25:22 +0200  78)         notify = true;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  79)       }
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  80)       found = true;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  81)       break;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  82)     }
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200  83)     counters.erase(query_id);
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  84)   }
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  85) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  86)   if (!found) {
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  87)     dout(10) << query_id << " not found" << dendl;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  88)     return -ENOENT;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  89)   }
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  90) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  91)   dout(10) << query_id << dendl;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  92) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  93)   if (notify) {
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  94)     listener.handle_query_updated();
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  95)   }
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  96) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  97)   return 0;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  98) }
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300  99) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 100) template <typename Query, typename Limit, typename Key, typename Report>
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 101) void MetricCollector<Query, Limit, Key, Report>::remove_all_queries() {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 102)   dout(20) << dendl;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 103)   bool notify;
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 104) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 105)   {
+948635a8b213 src/mgr/OSDPerfMetricCollector.cc        (Sage Weil       2018-10-16 14:11:33 -0500 106)     std::lock_guard locker(lock);
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 107) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 108)     notify = !queries.empty();
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 109)     queries.clear();
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 110)   }
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 111) 
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 112)   if (notify) {
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 113)     listener.handle_query_updated();
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 114)   }
+a6c339083475 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-10-03 19:07:07 +0300 115) }
+f495b8cce901 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-09-23 20:33:14 +0300 116) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 117) template <typename Query, typename Limit, typename Key, typename Report>
+c2470f271cce src/mgr/MetricCollector.cc               (Jos Collin      2021-06-29 15:29:01 +0530 118) void MetricCollector<Query, Limit, Key, Report>::reregister_queries() {
+c2470f271cce src/mgr/MetricCollector.cc               (Jos Collin      2021-06-29 15:29:01 +0530 119)   dout(20) << dendl;
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 120)   listener.handle_query_updated();
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 121) }
+c2470f271cce src/mgr/MetricCollector.cc               (Jos Collin      2021-06-29 15:29:01 +0530 122) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 123) template <typename Query, typename Limit, typename Key, typename Report>
+7523aef6e865 src/mgr/MetricCollector.cc               (Venky Shankar   2019-08-26 05:32:23 -0400 124) int MetricCollector<Query, Limit, Key, Report>::get_counters_generic(
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 125)     MetricQueryID query_id, std::map<Key, PerformanceCounters> *c) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 126)   dout(20) << dendl;
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 127)   ceph_assert(ceph_mutex_is_locked(lock));
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 128) 
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 129)   auto it = counters.find(query_id);
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 130)   if (it == counters.end()) {
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 131)     dout(10) << "counters for " << query_id << " not found" << dendl;
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 132)     return -ENOENT;
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 133)   }
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 134) 
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 135)   *c = std::move(it->second);
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 136)   it->second.clear();
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 137) 
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 138)   return 0;
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 139) }
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 140) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 141) template <typename Query, typename Limit, typename Key, typename Report>
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 142) void MetricCollector<Query, Limit, Key, Report>::process_reports_generic(
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 143)     const std::map<Query, Report> &reports, UpdateCallback callback) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 144)   ceph_assert(ceph_mutex_is_locked(lock));
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 145) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 146)   if (reports.empty()) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 147)     return;
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 148)   }
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 149) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 150)   for (auto& [query, report] : reports) {
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 151)     dout(10) << "report for " << query << " query: "
+f495b8cce901 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-09-23 20:33:14 +0300 152)              << report.group_packed_performance_counters.size() << " records"
+f495b8cce901 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-09-23 20:33:14 +0300 153)              << dendl;
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 154) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 155)     for (auto& [key, bl] : report.group_packed_performance_counters) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 156)       auto bl_it = bl.cbegin();
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 157) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 158)       for (auto& p : queries[query]) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 159)         auto &key_counters = counters[p.first][key];
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 160)         if (key_counters.empty()) {
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 161)           key_counters.resize(query.performance_counter_descriptors.size(),
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 162)                               {0, 0});
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 163)         }
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 164)       }
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 165) 
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 166)       auto desc_it = report.performance_counter_descriptors.begin();
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 167)       for (size_t i = 0; i < query.performance_counter_descriptors.size(); i++) {
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 168)         if (desc_it == report.performance_counter_descriptors.end()) {
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 169)           break;
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 170)         }
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-23 15:25:22 +0200 171)         if (*desc_it != query.performance_counter_descriptors[i]) {
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 172)           continue;
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 173)         }
+f495b8cce901 src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-09-23 20:33:14 +0300 174)         PerformanceCounter c;
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 175)         desc_it->unpack_counter(bl_it, &c);
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 176)         dout(20) << "counter " << key << " " << *desc_it << ": " << c << dendl;
+438a3f7bc40c src/mgr/OSDPerfMetricCollector.cc        (Mykola Golub    2018-11-12 20:41:42 +0200 177) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 178)         for (auto& p : queries[query]) {
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 179)           auto &key_counters = counters[p.first][key];
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 180)           callback(&key_counters[i], c);
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 181)         }
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 182)         desc_it++;
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 183)       }
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 184)     }
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 185)   }
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 186) }
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 187) 
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 188) template class
+efcebe1eb4ae src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:49:04 -0400 189) MetricCollector<OSDPerfMetricQuery, OSDPerfMetricLimit, OSDPerfMetricKey, OSDPerfMetricReport>;
+f6ba1eea4cde src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:53:09 -0400 190) template class
+f6ba1eea4cde src/mgr/MetricCollector.cc               (Venky Shankar   2019-09-10 09:53:09 -0400 191) MetricCollector<MDSPerfMetricQuery, MDSPerfMetricLimit, MDSPerfMetricKey, MDSPerfMetrics>;
+
+# git blame -w -M -C src/mgr/MetricCollector.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng   2020-04-08 10:35:40 +0800  1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/MetricCollector.h                                  (Edwin Rodriguez 2025-10-01 09:09:51 -0400  2) // vim: ts=8 sw=2 sts=2 expandtab
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400  3) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400  4) #ifndef CEPH_MGR_METRIC_COLLECTOR_H
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400  5) #define CEPH_MGR_METRIC_COLLECTOR_H
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400  6) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400  7) #include <map>
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400  8) #include <set>
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400  9) #include <tuple>
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 10) #include <vector>
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 11) #include <utility>
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 12) #include <algorithm>
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 13) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 14) #include "common/ceph_mutex.h"
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 15) #include "msg/Message.h"
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 16) #include "mgr/Types.h"
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 17) #include "mgr/MetricTypes.h"
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 18) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 19) class MMgrReport;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 20) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 21) template <typename Query, typename Limit, typename Key, typename Report>
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 22) class MetricCollector {
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 23) public:
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 24)   virtual ~MetricCollector() {
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 25)   }
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 26) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 27)   using Limits = std::set<Limit>;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 28) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 29)   MetricCollector(MetricListener &listener);
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 30) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 31)   MetricQueryID add_query(const Query &query, const std::optional<Limit> &limit);
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 32) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 33)   int remove_query(MetricQueryID query_id);
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 34) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 35)   void remove_all_queries();
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 36) 
+c2470f271cce src/mgr/MetricCollector.h                                  (Jos Collin      2021-06-29 15:29:01 +0530 37)   void reregister_queries();
+c2470f271cce src/mgr/MetricCollector.h                                  (Jos Collin      2021-06-29 15:29:01 +0530 38) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 39)   std::map<Query, Limits> get_queries() const {
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 40)     std::lock_guard locker(lock);
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 41) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 42)     std::map<Query, Limits> result;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 43)     for (auto& [query, limits] : queries) {
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc                          (Mykola Golub    2018-11-23 15:25:22 +0200 44)       auto result_it = result.insert({query, {}}).first;
+b1f12671184a src/mgr/OSDPerfMetricCollector.cc                          (Mykola Golub    2018-11-23 15:25:22 +0200 45)       if (is_limited(limits)) {
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 46)         for (auto& limit : limits) {
+9a05872fdd49 src/mgr/MetricCollector.h                                  (Aswin Toni      2021-10-01 16:12:22 +0200 47)           if (limit.second) {
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 48)             result_it->second.insert(*limit.second);
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 49)           }
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 50)         }
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 51)       }
+9a05872fdd49 src/mgr/MetricCollector.h                                  (Aswin Toni      2021-10-01 16:12:22 +0200 52)     }
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 53) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 54)     return result;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 55)   }
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 56) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 57)   virtual void process_reports(const MetricPayload &payload) = 0;
+7523aef6e865 src/mgr/MetricCollector.h                                  (Venky Shankar   2019-08-26 05:32:23 -0400 58)   virtual int get_counters(PerfCollector *collector) = 0;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 59) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 60) protected:
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 61)   typedef std::optional<Limit> OptionalLimit;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 62)   typedef std::map<MetricQueryID, OptionalLimit> QueryIDLimit;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 63)   typedef std::map<Query, QueryIDLimit> Queries;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 64)   typedef std::map<MetricQueryID, std::map<Key, PerformanceCounters>> Counters;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 65)   typedef std::function<void(PerformanceCounter *, const PerformanceCounter &)> UpdateCallback;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 66) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 67)   mutable ceph::mutex lock = ceph::make_mutex("mgr::metric::collector::lock");
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 68) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 69)   Queries queries;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 70)   Counters counters;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 71) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 72)   void process_reports_generic(const std::map<Query, Report> &reports, UpdateCallback callback);
+7523aef6e865 src/mgr/MetricCollector.h                                  (Venky Shankar   2019-08-26 05:32:23 -0400 73)   int get_counters_generic(MetricQueryID query_id, std::map<Key, PerformanceCounters> *counters);
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 74) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 75) private:
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 76)   MetricListener &listener;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 77)   MetricQueryID next_query_id = 0;
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 78) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 79)   bool is_limited(const std::map<MetricQueryID, OptionalLimit> &limits) const {
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 80)     return std::any_of(begin(limits), end(limits),
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 81)                        [](auto &limits) { return limits.second.has_value(); });
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 82)   }
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 83) };
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 84) 
+efcebe1eb4ae src/mgr/MetricCollector.h                                  (Venky Shankar   2019-09-10 09:49:04 -0400 85) #endif // CEPH_MGR_METRIC_COLLECTOR_H

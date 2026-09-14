@@ -1,0 +1,42 @@
+commit dffce107fb68e21cd85938d67115bdafe4e697eb
+Author: Sebastian Wagner <swagner@suse.com>
+Date:   Mon Jul 22 14:36:41 2019 +0200
+
+    mgr: cleanup idle debug log at level 4.
+    
+    Changed all messages to 10 that are printed repeatedly in an idle cluster.
+    
+    This makes debugging Python modules easier as the log
+    is no longer pullued by mgr core messages.
+    
+    Signed-off-by: Sebastian Wagner <sebastian.wagner@suse.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 1f075795c58..806f023d198 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -393,7 +393,7 @@ bool DaemonServer::handle_open(const ref_t<MMgrOpen>& m)
+ 				   m->get_connection()->get_peer_type(),
+ 				   m->daemon_name);
+ 
+-  dout(4) << "from " << m->get_connection() << "  " << key << dendl;
++  dout(10) << "from " << m->get_connection() << "  " << key << dendl;
+ 
+   _send_configure(m->get_connection());
+ 
+@@ -495,13 +495,13 @@ bool DaemonServer::handle_report(const ref_t<MMgrReport>& m)
+   }
+   key.second = m->daemon_name;
+ 
+-  dout(4) << "from " << m->get_connection() << " " << key << dendl;
++  dout(10) << "from " << m->get_connection() << " " << key << dendl;
+ 
+   if (m->get_connection()->get_peer_type() == entity_name_t::TYPE_CLIENT &&
+       m->service_name.empty()) {
+     // Clients should not be sending us stats unless they are declaring
+     // themselves to be a daemon for some service.
+-    dout(4) << "rejecting report from non-daemon client " << m->daemon_name
++    dout(10) << "rejecting report from non-daemon client " << m->daemon_name
+ 	    << dendl;
+     m->get_connection()->mark_down();
+     return true;

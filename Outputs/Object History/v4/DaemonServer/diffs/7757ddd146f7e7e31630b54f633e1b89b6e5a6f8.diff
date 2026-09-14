@@ -1,0 +1,30 @@
+commit 7757ddd146f7e7e31630b54f633e1b89b6e5a6f8
+Author: Julien Collet <julien.collet@cern.ch>
+Date:   Mon Sep 17 17:23:17 2018 +0200
+
+    mgr: add optional OSD perf queries to MMgrConfigure message
+    
+    Fixes: https://tracker.ceph.com/issues/35914
+    Signed-off-by: Julien Collet <julien.collet@cern.ch>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ebdacaf6901..e1b621b6534 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2320,9 +2320,16 @@ void DaemonServer::_send_configure(ConnectionRef c)
+ {
+   assert(lock.is_locked_by_me());
+ 
++  OSDPerfMetricQuery query;
++
+   auto configure = new MMgrConfigure();
+   configure->stats_period = g_conf().get_val<int64_t>("mgr_stats_period");
+   configure->stats_threshold = g_conf().get_val<int64_t>("mgr_stats_threshold");
++
++  if (c->peer_is_osd()) {
++    configure->osd_perf_metric_queries.push_back(query);
++  }
++
+   c->send_message(configure);
+ }
+ 

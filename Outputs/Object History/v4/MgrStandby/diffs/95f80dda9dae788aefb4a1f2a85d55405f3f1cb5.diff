@@ -1,0 +1,25 @@
+commit 95f80dda9dae788aefb4a1f2a85d55405f3f1cb5
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Feb 16 18:24:20 2021 -0500
+
+    mgr/MgrStandby: simplify weird code
+    
+    PyModule::config_prefix is "mgr/", so this has no effect.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index dd318148455..585837802f5 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -137,9 +137,7 @@ int MgrStandby::init()
+       // dout(10) << "config_callback: " << k << " : " << v << dendl;
+       dout(10) << "config_callback: " << k << " : " << dendl;
+       if (k.substr(0, 4) == "mgr/") {
+-	const std::string global_key = PyModule::config_prefix + k.substr(4);
+-        py_module_registry.handle_config(global_key, v);
+-
++        py_module_registry.handle_config(k, v);
+ 	return true;
+       }
+       return false;

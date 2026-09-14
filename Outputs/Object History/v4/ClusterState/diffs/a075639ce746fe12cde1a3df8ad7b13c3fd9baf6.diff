@@ -1,0 +1,37 @@
+commit a075639ce746fe12cde1a3df8ad7b13c3fd9baf6
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Apr 15 14:01:00 2019 +0800
+
+    mgr/DaemonServer: use ref_t<M>
+    
+    to avoid explicit use of RefCountedObj interface. and let
+    intrusive_ptr<> to take care of the life cycle of messages.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 7e073a58bcc..a74fa4feb14 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -64,7 +64,7 @@ void ClusterState::load_digest(MMgrDigest *m)
+   mon_status_json = std::move(m->mon_status_json);
+ }
+ 
+-void ClusterState::ingest_pgstats(MPGStats *stats)
++void ClusterState::ingest_pgstats(ref_t<MPGStats> stats)
+ {
+   std::lock_guard l(lock);
+ 
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index c5d46fa1abf..4d43cddbe89 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -53,7 +53,7 @@ protected:
+ public:
+ 
+   void load_digest(MMgrDigest *m);
+-  void ingest_pgstats(MPGStats *stats);
++  void ingest_pgstats(ceph::ref_t<MPGStats> stats);
+ 
+   void update_delta_stats();
+ 

@@ -1,0 +1,56 @@
+commit bfbfbbfed6c02a913d0fcfd6a97071acafb95378
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Thu Aug 10 16:25:34 2023 -0400
+
+    mon/MonClient: handle ms_handle_fast_authentication return
+    
+    Fixes: https://tracker.ceph.com/issues/62382
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index f914a3152f9..ca335a744d4 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -257,7 +257,7 @@ entity_addrvec_t DaemonServer::get_myaddrs() const
+   return msgr->get_myaddrs();
+ }
+ 
+-int DaemonServer::ms_handle_fast_authentication(Connection *con)
++bool DaemonServer::ms_handle_fast_authentication(Connection *con)
+ {
+   auto s = ceph::make_ref<MgrSession>(cct);
+   con->set_priv(s);
+@@ -282,17 +282,17 @@ int DaemonServer::ms_handle_fast_authentication(Connection *con)
+     catch (buffer::error& e) {
+       dout(10) << " session " << s << " " << s->entity_name
+                << " failed to decode caps" << dendl;
+-      return -EACCES;
++      return false;
+     }
+     if (!s->caps.parse(str)) {
+       dout(10) << " session " << s << " " << s->entity_name
+ 	       << " failed to parse caps '" << str << "'" << dendl;
+-      return -EACCES;
++      return false;
+     }
+     dout(10) << " session " << s << " " << s->entity_name
+              << " has caps " << s->caps << " '" << str << "'" << dendl;
+   }
+-  return 1;
++  return true;
+ }
+ 
+ void DaemonServer::ms_handle_accept(Connection* con)
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 998cc7c8385..1193805def5 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -272,7 +272,7 @@ public:
+   ~DaemonServer() override;
+ 
+   bool ms_dispatch2(const ceph::ref_t<Message>& m) override;
+-  int ms_handle_fast_authentication(Connection *con) override;
++  bool ms_handle_fast_authentication(Connection *con) override;
+   void ms_handle_accept(Connection *con) override;
+   bool ms_handle_reset(Connection *con) override;
+   void ms_handle_remote_reset(Connection *con) override {}

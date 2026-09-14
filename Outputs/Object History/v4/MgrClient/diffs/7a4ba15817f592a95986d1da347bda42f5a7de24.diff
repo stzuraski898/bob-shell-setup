@@ -1,0 +1,26 @@
+commit 7a4ba15817f592a95986d1da347bda42f5a7de24
+Author: Jesse Williamson <jesse.williamson@suse.com>
+Date:   Wed May 24 04:36:44 2017 -0700
+
+    mgr: fixes compiler error because of atomic_t to <atomic>
+    
+    Signed-off-by: Jesse Williamson <jwilliamson@suse.de>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 45d2707af25..0b554402bf7 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -236,10 +236,10 @@ void MgrClient::send_report()
+ 	session->declared.insert(path);
+       }
+ 
+-      ::encode(static_cast<uint64_t>(data.u64.read()), report->packed);
++      ::encode(static_cast<uint64_t>(data.u64), report->packed);
+       if (data.type & PERFCOUNTER_LONGRUNAVG) {
+-        ::encode(static_cast<uint64_t>(data.avgcount.read()), report->packed);
+-        ::encode(static_cast<uint64_t>(data.avgcount2.read()), report->packed);
++        ::encode(static_cast<uint64_t>(data.avgcount), report->packed);
++        ::encode(static_cast<uint64_t>(data.avgcount2), report->packed);
+       }
+     }
+     ENCODE_FINISH(report->packed);

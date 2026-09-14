@@ -1,0 +1,25 @@
+commit 97cfc3cb694eb2723cae22d71057323773746cee
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Jun 26 13:22:17 2017 -0400
+
+    mgr: allow/track service registrations
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index bad83bb8fec..e75b968425e 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -102,6 +102,12 @@ class DaemonState
+   // The metadata (hostname, version, etc) sent from the daemon
+   std::map<std::string, std::string> metadata;
+ 
++  // Ephemeral state
++  bool service_daemon = false;
++  utime_t service_status_stamp;
++  std::map<std::string, std::string> service_status;
++  utime_t last_service_beacon;
++
+   // The perf counters received in MMgrReport messages
+   DaemonPerfCounters perf_counters;
+ 

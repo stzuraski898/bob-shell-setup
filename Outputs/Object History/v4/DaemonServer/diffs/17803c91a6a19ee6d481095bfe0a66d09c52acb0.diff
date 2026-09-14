@@ -1,0 +1,26 @@
+commit 17803c91a6a19ee6d481095bfe0a66d09c52acb0
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue May 29 11:01:43 2018 +0800
+
+    src: balance std::hex and std::dec manipulators
+    
+    we're caching the "t_os.streambuf", so the fmtflags persist across
+    log entries. to avoid this side effects, we should do the cleanup
+    before finishing each log entry.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 8337b34d90d..d976761542b 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1837,7 +1837,8 @@ void DaemonServer::send_report()
+           if (!collector) {
+             derr << __func__ << " " << key.first << "." << key.second
+ 		 << " sent me an unknown health metric: "
+-		 << hex << static_cast<uint8_t>(metric.get_type()) << dendl;
++		 << std::hex << static_cast<uint8_t>(metric.get_type())
++		 << std::dec << dendl;
+             continue;
+           }
+ 	  dout(20) << " + " << state->key << " "

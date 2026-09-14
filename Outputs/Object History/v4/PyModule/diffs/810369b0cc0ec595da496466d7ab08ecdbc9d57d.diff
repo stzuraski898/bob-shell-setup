@@ -1,0 +1,45 @@
+commit 810369b0cc0ec595da496466d7ab08ecdbc9d57d
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Feb 5 16:06:09 2018 +0100
+
+    mgr: initialize PyModuleRegistry sooner
+    
+    This was waiting on MgrMap to init, so that it would know whether
+    modules should be enabled.  However, you don't really need to know
+    that until someone calls standby_start or active_start, so we
+    can initialize during MgrStandby::init, and fill out the enabled
+    flags later.
+    
+    This prevents the mgr from prematurely emitting a MMgrBeacon
+    that claims no modules are found.
+    
+    http://tracker.ceph.com/issues/22918
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index a25792f5a67..bea92689e0a 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -69,8 +69,8 @@ public:
+   PyObject *pClass = nullptr;
+   PyObject *pStandbyClass = nullptr;
+ 
+-  PyModule(const std::string &module_name_, bool const enabled_)
+-    : module_name(module_name_), enabled(enabled_)
++  PyModule(const std::string &module_name_)
++    : module_name(module_name_)
+   {
+   }
+ 
+@@ -85,6 +85,11 @@ public:
+   static void init_ceph_module();
+ #endif
+ 
++  void set_enabled(const bool enabled_)
++  {
++    enabled = enabled_;
++  }
++
+   /**
+    * Extend `out` with the contents of `this->commands`
+    */

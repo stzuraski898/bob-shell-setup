@@ -1,0 +1,47 @@
+commit afd0b924e2173bce863571f17dfb7d21ab3e1cfd
+Author: Sridhar Seshasayee <sridhar.seshasayee@ibm.com>
+Date:   Mon Jul 20 19:31:37 2026 +0530
+
+    mgr/DaemonServer: Make an ok-to-upgrade error message more generic
+    
+    When no OSDs within a CRUSH bucket can be found to upgrade, the earlier error
+    message indicated the minimum number of PGs affected if any OSD was removed
+    from the set. For e.g.,
+    
+    "Error EBUSY: unsafe to upgrade osd(s) at this time (at least X PG(s) will
+    become offline if any OSD out of the Y in CRUSH bucket 'foo' is stopped)"
+    
+    This was inaccurate in some cases because the number of PGs affected is
+    determined only from the last tested OSD in the CRUSH bucket based on the sort
+    order (i.e., OSD with least number of PGs per OSD). Based on the CRUSH rules
+    and placement, this doesn't mean that the least number of PGs are affected if
+    this OSD is stopped. There may be other OSDs in the set that affect a smaller
+    number of PGs if made offline.
+    
+    But with the way ok-to-upgrade logic uses the convergence factor, not all OSDs
+    would be tested for the offline pg check. Therefore, it is not possible to
+    accurately determine the minimum number affected PGs.
+    
+    In view of the above, the error message is modified as shown below to be
+    slightly more generic but still convey the reason:
+    
+    "Error EBUSY: unsafe to upgrade osd(s) at this time (one or more PG(s) will
+    become offline if any OSD out of the Y in CRUSH bucket 'foo' is stopped)"
+    
+    Fixes: https://tracker.ceph.com/issues/78425
+    Signed-off-by: Sridhar Seshasayee <sridhar.seshasayee@ibm.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 822b508cbd9..9092fce0f03 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2389,8 +2389,7 @@ bool DaemonServer::_handle_command(
+         cmdctx->reply(-EAGAIN, ss);
+       }
+       if (!pg_offline_report.ok_to_stop()) {
+-        ss << "unsafe to upgrade OSD(s) at this time (at least "
+-           << pg_offline_report.not_ok.size()
++        ss << "unsafe to upgrade OSD(s) at this time (one or more"
+            << " PG(s) will become offline if any OSD out of the "
+            << osds_in_crush_bucket.size() << " in CRUSH bucket '"
+            << crush_bucket_name << "' is stopped)";

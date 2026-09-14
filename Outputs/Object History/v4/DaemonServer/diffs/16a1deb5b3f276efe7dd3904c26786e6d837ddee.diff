@@ -1,0 +1,47 @@
+commit 16a1deb5b3f276efe7dd3904c26786e6d837ddee
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Tue Nov 26 12:49:01 2019 -0800
+
+    mgr: drop session with Ceph daemon when not ready
+    
+    If the mgr is waiting on daemon metadata from the mons, it has no
+    DaemonState associated with the daemon yet. If we try to process this
+    MgrOpen, the metadata sent by the daemon (like its config) will not be
+    recorded.
+    
+    Fixes: https://tracker.ceph.com/issues/43037
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 334bc96ab69..7b81ffff027 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -400,12 +400,22 @@ bool DaemonServer::handle_open(const ref_t<MMgrOpen>& m)
+   if (daemon_state.exists(key)) {
+     daemon = daemon_state.get(key);
+   }
+-  if (m->service_daemon && !daemon) {
+-    dout(4) << "constructing new DaemonState for " << key << dendl;
+-    daemon = std::make_shared<DaemonState>(daemon_state.types);
+-    daemon->key = key;
+-    daemon->service_daemon = true;
+-    daemon_state.insert(daemon);
++  if (!daemon) {
++    if (m->service_daemon) {
++      dout(4) << "constructing new DaemonState for " << key << dendl;
++      daemon = std::make_shared<DaemonState>(daemon_state.types);
++      daemon->key = key;
++      daemon->service_daemon = true;
++      daemon_state.insert(daemon);
++    } else {
++      /* A normal Ceph daemon has connected but we are or should be waiting on
++       * metadata for it. Close the session so that it tries to reconnect.
++       */
++      dout(2) << "ignoring open from " << key << " " << con->get_peer_addr()
++              << "; not ready for session (expect reconnect)" << dendl;
++      con->mark_down();
++      return true;
++    }
+   }
+   if (daemon) {
+     dout(20) << "updating existing DaemonState for " << m->daemon_name << dendl;

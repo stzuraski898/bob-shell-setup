@@ -1,0 +1,65 @@
+commit 15dfa71cf7c8ff761f305638a89438b0551d64cf
+Author: Pere Diaz Bou <pdiazbou@redhat.com>
+Date:   Wed May 26 17:47:06 2021 +0200
+
+    mgr: TTLCache basic implementation
+    
+    Signed-off-by: Pere Diaz Bou <pdiazbou@redhat.com>
+    Fixes: https://tracker.ceph.com/issues/48388
+
+diff --git a/src/mgr/PyFormatter.cc b/src/mgr/PyFormatter.cc
+index 48f1cca2903..8e58f6e9a84 100644
+--- a/src/mgr/PyFormatter.cc
++++ b/src/mgr/PyFormatter.cc
+@@ -16,6 +16,7 @@
+ 
+ 
+ #include "PyFormatter.h"
++#include <fstream>
+ 
+ #define LARGE_SIZE 1024
+ 
+@@ -125,3 +126,15 @@ void PyFormatter::finish_pending_streams()
+   pending_streams.clear();
+ }
+ 
++PyObject* PyJSONFormatter::get()
++{
++  if(json_formatter::stack_size()) {
++    close_section();
++  }
++  ceph_assert(!json_formatter::stack_size());
++  std::ostringstream ss;
++  flush(ss);
++  std::string s = ss.str();
++  PyObject* obj = PyBytes_FromStringAndSize(std::move(s.c_str()), s.size());
++  return obj;
++}
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index cd609eebeca..5e4c0a679ac 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -141,5 +141,23 @@ private:
+ 
+ };
+ 
++class PyJSONFormatter : public JSONFormatter {
++public:
++  PyObject *get();
++  PyJSONFormatter (const PyJSONFormatter&) = default;
++  PyJSONFormatter(bool pretty=false, bool is_array=false) : JSONFormatter(pretty) {
++    if(is_array) {
++      open_array_section("");
++    } else {
++      open_object_section("");
++    }
++}
++
++private:
++  using json_formatter = JSONFormatter;
++  template <class T> void add_value(std::string_view name, T val);
++  void add_value(std::string_view name, std::string_view val, bool quoted);
++};
++
+ #endif
+ 

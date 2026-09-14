@@ -1,0 +1,82 @@
+commit 9501bfdd711499c1314a3495549da24fbc02257e
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Jul 26 11:14:00 2016 +0100
+
+    mgr: store some counter history
+    
+    ...and expose it to python modules.
+    
+    Also fix some of the code around how we updated
+    DaemonState.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index da346dcbc3b..0a7c0564fc3 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -454,3 +454,50 @@ void PyModules::log(const std::string &handle,
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ }
++
++PyObject* PyModules::get_counter_python(
++    const std::string &handle,
++    entity_type_t svc_type,
++    const std::string &svc_id,
++    const std::string &path)
++{
++  PyThreadState *tstate = PyEval_SaveThread();
++  Mutex::Locker l(lock);
++  PyEval_RestoreThread(tstate);
++
++  PyFormatter f;
++  f.open_array_section(path.c_str());
++
++  auto metadata = daemon_state.get(DaemonKey(svc_type, svc_id));
++
++  // FIXME: this is unsafe, I need to either be inside DaemonStateIndex's
++  // lock or put a lock on individual DaemonStates
++  if (metadata) {
++    if (metadata->perf_counters.instances.count(path)) {
++      auto counter_instance = metadata->perf_counters.instances.at(path);
++      const auto &data = counter_instance.get_data();
++      for (const auto &datapoint : data) {
++        f.open_array_section("datapoint");
++        f.dump_unsigned("t", datapoint.t.sec());
++        f.dump_unsigned("v", datapoint.v);
++        f.close_section();
++
++      }
++    } else {
++      dout(4) << "Missing counter: '" << path << "' ("
++              << ceph_entity_type_name(svc_type) << "."
++              << svc_id << ")" << dendl;
++      dout(20) << "Paths are:" << dendl;
++      for (const auto &i : metadata->perf_counters.instances) {
++        dout(20) << i.first << dendl;
++      }
++    }
++  } else {
++    dout(4) << "No daemon state for "
++              << ceph_entity_type_name(svc_type) << "."
++              << svc_id << ")" << dendl;
++  }
++  f.close_section();
++  return f.get();
++}
++
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index 3bca52b6a2a..0275e0a7b3a 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -56,6 +56,9 @@ public:
+   PyObject *list_servers_python();
+   PyObject *get_metadata_python(std::string const &handle,
+       entity_type_t svc_type, const std::string &svc_id);
++  PyObject *get_counter_python(std::string const &handle,
++      entity_type_t svc_type, const std::string &svc_id,
++      const std::string &path);
+ 
+   std::map<std::string, std::string> config_cache;
+ 

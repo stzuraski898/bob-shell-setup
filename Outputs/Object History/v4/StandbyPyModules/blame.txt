@@ -1,0 +1,340 @@
+# git blame -w -M -C src/mgr/StandbyPyModules.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman   2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/StandbyPyModules.cc              (Edwin Rodriguez  2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+c8c1019d1962 src/mgr/StandbyPyModules.cc              (Edwin Rodriguez  2025-10-02 15:31:35 -0400   3) 
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray       2016-05-19 12:58:22 +0100   4) /*
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray       2016-05-19 12:58:22 +0100   5)  * Ceph - scalable distributed file system
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray       2016-05-19 12:58:22 +0100   6)  *
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray       2016-05-19 12:58:22 +0100   7)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil        2007-10-17 23:34:54 +0000   8)  *
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil        2007-10-17 23:34:54 +0000   9)  * This is free software; you can redistribute it and/or
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil        2007-10-17 23:34:54 +0000  10)  * modify it under the terms of the GNU Lesser General Public
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil        2007-10-17 23:34:54 +0000  11)  * License version 2.1, as published by the Free Software
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h      (Sage Weil        2007-10-17 23:34:54 +0000  12)  * Foundation.  See file COPYING.
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray       2016-05-19 12:58:22 +0100  13)  */
+84508408d9a9 src/mon/MgrMonitor.h                     (John Spray       2016-05-19 12:58:22 +0100  14) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  15) #include "StandbyPyModules.h"
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  16) 
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  17) #include "common/Finisher.h"
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  18) #include "common/debug.h"
+abca98058926 src/mgr/StandbyPyModules.cc              (Kefu Chai        2018-07-05 14:51:21 +0800  19) #include "common/errno.h"
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  20) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  21) #include "mgr/MgrContext.h"
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  22) #include "mgr/Gil.h"
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  23) 
+3bafb5e57168 src/mgr/StandbyPyModules.cc              (Sage Weil        2021-02-16 18:27:08 -0500  24) // For ::mgr_store_prefix
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  25) #include "PyModuleRegistry.h"
+7845f8d757ad src/mgr/MgrStandby.cc                    (John Spray       2016-07-15 00:39:22 +0100  26) 
+b9182564c716 src/mgr/MgrStandby.cc                    (Adam C. Emerson  2016-11-16 12:38:08 -0500  27) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray       2016-06-30 14:05:02 +0100  28) #define dout_subsys ceph_subsys_mgr
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray       2016-06-30 14:05:02 +0100  29) #undef dout_prefix
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray       2016-06-30 14:05:02 +0100  30) #define dout_prefix *_dout << "mgr " << __func__ << " "
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray       2016-06-30 14:05:02 +0100  31) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  32) 
+3193d40d0daf src/mgr/StandbyPyModules.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500  33) StandbyPyModules::StandbyPyModules(
+37484af0b860 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-09 15:25:45 -0400  34)     const MgrMap &mgr_map_,
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400  35)     PyModuleConfig &module_config,
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400  36)     LogChannelRef clog_,
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  37)     MonClient &monc_,
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  38)     Finisher &f)
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400  39)     : state(module_config, monc_),
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  40)       clog(clog_),
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  41)       finisher(f)
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  42) {
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  43)   state.set_mgr_map(mgr_map_);
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  44) }
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  45) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  46) // FIXME: completely identical to ActivePyModules
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  47) void StandbyPyModules::shutdown()
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  48) {
+948635a8b213 src/mgr/StandbyPyModules.cc              (Sage Weil        2018-10-16 14:11:33 -0500  49)   std::lock_guard locker(lock);
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  50) 
+838f66269fce src/mgr/PyModules.cc                     (John Spray       2017-03-29 13:34:29 -0400  51)   // Signal modules to drop out of serve() and/or tear down resources
+dc7ff92e5244 src/mgr/PyModules.cc                     (Kefu Chai        2017-04-13 23:12:09 +0800  52)   for (auto &i : modules) {
+dc7ff92e5244 src/mgr/PyModules.cc                     (Kefu Chai        2017-04-13 23:12:09 +0800  53)     auto module = i.second.get();
+145acbe976bd src/mgr/PyModules.cc                     (Kefu Chai        2017-04-27 20:37:35 +0800  54)     const auto& name = i.first;
+145acbe976bd src/mgr/PyModules.cc                     (Kefu Chai        2017-04-27 20:37:35 +0800  55)     dout(10) << "waiting for module " << name << " to shutdown" << dendl;
+c93dc8849145 src/mgr/StandbyPyModules.cc              (Kefu Chai        2019-07-07 11:14:49 +0800  56)     lock.unlock();
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  57)     module->shutdown();
+c93dc8849145 src/mgr/StandbyPyModules.cc              (Kefu Chai        2019-07-07 11:14:49 +0800  58)     lock.lock();
+145acbe976bd src/mgr/PyModules.cc                     (Kefu Chai        2017-04-27 20:37:35 +0800  59)     dout(10) << "module " << name << " shutdown" << dendl;
+838f66269fce src/mgr/PyModules.cc                     (John Spray       2017-03-29 13:34:29 -0400  60)   }
+838f66269fce src/mgr/PyModules.cc                     (John Spray       2017-03-29 13:34:29 -0400  61) 
+838f66269fce src/mgr/PyModules.cc                     (John Spray       2017-03-29 13:34:29 -0400  62)   // For modules implementing serve(), finish the threads where we
+838f66269fce src/mgr/PyModules.cc                     (John Spray       2017-03-29 13:34:29 -0400  63)   // were running that.
+9718896c8b84 src/mgr/PyModules.cc                     (John Spray       2017-08-14 06:31:18 -0400  64)   for (auto &i : modules) {
+c93dc8849145 src/mgr/StandbyPyModules.cc              (Kefu Chai        2019-07-07 11:14:49 +0800  65)     lock.unlock();
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  66)     dout(10) << "joining thread for module " << i.first << dendl;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  67)     i.second->thread.join();
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  68)     dout(10) << "joined thread for module " << i.first << dendl;
+c93dc8849145 src/mgr/StandbyPyModules.cc              (Kefu Chai        2019-07-07 11:14:49 +0800  69)     lock.lock();
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  70)   }
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  71) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  72)   modules.clear();
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  73) }
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  74) 
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  75) void StandbyPyModules::start_one(PyModuleRef py_module)
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  76) {
+948635a8b213 src/mgr/StandbyPyModules.cc              (Sage Weil        2018-10-16 14:11:33 -0500  77)   std::lock_guard l(lock);
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  78)   const auto name = py_module->get_name();
+56e34f58cb7a src/mgr/StandbyPyModules.cc              (Mykola Golub     2020-01-13 08:36:39 +0000  79)   auto standby_module = new StandbyPyModule(state, py_module, clog);
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  80) 
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray       2016-06-30 14:05:02 +0100  81)   // Send all python calls down a Finisher to avoid blocking
+ac30e6cee2b2 src/mgr/PyModules.cc                     (John Spray       2016-06-30 14:05:02 +0100  82)   // C++ code, and avoid any potential lock cycles.
+489b30844e86 src/mgr/StandbyPyModules.cc              (Patrick Donnelly 2019-08-14 11:23:42 -0700  83)   finisher.queue(new LambdaContext([this, standby_module, name](int) {
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  84)     int r = standby_module->load();
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  85)     if (r != 0) {
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  86)       derr << "Failed to run module in standby mode ('" << name << "')"
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  87)            << dendl;
+56e34f58cb7a src/mgr/StandbyPyModules.cc              (Mykola Golub     2020-01-13 08:36:39 +0000  88)       delete standby_module;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  89)     } else {
+56e34f58cb7a src/mgr/StandbyPyModules.cc              (Mykola Golub     2020-01-13 08:36:39 +0000  90)       std::lock_guard l(lock);
+56e34f58cb7a src/mgr/StandbyPyModules.cc              (Mykola Golub     2020-01-13 08:36:39 +0000  91)       auto em = modules.emplace(name, standby_module);
+56e34f58cb7a src/mgr/StandbyPyModules.cc              (Mykola Golub     2020-01-13 08:36:39 +0000  92)       ceph_assert(em.second); // actually inserted
+56e34f58cb7a src/mgr/StandbyPyModules.cc              (Mykola Golub     2020-01-13 08:36:39 +0000  93) 
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  94)       dout(4) << "Starting thread for " << name << dendl;
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  95)       standby_module->thread.create(standby_module->get_thread_name());
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  96)     }
+f22347db5509 src/mgr/StandbyPyModules.cc              (Mykola Golub     2019-01-24 11:04:24 +0200  97)   }));
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  98) }
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400  99) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 100) int StandbyPyModule::load()
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 101) {
+6a8da7ca7347 src/mgr/StandbyPyModules.cc              (John Spray       2017-11-16 06:45:45 -0500 102)   Gil gil(py_module->pMyThreadState, true);
+f36b0d9d4053 src/mgr/MgrPyModule.cc                   (Tim Serong       2017-05-12 22:24:19 +1000 103) 
+563878ba2174 src/mgr/MgrPyModule.cc                   (John Spray       2017-07-26 07:44:00 -0400 104)   // We tell the module how we name it, so that it can be consistent
+563878ba2174 src/mgr/MgrPyModule.cc                   (John Spray       2017-07-26 07:44:00 -0400 105)   // with us in logging etc.
+563878ba2174 src/mgr/MgrPyModule.cc                   (John Spray       2017-07-26 07:44:00 -0400 106)   auto pThisPtr = PyCapsule_New(this, nullptr, nullptr);
+ab23c5069647 src/mgr/StandbyPyModules.cc              (Adam C. Emerson  2018-08-23 11:25:51 -0400 107)   ceph_assert(pThisPtr != nullptr);
+48c4bc445fca src/mgr/StandbyPyModules.cc              (Kefu Chai        2019-12-18 19:03:29 +0800 108)   auto pModuleName = PyUnicode_FromString(get_name().c_str());
+ab23c5069647 src/mgr/StandbyPyModules.cc              (Adam C. Emerson  2018-08-23 11:25:51 -0400 109)   ceph_assert(pModuleName != nullptr);
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 110)   auto pArgs = PyTuple_Pack(2, pModuleName, pThisPtr);
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 111)   Py_DECREF(pThisPtr);
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 112)   Py_DECREF(pModuleName);
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 113) 
+6a8da7ca7347 src/mgr/StandbyPyModules.cc              (John Spray       2017-11-16 06:45:45 -0500 114)   pClassInstance = PyObject_CallObject(py_module->pStandbyClass, pArgs);
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 115)   Py_DECREF(pArgs);
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 116)   if (pClassInstance == nullptr) {
+6a8da7ca7347 src/mgr/StandbyPyModules.cc              (John Spray       2017-11-16 06:45:45 -0500 117)     derr << "Failed to construct class in '" << get_name() << "'" << dendl;
+719d5e1836c9 src/mgr/StandbyPyModules.cc              (Sage Weil        2021-06-18 17:02:40 -0400 118)     derr << handle_pyerror(true, get_name(), "StandbyPyModule::load") << dendl;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 119)     return -EINVAL;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 120)   } else {
+6a8da7ca7347 src/mgr/StandbyPyModules.cc              (John Spray       2017-11-16 06:45:45 -0500 121)     dout(1) << "Constructed class from module: " << get_name() << dendl;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 122)     return 0;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 123)   }
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 124) }
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 125) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 126) bool StandbyPyModule::get_config(const std::string &key,
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 127)                                  std::string *value) const
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 128) {
+b0a4bff845be src/mgr/StandbyPyModules.cc              (Sage Weil        2021-02-16 18:26:01 -0500 129)   const std::string global_key = "mgr/" + get_name() + "/" + key;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 130) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 131)   dout(4) << __func__ << " key: " << global_key << dendl;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 132)  
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 133)   return state.with_config([global_key, value](const PyModuleConfig &config){
+3193d40d0daf src/mgr/StandbyPyModules.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 134)     if (config.config.count(global_key)) {
+3193d40d0daf src/mgr/StandbyPyModules.cc              (Rubab-Syed       2018-02-16 15:51:11 +0500 135)       *value = config.config.at(global_key);
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 136)       return true;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 137)     } else {
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 138)       return false;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 139)     }
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 140)   });
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 141) }
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 142) 
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 143) bool StandbyPyModule::get_store(const std::string &key,
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 144)                                 std::string *value) const
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 145) {
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 146) 
+3bafb5e57168 src/mgr/StandbyPyModules.cc              (Sage Weil        2021-02-16 18:27:08 -0500 147)   const std::string global_key = PyModule::mgr_store_prefix
+6a8da7ca7347 src/mgr/StandbyPyModules.cc              (John Spray       2017-11-16 06:45:45 -0500 148)     + get_name() + "/" + key;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 149) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 150)   dout(4) << __func__ << " key: " << global_key << dendl;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 151) 
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 152)   // Active modules use a cache of store values (kept up to date
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 153)   // as writes pass through the active mgr), but standbys
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 154)   // fetch values synchronously to get an up to date value.
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 155)   // It's an acceptable cost because standby modules should not be
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 156)   // doing a lot.
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 157)   
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 158)   MonClient &monc = state.get_monc();
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 159) 
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 160)   std::ostringstream cmd_json;
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 161)   cmd_json << "{\"prefix\": \"config-key get\", \"key\": \""
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 162)            << global_key << "\"}";
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 163) 
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 164)   bufferlist outbl;
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 165)   std::string outs;
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 166)   C_SaferCond c;
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 167)   monc.start_mon_command(
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 168)       {cmd_json.str()},
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 169)       {},
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 170)       &outbl,
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 171)       &outs,
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 172)       &c);
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 173) 
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 174)   int r = c.wait();
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 175)   if (r == -ENOENT) {
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 176)     return false;
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 177)   } else if (r != 0) {
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 178)     // This is some internal error, not meaningful to python modules,
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 179)     // so let them just see no value.
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 180)     derr << __func__ << " error fetching store key '" << global_key << "': "
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 181)          << cpp_strerror(r) << " " << outs << dendl;
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 182)     return false;
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 183)   } else {
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 184)     *value = outbl.to_str();
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 185)     return true;
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 186)   }
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 187) }
+6185bd66a9e9 src/mgr/StandbyPyModules.cc              (John Spray       2018-04-26 05:56:56 -0400 188) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 189) std::string StandbyPyModule::get_active_uri() const
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 190) {
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 191)   std::string result;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 192)   state.with_mgr_map([&result, this](const MgrMap &mgr_map){
+6a8da7ca7347 src/mgr/StandbyPyModules.cc              (John Spray       2017-11-16 06:45:45 -0500 193)     auto iter = mgr_map.services.find(get_name());
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 194)     if (iter != mgr_map.services.end()) {
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 195)       result = iter->second;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 196)     }
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 197)   });
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 198) 
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 199)   return result;
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 200) }
+c1471c750194 src/mgr/StandbyPyModules.cc              (John Spray       2017-08-22 14:42:11 -0400 201) 
+
+# git blame -w -M -C src/mgr/StandbyPyModules.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng     2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/StandbyPyModules.h                                 (Edwin Rodriguez   2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/StandbyPyModules.h                                 (Edwin Rodriguez   2025-10-02 15:34:08 -0400   3) 
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray        2016-05-19 12:58:22 +0100   4) /*
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray        2016-05-19 12:58:22 +0100   5)  * Ceph - scalable distributed file system
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray        2016-05-19 12:58:22 +0100   6)  *
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray        2016-05-19 12:58:22 +0100   7)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h                        (Sage Weil         2007-10-17 23:34:54 +0000   8)  *
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h                        (Sage Weil         2007-10-17 23:34:54 +0000   9)  * This is free software; you can redistribute it and/or
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h                        (Sage Weil         2007-10-17 23:34:54 +0000  10)  * modify it under the terms of the GNU Lesser General Public
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h                        (Sage Weil         2007-10-17 23:34:54 +0000  11)  * License version 2.1, as published by the Free Software
+e0593d7be3d4 branches/sage/crush/mon/mon_types.h                        (Sage Weil         2007-10-17 23:34:54 +0000  12)  * Foundation.  See file COPYING.
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray        2016-05-19 12:58:22 +0100  13)  */
+84508408d9a9 src/mon/MgrMonitor.h                                       (John Spray        2016-05-19 12:58:22 +0100  14) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  15) #pragma once
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  16) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  17) #include <string>
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  18) #include <map>
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  19) 
+48c4bc445fca src/mgr/StandbyPyModules.h                                 (Kefu Chai         2019-12-18 19:03:29 +0800  20) #include <Python.h>
+48c4bc445fca src/mgr/StandbyPyModules.h                                 (Kefu Chai         2019-12-18 19:03:29 +0800  21) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  22) #include "common/Thread.h"
+c93dc8849145 src/mgr/StandbyPyModules.h                                 (Kefu Chai         2019-07-07 11:14:49 +0800  23) #include "common/ceph_mutex.h"
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  24) 
+29193a47e6cf src/mgr/StandbyPyModules.h                                 (John Spray        2017-10-16 10:51:34 -0400  25) #include "mgr/Gil.h"
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  26) #include "mon/MonClient.h"
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  27) #include "mon/MgrMap.h"
+df8797320bed src/mgr/StandbyPyModules.h                                 (John Spray        2017-10-06 11:02:44 -0400  28) #include "mgr/PyModuleRunner.h"
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  29) 
+f22347db5509 src/mgr/StandbyPyModules.h                                 (Mykola Golub      2019-01-24 11:04:24 +0200  30) class Finisher;
+f22347db5509 src/mgr/StandbyPyModules.h                                 (Mykola Golub      2019-01-24 11:04:24 +0200  31) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  32) /**
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  33)  * State that is read by all modules running in standby mode
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  34)  */
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  35) class StandbyPyModuleState
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  36) {
+c93dc8849145 src/mgr/StandbyPyModules.h                                 (Kefu Chai         2019-07-07 11:14:49 +0800  37)   mutable ceph::mutex lock = ceph::make_mutex("StandbyPyModuleState::lock");
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  38) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  39)   MgrMap mgr_map;
+3193d40d0daf src/mgr/StandbyPyModules.h                                 (Rubab-Syed        2018-02-16 15:51:11 +0500  40)   PyModuleConfig &module_config;
+6185bd66a9e9 src/mgr/StandbyPyModules.h                                 (John Spray        2018-04-26 05:56:56 -0400  41)   MonClient &monc;
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  42) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  43) public:
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  44) 
+3193d40d0daf src/mgr/StandbyPyModules.h                                 (Rubab-Syed        2018-02-16 15:51:11 +0500  45)   
+6185bd66a9e9 src/mgr/StandbyPyModules.h                                 (John Spray        2018-04-26 05:56:56 -0400  46)   StandbyPyModuleState(PyModuleConfig &module_config_, MonClient &monc_)
+6185bd66a9e9 src/mgr/StandbyPyModules.h                                 (John Spray        2018-04-26 05:56:56 -0400  47)     : module_config(module_config_), monc(monc_)
+3193d40d0daf src/mgr/StandbyPyModules.h                                 (Rubab-Syed        2018-02-16 15:51:11 +0500  48)   {}
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  49) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  50)   void set_mgr_map(const MgrMap &mgr_map_)
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  51)   {
+948635a8b213 src/mgr/StandbyPyModules.h                                 (Sage Weil         2018-10-16 14:11:33 -0500  52)     std::lock_guard l(lock);
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  53) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  54)     mgr_map = mgr_map_;
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  55)   }
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  56) 
+6185bd66a9e9 src/mgr/StandbyPyModules.h                                 (John Spray        2018-04-26 05:56:56 -0400  57)   // MonClient does all its own locking so we're happy to hand out
+6185bd66a9e9 src/mgr/StandbyPyModules.h                                 (John Spray        2018-04-26 05:56:56 -0400  58)   // references.
+6185bd66a9e9 src/mgr/StandbyPyModules.h                                 (John Spray        2018-04-26 05:56:56 -0400  59)   MonClient &get_monc() {return monc;};
+6185bd66a9e9 src/mgr/StandbyPyModules.h                                 (John Spray        2018-04-26 05:56:56 -0400  60) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  61)   template<typename Callback, typename...Args>
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  62)   void with_mgr_map(Callback&& cb, Args&&...args) const
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  63)   {
+948635a8b213 src/mgr/StandbyPyModules.h                                 (Sage Weil         2018-10-16 14:11:33 -0500  64)     std::lock_guard l(lock);
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  65)     std::forward<Callback>(cb)(mgr_map, std::forward<Args>(args)...);
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  66)   }
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  67) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  68)   template<typename Callback, typename...Args>
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  69)   auto with_config(Callback&& cb, Args&&... args) const ->
+3193d40d0daf src/mgr/StandbyPyModules.h                                 (Rubab-Syed        2018-02-16 15:51:11 +0500  70)     decltype(cb(module_config, std::forward<Args>(args)...)) {
+948635a8b213 src/mgr/StandbyPyModules.h                                 (Sage Weil         2018-10-16 14:11:33 -0500  71)     std::lock_guard l(lock);
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  72) 
+3193d40d0daf src/mgr/StandbyPyModules.h                                 (Rubab-Syed        2018-02-16 15:51:11 +0500  73)     return std::forward<Callback>(cb)(module_config, std::forward<Args>(args)...);
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  74)   }
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  75) };
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  76) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  77) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  78) class StandbyPyModule : public PyModuleRunner
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  79) {
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  80)   StandbyPyModuleState &state;
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  81) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  82)   public:
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  83) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  84)   StandbyPyModule(
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  85)       StandbyPyModuleState &state_,
+ce6e043a44e3 src/mgr/StandbyPyModules.h                                 (Wilson E. Alvarez 2018-03-27 22:45:14 -0400  86)       const PyModuleRef &py_module_,
+f4763c32fa84 src/mgr/StandbyPyModules.h                                 (John Spray        2017-11-01 12:08:03 -0400  87)       LogChannelRef clog_)
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  88)     :
+6a8da7ca7347 src/mgr/StandbyPyModules.h                                 (John Spray        2017-11-16 06:45:45 -0500  89)       PyModuleRunner(py_module_, clog_),
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  90)       state(state_)
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  91)   {
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  92)   }
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  93) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  94)   bool get_config(const std::string &key, std::string *value) const;
+6185bd66a9e9 src/mgr/StandbyPyModules.h                                 (John Spray        2018-04-26 05:56:56 -0400  95)   bool get_store(const std::string &key, std::string *value) const;
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400  96)   std::string get_active_uri() const;
+8b8e75229824 src/mgr/StandbyPyModules.h                                 (Sage Weil         2021-06-29 18:46:36 -0400  97)   entity_addrvec_t get_myaddrs() const {
+8b8e75229824 src/mgr/StandbyPyModules.h                                 (Sage Weil         2021-06-29 18:46:36 -0400  98)     return state.get_monc().get_myaddrs();
+8b8e75229824 src/mgr/StandbyPyModules.h                                 (Sage Weil         2021-06-29 18:46:36 -0400  99)   }
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 100) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 101)   int load();
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 102) };
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 103) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 104) class StandbyPyModules
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 105) {
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 106) private:
+c93dc8849145 src/mgr/StandbyPyModules.h                                 (Kefu Chai         2019-07-07 11:14:49 +0800 107)   mutable ceph::mutex lock = ceph::make_mutex("StandbyPyModules::lock");
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 108)   std::map<std::string, std::unique_ptr<StandbyPyModule>> modules;
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 109) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 110)   StandbyPyModuleState state;
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 111) 
+f4763c32fa84 src/mgr/StandbyPyModules.h                                 (John Spray        2017-11-01 12:08:03 -0400 112)   LogChannelRef clog;
+f4763c32fa84 src/mgr/StandbyPyModules.h                                 (John Spray        2017-11-01 12:08:03 -0400 113) 
+f22347db5509 src/mgr/StandbyPyModules.h                                 (Mykola Golub      2019-01-24 11:04:24 +0200 114)   Finisher &finisher;
+f22347db5509 src/mgr/StandbyPyModules.h                                 (Mykola Golub      2019-01-24 11:04:24 +0200 115) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 116) public:
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 117) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 118)   StandbyPyModules(
+f4763c32fa84 src/mgr/StandbyPyModules.h                                 (John Spray        2017-11-01 12:08:03 -0400 119)       const MgrMap &mgr_map_,
+3193d40d0daf src/mgr/StandbyPyModules.h                                 (Rubab-Syed        2018-02-16 15:51:11 +0500 120)       PyModuleConfig &module_config,
+6185bd66a9e9 src/mgr/StandbyPyModules.h                                 (John Spray        2018-04-26 05:56:56 -0400 121)       LogChannelRef clog_,
+f22347db5509 src/mgr/StandbyPyModules.h                                 (Mykola Golub      2019-01-24 11:04:24 +0200 122)       MonClient &monc,
+f22347db5509 src/mgr/StandbyPyModules.h                                 (Mykola Golub      2019-01-24 11:04:24 +0200 123)       Finisher &f);
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 124) 
+f22347db5509 src/mgr/StandbyPyModules.h                                 (Mykola Golub      2019-01-24 11:04:24 +0200 125)   void start_one(PyModuleRef py_module);
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 126) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 127)   void shutdown();
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 128) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 129)   void handle_mgr_map(const MgrMap &mgr_map)
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 130)   {
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 131)     state.set_mgr_map(mgr_map);
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 132)   }
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 133) 
+c1471c750194 src/mgr/StandbyPyModules.h                                 (John Spray        2017-08-22 14:42:11 -0400 134) };

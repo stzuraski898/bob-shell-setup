@@ -1,0 +1,31 @@
+commit 7845f8d757adf63390d6cb0ff56afbc088bc508b
+Author: John Spray <jspray@redhat.com>
+Date:   Fri Jul 15 00:39:22 2016 +0100
+
+    mgr: flesh out standby/HA
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 40bc68f9cee..e20940c54a8 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -312,12 +312,12 @@ public:
+ 
+ void PyModules::start()
+ {
+-  {
+-    Mutex::Locker l(lock);
+-    for (auto &i : modules) {
+-      auto thread = new ServeThread(i.second);
+-      serve_threads[i.first] = thread;
+-    }
++  Mutex::Locker l(lock);
++
++  dout(1) << "Creating threads for " << modules.size() << " modules" << dendl;
++  for (auto &i : modules) {
++    auto thread = new ServeThread(i.second);
++    serve_threads[i.first] = thread;
+   }
+ 
+   for (auto &i : serve_threads) {

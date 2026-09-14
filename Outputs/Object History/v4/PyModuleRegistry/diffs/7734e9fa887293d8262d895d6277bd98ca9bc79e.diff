@@ -1,0 +1,32 @@
+commit 7734e9fa887293d8262d895d6277bd98ca9bc79e
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Sep 27 10:37:36 2018 -0400
+
+    common: remove unused 'avail' field from commands
+    
+    This was introduced for the now-removed ceph-rest-api
+    gateway.  It enabled limiting certain commands
+    to be CLI-only or rest-only, but in practice almost
+    everything just said "cli,rest" here.
+    
+    Now that ceph-rest-api is gone, let's remove this
+    field.
+    
+    The CLI client code already tolerated the absence
+    of this field, so older CLI clients will not mind.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 7696fb02eb6..87bf6a1d532 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -331,7 +331,7 @@ std::vector<MonCommand> PyModuleRegistry::get_commands() const
+       flags |= MonCommand::FLAG_POLL;
+     }
+     result.push_back({pyc.cmdstring, pyc.helpstring, "mgr",
+-                        pyc.perm, "cli", flags});
++                        pyc.perm, flags});
+   }
+   return result;
+ }

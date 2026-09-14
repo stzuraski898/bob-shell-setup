@@ -1,0 +1,15 @@
+# Non-merge commits touching src/mgr/DaemonHealthMetric.cc and/or src/mgr/DaemonHealthMetric.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+437e8949ea6a4e2f582369266e964beb2e2f2bf8 2025-08-14 Max Kellermann | mgr/DaemonHealthMetric: un-inline methods to reduce header dependencies
+55da168fa07e532ac7484eaf6641fd61b74921ad 2026-03-19 Max Kellermann | mgr/DaemonHealthMetric: add missing includes
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+ed6b71246137f9793f2d56b4d050b271a3da29fd 2025-06-09 Kefu Chai | src: Fix memory leaks in generate_test_instance() by returning values instead of pointers
+09f3c879f2fac12298bffd0ebbf13cd35a483f1f 2023-07-25 Nitzan Mordechai | ceph-dencoder: MDS - Add missing types
+899276a5aa9f07a2faf4e7b659c0ea5c90dbf3b9 2023-06-28 Nitzan Mordechai | ceph-dencoder: osd - Add missing types
+5a2b7c25b68f2c955356640041e4c7ed72416d4e 2022-11-11 Pere Diaz Bou | mgr/prometheus: expose daemon health metrics
+550c81022840cfdd83b626ea37bb8e142946222b 2019-03-28 Adam C. Emerson | mgr: Update DaemonHealthMetric.h to work without using namespace
+adc480e3b31f49d7d8a7aac8bf38bd0a29322d24 2018-04-30 Sage Weil | mgr: print daemon_health_metrics to debug log
+714ffe0d5f078e4106ddbd8b57918ae2a0c899af 2018-03-13 Shanchun Lv | mgr,osd: make osd_metric more popular
+f4b74125e44fe78154fb377fa06fc08b3325859d 2017-10-23 Kefu Chai | osd: send health-checks to mgr

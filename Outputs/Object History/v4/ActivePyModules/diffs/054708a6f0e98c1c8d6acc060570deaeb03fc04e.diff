@@ -1,0 +1,36 @@
+commit 054708a6f0e98c1c8d6acc060570deaeb03fc04e
+Author: Tim Serong <tserong@suse.com>
+Date:   Tue Jul 26 16:43:44 2016 +1000
+
+    mgr: Use signed int log level in PyModules::log()
+    
+    Using an unsigned causes a build failure when expanding the dout macro.
+    
+    Signed-off-by: Tim Serong <tserong@suse.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index e20940c54a8..da346dcbc3b 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -446,7 +446,7 @@ void PyModules::insert_config(const std::map<std::string,
+ }
+ 
+ void PyModules::log(const std::string &handle,
+-    unsigned level, const std::string &record)
++    int level, const std::string &record)
+ {
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr[" << handle << "] "
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index 31c391888e3..3bca52b6a2a 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -83,7 +83,7 @@ public:
+       const std::string &key, const std::string &val);
+ 
+   void log(const std::string &handle,
+-           unsigned level, const std::string &record);
++           int level, const std::string &record);
+ };
+ 
+ #endif

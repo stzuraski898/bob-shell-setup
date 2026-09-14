@@ -1,0 +1,35 @@
+commit 67072d2261a6da142e0bd3d67058f399c5c480b3
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Apr 26 16:00:11 2017 +0800
+
+    mgr: pass python interpreter's path to embedded python
+    
+    * also do prevent python from registering its own signal handler, it does
+      not make sense in our embedded use case.
+    * pass python interpreter's path to embedded python before initializing
+      it. python uses this path to look up the "site" modules, etc.
+    
+    so it can use other interpreter if it is not intalled into $PATH,
+    otherwise the "python" in $PATH will always be used even the
+    PYTHON_EXECUTABLE in CMake's cache is pointing to another python
+    interpreter.
+    
+    if one want to debug ceph-mgr with a customize build python, this would
+    be helpful.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 45078262b65..ba8c9ba76da 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -360,7 +360,8 @@ int PyModules::init()
+   global_handle = this;
+ 
+   // Set up global python interpreter
+-  Py_Initialize();
++  Py_SetProgramName(const_cast<char*>(PYTHON_EXECUTABLE));
++  Py_InitializeEx(0);
+ 
+   // Some python modules do not cope with an unpopulated argv, so lets
+   // fake one.  This step also picks up site-packages into sys.path.

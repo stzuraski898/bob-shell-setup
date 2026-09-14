@@ -1,0 +1,24 @@
+commit 607b43a092d040dd861455f7d18ac8da41ecbdd9
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 7 16:10:54 2017 -0500
+
+    mgr: include cluster fsid in MMgrBeacon
+    
+    Prevent ceph-mgr from talking to the wrong cluster!
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 8e460e1ac98..0d7034b5b77 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -112,7 +112,8 @@ void MgrStandby::send_beacon()
+ 
+   bool available = active_mgr != nullptr && active_mgr->is_initialized();
+   auto addr = available ? active_mgr->get_server_addr() : entity_addr_t();
+-  MMgrBeacon *m = new MMgrBeacon(monc->get_global_id(),
++  MMgrBeacon *m = new MMgrBeacon(monc->get_fsid(),
++				 monc->get_global_id(),
+                                  g_conf->name.get_id(),
+                                  addr,
+                                  available);

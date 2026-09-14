@@ -1,0 +1,44 @@
+commit a929a5a01508e661fc7f3cea52822320d39983d2
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Tue Mar 26 16:08:43 2019 +0800
+
+    mgr/DaemonServer: handle_conf_change - fix broken locking
+    
+    The is_locked_by_me() is only meant to be safe if you know
+    you hold the lock. It's meant to be used in an assertion.
+    
+    Fixes: http://tracker.ceph.com/issues/38899
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 27f5e2e11a5..3ff11f896b1 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2732,21 +2732,18 @@ const char** DaemonServer::get_tracked_conf_keys() const
+ void DaemonServer::handle_conf_change(const ConfigProxy& conf,
+ 				      const std::set <std::string> &changed)
+ {
+-  // We may be called within lock (via MCommand `config set`) or outwith the
+-  // lock (via admin socket `config set`), so handle either case.
+-  const bool initially_locked = lock.is_locked_by_me();
+-  if (!initially_locked) {
+-    lock.Lock();
+-  }
+ 
+   if (changed.count("mgr_stats_threshold") || changed.count("mgr_stats_period")) {
+     dout(4) << "Updating stats threshold/period on "
+             << daemon_connections.size() << " clients" << dendl;
+     // Send a fresh MMgrConfigure to all clients, so that they can follow
+     // the new policy for transmitting stats
+-    for (auto &c : daemon_connections) {
+-      _send_configure(c);
+-    }
++    finisher.queue(new FunctionContext([this](int r) {
++      std::lock_guard l(lock);
++      for (auto &c : daemon_connections) {
++        _send_configure(c);
++      }
++    }));
+   }
+ }
+ 

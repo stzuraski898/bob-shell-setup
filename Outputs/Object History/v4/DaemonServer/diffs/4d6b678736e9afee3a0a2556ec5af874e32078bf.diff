@@ -1,0 +1,22 @@
+commit 4d6b678736e9afee3a0a2556ec5af874e32078bf
+Author: Liu Changcheng <changcheng.liu@intel.com>
+Date:   Thu Sep 17 13:15:44 2020 +0800
+
+    messenger: remove unused variable
+    
+    Signed-off-by: Changcheng Liu <changcheng.liu@aliyun.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 502496ab456..87c293c924a 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -111,8 +111,7 @@ int DaemonServer::init(uint64_t gid, entity_addrvec_t client_addrs)
+   msgr = Messenger::create(g_ceph_context, public_msgr_type,
+ 			   entity_name_t::MGR(gid),
+ 			   "mgr",
+-			   Messenger::get_pid_nonce(),
+-			   0);
++			   Messenger::get_pid_nonce());
+   msgr->set_default_policy(Messenger::Policy::stateless_server(0));
+ 
+   msgr->set_auth_client(monc);

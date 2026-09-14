@@ -1,0 +1,32 @@
+commit 79785efbdb7559fcf78756cf2de2739dfeb7e75e
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Aug 28 13:59:27 2020 +0800
+
+    mgr/Mgr: have smaller lexical scope of local var
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 7115555c2a0..781017a2689 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -100,9 +100,8 @@ void MetadataUpdate::finish(int r)
+         }
+       }
+ 
+-      DaemonStatePtr state;
+       if (daemon_state.exists(key)) {
+-        state = daemon_state.get(key);
++        DaemonStatePtr state = daemon_state.get(key);
+         state->hostname = daemon_meta.at("hostname").get_str();
+ 
+         if (key.type == "mds" || key.type == "mgr" || key.type == "mon") {
+@@ -117,7 +116,7 @@ void MetadataUpdate::finish(int r)
+ 	}
+ 	daemon_state.update_metadata(state, m);
+       } else {
+-        state = std::make_shared<DaemonState>(daemon_state.types);
++        auto state = std::make_shared<DaemonState>(daemon_state.types);
+         state->key = key;
+         state->hostname = daemon_meta.at("hostname").get_str();
+ 

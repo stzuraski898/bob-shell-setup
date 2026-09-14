@@ -1,0 +1,34 @@
+commit 12d301a1994e7893c17015d1c5ac3b6c2d026a06
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Sep 18 12:46:09 2019 +0800
+
+    mgr: pass MessageRef to monc.send_mon_message()
+    
+    less chance to leak memory
+    
+    see also: https://tracker.ceph.com/issues/37884
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 3bcb68431c7..465af9299ec 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -218,7 +218,7 @@ void MgrStandby::send_beacon()
+   metadata["addrs"] = stringify(client_messenger->get_myaddrs());
+   collect_sys_info(&metadata, g_ceph_context);
+ 
+-  MMgrBeacon *m = new MMgrBeacon(monc.get_fsid(),
++  auto m = ceph::make_message<MMgrBeacon>(monc.get_fsid(),
+ 				 monc.get_global_id(),
+                                  g_conf()->name.get_id(),
+                                  addrs,
+@@ -243,7 +243,7 @@ void MgrStandby::send_beacon()
+     m->set_services(active_mgr->get_services());
+   }
+                                  
+-  monc.send_mon_message(m);
++  monc.send_mon_message(std::move(m));
+ }
+ 
+ void MgrStandby::tick()

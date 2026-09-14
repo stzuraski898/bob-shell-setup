@@ -1,0 +1,21 @@
+commit a22bb9cb75ccfbbb270f591f68a92f8258bf6f4a
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Oct 4 14:07:50 2016 +0100
+
+    mgr: squash compiler warnings
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index be842da382e..de9a4ce24d2 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -393,7 +393,7 @@ int PyModules::init()
+   } 
+ 
+   // Drop the GIL
+-  PyThreadState *tstate = PyEval_SaveThread();
++  PyEval_SaveThread();
+   
+   return 0;
+ }

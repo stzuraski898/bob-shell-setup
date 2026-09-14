@@ -1,0 +1,24 @@
+commit e12396cd7cc1dcf40237001a491945623cd29e7a
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Apr 12 09:58:18 2017 -0400
+
+    mgr/MgrSession: allow ref tracing, and fix ref leak
+    
+    The first RefCountedObj ctor arg is a cct, not a ref count.
+    
+    Fixes: http://tracker.ceph.com/issues/19591
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 24b1d2585dc..f54d903dbd2 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -133,7 +133,7 @@ bool DaemonServer::ms_verify_authorizer(Connection *con,
+     return true;
+   }
+ 
+-  MgrSessionRef s(new MgrSession);
++  MgrSessionRef s(new MgrSession(cct));
+   s->inst.addr = con->get_peer_addr();
+   AuthCapsInfo caps_info;
+ 

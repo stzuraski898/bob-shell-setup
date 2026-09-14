@@ -1,0 +1,33 @@
+commit 9988a564d816f8fb3768a382dd547519d8112f94
+Author: John Spray <jspray@redhat.com>
+Date:   Sun Mar 5 10:38:36 2017 -0500
+
+    mgr: improve handle_command
+    
+    Run the python module calls in a finisher so that
+    they don't block the daemonserver lock and so that
+    they can call back into mgr stuff if they need to.
+    
+    Fix passing through commands to python modules, this
+    was giving EINVAL because only things with a MgrCommand
+    were getting let in.
+    
+    Also fix get_command_descriptions, which was not
+    including the output of the formatter in the response.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index a9dd325c4a6..f507a352666 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -48,7 +48,8 @@ Mgr::Mgr(MonClient *monc_, Messenger *clientm_, Objecter *objecter_,
+   finisher(g_ceph_context, "Mgr", "mgr-fin"),
+   py_modules(daemon_state, cluster_state, *monc, finisher),
+   cluster_state(monc, nullptr),
+-  server(monc, daemon_state, cluster_state, py_modules, clog_, audit_clog_),
++  server(monc, finisher, daemon_state, cluster_state, py_modules,
++         clog_, audit_clog_),
+   initialized(false),
+   initializing(false)
+ {

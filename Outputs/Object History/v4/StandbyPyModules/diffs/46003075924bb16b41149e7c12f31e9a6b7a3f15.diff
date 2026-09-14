@@ -1,0 +1,23 @@
+commit 46003075924bb16b41149e7c12f31e9a6b7a3f15
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Jan 24 01:13:50 2018 +0800
+
+    mgr: be compatible with py3
+    
+    so ceph-mgr can be compiled using py3
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/StandbyPyModules.h b/src/mgr/StandbyPyModules.h
+index a22887bdeae..14d968ec3b3 100644
+--- a/src/mgr/StandbyPyModules.h
++++ b/src/mgr/StandbyPyModules.h
+@@ -13,7 +13,7 @@
+ 
+ #pragma once
+ 
+-#include "Python.h"
++#include "PythonCompat.h"
+ 
+ #include <string>
+ #include <map>

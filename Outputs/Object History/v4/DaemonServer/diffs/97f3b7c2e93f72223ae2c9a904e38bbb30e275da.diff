@@ -1,0 +1,27 @@
+commit 97f3b7c2e93f72223ae2c9a904e38bbb30e275da
+Author: David Zafman <dzafman@redhat.com>
+Date:   Wed Apr 17 19:41:58 2019 -0700
+
+    mgr: If the requested OSD is down don't trust osd_stat info
+    
+    If we have a down AND out OSD it may contains osd_stat with num_pgs == 0.
+    When all PGs aren't active+clean we need an accurate value or we consider
+    the osd missing stat info.
+    
+    Fixes: https://tracker.ceph.com/issues/38930
+    
+    Signed-off-by: David Zafman <dzafman@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 0dd24c270e6..773fccc2ac3 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1389,7 +1389,7 @@ bool DaemonServer::_handle_command(
+ 	  if (num_active_clean < pg_map.num_pg) {
+ 	    // all pgs aren't active+clean; we need to be careful.
+ 	    auto p = pg_map.osd_stat.find(osd);
+-	    if (p == pg_map.osd_stat.end()) {
++	    if (p == pg_map.osd_stat.end() || !osdmap.is_up(osd)) {
+ 	      missing_stats.insert(osd);
+ 	      continue;
+ 	    } else if (p->second.num_pgs > 0) {

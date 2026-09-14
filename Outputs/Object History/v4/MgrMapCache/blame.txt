@@ -1,0 +1,431 @@
+# git blame -w -M -C src/mgr/MgrMapCache.cc
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng    2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/PyFormatter.h                                      (Edwin Rodriguez  2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/PyFormatter.h                                      (Edwin Rodriguez  2025-10-02 15:34:08 -0400   3) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   4) /*
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   5)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   6)  *
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000   7)  * Copyright (C) 2026 IBM
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  13)  *
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  14)  */
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  15) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  16) #include "mgr/MgrMapCache.h"
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  17) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  18) #include <algorithm>
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  19) #include <optional>
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  20) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  21) #include "common/config_proxy.h"
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  22) #include "common/debug.h"
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  23) #include "global/global_context.h"
+ae5aadf538c5 src/mgr/Mgr.cc                                             (Max Kellermann   2024-11-01 08:24:46 +0100  24) 
+b9182564c716 src/mgr/Mgr.cc                                             (Adam C. Emerson  2016-11-16 12:38:08 -0500  25) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100  26) #define dout_subsys ceph_subsys_mgr
+ac30e6cee2b2 src/mgr/Mgr.cc                                             (John Spray       2016-06-30 14:05:02 +0100  27) #undef dout_prefix
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  28) #define dout_prefix *_dout << "api cache " << __func__ << " "
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  29) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  30) static const std::unordered_set<std::string> mgr_cache_keys = {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  31)   "osd_map", "pg_dump", "pg_stats", "mon_status", "mgr_map",
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  32)   "osd_metadata", "mds_metadata", "config"
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  33) };
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  34) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  35) template<class Value>
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  36) MgrMapCache<Value>::~MgrMapCache() {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  37)   g_conf().remove_observer(this);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  38) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  39) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  40) template<class Value>
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  41) bool LFUCache<Value>::extract(std::string_view k, Value* out) noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  42)   std::unique_lock<std::shared_mutex> l(m);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  43)   auto it = cache_data.find(k);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  44)   if (it == cache_data.end()) return false;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  45)   *out = it->second.val;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  46)   cache_data.erase(it);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  47)   return true;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  48) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  49) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  50) template<class Value>
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  51) void LFUCache<Value>::drain(std::vector<Value>& out) noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  52)   std::unique_lock<std::shared_mutex> l(m);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  53)   out.reserve(cache_data.size());
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  54)   for (auto& kv : cache_data) out.push_back(kv.second.val);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  55)   cache_data.clear();
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  56)   hits.store(0);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  57)   misses.store(0);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  58) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  59) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  60) template<class Value>
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  61) Value LFUCache<Value>::get(std::string_view k) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  62)   std::shared_lock l(m);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  63)   if (!is_enabled()) throw std::out_of_range("cache disabled");
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  64)   auto it = cache_data.find(k);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  65)   if (it == cache_data.end()) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  66)     throw std::out_of_range(std::string(k));
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  67)   }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  68)   it->second.hits.fetch_add(1, std::memory_order_relaxed);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  69)   mark_hit();
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  70)   return it->second.val;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  71) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  72) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  73) template<class Value>
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  74) bool LFUCache<Value>::try_get(std::string_view k, Value* out, bool count_hit) noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  75)   std::shared_lock l(m);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  76)   auto it = cache_data.find(k);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  77)   if (it == cache_data.end()) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  78)     if (count_hit) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  79)       mark_miss();
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  80)     }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  81)     return false;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  82)   }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  83)   if (count_hit) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  84)     it->second.hits.fetch_add(1, std::memory_order_relaxed);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  85)     mark_hit();
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  86)   }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  87)   *out = it->second.val;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  88)   return true;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  89) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  90) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  91) template<class Value>
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  92) typename LFUCache<Value>::InsertRes
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  93) LFUCache<Value>::insert(std::string_view key, Value value) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  94)   if (!can_write_cache(key)) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  95)     return InsertRes{false};
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  96)   }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  97) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  98)   std::unique_lock<std::shared_mutex> l(m);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000  99)   // Re-check enabled after acquiring lock: state may have flipped while waiting.
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 100)   if (!enabled.load(std::memory_order_relaxed)) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 101)     return InsertRes{false};
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 102)   }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 103) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 104)   auto it = cache_data.find(key);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 105)   if (it != cache_data.end()) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 106)     InsertRes res{true};
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 107)     res.replaced = std::move(it->second.val);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 108)     it->second.val = std::move(value);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 109)     return res;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 110)   }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 111) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 112)   // New insert counts as a miss (cache didn't have it)
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 113)   mark_miss();
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 114) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 115)   InsertRes res{true};
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 116)   if (cache_data.size() >= capacity && !cache_data.empty()) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 117)     auto min_it = std::min_element(cache_data.begin(),
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 118)       cache_data.end(),
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 119)       [](const auto& a, const auto& b) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 120)         return a.second.hits.load(std::memory_order_relaxed) <
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 121)                b.second.hits.load(std::memory_order_relaxed);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 122)     });
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 123)     res.evicted = std::move(min_it->second.val);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 124)     cache_data.erase(min_it);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 125)   }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 126) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 127)   // Allocate std::string only here, when we actually need to store a new key.
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 128)   cache_data.emplace(std::string(key), Entry(std::move(value)));
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 129)   return res;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 130) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 131) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 132) template <class Value>
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 133) MgrMapCache<Value>::MgrMapCache(uint16_t size)
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 134)     : CacheImp(mgr_cache_keys, size, g_conf().get_val<bool>("mgr_map_cache_enabled")) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 135)   dout(20) << ": creating cache with size " << size << dendl;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 136)   g_conf().add_observer(this);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 137) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 138) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 139) template <class Value>
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 140) void MgrMapCache<Value>::handle_conf_change(
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 141)     const ConfigProxy& conf, const std::set<std::string>& changed) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 142)   if (changed.count("mgr_map_cache_enabled")) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 143)     this->set_enabled(conf.get_val<bool>("mgr_map_cache_enabled"));
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 144)   }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 145) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 146) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 147) MgrMapCache<PyObject*>::MgrMapCache(uint16_t size)
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 148)     : CacheImp(mgr_cache_keys, size, g_conf().get_val<bool>("mgr_map_cache_enabled")) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 149)   dout(20) << ": creating cache with size " << size << dendl;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 150)   g_conf().add_observer(this);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 151) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 152) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 153) MgrMapCache<PyObject*>::~MgrMapCache() {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 154)   g_conf().remove_observer(this);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 155)   this->clear();
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 156) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 157) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 158) PyObject* MgrMapCache<PyObject*>::get(std::string_view k) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 159)   if (!this->is_enabled() ||
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 160)       !this->is_cacheable(k) ||
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 161)       !PyGILState_Check())
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 162)         return nullptr;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 163)   std::shared_lock l(this->m);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 164)   auto it = this->cache_data.find(k);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 165)   if (it == this->cache_data.end()) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 166)     this->mark_miss();
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 167)     return nullptr;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 168)   }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 169)   PyObject* o = it->second.val;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 170)   Py_INCREF(o);  // INCREF under lock: no window for erase() to drop refcount to zero
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 171)   it->second.hits.fetch_add(1, std::memory_order_relaxed);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 172)   this->mark_hit();
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 173)   return o;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 174) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 175) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 176) void MgrMapCache<PyObject*>::insert(std::string_view key, PyObject* value) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 177)   if (!this->can_write_cache(key) || !PyGILState_Check()) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 178)     return;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 179)   }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 180) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 181)   Py_INCREF(value);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 182)   auto res = CacheImp::insert(key, value);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 183) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 184)   if (!res.inserted) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 185)     // Cache was disabled between our check and lock acquisition; undo the INCREF.
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 186)     Py_DECREF(value);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 187)     return;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 188)   }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 189) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 190)   auto schedule_decref = [](PyObject* obj) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 191)     if (!obj) return;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 192)     if (Py_AddPendingCall(+[](void* p){ Py_DECREF((PyObject*)p); return 0; }, obj) != 0) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 193)       PyGILState_STATE st = PyGILState_Ensure();
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 194)       Py_DECREF(obj);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 195)       PyGILState_Release(st);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 196)     }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 197)   };
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 198)   if (res.replaced.has_value()) schedule_decref(res.replaced.value());
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 199)   if (res.evicted.has_value())  schedule_decref(res.evicted.value());
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 200) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 201)   dout(20) << ": inserted key: " << key << " py count: "
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 202)            << Py_REFCNT(value) << " hit/miss:"
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 203)            << CacheImp::get_hits() << "/"
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 204)            << CacheImp::get_misses() << dendl;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 205) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 206) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 207) void MgrMapCache<PyObject*>::erase(std::string_view key) noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 208)   if (!this->is_cacheable(key)) return;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 209)   PyObject* o = nullptr;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 210)   if (!this->extract(key, &o)) return;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 211) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 212)   Py_AddPendingCall(+[](void* p){ Py_DECREF((PyObject*)p); return 0; }, o);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 213)   dout(20) << ": erased key: " << key
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 214)            << " hit/miss:"
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 215)            << CacheImp::get_hits() << "/"
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 216)            << CacheImp::get_misses() << dendl;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 217) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 218) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 219) void MgrMapCache<PyObject*>::clear() noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 220)   std::vector<PyObject*> to_drop;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 221)   this->drain(to_drop);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 222)   if (to_drop.empty()) return;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 223)   PyGILState_STATE st = PyGILState_Ensure();
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 224)   for (auto* o : to_drop) Py_DECREF(o);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 225)   PyGILState_Release(st);
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 226)   dout(20) << ": Cache cleared" << dendl;
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 227) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 228) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 229) void MgrMapCache<PyObject*>::handle_conf_change(
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 230)     const ConfigProxy& conf, const std::set<std::string>& changed) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 231)   if (changed.count("mgr_map_cache_enabled")) {
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 232)     this->set_enabled(conf.get_val<bool>("mgr_map_cache_enabled"));
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 233)   }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 234) }
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 235) 
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 236) // Explicit instantiation for unit tests
+403340bcf8c2 src/mgr/MgrMapCache.cc                                     (Nitzan Mordechai 2025-07-17 06:17:00 +0000 237) template class LFUCache<int>;
+
+# git blame -w -M -C src/mgr/MgrMapCache.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng    2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/PyFormatter.h                                      (Edwin Rodriguez  2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/PyFormatter.h                                      (Edwin Rodriguez  2025-10-02 15:34:08 -0400   3) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   4) /*
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   5)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   6)  *
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000   7)  * Copyright (C) 2026 IBM
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   9)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  11)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  12)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  13)  *
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  14)  */
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  15) #pragma once
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  16) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  17) #include <atomic>
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  18) #include <optional>
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  19) #include <shared_mutex>
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  20) #include <string>
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  21) #include <string_view>
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  22) #include <unordered_map>
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  23) #include <unordered_set>
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  24) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  25) #include "common/config_obs.h"
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  26) #include "common/perf_counters.h"
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  27) #include "mgr/mgr_perf_counters.h"
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  28) #include "PyUtil.h"
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  29) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  30) // Transparent hash so unordered containers accept std::string_view lookups
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  31) // without constructing a std::string.
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  32) struct StringViewHash {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  33)   using is_transparent = void;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  34)   size_t operator()(std::string_view sv) const noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  35)     return std::hash<std::string_view>{}(sv);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  36)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  37) };
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  38) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  39) template<class Value>
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  40) class LFUCache {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  41)   struct Entry {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  42)     Value val;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  43)     mutable std::atomic<size_t> hits{0};
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  44) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  45)     Entry() = default;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  46)     Entry(Value v) : val(std::move(v)), hits(0) {}
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  47)     Entry(const Entry& o) : val(o.val), hits(o.hits.load()) {}
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  48)     Entry(Entry&& o) noexcept : val(std::move(o.val)), hits(o.hits.load()) {}
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  49)   };
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  50)   std::atomic<uint64_t> hits{0}, misses{0};
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  51)   const std::unordered_set<std::string, StringViewHash, std::equal_to<>> allowed_keys;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  52) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  53) protected:
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  54)   std::unordered_map<std::string, Entry, StringViewHash, std::equal_to<>> cache_data;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  55)   const size_t capacity;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  56)   std::atomic<bool> enabled{true};
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  57)   mutable std::shared_mutex m;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  58) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  59)   void mark_miss() {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  60)     misses++;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  61)     if (perfcounter)
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  62)       perfcounter->inc(l_mgr_cache_miss);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  63)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  64) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  65)   void mark_hit() {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  66)     hits++;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  67)     if (perfcounter)
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  68)       perfcounter->inc(l_mgr_cache_hit);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  69)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  70) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  71) public:
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  72)   explicit LFUCache(std::unordered_set<std::string> keys,
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  73)                     size_t cap = UINT16_MAX,
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  74)                     bool ena = true)
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  75)       : allowed_keys(keys.begin(), keys.end()), capacity{cap}, enabled{ena} {}
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  76)   virtual ~LFUCache() = default;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  77) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  78)   void set_enabled(bool e) {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  79)     enabled.store(e);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  80)     if (!e) {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  81)       clear();
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  82)     }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  83)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  84) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  85)   bool is_enabled() const noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  86)     return enabled.load();
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  87)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  88) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  89)   size_t size() const {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  90)     std::shared_lock l(m);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  91)     return cache_data.size();
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  92)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  93) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  94)   bool is_cacheable(std::string_view key) const noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  95)     return allowed_keys.find(key) != allowed_keys.end();
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  96)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  97) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  98)   bool can_read_cache(std::string_view key) const noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000  99)     return is_enabled() && is_cacheable(key) && exists(key);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 100)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 101) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 102)   bool can_write_cache(std::string_view key) const noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 103)     return is_enabled() && is_cacheable(key);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 104)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 105) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 106)   struct InsertRes {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 107)     bool inserted{false};        // false means the cache rejected the write
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 108)     std::optional<Value> replaced; // set if an existing key was overwritten
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 109)     std::optional<Value> evicted;  // set if an entry was evicted to make room
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 110)   };
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 111) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 112)   bool try_get(std::string_view k, Value* out, bool count_hit = true) noexcept;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 113)   InsertRes insert(std::string_view key, Value value);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 114) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 115)   bool erase(std::string_view key) {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 116)     std::unique_lock l(m);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 117)     auto it = cache_data.find(key);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 118)     if (it == cache_data.end()) return false;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 119)     cache_data.erase(it);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 120)     return true;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 121)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 122) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 123)   bool extract(std::string_view k, Value* out) noexcept;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 124)   void drain(std::vector<Value>& out) noexcept;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 125) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 126)   virtual void clear() {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 127)     std::unique_lock l(m);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 128)     cache_data.clear();
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 129)     hits.store(0);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 130)     misses.store(0);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 131)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 132) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 133)   bool exists(std::string_view key) const noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 134)     std::shared_lock l(m);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 135)     return cache_data.find(key) != cache_data.end();
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 136)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 137) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 138)   uint64_t get_hits() const noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 139)     return hits.load();
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 140)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 141) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 142)   uint64_t get_misses() const noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 143)     return misses.load();
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 144)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 145) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 146)   Value get(std::string_view k);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 147) };
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 148) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 149) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 150) // ---------- MgrMapCache generic ----------
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 151) template <class Value>
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 152) class MgrMapCache : public LFUCache<Value>,
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 153)                    public md_config_obs_t {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 154)   using CacheImp = LFUCache<Value>;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 155) public:
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 156)   explicit MgrMapCache(uint16_t sz = UINT16_MAX);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 157)   ~MgrMapCache();
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 158)   bool try_get(std::string_view k, Value* out, bool count_hit = true) noexcept {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 159)     return CacheImp::try_get(k, out, count_hit);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 160)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 161)   void insert(std::string_view k, Value v) { CacheImp::insert(k, v); }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 162)   bool extract(std::string_view k, Value* out) noexcept { return CacheImp::extract(k, out); }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 163)   void erase(std::string_view k) noexcept { Value v{}; (void)CacheImp::extract(k, &v); }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 164)   void clear() noexcept { CacheImp::clear(); }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 165) private:
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 166)   std::vector<std::string> get_tracked_keys() const noexcept override { return {"mgr_map_cache_enabled"}; }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 167)   void handle_conf_change(const ConfigProxy& conf, const std::set<std::string>& changed) override;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 168) };
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 169) 
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 170) // ------- Full template specialization for PyObject*. with GIL rules ----------
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 171) template <>
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 172) class MgrMapCache<PyObject*> : public LFUCache<PyObject*>,
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 173)                                public md_config_obs_t {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 174)   using CacheImp = LFUCache<PyObject*>;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 175) public:
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 176)   MgrMapCache(uint16_t size = UINT16_MAX);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 177)   ~MgrMapCache();
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 178)   bool try_get(std::string_view k, PyObject** out, bool count_hit = true) noexcept = delete;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 179)   PyObject* get(std::string_view key);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 180)   void erase(std::string_view key) noexcept;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 181)   void clear() noexcept override;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 182)   void insert(std::string_view key, PyObject* value);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 183)   void invalidate(std::string_view key) {
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 184)     erase(key);
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 185)   }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 186) private:
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 187)   std::vector<std::string> get_tracked_keys() const noexcept override { return {"mgr_map_cache_enabled"}; }
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 188)   void handle_conf_change(const ConfigProxy& conf, const std::set<std::string>& changed) override;
+403340bcf8c2 src/mgr/MgrMapCache.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 189) };

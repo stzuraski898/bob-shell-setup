@@ -1,0 +1,904 @@
+# git blame -w -M -C src/mgr/MgrClient.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman     2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/MgrClient.cc                     (Edwin Rodriguez    2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+c8c1019d1962 src/mgr/MgrClient.cc                     (Edwin Rodriguez    2025-10-02 15:31:35 -0400   3) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100   4) /*
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100   5)  * Ceph - scalable distributed file system
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100   6)  *
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100   7)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100   8)  *
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100   9)  * This is free software; you can redistribute it and/or
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  10)  * modify it under the terms of the GNU Lesser General Public
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  11)  * License version 2.1, as published by the Free Software
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  12)  * Foundation.  See file COPYING.
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  13)  */
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  14) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  15) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  16) #include "MgrClient.h"
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  17) 
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100  18) #include <algorithm>
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100  19) 
+aeeb15ea7d67 src/mgr/MgrClient.cc                     (Max Kellermann     2024-10-28 21:37:00 +0100  20) #include "common/perf_counters_collection.h"
+4e89ce7e7209 src/mgr/MgrClient.cc                     (Pere Diaz Bou      2023-04-18 10:47:13 +0200  21) #include "common/perf_counters_key.h"
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  22) #include "mgr/MgrContext.h"
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500  23) #include "mon/MonMap.h"
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  24) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  25) #include "msg/Messenger.h"
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  26) #include "messages/MMgrMap.h"
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  27) #include "messages/MMgrReport.h"
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  28) #include "messages/MMgrOpen.h"
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100  29) #include "messages/MMgrUpdate.h"
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500  30) #include "messages/MMgrClose.h"
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  31) #include "messages/MMgrConfigure.h"
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  32) #include "messages/MCommand.h"
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  33) #include "messages/MCommandReply.h"
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500  34) #include "messages/MMgrCommand.h"
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500  35) #include "messages/MMgrCommandReply.h"
+803b66a3b482 src/mgr/MgrClient.cc                     (John Spray         2016-07-31 18:05:53 +0100  36) #include "messages/MPGStats.h"
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  37) 
+78df867516df src/mgr/MgrClient.cc                     (Adam C. Emerson    2019-03-28 20:42:34 -0400  38) using std::string;
+78df867516df src/mgr/MgrClient.cc                     (Adam C. Emerson    2019-03-28 20:42:34 -0400  39) using std::vector;
+78df867516df src/mgr/MgrClient.cc                     (Adam C. Emerson    2019-03-28 20:42:34 -0400  40) 
+78df867516df src/mgr/MgrClient.cc                     (Adam C. Emerson    2019-03-28 20:42:34 -0400  41) using ceph::bufferlist;
+4ccebbfa2f27 src/mgr/MgrClient.cc                     (Adam C. Emerson    2020-03-07 04:33:10 -0500  42) using ceph::make_message;
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100  43) 
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100  44) namespace {
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100  45) 
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100  46) std::string format_counter_path(std::string path)
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100  47) {
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100  48)   std::replace(path.begin(), path.end(), '\0', ' ');
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100  49)   return path;
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100  50) }
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100  51) 
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100  52) } // anonymous namespace
+4ccebbfa2f27 src/mgr/MgrClient.cc                     (Adam C. Emerson    2020-03-07 04:33:10 -0500  53) using ceph::ref_cast;
+4ccebbfa2f27 src/mgr/MgrClient.cc                     (Adam C. Emerson    2020-03-07 04:33:10 -0500  54) using ceph::ref_t;
+78df867516df src/mgr/MgrClient.cc                     (Adam C. Emerson    2019-03-28 20:42:34 -0400  55) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  56) #define dout_subsys ceph_subsys_mgrc
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  57) #undef dout_prefix
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  58) #define dout_prefix *_dout << "mgrc " << __func__ << " "
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  59) 
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500  60) MgrClient::MgrClient(CephContext *cct_, Messenger *msgr_, MonMap *monmap_)
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500  61)   : Dispatcher(cct_),
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500  62)     cct(cct_),
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500  63)     msgr(msgr_),
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500  64)     monmap(monmap_),
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500  65)     timer(cct_, lock)
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  66) {
+ab23c5069647 src/mgr/MgrClient.cc                     (Adam C. Emerson    2018-08-23 11:25:51 -0400  67)   ceph_assert(cct != nullptr);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  68) }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  69) 
+119f9ad1980e src/mgr/MgrClient.cc                     (Max Kellermann     2024-11-13 21:44:21 +0100  70) MgrClient::~MgrClient() = default;
+119f9ad1980e src/mgr/MgrClient.cc                     (Max Kellermann     2024-11-13 21:44:21 +0100  71) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  72) void MgrClient::init()
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  73) {
+948635a8b213 src/mgr/MgrClient.cc                     (Sage Weil          2018-10-16 14:11:33 -0500  74)   std::lock_guard l(lock);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  75) 
+ab23c5069647 src/mgr/MgrClient.cc                     (Adam C. Emerson    2018-08-23 11:25:51 -0400  76)   ceph_assert(msgr != nullptr);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  77) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  78)   timer.init();
+e765f2d53344 src/mgr/MgrClient.cc                     (Patrick Donnelly   2019-11-05 19:51:17 -0800  79)   initialized = true;
+7fd618c28895 src/mgr/MgrClient.cc                     (Patrick Donnelly   2026-07-08 14:19:54 -0400  80)   dead = false;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  81) }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  82) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  83) void MgrClient::shutdown()
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  84) {
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800  85)   std::unique_lock l(lock);
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500  86)   ldout(cct, 10) << dendl;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100  87) 
+7fd618c28895 src/mgr/MgrClient.cc                     (Patrick Donnelly   2026-07-08 14:19:54 -0400  88)   dead = true;
+7fd618c28895 src/mgr/MgrClient.cc                     (Patrick Donnelly   2026-07-08 14:19:54 -0400  89) 
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500  90)   if (connect_retry_callback) {
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500  91)     timer.cancel_event(connect_retry_callback);
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500  92)     connect_retry_callback = nullptr;
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500  93)   }
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500  94) 
+8ca982f403b0 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-14 10:02:38 -0400  95)   // forget about in-flight commands if we are prematurely shut down
+8ca982f403b0 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-14 10:02:38 -0400  96)   // (e.g., by control-C)
+8ca982f403b0 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-14 10:02:38 -0400  97)   command_table.clear();
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500  98)   if (service_daemon &&
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500  99)       session &&
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 100)       session->con &&
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 101)       HAVE_FEATURE(session->con->get_features(), SERVER_MIMIC)) {
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 102)     ldout(cct, 10) << "closing mgr session" << dendl;
+78e7d9051ae7 src/mgr/MgrClient.cc                     (Kefu Chai          2019-04-15 14:55:24 +0800 103)     auto m = make_message<MMgrClose>();
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 104)     m->daemon_name = daemon_name;
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 105)     m->service_name = service_name;
+78e7d9051ae7 src/mgr/MgrClient.cc                     (Kefu Chai          2019-04-15 14:55:24 +0800 106)     session->con->send_message2(m);
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 107)     auto timeout = ceph::make_timespan(cct->_conf.get_val<double>(
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 108) 			      "mgr_client_service_daemon_unregister_timeout"));
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 109)     shutdown_cond.wait_for(l, timeout);
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 110)   }
+8ca982f403b0 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-14 10:02:38 -0400 111) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 112)   timer.shutdown();
+eb5c02df634b src/mgr/MgrClient.cc                     (Brad Hubbard       2017-05-17 13:28:26 +1000 113)   if (session) {
+eb5c02df634b src/mgr/MgrClient.cc                     (Brad Hubbard       2017-05-17 13:28:26 +1000 114)     session->con->mark_down();
+4d1989dc229a src/mgr/MgrClient.cc                     (Kefu Chai          2017-02-28 05:42:58 +0000 115)     session.reset();
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 116)   }
+eb5c02df634b src/mgr/MgrClient.cc                     (Brad Hubbard       2017-05-17 13:28:26 +1000 117) }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 118) 
+c9d0913f53b0 src/mgr/MgrClient.cc                     (Patrick Donnelly   2025-02-18 12:41:52 -0500 119) Dispatcher::dispatch_result_t MgrClient::ms_dispatch2(const ref_t<Message>& m)
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 120) {
+948635a8b213 src/mgr/MgrClient.cc                     (Sage Weil          2018-10-16 14:11:33 -0500 121)   std::lock_guard l(lock);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 122) 
+7fd618c28895 src/mgr/MgrClient.cc                     (Patrick Donnelly   2026-07-08 14:19:54 -0400 123)   if (dead) {
+7fd618c28895 src/mgr/MgrClient.cc                     (Patrick Donnelly   2026-07-08 14:19:54 -0400 124)     return false;
+7fd618c28895 src/mgr/MgrClient.cc                     (Patrick Donnelly   2026-07-08 14:19:54 -0400 125)   }
+7fd618c28895 src/mgr/MgrClient.cc                     (Patrick Donnelly   2026-07-08 14:19:54 -0400 126) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 127)   switch(m->get_type()) {
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 128)   case MSG_MGR_MAP:
+78e7d9051ae7 src/mgr/MgrClient.cc                     (Kefu Chai          2019-04-15 14:55:24 +0800 129)     return handle_mgr_map(ref_cast<MMgrMap>(m));
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 130)   case MSG_MGR_CONFIGURE:
+78e7d9051ae7 src/mgr/MgrClient.cc                     (Kefu Chai          2019-04-15 14:55:24 +0800 131)     return handle_mgr_configure(ref_cast<MMgrConfigure>(m));
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 132)   case MSG_MGR_CLOSE:
+78e7d9051ae7 src/mgr/MgrClient.cc                     (Kefu Chai          2019-04-15 14:55:24 +0800 133)     return handle_mgr_close(ref_cast<MMgrClose>(m));
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 134)   case MSG_COMMAND_REPLY:
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 135)     if (m->get_source().type() == CEPH_ENTITY_TYPE_MGR) {
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 136)       MCommandReply *c = static_cast<MCommandReply*>(m.get());
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 137)       handle_command_reply(c->get_tid(), c->get_data(), c->rs, c->r);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 138)       return true;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 139)     } else {
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 140)       return false;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 141)     }
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 142)   case MSG_MGR_COMMAND_REPLY:
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 143)     if (m->get_source().type() == CEPH_ENTITY_TYPE_MGR) {
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 144)       MMgrCommandReply *c = static_cast<MMgrCommandReply*>(m.get());
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 145)       handle_command_reply(c->get_tid(), c->get_data(), c->rs, c->r);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 146)       return true;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 147)     } else {
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 148)       return false;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 149)     }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 150)   default:
+8db0137dc390 src/mgr/MgrClient.cc                     (John Spray         2016-08-08 17:08:42 +0100 151)     ldout(cct, 30) << "Not handling " << *m << dendl; 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 152)     return false;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 153)   }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 154) }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 155) 
+f7a9a6f656bb src/mgr/MgrClient.cc                     (Sage Weil          2016-10-03 14:42:35 -0400 156) void MgrClient::reconnect()
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 157) {
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 158)   ceph_assert(ceph_mutex_is_locked_by_me(lock));
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 159) 
+7845f8d757ad src/mgr/MgrClient.cc                     (John Spray         2016-07-15 00:39:22 +0100 160)   if (session) {
+7845f8d757ad src/mgr/MgrClient.cc                     (John Spray         2016-07-15 00:39:22 +0100 161)     ldout(cct, 4) << "Terminating session with "
+7845f8d757ad src/mgr/MgrClient.cc                     (John Spray         2016-07-15 00:39:22 +0100 162) 		  << session->con->get_peer_addr() << dendl;
+c38d4915a98a src/mgr/MgrClient.cc                     (John Spray         2016-08-04 15:03:51 +0100 163)     session->con->mark_down();
+4d1989dc229a src/mgr/MgrClient.cc                     (Kefu Chai          2017-02-28 05:42:58 +0000 164)     session.reset();
+e3104862b84e src/mgr/MgrClient.cc                     (John Spray         2016-07-26 13:58:04 +0100 165)     stats_period = 0;
+1643a7fc6074 src/mgr/MgrClient.cc                     (John Spray         2016-07-15 16:48:32 +0100 166)     if (report_callback != nullptr) {
+1643a7fc6074 src/mgr/MgrClient.cc                     (John Spray         2016-07-15 16:48:32 +0100 167)       timer.cancel_event(report_callback);
+1643a7fc6074 src/mgr/MgrClient.cc                     (John Spray         2016-07-15 16:48:32 +0100 168)       report_callback = nullptr;
+1643a7fc6074 src/mgr/MgrClient.cc                     (John Spray         2016-07-15 16:48:32 +0100 169)     }
+7845f8d757ad src/mgr/MgrClient.cc                     (John Spray         2016-07-15 00:39:22 +0100 170)   }
+7845f8d757ad src/mgr/MgrClient.cc                     (John Spray         2016-07-15 00:39:22 +0100 171) 
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 172)   if (!map.get_available()) {
+7845f8d757ad src/mgr/MgrClient.cc                     (John Spray         2016-07-15 00:39:22 +0100 173)     ldout(cct, 4) << "No active mgr available yet" << dendl;
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 174)     return;
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 175)   }
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 176) 
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 177)   if (!clock_t::is_zero(last_connect_attempt)) {
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 178)     auto now = clock_t::now();
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 179)     auto when = last_connect_attempt +
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 180)       ceph::make_timespan(
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 181)         cct->_conf.get_val<double>("mgr_connect_retry_interval"));
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 182)     if (now < when) {
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 183)       if (!connect_retry_callback) {
+2449b3a5c365 src/mgr/MgrClient.cc                     (Kefu Chai          2017-07-13 14:49:48 +0800 184) 	connect_retry_callback = timer.add_event_at(
+2449b3a5c365 src/mgr/MgrClient.cc                     (Kefu Chai          2017-07-13 14:49:48 +0800 185) 	  when,
+489b30844e86 src/mgr/MgrClient.cc                     (Patrick Donnelly   2019-08-14 11:23:42 -0700 186) 	  new LambdaContext([this](int r){
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 187) 	      connect_retry_callback = nullptr;
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 188) 	      reconnect();
+2449b3a5c365 src/mgr/MgrClient.cc                     (Kefu Chai          2017-07-13 14:49:48 +0800 189) 	    }));
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 190)       }
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 191)       ldout(cct, 4) << "waiting to retry connect until " << when << dendl;
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 192)       return;
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 193)     }
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 194)   }
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 195) 
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 196)   if (connect_retry_callback) {
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 197)     timer.cancel_event(connect_retry_callback);
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 198)     connect_retry_callback = nullptr;
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 199)   }
+d902e5b76ed5 src/mgr/MgrClient.cc                     (Sage Weil          2017-03-08 17:01:31 -0500 200) 
+7f787704cdcd src/mgr/MgrClient.cc                     (Sage Weil          2018-05-29 16:47:07 -0500 201)   ldout(cct, 4) << "Starting new session with " << map.get_active_addrs()
+7845f8d757ad src/mgr/MgrClient.cc                     (John Spray         2016-07-15 00:39:22 +0100 202) 		<< dendl;
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 203)   last_connect_attempt = clock_t::now();
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 204) 
+4d1989dc229a src/mgr/MgrClient.cc                     (Kefu Chai          2017-02-28 05:42:58 +0000 205)   session.reset(new MgrSessionState());
+7f787704cdcd src/mgr/MgrClient.cc                     (Sage Weil          2018-05-29 16:47:07 -0500 206)   session->con = msgr->connect_to(CEPH_ENTITY_TYPE_MGR,
+7f787704cdcd src/mgr/MgrClient.cc                     (Sage Weil          2018-05-29 16:47:07 -0500 207) 				  map.get_active_addrs());
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 208) 
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 209)   if (service_daemon) {
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 210)     daemon_dirty_status = true;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 211)   }
+c92ba33505ad src/mgr/MgrClient.cc                     (Venky Shankar      2020-04-30 05:57:40 -0400 212)   task_dirty_status = true;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 213) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 214)   // Don't send an open if we're just a client (i.e. doing
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 215)   // command-sending, not stats etc)
+fc60989bf7a7 src/mgr/MgrClient.cc                     (Sage Weil          2019-10-30 09:39:47 -0500 216)   if (msgr->get_mytype() != CEPH_ENTITY_TYPE_CLIENT || service_daemon) {
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 217)     _send_open();
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 218)   }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 219) 
+e19d4a0118f4 src/mgr/MgrClient.cc                     (Sage Weil          2017-02-26 14:09:18 -0500 220)   // resend any pending commands
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 221)   auto p = command_table.get_commands().begin();
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 222)   while (p != command_table.get_commands().end()) {
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 223)     auto tid = p->first;
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 224)     auto& op = p->second;
+dd23fb4be3c3 src/mgr/MgrClient.cc                     (Sage Weil          2019-12-03 17:56:46 -0600 225)     ldout(cct,10) << "resending " << tid << (op.tell ? " (tell)":" (cli)") << dendl;
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 226)     MessageRef m;
+22b0a99de707 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-10 13:51:25 -0500 227)     if (op.tell) {
+22b0a99de707 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-10 13:51:25 -0500 228)       if (op.name.size() && op.name != map.active_name) {
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 229) 	ldout(cct, 10) << "active mgr " << map.active_name << " != target "
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 230) 		       << op.name << dendl;
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 231) 	if (op.on_finish) {
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 232) 	  op.on_finish->complete(-ENXIO);
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 233) 	}
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 234) 	++p;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 235) 	command_table.erase(tid);
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 236) 	continue;
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 237)       }
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500 238)       // Set fsid argument to signal that this is really a tell message (and
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500 239)       // we are not a legacy client sending a non-tell command via MCommand).
+dd23fb4be3c3 src/mgr/MgrClient.cc                     (Sage Weil          2019-12-03 17:56:46 -0600 240)       m = op.get_message(monmap->fsid, false);
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 241)     } else {
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 242)       m = op.get_message(
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 243) 	{},
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 244) 	HAVE_FEATURE(map.active_mgr_features, SERVER_OCTOPUS));
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 245)     }
+ab23c5069647 src/mgr/MgrClient.cc                     (Adam C. Emerson    2018-08-23 11:25:51 -0400 246)     ceph_assert(session);
+ab23c5069647 src/mgr/MgrClient.cc                     (Adam C. Emerson    2018-08-23 11:25:51 -0400 247)     ceph_assert(session->con);
+72afe87f82a4 src/mgr/MgrClient.cc                     (Patrick Donnelly   2019-01-09 07:48:30 -0800 248)     session->con->send_message2(std::move(m));
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 249)     ++p;
+e19d4a0118f4 src/mgr/MgrClient.cc                     (Sage Weil          2017-02-26 14:09:18 -0500 250)   }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 251) }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 252) 
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 253) void MgrClient::_send_open()
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 254) {
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 255)   if (session && session->con) {
+868b47e65a05 src/mgr/MgrClient.cc                     (Kefu Chai          2019-04-14 15:01:57 +0800 256)     auto open = make_message<MMgrOpen>();
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 257)     if (!service_name.empty()) {
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 258)       open->service_name = service_name;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 259)       open->daemon_name = daemon_name;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 260)     } else {
+b9127e7e3e4e src/mgr/MgrClient.cc                     (Jason Dillaman     2017-07-24 18:17:59 -0400 261)       open->daemon_name = cct->_conf->name.get_id();
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 262)     }
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 263)     if (service_daemon) {
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 264)       open->service_daemon = service_daemon;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 265)       open->daemon_metadata = daemon_metadata;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 266)     }
+4718b7cb2fac src/mgr/MgrClient.cc                     (Kefu Chai          2018-07-06 17:20:32 +0800 267)     cct->_conf.get_config_bl(0, &open->config_bl, &last_config_bl_version);
+4718b7cb2fac src/mgr/MgrClient.cc                     (Kefu Chai          2018-07-06 17:20:32 +0800 268)     cct->_conf.get_defaults_bl(&open->config_defaults_bl);
+868b47e65a05 src/mgr/MgrClient.cc                     (Kefu Chai          2019-04-14 15:01:57 +0800 269)     session->con->send_message2(open);
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 270)   }
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 271) }
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 272) 
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 273) void MgrClient::_send_update()
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 274) {
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 275)   if (session && session->con) {
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 276)     auto update = make_message<MMgrUpdate>();
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 277)     if (!service_name.empty()) {
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 278)       update->service_name = service_name;
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 279)       update->daemon_name = daemon_name;
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 280)     } else {
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 281)       update->daemon_name = cct->_conf->name.get_id();
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 282)     }
+6540937a6d18 src/mgr/MgrClient.cc                     (Prashant D         2022-06-24 11:10:03 -0400 283)     if (need_metadata_update) {
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 284)       update->daemon_metadata = daemon_metadata;
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 285)     }
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 286)     update->need_metadata_update = need_metadata_update;
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 287)     session->con->send_message2(update);
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 288)   }
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 289) }
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 290) 
+78e7d9051ae7 src/mgr/MgrClient.cc                     (Kefu Chai          2019-04-15 14:55:24 +0800 291) bool MgrClient::handle_mgr_map(ref_t<MMgrMap> m)
+f7a9a6f656bb src/mgr/MgrClient.cc                     (Sage Weil          2016-10-03 14:42:35 -0400 292) {
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 293)   ceph_assert(ceph_mutex_is_locked_by_me(lock));
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 294) 
+8db0137dc390 src/mgr/MgrClient.cc                     (John Spray         2016-08-08 17:08:42 +0100 295)   ldout(cct, 20) << *m << dendl;
+8db0137dc390 src/mgr/MgrClient.cc                     (John Spray         2016-08-08 17:08:42 +0100 296) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 297)   map = m->get_map();
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 298)   ldout(cct, 4) << "Got map version " << map.epoch << dendl;
+f7a9a6f656bb src/mgr/MgrClient.cc                     (Sage Weil          2016-10-03 14:42:35 -0400 299) 
+7f787704cdcd src/mgr/MgrClient.cc                     (Sage Weil          2018-05-29 16:47:07 -0500 300)   ldout(cct, 4) << "Active mgr is now " << map.get_active_addrs() << dendl;
+f7a9a6f656bb src/mgr/MgrClient.cc                     (Sage Weil          2016-10-03 14:42:35 -0400 301) 
+f7a9a6f656bb src/mgr/MgrClient.cc                     (Sage Weil          2016-10-03 14:42:35 -0400 302)   // Reset session?
+4d1989dc229a src/mgr/MgrClient.cc                     (Kefu Chai          2017-02-28 05:42:58 +0000 303)   if (!session ||
+7f787704cdcd src/mgr/MgrClient.cc                     (Sage Weil          2018-05-29 16:47:07 -0500 304)       session->con->get_peer_addrs() != map.get_active_addrs()) {
+f7a9a6f656bb src/mgr/MgrClient.cc                     (Sage Weil          2016-10-03 14:42:35 -0400 305)     reconnect();
+f7a9a6f656bb src/mgr/MgrClient.cc                     (Sage Weil          2016-10-03 14:42:35 -0400 306)   }
+f7a9a6f656bb src/mgr/MgrClient.cc                     (Sage Weil          2016-10-03 14:42:35 -0400 307) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 308)   return true;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 309) }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 310) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 311) bool MgrClient::ms_handle_reset(Connection *con)
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 312) {
+948635a8b213 src/mgr/MgrClient.cc                     (Sage Weil          2018-10-16 14:11:33 -0500 313)   std::lock_guard l(lock);
+f7a9a6f656bb src/mgr/MgrClient.cc                     (Sage Weil          2016-10-03 14:42:35 -0400 314)   if (session && con == session->con) {
+f7a9a6f656bb src/mgr/MgrClient.cc                     (Sage Weil          2016-10-03 14:42:35 -0400 315)     ldout(cct, 4) << __func__ << " con " << con << dendl;
+f7a9a6f656bb src/mgr/MgrClient.cc                     (Sage Weil          2016-10-03 14:42:35 -0400 316)     reconnect();
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 317)     return true;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 318)   }
+848ee05932bd src/mgr/MgrClient.cc                     (Sage Weil          2016-10-03 13:59:51 -0400 319)   return false;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 320) }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 321) 
+58dd3db0be62 src/mgr/MgrClient.cc                     (John Spray         2016-09-20 16:34:37 +0100 322) bool MgrClient::ms_handle_refused(Connection *con)
+58dd3db0be62 src/mgr/MgrClient.cc                     (John Spray         2016-09-20 16:34:37 +0100 323) {
+58dd3db0be62 src/mgr/MgrClient.cc                     (John Spray         2016-09-20 16:34:37 +0100 324)   // do nothing for now
+58dd3db0be62 src/mgr/MgrClient.cc                     (John Spray         2016-09-20 16:34:37 +0100 325)   return false;
+58dd3db0be62 src/mgr/MgrClient.cc                     (John Spray         2016-09-20 16:34:37 +0100 326) }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 327) 
+b17ff3c54b38 src/mgr/MgrClient.cc                     (Kefu Chai          2018-03-15 13:30:34 +0800 328) void MgrClient::_send_stats()
+5faf1787573b src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-23 11:46:31 +0800 329) {
+b17ff3c54b38 src/mgr/MgrClient.cc                     (Kefu Chai          2018-03-15 13:30:34 +0800 330)   _send_report();
+b17ff3c54b38 src/mgr/MgrClient.cc                     (Kefu Chai          2018-03-15 13:30:34 +0800 331)   _send_pgstats();
+5faf1787573b src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-23 11:46:31 +0800 332)   if (stats_period != 0) {
+f724509d4fd6 src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-23 11:50:24 +0800 333)     report_callback = timer.add_event_after(
+f724509d4fd6 src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-23 11:50:24 +0800 334)       stats_period,
+489b30844e86 src/mgr/MgrClient.cc                     (Patrick Donnelly   2019-08-14 11:23:42 -0700 335)       new LambdaContext([this](int) {
+b17ff3c54b38 src/mgr/MgrClient.cc                     (Kefu Chai          2018-03-15 13:30:34 +0800 336) 	  _send_stats();
+f724509d4fd6 src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-23 11:50:24 +0800 337) 	}));
+5faf1787573b src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-23 11:46:31 +0800 338)   }
+5faf1787573b src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-23 11:46:31 +0800 339) }
+5faf1787573b src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-23 11:46:31 +0800 340) 
+b17ff3c54b38 src/mgr/MgrClient.cc                     (Kefu Chai          2018-03-15 13:30:34 +0800 341) void MgrClient::_send_report()
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 342) {
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 343)   ceph_assert(ceph_mutex_is_locked_by_me(lock));
+ab23c5069647 src/mgr/MgrClient.cc                     (Adam C. Emerson    2018-08-23 11:25:51 -0400 344)   ceph_assert(session);
+1643a7fc6074 src/mgr/MgrClient.cc                     (John Spray         2016-07-15 16:48:32 +0100 345)   report_callback = nullptr;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 346) 
+868b47e65a05 src/mgr/MgrClient.cc                     (Kefu Chai          2019-04-14 15:01:57 +0800 347)   auto report = make_message<MMgrReport>();
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 348)   auto pcc = cct->get_perfcounters_collection();
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 349) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 350)   pcc->with_counters([this, report](
+8bf92fb6f687 src/mgr/MgrClient.cc                     (chunmei Liu        2018-10-23 15:08:07 -0700 351)         const PerfCountersCollectionImpl::CounterMap &by_path)
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 352)   {
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 353)     // Helper for checking whether a counter should be included
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 354)     auto include_counter = [this](
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 355) 			       const PerfCounters::perf_counter_data_any_d &ctr,
+f941025561ec src/mgr/MgrClient.cc                     (Naveen Naidu       2025-03-19 19:13:47 +0530 356) 			       const PerfCounters &perf_counters) {
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 357)       return perf_counters.get_adjusted_priority(ctr.prio) >= (int)stats_threshold;
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 358)     };
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 359) 
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 360)     // Helper for cases where we want to forget a counter
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 361)     auto undeclare = [report, this](const std::string &path)
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 362)     {
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 363)       report->undeclare_types.push_back(path);
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100 364)       ldout(cct,20) << " undeclare " << format_counter_path(path) << dendl;
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 365)       session->declared.erase(path);
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 366)     };
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 367) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 368)     ENCODE_START(1, 1, report->packed);
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 369) 
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 370)     // Find counters that no longer exist, and undeclare them
+a46690c6230b src/mgr/MgrClient.cc                     (Sage Weil          2017-03-10 17:14:24 -0500 371)     for (auto p = session->declared.begin(); p != session->declared.end(); ) {
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 372)       const auto &path = *(p++);
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 373)       if (by_path.count(path) == 0) {
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 374)         undeclare(path);
+a46690c6230b src/mgr/MgrClient.cc                     (Sage Weil          2017-03-10 17:14:24 -0500 375)       }
+a46690c6230b src/mgr/MgrClient.cc                     (Sage Weil          2017-03-10 17:14:24 -0500 376)     }
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 377) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 378)     for (const auto &i : by_path) {
+a46690c6230b src/mgr/MgrClient.cc                     (Sage Weil          2017-03-10 17:14:24 -0500 379)       auto& path = i.first;
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 380)       auto& data = *(i.second.data);
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 381)       auto& perf_counters = *(i.second.perf_counters);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 382) 
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 383)       // Find counters that still exist, but are no longer permitted by
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 384)       // stats_threshold
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 385)       if (!include_counter(data, perf_counters)) {
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 386)         if (session->declared.count(path)) {
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 387)           undeclare(path);
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 388)         }
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 389)         continue;
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 390)       }
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 391) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 392)       if (session->declared.count(path) == 0) {
+24662ab60e65 src/mgr/MgrClient.cc                     (Bill Scales        2026-07-23 15:50:06 +0100 393)         ldout(cct, 20) << " declare " << format_counter_path(path) << dendl;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 394)         PerfCounterType type;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 395)         type.path = path;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 396)         if (data.description) {
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 397)           type.description = data.description;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 398)         }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 399)         if (data.nick) {
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 400)           type.nick = data.nick;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 401)         }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 402)         type.type = data.type;
+88163749b572 src/mgr/MgrClient.cc                     (John Spray         2017-09-25 11:14:57 -0400 403)         type.priority = perf_counters.get_adjusted_priority(data.prio);
+8fb421070473 src/mgr/MgrClient.cc                     (Rubab-Syed         2018-01-27 03:45:56 +0500 404)         type.unit = data.unit;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 405)         report->declare_types.push_back(std::move(type));
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 406)         session->declared.insert(path);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 407)       }
+a46690c6230b src/mgr/MgrClient.cc                     (Sage Weil          2017-03-10 17:14:24 -0500 408) 
+156c941ad0d2 src/mgr/MgrClient.cc                     (Adam C. Emerson    2017-12-25 03:33:57 -0500 409)       encode(static_cast<uint64_t>(data.u64), report->packed);
+a46690c6230b src/mgr/MgrClient.cc                     (Sage Weil          2017-03-10 17:14:24 -0500 410)       if (data.type & PERFCOUNTER_LONGRUNAVG) {
+156c941ad0d2 src/mgr/MgrClient.cc                     (Adam C. Emerson    2017-12-25 03:33:57 -0500 411)         encode(static_cast<uint64_t>(data.avgcount), report->packed);
+156c941ad0d2 src/mgr/MgrClient.cc                     (Adam C. Emerson    2017-12-25 03:33:57 -0500 412)         encode(static_cast<uint64_t>(data.avgcount2), report->packed);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 413)       }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 414)     }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 415)     ENCODE_FINISH(report->packed);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 416) 
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 417)     ldout(cct, 20) << "sending " << session->declared.size() << " counters ("
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 418)                       "of possible " << by_path.size() << "), "
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 419) 		   << report->declare_types.size() << " new, "
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 420)                    << report->undeclare_types.size() << " removed"
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 421)                    << dendl;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 422)   });
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 423) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 424)   ldout(cct, 20) << "encoded " << report->packed.length() << " bytes" << dendl;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 425) 
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 426)   if (daemon_name.size()) {
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 427)     report->daemon_name = daemon_name;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 428)   } else {
+b9127e7e3e4e src/mgr/MgrClient.cc                     (Jason Dillaman     2017-07-24 18:17:59 -0400 429)     report->daemon_name = cct->_conf->name.get_id();
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 430)   }
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 431)   report->service_name = service_name;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 432) 
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 433)   if (daemon_dirty_status) {
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 434)     report->daemon_status = daemon_status;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 435)     daemon_dirty_status = false;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 436)   }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 437) 
+5c25a018643b src/mgr/MgrClient.cc                     (Venky Shankar      2019-07-02 04:11:35 -0400 438)   if (task_dirty_status) {
+5c25a018643b src/mgr/MgrClient.cc                     (Venky Shankar      2019-07-02 04:11:35 -0400 439)     report->task_status = task_status;
+5c25a018643b src/mgr/MgrClient.cc                     (Venky Shankar      2019-07-02 04:11:35 -0400 440)     task_dirty_status = false;
+5c25a018643b src/mgr/MgrClient.cc                     (Venky Shankar      2019-07-02 04:11:35 -0400 441)   }
+5c25a018643b src/mgr/MgrClient.cc                     (Venky Shankar      2019-07-02 04:11:35 -0400 442) 
+714ffe0d5f07 src/mgr/MgrClient.cc                     (Shanchun Lv        2018-03-13 14:41:14 +0800 443)   report->daemon_health_metrics = std::move(daemon_health_metrics);
+d8450574cf48 src/mgr/MgrClient.cc                     (Sage Weil          2017-12-04 16:51:33 -0600 444) 
+4718b7cb2fac src/mgr/MgrClient.cc                     (Kefu Chai          2018-07-06 17:20:32 +0800 445)   cct->_conf.get_config_bl(last_config_bl_version, &report->config_bl,
+8e2a30068acc src/mgr/MgrClient.cc                     (Sage Weil          2018-02-02 11:29:21 -0600 446) 			    &last_config_bl_version);
+d8450574cf48 src/mgr/MgrClient.cc                     (Sage Weil          2017-12-04 16:51:33 -0600 447) 
+7757ddd146f7 src/mgr/MgrClient.cc                     (Julien Collet      2018-09-17 17:23:17 +0200 448)   if (get_perf_report_cb) {
+8b6f5ead1334 src/mgr/MgrClient.cc                     (Sage Weil          2021-02-01 14:57:06 -0500 449)     report->metric_report_message = MetricReportMessage(get_perf_report_cb());
+7757ddd146f7 src/mgr/MgrClient.cc                     (Julien Collet      2018-09-17 17:23:17 +0200 450)   }
+7757ddd146f7 src/mgr/MgrClient.cc                     (Julien Collet      2018-09-17 17:23:17 +0200 451) 
+868b47e65a05 src/mgr/MgrClient.cc                     (Kefu Chai          2019-04-14 15:01:57 +0800 452)   session->con->send_message2(report);
+b306e9e0ac1b src/mgr/MgrClient.cc                     (Kefu Chai          2017-05-16 13:52:51 +0800 453) }
+b306e9e0ac1b src/mgr/MgrClient.cc                     (Kefu Chai          2017-05-16 13:52:51 +0800 454) 
+b306e9e0ac1b src/mgr/MgrClient.cc                     (Kefu Chai          2017-05-16 13:52:51 +0800 455) void MgrClient::send_pgstats()
+b17ff3c54b38 src/mgr/MgrClient.cc                     (Kefu Chai          2018-03-15 13:30:34 +0800 456) {
+948635a8b213 src/mgr/MgrClient.cc                     (Sage Weil          2018-10-16 14:11:33 -0500 457)   std::lock_guard l(lock);
+b17ff3c54b38 src/mgr/MgrClient.cc                     (Kefu Chai          2018-03-15 13:30:34 +0800 458)   _send_pgstats();
+b17ff3c54b38 src/mgr/MgrClient.cc                     (Kefu Chai          2018-03-15 13:30:34 +0800 459) }
+b17ff3c54b38 src/mgr/MgrClient.cc                     (Kefu Chai          2018-03-15 13:30:34 +0800 460) 
+b17ff3c54b38 src/mgr/MgrClient.cc                     (Kefu Chai          2018-03-15 13:30:34 +0800 461) void MgrClient::_send_pgstats()
+b306e9e0ac1b src/mgr/MgrClient.cc                     (Kefu Chai          2017-05-16 13:52:51 +0800 462) {
+ebd4c4fa8ac1 src/mgr/MgrClient.cc                     (Sage Weil          2017-06-09 12:15:18 -0400 463)   if (pgstats_cb && session) {
+b306e9e0ac1b src/mgr/MgrClient.cc                     (Kefu Chai          2017-05-16 13:52:51 +0800 464)     session->con->send_message(pgstats_cb());
+803b66a3b482 src/mgr/MgrClient.cc                     (John Spray         2016-07-31 18:05:53 +0100 465)   }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 466) }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 467) 
+78e7d9051ae7 src/mgr/MgrClient.cc                     (Kefu Chai          2019-04-15 14:55:24 +0800 468) bool MgrClient::handle_mgr_configure(ref_t<MMgrConfigure> m)
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 469) {
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 470)   ceph_assert(ceph_mutex_is_locked_by_me(lock));
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 471) 
+8db0137dc390 src/mgr/MgrClient.cc                     (John Spray         2016-08-08 17:08:42 +0100 472)   ldout(cct, 20) << *m << dendl;
+8db0137dc390 src/mgr/MgrClient.cc                     (John Spray         2016-08-08 17:08:42 +0100 473) 
+4d1989dc229a src/mgr/MgrClient.cc                     (Kefu Chai          2017-02-28 05:42:58 +0000 474)   if (!session) {
+1643a7fc6074 src/mgr/MgrClient.cc                     (John Spray         2016-07-15 16:48:32 +0100 475)     lderr(cct) << "dropping unexpected configure message" << dendl;
+1643a7fc6074 src/mgr/MgrClient.cc                     (John Spray         2016-07-15 16:48:32 +0100 476)     return true;
+1643a7fc6074 src/mgr/MgrClient.cc                     (John Spray         2016-07-15 16:48:32 +0100 477)   }
+1643a7fc6074 src/mgr/MgrClient.cc                     (John Spray         2016-07-15 16:48:32 +0100 478) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 479)   ldout(cct, 4) << "stats_period=" << m->stats_period << dendl;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 480) 
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 481)   if (stats_threshold != m->stats_threshold) {
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 482)     ldout(cct, 4) << "updated stats threshold: " << m->stats_threshold << dendl;
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 483)     stats_threshold = m->stats_threshold;
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 484)   }
+bdc775fdd8ac src/mgr/MgrClient.cc                     (John Spray         2017-07-31 09:24:09 -0400 485) 
+efcebe1eb4ae src/mgr/MgrClient.cc                     (Venky Shankar      2019-09-10 09:49:04 -0400 486)   if (!m->osd_perf_metric_queries.empty()) {
+efcebe1eb4ae src/mgr/MgrClient.cc                     (Venky Shankar      2019-09-10 09:49:04 -0400 487)     handle_config_payload(m->osd_perf_metric_queries);
+efcebe1eb4ae src/mgr/MgrClient.cc                     (Venky Shankar      2019-09-10 09:49:04 -0400 488)   } else if (m->metric_config_message) {
+efcebe1eb4ae src/mgr/MgrClient.cc                     (Venky Shankar      2019-09-10 09:49:04 -0400 489)     const MetricConfigMessage &message = *m->metric_config_message;
+d8141f4302ad src/mgr/MgrClient.cc                     (Kefu Chai          2025-04-25 23:53:08 +0800 490)     std::visit(HandlePayloadVisitor(this), message.payload);
+f495b8cce901 src/mgr/MgrClient.cc                     (Mykola Golub       2018-09-23 20:33:14 +0300 491)   }
+f495b8cce901 src/mgr/MgrClient.cc                     (Mykola Golub       2018-09-23 20:33:14 +0300 492) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 493)   bool starting = (stats_period == 0) && (m->stats_period != 0);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 494)   stats_period = m->stats_period;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 495)   if (starting) {
+b17ff3c54b38 src/mgr/MgrClient.cc                     (Kefu Chai          2018-03-15 13:30:34 +0800 496)     _send_stats();
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 497)   }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 498) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 499)   return true;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 500) }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 501) 
+78e7d9051ae7 src/mgr/MgrClient.cc                     (Kefu Chai          2019-04-15 14:55:24 +0800 502) bool MgrClient::handle_mgr_close(ref_t<MMgrClose> m)
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 503) {
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 504)   service_daemon = false;
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 505)   shutdown_cond.notify_all();
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 506)   return true;
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 507) }
+082a700ac80a src/mgr/MgrClient.cc                     (Sage Weil          2018-03-13 15:13:56 -0500 508) 
+f82ab1cbf242 src/mgr/MgrClient.cc                     (Max Kellermann     2025-08-12 11:20:23 +0200 509) int MgrClient::start_command(vector<string>&& cmd, bufferlist&& inbl,
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 510) 			     bufferlist *outbl, string *outs,
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 511) 			     Context *onfinish)
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 512) {
+948635a8b213 src/mgr/MgrClient.cc                     (Sage Weil          2018-10-16 14:11:33 -0500 513)   std::lock_guard l(lock);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 514) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 515)   ldout(cct, 20) << "cmd: " << cmd << dendl;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 516) 
+bae47183c262 src/mgr/MgrClient.cc                     (John Spray         2018-04-30 09:32:43 -0400 517)   if (map.epoch == 0 && mgr_optional) {
+3015f304db4c src/mgr/MgrClient.cc                     (Sage Weil          2017-03-22 11:36:01 -0500 518)     ldout(cct,20) << " no MgrMap, assuming EACCES" << dendl;
+3015f304db4c src/mgr/MgrClient.cc                     (Sage Weil          2017-03-22 11:36:01 -0500 519)     return -EACCES;
+3015f304db4c src/mgr/MgrClient.cc                     (Sage Weil          2017-03-22 11:36:01 -0500 520)   }
+7845f8d757ad src/mgr/MgrClient.cc                     (John Spray         2016-07-15 00:39:22 +0100 521) 
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 522)   auto &op = command_table.start_command();
+f82ab1cbf242 src/mgr/MgrClient.cc                     (Max Kellermann     2025-08-12 11:20:23 +0200 523)   op.cmd = std::move(cmd);
+f82ab1cbf242 src/mgr/MgrClient.cc                     (Max Kellermann     2025-08-12 11:20:23 +0200 524)   op.inbl = std::move(inbl);
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 525)   op.outbl = outbl;
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 526)   op.outs = outs;
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 527)   op.on_finish = onfinish;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 528) 
+e19d4a0118f4 src/mgr/MgrClient.cc                     (Sage Weil          2017-02-26 14:09:18 -0500 529)   if (session && session->con) {
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500 530)     // Leaving fsid argument null because it isn't used historically, and
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500 531)     // we can use it as a signal that we are sending a non-tell command.
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 532)     auto m = op.get_message(
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 533)       {},
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 534)       HAVE_FEATURE(map.active_mgr_features, SERVER_OCTOPUS));
+72afe87f82a4 src/mgr/MgrClient.cc                     (Patrick Donnelly   2019-01-09 07:48:30 -0800 535)     session->con->send_message2(std::move(m));
+bae47183c262 src/mgr/MgrClient.cc                     (John Spray         2018-04-30 09:32:43 -0400 536)   } else {
+a89a836acc49 src/mgr/MgrClient.cc                     (Jason Dillaman     2019-01-24 20:07:35 -0500 537)     ldout(cct, 5) << "no mgr session (no running mgr daemon?), waiting" << dendl;
+e19d4a0118f4 src/mgr/MgrClient.cc                     (Sage Weil          2017-02-26 14:09:18 -0500 538)   }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 539)   return 0;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 540) }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 541) 
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 542) int MgrClient::start_tell_command(
+f82ab1cbf242 src/mgr/MgrClient.cc                     (Max Kellermann     2025-08-12 11:20:23 +0200 543)   string&& name,
+f82ab1cbf242 src/mgr/MgrClient.cc                     (Max Kellermann     2025-08-12 11:20:23 +0200 544)   vector<string>&& cmd, bufferlist&& inbl,
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 545)   bufferlist *outbl, string *outs,
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 546)   Context *onfinish)
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 547) {
+948635a8b213 src/mgr/MgrClient.cc                     (Sage Weil          2018-10-16 14:11:33 -0500 548)   std::lock_guard l(lock);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 549) 
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 550)   ldout(cct, 20) << "target: " << name << " cmd: " << cmd << dendl;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 551) 
+bae47183c262 src/mgr/MgrClient.cc                     (John Spray         2018-04-30 09:32:43 -0400 552)   if (map.epoch == 0 && mgr_optional) {
+3015f304db4c src/mgr/MgrClient.cc                     (Sage Weil          2017-03-22 11:36:01 -0500 553)     ldout(cct,20) << " no MgrMap, assuming EACCES" << dendl;
+3015f304db4c src/mgr/MgrClient.cc                     (Sage Weil          2017-03-22 11:36:01 -0500 554)     return -EACCES;
+3015f304db4c src/mgr/MgrClient.cc                     (Sage Weil          2017-03-22 11:36:01 -0500 555)   }
+7845f8d757ad src/mgr/MgrClient.cc                     (John Spray         2016-07-15 00:39:22 +0100 556) 
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 557)   auto &op = command_table.start_command();
+22b0a99de707 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-10 13:51:25 -0500 558)   op.tell = true;
+f82ab1cbf242 src/mgr/MgrClient.cc                     (Max Kellermann     2025-08-12 11:20:23 +0200 559)   op.name = std::move(name);
+f82ab1cbf242 src/mgr/MgrClient.cc                     (Max Kellermann     2025-08-12 11:20:23 +0200 560)   op.cmd = std::move(cmd);
+f82ab1cbf242 src/mgr/MgrClient.cc                     (Max Kellermann     2025-08-12 11:20:23 +0200 561)   op.inbl = std::move(inbl);
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 562)   op.outbl = outbl;
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 563)   op.outs = outs;
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 564)   op.on_finish = onfinish;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 565) 
+22b0a99de707 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-10 13:51:25 -0500 566)   if (session && session->con && (name.size() == 0 || map.active_name == name)) {
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500 567)     // Set fsid argument to signal that this is really a tell message (and
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500 568)     // we are not a legacy client sending a non-tell command via MCommand).
+6f35d2835268 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-27 16:01:44 -0500 569)     auto m = op.get_message(monmap->fsid, false);
+72afe87f82a4 src/mgr/MgrClient.cc                     (Patrick Donnelly   2019-01-09 07:48:30 -0800 570)     session->con->send_message2(std::move(m));
+bae47183c262 src/mgr/MgrClient.cc                     (John Spray         2018-04-30 09:32:43 -0400 571)   } else {
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 572)     ldout(cct, 5) << "no mgr session (no running mgr daemon?), or "
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 573) 		  << name << " not active mgr, waiting" << dendl;
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 574)   }
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 575)   return 0;
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 576) }
+1fb103da34ba src/mgr/MgrClient.cc                     (Sage Weil          2019-09-06 09:43:01 -0500 577) 
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 578) bool MgrClient::handle_command_reply(
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 579)   uint64_t tid,
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 580)   bufferlist& data,
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 581)   const std::string& rs,
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 582)   int r)
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 583) {
+c93dc8849145 src/mgr/MgrClient.cc                     (Kefu Chai          2019-07-07 11:14:49 +0800 584)   ceph_assert(ceph_mutex_is_locked_by_me(lock));
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 585) 
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 586)   ldout(cct, 20) << "tid " << tid << " r " << r << dendl;
+8db0137dc390 src/mgr/MgrClient.cc                     (John Spray         2016-08-08 17:08:42 +0100 587) 
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 588)   if (!command_table.exists(tid)) {
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 589)     ldout(cct, 4) << "handle_command_reply tid " << tid
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 590)             << " not found" << dendl;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 591)     return true;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 592)   }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 593) 
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 594)   auto &op = command_table.get_command(tid);
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 595)   if (op.outbl) {
+3fdfd606f134 src/mgr/MgrClient.cc                     (Radoslaw Zarzynski 2020-06-23 10:28:15 +0000 596)     *op.outbl = std::move(data);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 597)   }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 598) 
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 599)   if (op.outs) {
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 600)     *(op.outs) = rs;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 601)   }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 602) 
+2210772ed87c src/mgr/MgrClient.cc                     (John Spray         2016-09-19 20:35:28 +0100 603)   if (op.on_finish) {
+0019005e87a0 src/mgr/MgrClient.cc                     (Sage Weil          2019-09-04 15:56:51 -0500 604)     op.on_finish->complete(r);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 605)   }
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 606) 
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 607)   command_table.erase(tid);
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 608)   return true;
+88442d2391ad src/mgr/MgrClient.cc                     (John Spray         2016-06-30 14:05:47 +0100 609) }
+ea46778e3681 src/mgr/MgrClient.cc                     (John Spray         2016-07-31 23:23:54 +0100 610) 
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 611) int MgrClient::update_daemon_metadata(
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 612)   const std::string& service,
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 613)   const std::string& name,
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 614)   const std::map<std::string,std::string>& metadata)
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 615) {
+948635a8b213 src/mgr/MgrClient.cc                     (Sage Weil          2018-10-16 14:11:33 -0500 616)   std::lock_guard l(lock);
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 617)   if (service_daemon) {
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 618)     return -EEXIST;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 619)   }
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 620)   ldout(cct,1) << service << "." << name << " metadata " << metadata << dendl;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 621)   service_name = service;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 622)   daemon_name = name;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 623)   daemon_metadata = metadata;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 624)   daemon_dirty_status = true;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 625) 
+6540937a6d18 src/mgr/MgrClient.cc                     (Prashant D         2022-06-24 11:10:03 -0400 626)   if (need_metadata_update &&
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 627)       !daemon_metadata.empty()) {
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 628)     _send_update();
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 629)     need_metadata_update = false;
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 630)   }
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 631) 
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 632)   return 0;
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 633) }
+1a065043b964 src/mgr/MgrClient.cc                     (Prashant D         2022-03-28 14:02:08 +0100 634) 
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 635) int MgrClient::service_daemon_register(
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 636)   const std::string& service,
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 637)   const std::string& name,
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 638)   const std::map<std::string,std::string>& metadata)
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 639) {
+948635a8b213 src/mgr/MgrClient.cc                     (Sage Weil          2018-10-16 14:11:33 -0500 640)   std::lock_guard l(lock);
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 641)   if (service_daemon) {
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 642)     return -EEXIST;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 643)   }
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 644)   ldout(cct,1) << service << "." << name << " metadata " << metadata << dendl;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 645)   service_daemon = true;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 646)   service_name = service;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 647)   daemon_name = name;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 648)   daemon_metadata = metadata;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 649)   daemon_dirty_status = true;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 650) 
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 651)   // late register?
+13198b133fad src/mgr/MgrClient.cc                     (Sage Weil          2019-11-05 11:13:35 -0600 652)   if (msgr->get_mytype() == CEPH_ENTITY_TYPE_CLIENT && session && session->con) {
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 653)     _send_open();
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 654)   }
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 655) 
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 656)   return 0;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 657) }
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 658) 
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 659) int MgrClient::service_daemon_update_status(
+f0592e6e7654 src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-23 12:17:47 +0800 660)   std::map<std::string,std::string>&& status)
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 661) {
+948635a8b213 src/mgr/MgrClient.cc                     (Sage Weil          2018-10-16 14:11:33 -0500 662)   std::lock_guard l(lock);
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 663)   ldout(cct,10) << status << dendl;
+f0592e6e7654 src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-23 12:17:47 +0800 664)   daemon_status = std::move(status);
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 665)   daemon_dirty_status = true;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 666)   return 0;
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 667) }
+6fed1d21be1a src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-24 22:41:30 +0800 668) 
+5c25a018643b src/mgr/MgrClient.cc                     (Venky Shankar      2019-07-02 04:11:35 -0400 669) int MgrClient::service_daemon_update_task_status(
+5c25a018643b src/mgr/MgrClient.cc                     (Venky Shankar      2019-07-02 04:11:35 -0400 670)   std::map<std::string,std::string> &&status) {
+948635a8b213 src/mgr/MgrClient.cc                     (Sage Weil          2018-10-16 14:11:33 -0500 671)   std::lock_guard l(lock);
+97cfc3cb694e src/mgr/MgrClient.cc                     (Sage Weil          2017-06-26 13:22:17 -0400 672)   ldout(cct,10) << status << dendl;
+5c25a018643b src/mgr/MgrClient.cc                     (Venky Shankar      2019-07-02 04:11:35 -0400 673)   task_status = std::move(status);
+5c25a018643b src/mgr/MgrClient.cc                     (Venky Shankar      2019-07-02 04:11:35 -0400 674)   task_dirty_status = true;
+5c25a018643b src/mgr/MgrClient.cc                     (Venky Shankar      2019-07-02 04:11:35 -0400 675)   return 0;
+5c25a018643b src/mgr/MgrClient.cc                     (Venky Shankar      2019-07-02 04:11:35 -0400 676) }
+5c25a018643b src/mgr/MgrClient.cc                     (Venky Shankar      2019-07-02 04:11:35 -0400 677) 
+714ffe0d5f07 src/mgr/MgrClient.cc                     (Shanchun Lv        2018-03-13 14:41:14 +0800 678) void MgrClient::update_daemon_health(std::vector<DaemonHealthMetric>&& metrics)
+6fed1d21be1a src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-24 22:41:30 +0800 679) {
+948635a8b213 src/mgr/MgrClient.cc                     (Sage Weil          2018-10-16 14:11:33 -0500 680)   std::lock_guard l(lock);
+714ffe0d5f07 src/mgr/MgrClient.cc                     (Shanchun Lv        2018-03-13 14:41:14 +0800 681)   daemon_health_metrics = std::move(metrics);
+6fed1d21be1a src/mgr/MgrClient.cc                     (Kefu Chai          2017-10-24 22:41:30 +0800 682) }
+714ffe0d5f07 src/mgr/MgrClient.cc                     (Shanchun Lv        2018-03-13 14:41:14 +0800 683) 
+
+# git blame -w -M -C src/mgr/MgrClient.h
+#
+f6ba1eea4cde src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:53:09 -0400   1) 
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng     2020-04-08 10:35:40 +0800   2) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/MgrClient.h                                        (Edwin Rodriguez   2025-10-01 09:09:51 -0400   3) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/MgrClient.h                                        (Edwin Rodriguez   2025-10-02 15:34:08 -0400   4) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100   5) /*
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100   6)  * Ceph - scalable distributed file system
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100   7)  *
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100   8)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100   9)  *
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  10)  * This is free software; you can redistribute it and/or
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  11)  * modify it under the terms of the GNU Lesser General Public
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  12)  * License version 2.1, as published by the Free Software
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  13)  * Foundation.  See file COPYING.
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  14)  */
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  15) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  16) #ifndef MGR_CLIENT_H_
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  17) #define MGR_CLIENT_H_
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  18) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  19) #include "msg/Connection.h"
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  20) #include "msg/Dispatcher.h"
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  21) #include "mon/MgrMap.h"
+714ffe0d5f07 src/mgr/MgrClient.h                                        (Shanchun Lv       2018-03-13 14:41:14 +0800  22) #include "mgr/DaemonHealthMetric.h"
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  23) 
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400  24) #include "mgr/MetricTypes.h"
+7757ddd146f7 src/mgr/MgrClient.h                                        (Julien Collet     2018-09-17 17:23:17 +0200  25) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  26) #include "common/Timer.h"
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  27) #include "common/CommandTable.h"
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  28) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  29) class MMgrMap;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  30) class MMgrConfigure;
+082a700ac80a src/mgr/MgrClient.h                                        (Sage Weil         2018-03-13 15:13:56 -0500  31) class MMgrClose;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  32) class Messenger;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  33) class MCommandReply;
+803b66a3b482 src/mgr/MgrClient.h                                        (John Spray        2016-07-31 18:05:53 +0100  34) class MPGStats;
+6f35d2835268 src/mgr/MgrClient.h                                        (Sage Weil         2019-09-27 16:01:44 -0500  35) class MonMap;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  36) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  37) class MgrSessionState
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  38) {
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  39)   public:
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  40)   // Which performance counters have we already transmitted schema for?
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  41)   std::set<std::string> declared;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  42) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  43)   // Our connection to the mgr
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  44)   ConnectionRef con;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  45) };
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  46) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  47) class MgrCommand : public CommandOp
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  48) {
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  49)   public:
+1fb103da34ba src/mgr/MgrClient.h                                        (Sage Weil         2019-09-06 09:43:01 -0500  50)   std::string name;
+22b0a99de707 src/mgr/MgrClient.h                                        (Sage Weil         2019-09-10 13:51:25 -0500  51)   bool tell = false;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  52) 
+39ffec281af5 src/mgr/MgrClient.h                                        (Danny Al-Gaaf     2018-04-25 09:30:56 +0200  53)   explicit MgrCommand(ceph_tid_t t) : CommandOp(t) {}
+d02d77f334d8 src/mgr/MgrClient.h                                        (Jimyeong Lee      2023-07-17 00:42:12 +0900  54)   explicit MgrCommand(ceph_tid_t t, ceph_tid_t multi_id) : CommandOp(t, multi_id) {}
+2210772ed87c src/mgr/MgrClient.h                                        (John Spray        2016-09-19 20:35:28 +0100  55)   MgrCommand() : CommandOp() {}
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  56) };
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  57) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  58) class MgrClient : public Dispatcher
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  59) {
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  60) protected:
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  61)   CephContext *cct;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  62)   MgrMap map;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  63)   Messenger *msgr;
+6f35d2835268 src/mgr/MgrClient.h                                        (Sage Weil         2019-09-27 16:01:44 -0500  64)   MonMap *monmap;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  65) 
+7fd618c28895 src/mgr/MgrClient.h                                        (Patrick Donnelly  2026-07-08 14:19:54 -0400  66)   bool dead = false;
+7fd618c28895 src/mgr/MgrClient.h                                        (Patrick Donnelly  2026-07-08 14:19:54 -0400  67) 
+78df867516df src/mgr/MgrClient.h                                        (Adam C. Emerson   2019-03-28 20:42:34 -0400  68)   std::unique_ptr<MgrSessionState> session;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  69) 
+c93dc8849145 src/mgr/MgrClient.h                                        (Kefu Chai         2019-07-07 11:14:49 +0800  70)   ceph::mutex lock = ceph::make_mutex("MgrClient::lock");
+c93dc8849145 src/mgr/MgrClient.h                                        (Kefu Chai         2019-07-07 11:14:49 +0800  71)   ceph::condition_variable shutdown_cond;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  72) 
+58f51ad6717e src/mgr/MgrClient.h                                        (Sage Weil         2017-03-10 17:18:01 -0500  73)   uint32_t stats_period = 0;
+bdc775fdd8ac src/mgr/MgrClient.h                                        (John Spray        2017-07-31 09:24:09 -0400  74)   uint32_t stats_threshold = 0;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  75)   SafeTimer timer;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  76) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  77)   CommandTable<MgrCommand> command_table;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  78) 
+704a759b31d8 src/mgr/MgrClient.h                                        (Kefu Chai         2021-02-04 13:05:44 +0800  79)   using clock_t = ceph::mono_clock;
+c93dc8849145 src/mgr/MgrClient.h                                        (Kefu Chai         2019-07-07 11:14:49 +0800  80)   clock_t::time_point last_connect_attempt;
+d902e5b76ed5 src/mgr/MgrClient.h                                        (Sage Weil         2017-03-08 17:01:31 -0500  81) 
+8e2a30068acc src/mgr/MgrClient.h                                        (Sage Weil         2018-02-02 11:29:21 -0600  82)   uint64_t last_config_bl_version = 0;
+8e2a30068acc src/mgr/MgrClient.h                                        (Sage Weil         2018-02-02 11:29:21 -0600  83) 
+d902e5b76ed5 src/mgr/MgrClient.h                                        (Sage Weil         2017-03-08 17:01:31 -0500  84)   Context *report_callback = nullptr;
+d902e5b76ed5 src/mgr/MgrClient.h                                        (Sage Weil         2017-03-08 17:01:31 -0500  85)   Context *connect_retry_callback = nullptr;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100  86) 
+803b66a3b482 src/mgr/MgrClient.h                                        (John Spray        2016-07-31 18:05:53 +0100  87)   // If provided, use this to compose an MPGStats to send with
+803b66a3b482 src/mgr/MgrClient.h                                        (John Spray        2016-07-31 18:05:53 +0100  88)   // our reports (hook for use by OSD)
+803b66a3b482 src/mgr/MgrClient.h                                        (John Spray        2016-07-31 18:05:53 +0100  89)   std::function<MPGStats*()> pgstats_cb;
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400  90)   std::function<void(const ConfigPayload &)> set_perf_queries_cb;
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400  91)   std::function<MetricPayload()> get_perf_report_cb;
+803b66a3b482 src/mgr/MgrClient.h                                        (John Spray        2016-07-31 18:05:53 +0100  92) 
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400  93)   // for service registration and beacon
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400  94)   bool service_daemon = false;
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400  95)   bool daemon_dirty_status = false;
+5c25a018643b src/mgr/MgrClient.h                                        (Venky Shankar     2019-07-02 04:11:35 -0400  96)   bool task_dirty_status = false;
+1a065043b964 src/mgr/MgrClient.h                                        (Prashant D        2022-03-28 14:02:08 +0100  97)   bool need_metadata_update = true;
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400  98)   std::string service_name, daemon_name;
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400  99)   std::map<std::string,std::string> daemon_metadata;
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400 100)   std::map<std::string,std::string> daemon_status;
+5c25a018643b src/mgr/MgrClient.h                                        (Venky Shankar     2019-07-02 04:11:35 -0400 101)   std::map<std::string,std::string> task_status;
+714ffe0d5f07 src/mgr/MgrClient.h                                        (Shanchun Lv       2018-03-13 14:41:14 +0800 102)   std::vector<DaemonHealthMetric> daemon_health_metrics;
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400 103) 
+f7a9a6f656bb src/mgr/MgrClient.h                                        (Sage Weil         2016-10-03 14:42:35 -0400 104)   void reconnect();
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400 105)   void _send_open();
+1a065043b964 src/mgr/MgrClient.h                                        (Prashant D        2022-03-28 14:02:08 +0100 106)   void _send_update();
+f7a9a6f656bb src/mgr/MgrClient.h                                        (Sage Weil         2016-10-03 14:42:35 -0400 107) 
+bae47183c262 src/mgr/MgrClient.h                                        (John Spray        2018-04-30 09:32:43 -0400 108)   // In pre-luminous clusters, the ceph-mgr service is absent or optional,
+bae47183c262 src/mgr/MgrClient.h                                        (John Spray        2018-04-30 09:32:43 -0400 109)   // so we must not block in start_command waiting for it.
+bae47183c262 src/mgr/MgrClient.h                                        (John Spray        2018-04-30 09:32:43 -0400 110)   bool mgr_optional = false;
+bae47183c262 src/mgr/MgrClient.h                                        (John Spray        2018-04-30 09:32:43 -0400 111) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 112) public:
+6f35d2835268 src/mgr/MgrClient.h                                        (Sage Weil         2019-09-27 16:01:44 -0500 113)   MgrClient(CephContext *cct_, Messenger *msgr_, MonMap *monmap);
+119f9ad1980e src/mgr/MgrClient.h                                        (Max Kellermann    2024-11-13 21:44:21 +0100 114)   ~MgrClient();
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 115) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 116)   void set_messenger(Messenger *msgr_) { msgr = msgr_; }
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 117) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 118)   void init();
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 119)   void shutdown();
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 120) 
+bae47183c262 src/mgr/MgrClient.h                                        (John Spray        2018-04-30 09:32:43 -0400 121)   void set_mgr_optional(bool optional_) {mgr_optional = optional_;}
+bae47183c262 src/mgr/MgrClient.h                                        (John Spray        2018-04-30 09:32:43 -0400 122) 
+c9d0913f53b0 src/mgr/MgrClient.h                                        (Patrick Donnelly  2025-02-18 12:41:52 -0500 123)   Dispatcher::dispatch_result_t ms_dispatch2(const ceph::ref_t<Message>& m) override;
+ecbcd591b785 src/mgr/MgrClient.h                                        (Chang Liu         2017-02-22 19:52:46 +0800 124)   bool ms_handle_reset(Connection *con) override;
+ecbcd591b785 src/mgr/MgrClient.h                                        (Chang Liu         2017-02-22 19:52:46 +0800 125)   void ms_handle_remote_reset(Connection *con) override {}
+ecbcd591b785 src/mgr/MgrClient.h                                        (Chang Liu         2017-02-22 19:52:46 +0800 126)   bool ms_handle_refused(Connection *con) override;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 127) 
+78e7d9051ae7 src/mgr/MgrClient.h                                        (Kefu Chai         2019-04-15 14:55:24 +0800 128)   bool handle_mgr_map(ceph::ref_t<MMgrMap> m);
+78e7d9051ae7 src/mgr/MgrClient.h                                        (Kefu Chai         2019-04-15 14:55:24 +0800 129)   bool handle_mgr_configure(ceph::ref_t<MMgrConfigure> m);
+78e7d9051ae7 src/mgr/MgrClient.h                                        (Kefu Chai         2019-04-15 14:55:24 +0800 130)   bool handle_mgr_close(ceph::ref_t<MMgrClose> m);
+0019005e87a0 src/mgr/MgrClient.h                                        (Sage Weil         2019-09-04 15:56:51 -0500 131)   bool handle_command_reply(
+0019005e87a0 src/mgr/MgrClient.h                                        (Sage Weil         2019-09-04 15:56:51 -0500 132)     uint64_t tid,
+4ccebbfa2f27 src/mgr/MgrClient.h                                        (Adam C. Emerson   2020-03-07 04:33:10 -0500 133)     ceph::buffer::list& data,
+0019005e87a0 src/mgr/MgrClient.h                                        (Sage Weil         2019-09-04 15:56:51 -0500 134)     const std::string& rs,
+0019005e87a0 src/mgr/MgrClient.h                                        (Sage Weil         2019-09-04 15:56:51 -0500 135)     int r);
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 136) 
+7757ddd146f7 src/mgr/MgrClient.h                                        (Julien Collet     2018-09-17 17:23:17 +0200 137)   void set_perf_metric_query_cb(
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 138)     std::function<void(const ConfigPayload &)> cb_set,
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 139)     std::function<MetricPayload()> cb_get)
+7757ddd146f7 src/mgr/MgrClient.h                                        (Julien Collet     2018-09-17 17:23:17 +0200 140)   {
+948635a8b213 src/mgr/MgrClient.h                                        (Sage Weil         2018-10-16 14:11:33 -0500 141)       std::lock_guard l(lock);
+7757ddd146f7 src/mgr/MgrClient.h                                        (Julien Collet     2018-09-17 17:23:17 +0200 142)       set_perf_queries_cb = cb_set;
+7757ddd146f7 src/mgr/MgrClient.h                                        (Julien Collet     2018-09-17 17:23:17 +0200 143)       get_perf_report_cb = cb_get;
+7757ddd146f7 src/mgr/MgrClient.h                                        (Julien Collet     2018-09-17 17:23:17 +0200 144)   }
+7757ddd146f7 src/mgr/MgrClient.h                                        (Julien Collet     2018-09-17 17:23:17 +0200 145) 
+b306e9e0ac1b src/mgr/MgrClient.h                                        (Kefu Chai         2017-05-16 13:52:51 +0800 146)   void send_pgstats();
+ce6e043a44e3 src/mgr/MgrClient.h                                        (Wilson E. Alvarez 2018-03-27 22:45:14 -0400 147)   void set_pgstats_cb(std::function<MPGStats*()>&& cb_)
+803b66a3b482 src/mgr/MgrClient.h                                        (John Spray        2016-07-31 18:05:53 +0100 148)   {
+948635a8b213 src/mgr/MgrClient.h                                        (Sage Weil         2018-10-16 14:11:33 -0500 149)     std::lock_guard l(lock);
+ce6e043a44e3 src/mgr/MgrClient.h                                        (Wilson E. Alvarez 2018-03-27 22:45:14 -0400 150)     pgstats_cb = std::move(cb_);
+803b66a3b482 src/mgr/MgrClient.h                                        (John Spray        2016-07-31 18:05:53 +0100 151)   }
+803b66a3b482 src/mgr/MgrClient.h                                        (John Spray        2016-07-31 18:05:53 +0100 152) 
+1fb103da34ba src/mgr/MgrClient.h                                        (Sage Weil         2019-09-06 09:43:01 -0500 153)   int start_command(
+f82ab1cbf242 src/mgr/MgrClient.h                                        (Max Kellermann    2025-08-12 11:20:23 +0200 154)     std::vector<std::string>&& cmd, ceph::buffer::list&& inbl,
+78df867516df src/mgr/MgrClient.h                                        (Adam C. Emerson   2019-03-28 20:42:34 -0400 155)     ceph::buffer::list *outbl, std::string *outs,
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 156)     Context *onfinish);
+1fb103da34ba src/mgr/MgrClient.h                                        (Sage Weil         2019-09-06 09:43:01 -0500 157)   int start_tell_command(
+f82ab1cbf242 src/mgr/MgrClient.h                                        (Max Kellermann    2025-08-12 11:20:23 +0200 158)     std::string&& name,
+f82ab1cbf242 src/mgr/MgrClient.h                                        (Max Kellermann    2025-08-12 11:20:23 +0200 159)     std::vector<std::string>&& cmd, ceph::buffer::list&& inbl,
+78df867516df src/mgr/MgrClient.h                                        (Adam C. Emerson   2019-03-28 20:42:34 -0400 160)     ceph::buffer::list *outbl, std::string *outs,
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 161)     Context *onfinish);
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400 162) 
+1a065043b964 src/mgr/MgrClient.h                                        (Prashant D        2022-03-28 14:02:08 +0100 163)   int update_daemon_metadata(
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400 164)     const std::string& service,
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400 165)     const std::string& name,
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400 166)     const std::map<std::string,std::string>& metadata);
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400 167)   int service_daemon_register(
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400 168)     const std::string& service,
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400 169)     const std::string& name,
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400 170)     const std::map<std::string,std::string>& metadata);
+97cfc3cb694e src/mgr/MgrClient.h                                        (Sage Weil         2017-06-26 13:22:17 -0400 171)   int service_daemon_update_status(
+f0592e6e7654 src/mgr/MgrClient.h                                        (Kefu Chai         2017-10-23 12:17:47 +0800 172)     std::map<std::string,std::string>&& status);
+5c25a018643b src/mgr/MgrClient.h                                        (Venky Shankar     2019-07-02 04:11:35 -0400 173)   int service_daemon_update_task_status(
+5c25a018643b src/mgr/MgrClient.h                                        (Venky Shankar     2019-07-02 04:11:35 -0400 174)     std::map<std::string,std::string> &&task_status);
+714ffe0d5f07 src/mgr/MgrClient.h                                        (Shanchun Lv       2018-03-13 14:41:14 +0800 175)   void update_daemon_health(std::vector<DaemonHealthMetric>&& metrics);
+5faf1787573b src/mgr/MgrClient.h                                        (Kefu Chai         2017-10-23 11:46:31 +0800 176) 
+e765f2d53344 src/mgr/MgrClient.h                                        (Patrick Donnelly  2019-11-05 19:51:17 -0800 177)   bool is_initialized() const { return initialized; }
+e765f2d53344 src/mgr/MgrClient.h                                        (Patrick Donnelly  2019-11-05 19:51:17 -0800 178) 
+5faf1787573b src/mgr/MgrClient.h                                        (Kefu Chai         2017-10-23 11:46:31 +0800 179) private:
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 180)   void handle_config_payload(const OSDConfigPayload &payload) {
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 181)     if (set_perf_queries_cb) {
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 182)       set_perf_queries_cb(payload);
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 183)     }
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 184)   }
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 185) 
+f6ba1eea4cde src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:53:09 -0400 186)   void handle_config_payload(const MDSConfigPayload &payload) {
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 187)     if (set_perf_queries_cb) {
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 188)       set_perf_queries_cb(payload);
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 189)     }
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 190)   }
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 191) 
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 192)   void handle_config_payload(const UnknownConfigPayload &payload) {
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 193)     ceph_abort();
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 194)   }
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 195) 
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 196)   struct HandlePayloadVisitor : public boost::static_visitor<void> {
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 197)     MgrClient *mgrc;
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 198) 
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 199)     HandlePayloadVisitor(MgrClient *mgrc)
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 200)       : mgrc(mgrc) {
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 201)     }
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 202) 
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 203)     template <typename ConfigPayload>
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 204)     inline void operator()(const ConfigPayload &payload) const {
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 205)       mgrc->handle_config_payload(payload);
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 206)     }
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 207)   };
+efcebe1eb4ae src/mgr/MgrClient.h                                        (Venky Shankar     2019-09-10 09:49:04 -0400 208) 
+b17ff3c54b38 src/mgr/MgrClient.h                                        (Kefu Chai         2018-03-15 13:30:34 +0800 209)   void _send_stats();
+b17ff3c54b38 src/mgr/MgrClient.h                                        (Kefu Chai         2018-03-15 13:30:34 +0800 210)   void _send_pgstats();
+b17ff3c54b38 src/mgr/MgrClient.h                                        (Kefu Chai         2018-03-15 13:30:34 +0800 211)   void _send_report();
+e765f2d53344 src/mgr/MgrClient.h                                        (Patrick Donnelly  2019-11-05 19:51:17 -0800 212) 
+e765f2d53344 src/mgr/MgrClient.h                                        (Patrick Donnelly  2019-11-05 19:51:17 -0800 213)   bool initialized = false;
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 214) };
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 215) 
+88442d2391ad src/mgr/MgrClient.h                                        (John Spray        2016-06-30 14:05:47 +0100 216) #endif

@@ -1,0 +1,23 @@
+commit 6d2e4cb109caff8dae5e5e18563b6305131b488b
+Author: David Zafman <dzafman@redhat.com>
+Date:   Fri Sep 6 11:20:10 2019 -0700
+
+    test: Allow fractional milliseconds to make test possible
+    
+    Fixes: https://tracker.ceph.com/issues/41689
+    
+    Signed-off-by: David Zafman <dzafman@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 1571d81efe7..55bd0e1cbc8 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -224,7 +224,7 @@ bool ClusterState::asok_command(std::string_view admin_command, const cmdmap_t&
+     // Default to health warning level if nothing specified
+     if (!(cmd_getval(g_ceph_context, cmdmap, "value", value))) {
+       // Convert milliseconds to microseconds
+-      value = static_cast<int64_t>(g_ceph_context->_conf.get_val<uint64_t>("mon_warn_on_slow_ping_time")) * 1000;
++      value = static_cast<int64_t>(g_ceph_context->_conf.get_val<double>("mon_warn_on_slow_ping_time")) * 1000;
+       if (value == 0) {
+         double ratio = g_conf().get_val<double>("mon_warn_on_slow_ping_ratio");
+ 	value = g_conf().get_val<int64_t>("osd_heartbeat_grace");

@@ -1,0 +1,25 @@
+commit 67bd8c40ed3a71edef8baccdadfca979042c792c
+Author: John Spray <jspray@redhat.com>
+Date:   Sun Jun 25 12:08:37 2017 -0400
+
+    mgr: cluster log message on plugin load error
+    
+    To make it a bit more obvious what's going on, otherwise
+    user's first sign is when they try and use a CLI bit
+    and get a command not found.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 15fae8502e2..cd21408efa3 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -48,7 +48,7 @@ Mgr::Mgr(MonClient *monc_, Messenger *clientm_, Objecter *objecter_,
+   lock("Mgr::lock"),
+   timer(g_ceph_context, lock),
+   finisher(g_ceph_context, "Mgr", "mgr-fin"),
+-  py_modules(daemon_state, cluster_state, *monc, *objecter, *client,
++  py_modules(daemon_state, cluster_state, *monc, clog_, *objecter, *client,
+              finisher),
+   cluster_state(monc, nullptr),
+   server(monc, finisher, daemon_state, cluster_state, py_modules,

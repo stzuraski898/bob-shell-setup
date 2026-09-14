@@ -1,0 +1,52 @@
+commit 0f814f38e5d811d84fe07fe2d443c1038d53ca9a
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Dec 17 15:06:49 2018 -0600
+
+    pybind/mgr/mgr_module: make use of defined default value
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 7507144d06c..1233e72d9fe 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -538,23 +538,31 @@ int PyModule::load_options()
+       option.long_desc = PyString_AsString(p);
+     }
+     p = PyDict_GetItemString(pOption, "default");
+-    if (p && PyObject_TypeCheck(p, &PyString_Type)) {
+-      option.default_value = PyString_AsString(p);
++    if (p) {
++      auto q = PyObject_Str(p);
++      option.default_value = PyString_AsString(q);
++      Py_DECREF(q);
+     }
+     p = PyDict_GetItemString(pOption, "min");
+-    if (p && PyObject_TypeCheck(p, &PyString_Type)) {
+-      option.min = PyString_AsString(p);
++    if (p) {
++      auto q = PyObject_Str(p);
++      option.min = PyString_AsString(q);
++      Py_DECREF(q);
+     }
+     p = PyDict_GetItemString(pOption, "max");
+-    if (p && PyObject_TypeCheck(p, &PyString_Type)) {
+-      option.max = PyString_AsString(p);
++    if (p) {
++      auto q = PyObject_Str(p);
++      option.max = PyString_AsString(q);
++      Py_DECREF(q);
+     }
+     p = PyDict_GetItemString(pOption, "enum_allowed");
+     if (p && PyObject_TypeCheck(p, &PyList_Type)) {
+       for (unsigned i = 0; i < PyList_Size(p); ++i) {
+ 	auto q = PyList_GetItem(p, i);
+-	if (q && PyObject_TypeCheck(q, &PyString_Type)) {
+-	  option.enum_allowed.insert(PyString_AsString(q));
++	if (q) {
++	  auto r = PyObject_Str(q);
++	  option.enum_allowed.insert(PyString_AsString(r));
++	  Py_DECREF(r);
+ 	}
+       }
+     }

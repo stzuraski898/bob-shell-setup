@@ -1,0 +1,105 @@
+commit 9501bfdd711499c1314a3495549da24fbc02257e
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Jul 26 11:14:00 2016 +0100
+
+    mgr: store some counter history
+    
+    ...and expose it to python modules.
+    
+    Also fix some of the code around how we updated
+    DaemonState.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 9ec95ffbfb0..ffa7a81a307 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -117,6 +117,8 @@ void DaemonPerfCounters::update(MMgrReport *report)
+     declared_types.insert(t.path);
+   }
+ 
++  const auto now = ceph_clock_now(g_ceph_context);
++
+   // Parse packed data according to declared set of types
+   bufferlist::iterator p = report->packed.begin();
+   DECODE_START(1, p);
+@@ -131,12 +133,19 @@ void DaemonPerfCounters::update(MMgrReport *report)
+       ::decode(avgcount, p);
+       ::decode(avgcount2, p);
+     }
+-    // TODO: interface for insertion of avgs, add timestamp
+-    instances[t_path].push(val);
++    // TODO: interface for insertion of avgs
++    instances[t_path].push(now, val);
+   }
+-  // TODO: handle badly encoded things without asserting out
+   DECODE_FINISH(p);
+ }
+ 
++uint64_t PerfCounterInstance::get_current() const
++{
++  return buffer.front().v;
++}
+ 
++void PerfCounterInstance::push(utime_t t, uint64_t const &v)
++{
++  buffer.push_back({t, v});
++}
+ 
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index a5aef3b3993..78fd036525f 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -18,6 +18,7 @@
+ #include <string>
+ #include <memory>
+ #include <set>
++#include <boost/circular_buffer.hpp>
+ 
+ #include "common/Mutex.h"
+ 
+@@ -34,10 +35,27 @@ typedef std::pair<entity_type_t, std::string> DaemonKey;
+ // a particular daemon.
+ class PerfCounterInstance
+ {
+-  // TODO: store some short history or whatever
+-  uint64_t current;
++  class DataPoint
++  {
++    public:
++    utime_t t;
++    uint64_t v;
++    DataPoint(utime_t t_, uint64_t v_)
++      : t(t_), v(v_)
++    {}
++  };
++
++  boost::circular_buffer<DataPoint> buffer;
++  uint64_t get_current() const;
++
+   public:
+-  void push(uint64_t const &v) {current = v;}
++  const boost::circular_buffer<DataPoint> & get_data() const
++  {
++    return buffer;
++  }
++  void push(utime_t t, uint64_t const &v);
++  PerfCounterInstance()
++    : buffer(20) {}
+ };
+ 
+ 
+@@ -63,6 +81,12 @@ class DaemonPerfCounters
+   std::set<std::string> declared_types;
+ 
+   void update(MMgrReport *report);
++
++  void clear()
++  {
++    instances.clear();
++    declared_types.clear();
++  }
+ };
+ 
+ // The state that we store about one daemon

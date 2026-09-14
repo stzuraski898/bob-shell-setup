@@ -1,0 +1,68 @@
+commit 52446d00f647533f24e412dc8685a28d246bbdf2
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Thu Jan 28 15:02:33 2021 -0800
+
+    mgr: add ceph sqlite VFS
+    
+    Configure to use g_ceph_context and obtain the RADOS entity address for
+    blocklisting.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index b8e1ec8e4aa..6e2ea467035 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -13,6 +13,8 @@
+ 
+ #include <Python.h>
+ 
++#include <sqlite3.h>
++
+ #include "osdc/Objecter.h"
+ #include "client/Client.h"
+ #include "common/errno.h"
+@@ -21,6 +23,10 @@
+ #include "global/global_context.h"
+ #include "global/signal_handler.h"
+ 
++#ifdef WITH_LIBCEPHSQLITE
++#  include "include/libcephsqlite.h"
++#endif
++
+ #include "mgr/MgrContext.h"
+ 
+ #include "DaemonServer.h"
+@@ -353,6 +359,32 @@ void Mgr::init()
+     "Dump mgr status");
+   ceph_assert(r == 0);
+ 
++#ifdef WITH_LIBCEPHSQLITE
++  dout(4) << "Using sqlite3 version: " << sqlite3_libversion() << dendl;
++  /* See libcephsqlite.h for rationale of this code. */
++  sqlite3_auto_extension((void (*)())sqlite3_cephsqlite_init);
++  {
++    sqlite3* db = nullptr;
++    if (int rc = sqlite3_open_v2(":memory:", &db, SQLITE_OPEN_READWRITE, nullptr); rc == SQLITE_OK) {
++      sqlite3_close(db);
++    } else {
++      derr << "could not open sqlite3: " << rc << dendl;
++      ceph_abort();
++    }
++  }
++  {
++    char *ident = nullptr;
++    if (int rc = cephsqlite_setcct(g_ceph_context, &ident); rc < 0) {
++      derr << "could not set libcephsqlite cct: " << rc << dendl;
++      ceph_abort();
++    }
++    entity_addrvec_t addrv;
++    addrv.parse(ident);
++    ident = (char*)realloc(ident, 0);
++    py_module_registry->register_client("libcephsqlite", addrv);
++  }
++#endif
++
+   dout(4) << "Complete." << dendl;
+   initializing = false;
+   initialized = true;

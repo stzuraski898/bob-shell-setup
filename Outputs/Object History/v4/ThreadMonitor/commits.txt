@@ -1,0 +1,6 @@
+# Non-merge commits touching src/mgr/ThreadMonitor.cc and/or src/mgr/ThreadMonitor.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+28647966e2e085f7c1a8514faafe1f82df99fb5a 2026-05-27 Nitzan Mordechai | mgr/ThreadMonitor: monitor interval running in seconds and not nanoseconds
+95a90f7da8a32dd2a5a1e3b381aaeacea378437b 2024-12-08 Nitzan Mordechai | mgr: Add per-module performance counters to mgr

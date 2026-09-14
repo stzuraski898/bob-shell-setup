@@ -1,0 +1,28 @@
+commit 206942737a9ed44d28040e6c3cc046c0d32a3c9c
+Author: Sarit Zubakov <saritz@mellanox.com>
+Date:   Wed Feb 8 10:42:46 2017 +0000
+
+    msg: Fix calls to Messenger::create with new parameter
+    
+    Update all calls to Messenger::create()
+    take 'ms_public_type' or 'ms_cluster_type' instead of 'ms_type'
+    
+    issue: 971661
+    
+    Change-Id: Ib234daf393d1838ef596dde35a6d83c1aeecaf10
+    Signed-off-by: Sarit Zubakov <saritz@mellanox.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 995228ae401..e3f327c0ecc 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -46,7 +46,8 @@ DaemonServer::~DaemonServer() {
+ int DaemonServer::init(uint64_t gid, entity_addr_t client_addr)
+ {
+   // Initialize Messenger
+-  msgr = Messenger::create(g_ceph_context, g_conf->ms_type,
++  std::string public_msgr_type = g_conf->ms_public_type.empty() ? g_conf->ms_type : g_conf->ms_public_type;
++  msgr = Messenger::create(g_ceph_context, public_msgr_type,
+ 			   entity_name_t::MGR(gid), "server", getpid(), 0);
+   int r = msgr->bind(g_conf->public_addr);
+   if (r < 0) {

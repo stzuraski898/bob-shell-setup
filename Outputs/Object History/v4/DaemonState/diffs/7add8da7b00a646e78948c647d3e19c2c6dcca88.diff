@@ -1,0 +1,23 @@
+commit 7add8da7b00a646e78948c647d3e19c2c6dcca88
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jun 6 08:46:51 2018 -0500
+
+    mgr/DaemonState: skip blank device_ids
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index c746d57ca2a..2ceedb926bb 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -166,7 +166,9 @@ class DaemonState
+       map<std::string,std::string> devs;
+       get_str_map(p->second, &devs, ",; ");
+       for (auto& i : devs) {
+-	devices[i.second] = i.first;
++	if (i.second.size()) {  // skip blank ids
++	  devices[i.second] = i.first;
++	}
+       }
+     }
+   }

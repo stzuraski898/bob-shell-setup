@@ -1,0 +1,21 @@
+commit 70d45a6b93c92baf8d6a3b15765110a5384c5e60
+Author: John Spray <jspray@redhat.com>
+Date:   Tue Aug 15 06:53:18 2017 -0400
+
+    mgr: clean up python source file naming
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 5416e0d1235..474ddfdb1c8 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -24,7 +24,7 @@
+ #include "mgr/MgrContext.h"
+ #include "mgr/mgr_commands.h"
+ 
+-#include "MgrPyModule.h"
++//#include "MgrPyModule.h"
+ #include "DaemonServer.h"
+ #include "messages/MMgrBeacon.h"
+ #include "messages/MMgrDigest.h"

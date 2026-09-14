@@ -1,0 +1,23 @@
+commit b7c9e055848c8aa951bc48c957cff3ef323ea441
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Nov 23 14:09:58 2016 -0500
+
+    crush/CrushWrapper: encode with features
+    
+    No behavior change yet; just fixing callers.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 8599815363c..c2b79655ad3 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -125,7 +125,7 @@ PyObject *PyModules::get_python(const std::string &what)
+   } else if (what == "osdmap_crush_map_text") {
+     bufferlist rdata;
+     cluster_state.with_osdmap([&rdata](const OSDMap &osd_map){
+-      osd_map.crush->encode(rdata);
++	osd_map.crush->encode(rdata, CEPH_FEATURES_SUPPORTED_DEFAULT);
+     });
+     std::string crush_text = rdata.to_str();
+     return PyString_FromString(crush_text.c_str());

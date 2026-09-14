@@ -1,0 +1,23 @@
+commit c52fc7b5d34f951bc10abbd86a8fb3553ef3a416
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Oct 18 17:24:24 2018 -0500
+
+    mgr/DaemonState: clear devices in set_metadata
+    
+    We are adding new fields in the new data provided; clear out any from the
+    previous values.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index f706aab3080..d0822fee886 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -168,6 +168,7 @@ class DaemonState
+   }
+ 
+   void set_metadata(const std::map<std::string,std::string>& m) {
++    devices.clear();
+     metadata = m;
+     auto p = m.find("device_ids");
+     if (p != m.end()) {

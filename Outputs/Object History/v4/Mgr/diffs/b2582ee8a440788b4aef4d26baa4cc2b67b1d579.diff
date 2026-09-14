@@ -1,0 +1,22 @@
+commit b2582ee8a440788b4aef4d26baa4cc2b67b1d579
+Author: Liao Pingfang <liao.pingfang@zte.com.cn>
+Date:   Tue Jul 14 10:07:56 2020 +0800
+
+    mgr: Remove the superfluous break
+    
+    Remove the superfuous break, as there is a 'return' before it.
+    
+    Signed-off-by: Liao Pingfang <liao.pingfang@zte.com.cn>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index b36320edb13..c107703e455 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -549,7 +549,6 @@ bool Mgr::ms_dispatch2(const ref_t<Message>& m)
+       py_module_registry->notify_all("fs_map", "");
+       handle_fs_map(ref_cast<MFSMap>(m));
+       return false; // I shall let this pass through for Client
+-      break;
+     case CEPH_MSG_OSD_MAP:
+       handle_osd_map();
+ 

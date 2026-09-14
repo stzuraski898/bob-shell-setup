@@ -1,0 +1,35 @@
+commit 517bdca529db390e7ebc4e596570f80522060485
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Wed Feb 6 14:48:57 2019 -0800
+
+    common/RefCountedObj: cleanup con/des
+    
+    Also, don't allow children to set nref (to 0). This is the more significant
+    change as it required fixing various code to not do this:
+    
+        <reftype> ptr = new RefCountedObjectFoo(..., 0);
+    
+    as a way to create a starting reference with nref==1. This is a pretty
+    bad code smell so I've converted all the code doing this to use the new
+    factory method which produces the reference safely:
+    
+        auto ptr = ceph::make_ref<RefCountedObjectFoo>(...);
+    
+    libradosstriper was particularly egregious in its abuse of setting the starting
+    nref. :(
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ace4366dfdc..ba6c7f8c4a8 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -168,7 +168,7 @@ entity_addrvec_t DaemonServer::get_myaddrs() const
+ 
+ int DaemonServer::ms_handle_authentication(Connection *con)
+ {
+-  MgrSession *s = new MgrSession(cct);
++  auto s = ceph::make_ref<MgrSession>(cct);
+   con->set_priv(s);
+   s->inst.addr = con->get_peer_addr();
+   s->entity_name = con->peer_name;

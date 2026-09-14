@@ -1,0 +1,37 @@
+commit 3e2075103a0ab6b7ced5800db1d44d13b1c8b7e6
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Mon Jul 10 16:56:43 2023 -0400
+
+    msg: indicate ms_handle_authentication is fast
+    
+    Like other fast Dispatcher methods, it must not acquire locks or do
+    anything that might take a long time.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 83253d25bd0..f2a4fb8fb51 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -179,7 +179,7 @@ entity_addrvec_t DaemonServer::get_myaddrs() const
+   return msgr->get_myaddrs();
+ }
+ 
+-int DaemonServer::ms_handle_authentication(Connection *con)
++int DaemonServer::ms_handle_fast_authentication(Connection *con)
+ {
+   auto s = ceph::make_ref<MgrSession>(cct);
+   con->set_priv(s);
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index ff98356807a..40b7d2a8137 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -269,7 +269,7 @@ public:
+   ~DaemonServer() override;
+ 
+   bool ms_dispatch2(const ceph::ref_t<Message>& m) override;
+-  int ms_handle_authentication(Connection *con) override;
++  int ms_handle_fast_authentication(Connection *con) override;
+   bool ms_handle_reset(Connection *con) override;
+   void ms_handle_remote_reset(Connection *con) override {}
+   bool ms_handle_refused(Connection *con) override;

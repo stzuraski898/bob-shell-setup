@@ -1,0 +1,36 @@
+commit bbb1574eabf0945a626aeeb44ceb3dbb24d4391e
+Author: Casey Bodley <cbodley@redhat.com>
+Date:   Mon Feb 14 17:58:05 2022 -0500
+
+    mgr: use constexpr string_view as input to format()
+    
+    resolves a c++20 compilation error with clang13:
+    
+    ceph/src/mgr/Mgr.cc:602:42: error: call to consteval function 'fmt::basic_format_string<char, const std::basic_string<char> &>::basic_format_string<const char *, 0>' is not a constant expression
+        monc->start_mon_command({fmt::format(cmd, name)}, {},
+                                             ^
+    ceph/src/fmt/include/fmt/core.h:2839:56: note: read of non-constexpr variable 'cmd' is not allowed in a constant expression
+      FMT_CONSTEVAL basic_format_string(const S& s) : str_(s) {
+                                                           ^
+    ceph/src/mgr/Mgr.cc:602:42: note: in call to 'basic_format_string(cmd)'
+        monc->start_mon_command({fmt::format(cmd, name)}, {},
+                                             ^
+    ceph/src/mgr/Mgr.cc:601:17: note: declared here
+        const char* cmd = R"({{"prefix": "mon metadata", "id": "{}"}})";
+                    ^
+    
+    Signed-off-by: Casey Bodley <cbodley@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index d7aebd8fcec..32c92466bbc 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -598,7 +598,7 @@ void Mgr::handle_mon_map()
+       continue;
+     }
+     auto c = new MetadataUpdate(daemon_state, k);
+-    const char* cmd = R"({{"prefix": "mon metadata", "id": "{}"}})";
++    constexpr std::string_view cmd = R"({{"prefix": "mon metadata", "id": "{}"}})";
+     monc->start_mon_command({fmt::format(cmd, name)}, {},
+ 			    &c->outbl, &c->outs, c);
+   }

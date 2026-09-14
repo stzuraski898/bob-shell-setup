@@ -1,0 +1,47 @@
+commit 8e2a30068accd74c4bb452852375e7e94e00c50b
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Feb 2 11:29:21 2018 -0600
+
+    mgr/MgrClient: only send config_bl if it has changed
+    
+    The mgr already treats the config_bl as optional in the MMgrReport
+    messages.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 7f50258b771..25b0eea2cc8 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -174,7 +174,7 @@ void MgrClient::_send_open()
+       open->service_daemon = service_daemon;
+       open->daemon_metadata = daemon_metadata;
+     }
+-    cct->_conf->get_config_bl(&open->config_bl);
++    cct->_conf->get_config_bl(0, &open->config_bl, &last_config_bl_version);
+     cct->_conf->get_defaults_bl(&open->config_defaults_bl);
+     session->con->send_message(open);
+   }
+@@ -331,7 +331,8 @@ void MgrClient::send_report()
+ 
+   report->osd_health_metrics = std::move(osd_health_metrics);
+ 
+-  cct->_conf->get_config_bl(&report->config_bl);
++  cct->_conf->get_config_bl(last_config_bl_version, &report->config_bl,
++			    &last_config_bl_version);
+ 
+   session->con->send_message(report);
+ }
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index a3493f5c664..0f4d3c32e69 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -66,6 +66,8 @@ protected:
+ 
+   utime_t last_connect_attempt;
+ 
++  uint64_t last_config_bl_version = 0;
++
+   Context *report_callback = nullptr;
+   Context *connect_retry_callback = nullptr;
+ 

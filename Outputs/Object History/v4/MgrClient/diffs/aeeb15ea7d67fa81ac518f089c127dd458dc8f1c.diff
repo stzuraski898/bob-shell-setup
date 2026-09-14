@@ -1,0 +1,42 @@
+commit aeeb15ea7d67fa81ac518f089c127dd458dc8f1c
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Mon Oct 28 21:37:00 2024 +0100
+
+    mgr/MgrClient: include cleanup
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 6250ea3b9f1..934d492e286 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -14,6 +14,7 @@
+ 
+ #include "MgrClient.h"
+ 
++#include "common/perf_counters_collection.h"
+ #include "common/perf_counters_key.h"
+ #include "mgr/MgrContext.h"
+ #include "mon/MonMap.h"
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 1f9bb397fbe..d8a2bfa6238 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -15,17 +15,13 @@
+ #ifndef MGR_CLIENT_H_
+ #define MGR_CLIENT_H_
+ 
+-#include <boost/variant.hpp>
+-
+ #include "msg/Connection.h"
+ #include "msg/Dispatcher.h"
+ #include "mon/MgrMap.h"
+ #include "mgr/DaemonHealthMetric.h"
+ 
+-#include "messages/MMgrReport.h"
+ #include "mgr/MetricTypes.h"
+ 
+-#include "common/perf_counters.h"
+ #include "common/Timer.h"
+ #include "common/CommandTable.h"
+ 

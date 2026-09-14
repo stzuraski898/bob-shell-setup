@@ -1,0 +1,80 @@
+commit 948635a8b2130b561fae08bd5b2405a2dc6d3e9f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Oct 16 14:11:33 2018 -0500
+
+    mgr: Mutex::Locker -> std::lock_guard
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index cd97f4b5286..9838bbff7c2 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -145,7 +145,7 @@ void PyModuleConfig::set_config(
+   const std::string global_key = PyModule::config_prefix
+                                    + module_name + "/" + key;
+   {
+-    Mutex::Locker l(lock);
++    std::lock_guard l(lock);
+ 
+     if (val) {
+       config[global_key] = *val;
+@@ -534,7 +534,7 @@ int PyModule::load_options()
+ 
+ bool PyModule::is_option(const std::string &option_name)
+ {
+-  Mutex::Locker l(lock);
++  std::lock_guard l(lock);
+   return options.count(option_name) > 0;
+ }
+ 
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index db5c501d375..84d3a6f62f0 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -131,7 +131,7 @@ public:
+    */
+   void get_commands(std::vector<ModuleCommand> *out) const
+   {
+-    Mutex::Locker l(lock);
++    std::lock_guard l(lock);
+     ceph_assert(out != nullptr);
+     out->insert(out->end(), commands.begin(), commands.end());
+   }
+@@ -143,28 +143,28 @@ public:
+    */
+   void fail(const std::string &reason)
+   {
+-    Mutex::Locker l(lock);
++    std::lock_guard l(lock);
+     failed = true;
+     error_string = reason;
+   }
+ 
+   bool is_enabled() const {
+-    Mutex::Locker l(lock);
++    std::lock_guard l(lock);
+     return enabled || always_on;
+   }
+ 
+-  bool is_failed() const { Mutex::Locker l(lock) ; return failed; }
+-  bool is_loaded() const { Mutex::Locker l(lock) ; return loaded; }
+-  bool is_always_on() const { Mutex::Locker l(lock) ; return always_on; }
++  bool is_failed() const { std::lock_guard l(lock) ; return failed; }
++  bool is_loaded() const { std::lock_guard l(lock) ; return loaded; }
++  bool is_always_on() const { std::lock_guard l(lock) ; return always_on; }
+ 
+   const std::string &get_name() const {
+-    Mutex::Locker l(lock) ; return module_name;
++    std::lock_guard l(lock) ; return module_name;
+   }
+   const std::string &get_error_string() const {
+-    Mutex::Locker l(lock) ; return error_string;
++    std::lock_guard l(lock) ; return error_string;
+   }
+   bool get_can_run() const {
+-    Mutex::Locker l(lock) ; return can_run;
++    std::lock_guard l(lock) ; return can_run;
+   }
+ };
+ 

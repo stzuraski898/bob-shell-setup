@@ -1,0 +1,30 @@
+commit e72194b42ce1921e4b687fbed94e9d199923e77b
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Mon Feb 27 15:00:08 2023 -0500
+
+    mgr: rework register_client to take name and replace
+    
+    Two new parameters:
+    
+    - "name" to allow setting the name associated with the addrv. Previously
+      this was hard-coded to the mgr module name. However, we want mgr
+      modules to be able to update the libcephsqlite cluster handle.
+    
+    - "replace" to replace all addrv for the given "name". libcephsqlite
+      only ever has one handle, remove the old ones.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 7dc158fe152..cb988cf761c 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -388,7 +388,7 @@ void Mgr::init()
+     entity_addrvec_t addrv;
+     addrv.parse(ident);
+     ident = (char*)realloc(ident, 0);
+-    py_module_registry->register_client("libcephsqlite", addrv);
++    py_module_registry->register_client("libcephsqlite", addrv, true);
+   }
+ #endif
+ 

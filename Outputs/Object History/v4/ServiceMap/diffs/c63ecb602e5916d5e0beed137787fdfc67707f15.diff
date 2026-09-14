@@ -1,0 +1,29 @@
+commit c63ecb602e5916d5e0beed137787fdfc67707f15
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Aug 11 11:48:33 2021 +0800
+
+    mgr: build without "using namespace std"
+    
+    * add "std::" prefix in headers
+    * add "using" declarations in .cc files.
+    
+    so we don't rely on "using namespace std" in one or more included
+    headers.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ServiceMap.cc b/src/mgr/ServiceMap.cc
+index 04b32b27ee4..fd91d19abb0 100644
+--- a/src/mgr/ServiceMap.cc
++++ b/src/mgr/ServiceMap.cc
+@@ -98,8 +98,8 @@ std::string ServiceMap::Service::get_summary() const
+ 	p != d.second.metadata.end()) {
+       type = p->second;
+     }
+-    for (auto k : {make_pair("zone", "zone_id"),
+-	  make_pair("host", "hostname")}) {
++    for (auto k : {std::make_pair("zone", "zone_id"),
++		   std::make_pair("host", "hostname")}) {
+       auto p = d.second.metadata.find(k.second);
+       if (p != d.second.metadata.end()) {
+ 	groupings[k.first].insert(p->second);

@@ -1,0 +1,48 @@
+commit a17349b87afd4b4e66dfe50796e1594b47b13aba
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Tue Aug 12 21:06:17 2025 +0200
+
+    mgr: add missing includes
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 5d2a751538e..b770d24bf94 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -22,6 +22,7 @@
+ #include "common/perf_counters_key.h"
+ #include "crush/CrushWrapper.h"
+ #include "include/stringify.h"
++#include "json_spirit/json_spirit_writer.h"
+ 
+ #include "mon/MonMap.h"
+ #include "osd/OSDMap.h"
+@@ -29,6 +30,7 @@
+ #include "mgr/MgrContext.h"
+ #include "mgr/TTLCache.h"
+ #include "mgr/mgr_perf_counters.h"
++#include "messages/MMgrReport.h" // for class PerfCounterType
+ 
+ #include "DaemonKey.h"
+ #include "DaemonServer.h"
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 31ebb0c71e6..17e32f05d41 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -26,6 +26,7 @@
+ #include "mon/MonCommand.h"
+ #include "mon/mon_types.h"
+ #include "mon/ConfigMap.h"
++#include "mgr/MDSPerfMetricTypes.h"
+ #include "mgr/TTLCache.h"
+ 
+ #include "DaemonState.h"
+@@ -33,6 +34,7 @@
+ #include "OSDPerfMetricTypes.h"
+ 
+ #include <map>
++#include <optional>
+ #include <set>
+ #include <string>
+ 

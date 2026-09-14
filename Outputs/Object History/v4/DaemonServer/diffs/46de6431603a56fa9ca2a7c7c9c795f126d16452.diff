@@ -1,0 +1,42 @@
+commit 46de6431603a56fa9ca2a7c7c9c795f126d16452
+Author: Kotresh Hiremath Ravishankar <khiremat@redhat.com>
+Date:   Mon Oct 17 17:19:17 2022 +0530
+
+    mgr: Add one finisher thread per module
+    
+    Adds a finisher thread for each module. Each module command is
+    executed via corresponding finisher thread. There is generic
+    finisher thread via which all other commands like notify, config
+    is run.
+    
+    Fixes: https://tracker.ceph.com/issues/51177
+    Signed-off-by: Kotresh HR <khiremat@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 40a096cab11..46c47539464 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2434,9 +2434,21 @@ bool DaemonServer::_handle_command(
+     return true;
+   }
+ 
++  // Validate that the module is active
++  auto& mod_name = py_command.module_name;
++  if (!py_modules.is_module_active(mod_name)) {
++    ss << "Module '" << mod_name << "' is not enabled/loaded (required by "
++          "command '" << prefix << "'): use `ceph mgr module enable "
++          << mod_name << "` to enable it";
++    dout(4) << ss.str() << dendl;
++    cmdctx->reply(-EOPNOTSUPP, ss);
++    return true;
++  }
++
+   dout(10) << "passing through command '" << prefix << "' size " << cmdctx->cmdmap.size() << dendl;
+-  finisher.queue(new LambdaContext([this, cmdctx, session, py_command, prefix]
+-                                   (int r_) mutable {
++  Finisher& mod_finisher = py_modules.get_active_module_finisher(mod_name);
++  mod_finisher.queue(new LambdaContext([this, cmdctx, session, py_command, prefix]
++                                       (int r_) mutable {
+     std::stringstream ss;
+ 
+     dout(10) << "dispatching command '" << prefix << "' size " << cmdctx->cmdmap.size() << dendl;

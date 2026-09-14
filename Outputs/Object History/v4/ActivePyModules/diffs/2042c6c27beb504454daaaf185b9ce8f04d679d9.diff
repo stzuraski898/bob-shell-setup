@@ -1,0 +1,47 @@
+commit 2042c6c27beb504454daaaf185b9ce8f04d679d9
+Author: Boris Ranto <branto@redhat.com>
+Date:   Tue Jun 5 13:58:00 2018 +0200
+
+    mgr: expose avg data for long running avgs
+    
+    While exposing the long running avgs, the order of regular and long
+    running avg data got mixed up resulting in exposing empty data for both
+    since there is no regular data for long running avgs and vice versa.
+    This commit fixes this issue by changing the order of the if/else
+    statement exposing regular data for regular counters and avg data for
+    long running avgs.
+    
+    Signed-off-by: Boris Ranto <branto@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index cbd9b957155..fdf6652fed9 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -591,20 +591,20 @@ PyObject* ActivePyModules::get_counter_python(
+       auto counter_instance = metadata->perf_counters.instances.at(path);
+       auto counter_type = metadata->perf_counters.types.at(path);
+       if (counter_type.type & PERFCOUNTER_LONGRUNAVG) {
+-        const auto &data = counter_instance.get_data();
+-        for (const auto &datapoint : data) {
++        const auto &avg_data = counter_instance.get_data_avg();
++        for (const auto &datapoint : avg_data) {
+           f.open_array_section("datapoint");
+           f.dump_unsigned("t", datapoint.t.sec());
+-          f.dump_unsigned("v", datapoint.v);
++          f.dump_unsigned("s", datapoint.s);
++          f.dump_unsigned("c", datapoint.c);
+           f.close_section();
+         }
+       } else {
+-        const auto &avg_data = counter_instance.get_data_avg();
+-        for (const auto &datapoint : avg_data) {
++        const auto &data = counter_instance.get_data();
++        for (const auto &datapoint : data) {
+           f.open_array_section("datapoint");
+           f.dump_unsigned("t", datapoint.t.sec());
+-          f.dump_unsigned("s", datapoint.s);
+-          f.dump_unsigned("c", datapoint.c);
++          f.dump_unsigned("v", datapoint.v);
+           f.close_section();
+         }
+       }

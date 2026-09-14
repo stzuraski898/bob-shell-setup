@@ -1,0 +1,22 @@
+commit 66fd36d51fb456140d25cfe7a73b50ff899db6d6
+Author: Chang Liu <liuchang0812@gmail.com>
+Date:   Mon Jan 2 15:53:03 2017 +0800
+
+    mgr: Make stats period configurable
+    
+    Fixes: http://tracker.ceph.com/issues/17449
+    Signed-off-by: liuchang0812 <liuchang0812@gmail.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 3b8def2f6e4..57d115269cc 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -165,7 +165,7 @@ bool DaemonServer::handle_open(MMgrOpen *m)
+           << m->daemon_name << dendl;
+ 
+   auto configure = new MMgrConfigure();
+-  configure->stats_period = 5;
++  configure->stats_period = g_conf->mgr_stats_period;
+   m->get_connection()->send_message(configure);
+ 
+   if (daemon_state.exists(key)) {

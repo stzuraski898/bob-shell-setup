@@ -1,0 +1,106 @@
+commit 9999ddf67bc6211982523a2b51af9ec1d0b77b63
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Dec 14 11:29:00 2017 -0500
+
+    mgr: refactor get_modules/list_modules
+    
+    list_modules is really about searching for them
+    on disk, so it's now probe_modules and private.
+    
+    Both methods now return values instead of populating
+    an argument, since when called they were always writing into
+    a newly constructed container.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 9a8b2684931..76ad1577075 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -69,8 +69,7 @@ int PyModuleRegistry::init(const MgrMap &map)
+ 
+   std::list<std::string> failed_modules;
+ 
+-  std::set<std::string> module_names;
+-  list_modules(&module_names);
++  std::set<std::string> module_names = probe_modules();
+   // Load python code
+   for (const auto& module_name : module_names) {
+     dout(1) << "Loading python module '" << module_name << "'" << dendl;
+@@ -221,14 +220,16 @@ void PyModuleRegistry::shutdown()
+   Py_Finalize();
+ }
+ 
+-static void _list_modules(
+-  const std::string path,
+-  std::set<std::string> *modules)
++std::set<std::string> PyModuleRegistry::probe_modules() const
+ {
++  std::string path = g_conf->get_val<std::string>("mgr_module_path");
++
+   DIR *dir = opendir(path.c_str());
+   if (!dir) {
+-    return;
++    return {};
+   }
++
++  std::set<std::string> modules_out;
+   struct dirent *entry = NULL;
+   while ((entry = readdir(dir)) != NULL) {
+     string n(entry->d_name);
+@@ -239,17 +240,13 @@ static void _list_modules(
+       string initfn = fn + "/module.py";
+       r = ::stat(initfn.c_str(), &st);
+       if (r == 0) {
+-	modules->insert(n);
++	modules_out.insert(n);
+       }
+     }
+   }
+   closedir(dir);
+-}
+ 
+-void PyModuleRegistry::list_modules(std::set<std::string> *modules)
+-{
+-  g_conf->with_val<std::string>("mgr_module_path",
+-				&_list_modules, modules);
++  return modules_out;
+ }
+ 
+ int PyModuleRegistry::handle_command(
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 1064c19b151..1f5a910d046 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -54,17 +54,27 @@ private:
+   // before ClusterState exists.
+   MgrMap mgr_map;
+ 
++  /**
++   * Discover python modules from local disk
++   */
++  std::set<std::string> probe_modules() const;
++
+ public:
+   static std::string config_prefix;
+ 
+-  void list_modules(std::set<std::string> *modules);
+-
+-  void get_modules(std::list<PyModuleRef> *modules_out)
++  /**
++   * Get references to all modules (whether they have loaded and/or
++   * errored) or not.
++   */
++  std::list<PyModuleRef> get_modules() const
+   {
+     Mutex::Locker l(lock);
++    std::list<PyModuleRef> modules_out;
+     for (const auto &i : modules) {
+-      modules_out->push_back(i.second);
++      modules_out.push_back(i.second);
+     }
++
++    return modules_out;
+   }
+ 
+   PyModuleRegistry(LogChannelRef clog_)

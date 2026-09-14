@@ -1,0 +1,61 @@
+commit df507cde8d71063d5873a42f668156e4c32e86f9
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Mon Dec 2 20:27:44 2019 -0800
+
+    mgr: forward RADOS client instances for potential blacklist
+    
+    The mgr creates a per-module RADOS client connection for modules which
+    interact with RADOS (e.g. the volumes module). These clients should also
+    be blacklisted when the active mgr is failed; we don't want the former
+    active mgr to continue interacting with RADOS when the new one takes
+    over. This is particularly impactful for avoiding extraneous
+    "unresponsive client" warnings from the MDS when the mgr switches
+    (especially in testing). The MDS will pickup the new OSD blacklists
+    which include's the old mgr's libcephfs instance and blacklist/evict
+    that session quietly.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index c7f8b806d96..12bcb93e8ac 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -44,6 +44,7 @@ private:
+   LogChannelRef clog;
+ 
+   std::map<std::string, PyModuleRef> modules;
++  std::multimap<std::string, entity_addrvec_t> clients;
+ 
+   std::unique_ptr<ActivePyModules> active_modules;
+   std::unique_ptr<StandbyPyModules> standby_modules;
+@@ -182,5 +183,30 @@ public:
+     ceph_assert(active_modules);
+     return active_modules->get_services();
+   }
++
++  void register_client(std::string_view name, entity_addrvec_t addrs)
++  {
++    clients.emplace(std::string(name), std::move(addrs));
++  }
++  void unregister_client(std::string_view name, const entity_addrvec_t& addrs)
++  {
++    auto itp = clients.equal_range(std::string(name));
++    for (auto it = itp.first; it != itp.second; ++it) {
++      if (it->second == addrs) {
++        it = clients.erase(it);
++      }
++    }
++  }
++
++  auto get_clients() const
++  {
++    std::scoped_lock l(lock);
++    std::vector<entity_addrvec_t> v;
++    for (const auto& p : clients) {
++      v.push_back(p.second);
++    }
++    return v;
++  }
++
+   // <<< (end of ActivePyModules cheeky call-throughs)
+ };

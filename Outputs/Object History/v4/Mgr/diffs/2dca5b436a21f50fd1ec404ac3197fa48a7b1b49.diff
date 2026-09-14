@@ -1,0 +1,30 @@
+commit 2dca5b436a21f50fd1ec404ac3197fa48a7b1b49
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Feb 26 17:11:16 2018 +0000
+
+    mgr: die on bind() failure
+    
+    Previously, the daemon would get wedged if it
+    competed for the same port as another daemon
+    on the same host and lost.
+    
+    Fixes: https://tracker.ceph.com/issues/23037
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 6c92395bcfa..e2b73fdee64 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -159,8 +159,10 @@ void Mgr::init()
+   // Start communicating with daemons to learn statistics etc
+   int r = server.init(monc->get_global_id(), client_messenger->get_myaddr());
+   if (r < 0) {
+-    derr << "Initialize server fail"<< dendl;
+-    return;
++    derr << "Initialize server fail: " << cpp_strerror(r) << dendl;
++    // This is typically due to a bind() failure, so let's let
++    // systemd restart us.
++    exit(1);
+   }
+   dout(4) << "Initialized server at " << server.get_myaddr() << dendl;
+ 

@@ -1,0 +1,44 @@
+commit a4c07734bf9e1da0c4f31c83f5dcb611cc8b449b
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Sep 13 14:13:50 2019 -0500
+
+    common/admin_socket: pass ostream to call() for error output
+    
+    This separates the error stream from the output stream for the synchronous
+    hook.
+    
+    This patch includes misc cleanup in the various implementations to make
+    use of the new stream for errors.
+    
+    Add a test to unittest_context to ensure we're getting the error stream.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 9c95bbb1661..f9e8d8eb844 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -182,16 +182,18 @@ class ClusterSocketHook : public AdminSocketHook {
+ public:
+   explicit ClusterSocketHook(ClusterState *o) : cluster_state(o) {}
+   int call(std::string_view admin_command, const cmdmap_t& cmdmap,
+-	   std::string_view format, bufferlist& out) override {
+-    stringstream ss;
++	   std::string_view format,
++	   std::ostream& errss,
++	   bufferlist& out) override {
++    stringstream outss;
+     int r = 0;
+     try {
+-      r = cluster_state->asok_command(admin_command, cmdmap, format, ss);
++      r = cluster_state->asok_command(admin_command, cmdmap, format, outss);
++      out.append(outss);
+     } catch (const bad_cmd_get& e) {
+-      ss << e.what();
++      errss << e.what();
+       r = -EINVAL;
+     }
+-    out.append(ss);
+     return r;
+   }
+ };

@@ -1,0 +1,38 @@
+commit 563811a0f60ad225c0f38b7359f84667043c2017
+Author: David Zafman <dzafman@redhat.com>
+Date:   Wed Jan 8 16:02:51 2020 -0800
+
+    mgr/progress: Add pg_ready interface for python to get pgmap_ready state
+    
+    Fixes: https://tracker.ceph.com/issues/43557
+    
+    Signed-off-by: David Zafman <dzafman@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 8bbac965151..4e330c4cd60 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -266,6 +266,11 @@ bool DaemonServer::ms_dispatch2(const ref_t<Message>& m)
+   };
+ }
+ 
++void DaemonServer::dump_pg_ready(ceph::Formatter *f)
++{
++  f->dump_bool("pg_ready", pgmap_ready.load());
++}
++
+ void DaemonServer::maybe_ready(int32_t osd_id)
+ {
+   if (pgmap_ready.load()) {
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 6289176c9e0..41b25a3bc31 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -194,6 +194,7 @@ public:
+ 
+   void log_access_denied(std::shared_ptr<CommandContext>& cmdctx,
+                          MgrSession* session, std::stringstream& ss);
++  void dump_pg_ready(ceph::Formatter *f);
+ };
+ 
+ #endif

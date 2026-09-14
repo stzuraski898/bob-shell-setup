@@ -1,0 +1,27 @@
+commit 0812669cf2a7247f9d056ff3aae831c95cce50b1
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Aug 4 15:04:17 2016 +0100
+
+    mgr: dispose of connections after handle_command
+    
+    ...to avoid leaking them and eventually running out of fds.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index cddbf0a69fb..8ba6f904665 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -305,6 +305,12 @@ bool DaemonServer::handle_command(MCommand *m)
+   }
+ 
+  out:
++
++  // Let the connection drop as soon as we've sent our response
++  if (m->get_connection()) {
++    m->get_connection()->mark_disposable();
++  }
++
+   std::string rs;
+   rs = ss.str();
+   odata.append(ds);

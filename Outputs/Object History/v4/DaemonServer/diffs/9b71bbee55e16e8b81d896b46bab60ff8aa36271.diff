@@ -1,0 +1,43 @@
+commit 9b71bbee55e16e8b81d896b46bab60ff8aa36271
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Tue Nov 26 12:20:26 2019 -0800
+
+    mgr: improve debug message information
+    
+    Connection pointer is not helpful.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 6d086179c2c..334bc96ab69 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -391,9 +391,10 @@ bool DaemonServer::handle_open(const ref_t<MMgrOpen>& m)
+ 				   m->get_connection()->get_peer_type(),
+ 				   m->daemon_name);
+ 
+-  dout(10) << "from " << m->get_connection() << "  " << key << dendl;
++  auto con = m->get_connection();
++  dout(10) << "from " << key << " " << con->get_peer_addr() << dendl;
+ 
+-  _send_configure(m->get_connection());
++  _send_configure(con);
+ 
+   DaemonStatePtr daemon;
+   if (daemon_state.exists(key)) {
+@@ -443,13 +444,13 @@ bool DaemonServer::handle_open(const ref_t<MMgrOpen>& m)
+ 	     << " bytes" << dendl;
+   }
+ 
+-  if (m->get_connection()->get_peer_type() != entity_name_t::TYPE_CLIENT &&
++  if (con->get_peer_type() != entity_name_t::TYPE_CLIENT &&
+       m->service_name.empty())
+   {
+     // Store in set of the daemon/service connections, i.e. those
+     // connections that require an update in the event of stats
+     // configuration changes.
+-    daemon_connections.insert(m->get_connection());
++    daemon_connections.insert(con);
+   }
+ 
+   return true;

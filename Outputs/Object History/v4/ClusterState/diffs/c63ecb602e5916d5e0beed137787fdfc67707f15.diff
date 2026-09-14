@@ -1,0 +1,52 @@
+commit c63ecb602e5916d5e0beed137787fdfc67707f15
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Aug 11 11:48:33 2021 +0800
+
+    mgr: build without "using namespace std"
+    
+    * add "std::" prefix in headers
+    * add "using" declarations in .cc files.
+    
+    so we don't rely on "using namespace std" in one or more included
+    headers.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 28340d56ddd..2d7efe4dfd8 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -24,6 +24,11 @@
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ 
++using std::ostream;
++using std::set;
++using std::string;
++using std::stringstream;
++
+ ClusterState::ClusterState(
+   MonClient *monc_,
+   Objecter *objecter_,
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index eeff1f76bd9..7939cd8eb8f 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -43,7 +43,7 @@ protected:
+ 
+   MgrMap mgr_map;
+ 
+-  map<int64_t,unsigned> existing_pools; ///< pools that exist, and pg_num, as of PGMap epoch
++  std::map<int64_t,unsigned> existing_pools; ///< pools that exist, and pg_num, as of PGMap epoch
+   PGMap pg_map;
+   PGMap::Incremental pending_inc;
+ 
+@@ -156,7 +156,7 @@ public:
+   bool asok_command(std::string_view admin_command,
+ 		    const cmdmap_t& cmdmap,
+ 		    Formatter *f,
+-		    ostream& ss);
++		    std::ostream& ss);
+ };
+ 
+ #endif

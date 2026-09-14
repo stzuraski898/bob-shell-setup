@@ -1,0 +1,43 @@
+commit 8c249e4b2b2228a1d24638199a9380acaac77de1
+Author: Dan Mick <dmick@redhat.com>
+Date:   Tue Apr 11 19:13:29 2017 -0700
+
+    mgr/MgrPyModule::handle_command: order stringstreams to match intent
+    
+    ds is intended for command output (like stdout), to be shown/saved
+    when there's no error returned; ss is for error status (like stderr)
+    to further explain the error.  mgr Python tracebacks should go to
+    the latter.
+    
+    Signed-off-by: Dan Mick <dan.mick@redhat.com>
+
+diff --git a/src/mgr/MgrPyModule.cc b/src/mgr/MgrPyModule.cc
+index 6337fd9b35d..35b28f73310 100644
+--- a/src/mgr/MgrPyModule.cc
++++ b/src/mgr/MgrPyModule.cc
+@@ -219,8 +219,8 @@ int MgrPyModule::load_commands()
+ 
+ int MgrPyModule::handle_command(
+   const cmdmap_t &cmdmap,
+-  std::stringstream *ss,
+-  std::stringstream *ds)
++  std::stringstream *ds,
++  std::stringstream *ss)
+ {
+   assert(ss != nullptr);
+   assert(ds != nullptr);
+diff --git a/src/mgr/MgrPyModule.h b/src/mgr/MgrPyModule.h
+index 0588401a787..9d50a1b4410 100644
+--- a/src/mgr/MgrPyModule.h
++++ b/src/mgr/MgrPyModule.h
+@@ -73,8 +73,8 @@ public:
+ 
+   int handle_command(
+     const cmdmap_t &cmdmap,
+-    std::stringstream *ss,
+-    std::stringstream *ds);
++    std::stringstream *ds,
++    std::stringstream *ss);
+ };
+ 
+ #endif

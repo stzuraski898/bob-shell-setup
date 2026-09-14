@@ -1,0 +1,29 @@
+commit 0878150f8b89e53a55f6cd61dd5a1c4c7c5114d7
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Fri Jan 21 19:57:34 2022 -0500
+
+    mgr: Remove straggling `using namespace std` from headers
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 2547c256538..0469c4755e9 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -56,14 +56,14 @@ class ActivePyModules
+   Objecter &objecter;
+   Client   &client;
+   Finisher &finisher;
+-  TTLCache<string, PyObject*> ttl_cache;
++  TTLCache<std::string, PyObject*> ttl_cache;
+ public:
+   Finisher cmd_finisher;
+ private:
+   DaemonServer &server;
+   PyModuleRegistry &py_module_registry;
+ 
+-  map<std::string,ProgressEvent> progress_events;
++  std::map<std::string,ProgressEvent> progress_events;
+ 
+   mutable ceph::mutex lock = ceph::make_mutex("ActivePyModules::lock");
+ 

@@ -1,0 +1,84 @@
+commit 3e056ca5c6d2359ff585b3c4223506992b96e857
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Mar 10 09:26:22 2020 -0500
+
+    mgr: add 'mgr_status' tell command
+    
+    For now just dump the mgrmap_epoch
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 367942717e3..b36320edb13 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -324,6 +324,12 @@ void Mgr::init()
+ 
+   cluster_state.final_init();
+ 
++  AdminSocket *admin_socket = g_ceph_context->get_admin_socket();
++  r = admin_socket->register_command(
++    "mgr_status", this,
++    "Dump mgr status");
++  ceph_assert(r == 0);
++
+   dout(4) << "Complete." << dendl;
+   initializing = false;
+   initialized = true;
+@@ -687,3 +693,29 @@ std::map<std::string, std::string> Mgr::get_services() const
+   return py_module_registry->get_services();
+ }
+ 
++int Mgr::call(
++  std::string_view admin_command,
++  const cmdmap_t& cmdmap,
++  Formatter *f,
++  std::ostream& errss,
++  bufferlist& out)
++{
++  try {
++    if (admin_command == "mgr_status") {
++      f->open_object_section("mgr_status");
++      cluster_state.with_mgrmap(
++	[f](const MgrMap& mm) {
++	  f->dump_unsigned("mgrmap_epoch", mm.get_epoch());
++	});
++      f->dump_bool("initialized", initialized);
++      f->close_section();
++      return 0;
++    } else {
++      return -ENOSYS;
++    }
++  } catch (const TOPNSPC::common::bad_cmd_get& e) {
++    errss << e.what();
++    return -EINVAL;
++  }
++  return 0;
++}
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index 9a712edcc76..157105d788e 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -37,7 +37,7 @@ class MServiceMap;
+ class Objecter;
+ class Client;
+ 
+-class Mgr {
++class Mgr : public AdminSocketHook {
+ protected:
+   MonClient *monc;
+   Objecter  *objecter;
+@@ -97,6 +97,13 @@ public:
+   void handle_signal(int signum);
+ 
+   std::map<std::string, std::string> get_services() const;
++
++  int call(
++    std::string_view command,
++    const cmdmap_t& cmdmap,
++    Formatter *f,
++    std::ostream& errss,
++    ceph::buffer::list& out) override;
+ };
+ 
+ /**

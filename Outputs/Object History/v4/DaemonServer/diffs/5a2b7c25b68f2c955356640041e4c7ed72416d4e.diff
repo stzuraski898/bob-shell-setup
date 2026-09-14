@@ -1,0 +1,27 @@
+commit 5a2b7c25b68f2c955356640041e4c7ed72416d4e
+Author: Pere Diaz Bou <pdiazbou@redhat.com>
+Date:   Fri Nov 11 10:43:01 2022 +0100
+
+    mgr/prometheus: expose daemon health metrics
+    
+    Until now daemon health metrics were stored without being used. One of
+    the most helpful metrics there is SLOW_OPS with respect to OSDs and MONs
+    which this commit tries to expose to bring fine grained metrics to find
+    troublesome OSDs instead of having a lone healthcheck of slow ops in the
+    whole cluster.
+    
+    Signed-off-by: Pere Diaz Bou <pdiazbou@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 747faec2ec3..40a096cab11 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2622,8 +2622,6 @@ void DaemonServer::send_report()
+ 		 << std::dec << dendl;
+             continue;
+           }
+-	  dout(20) << " + " << state->key << " "
+-		   << metric << dendl;
+           tie(acc, std::ignore) = accumulated.emplace(metric.get_type(),
+               std::move(collector));
+         }

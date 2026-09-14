@@ -1,0 +1,43 @@
+commit 140761f8a2df10c45eb02041fad5e8237bf57c20
+Author: Dan Mick <dmick@redhat.com>
+Date:   Tue Jun 19 20:36:08 2018 -0700
+
+    mgr, pybind/mgr: pass inbuf (ceph -i <file>) to modules
+    
+    Modules may wish to receive bulk data; allow it
+    
+    Signed-off-by: Dan Mick <dan.mick@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 707a6333c92..fba63b62ab8 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -774,6 +774,7 @@ void ActivePyModules::set_health_checks(const std::string& module_name,
+ int ActivePyModules::handle_command(
+   std::string const &module_name,
+   const cmdmap_t &cmdmap,
++  const bufferlist &inbuf,
+   std::stringstream *ds,
+   std::stringstream *ss)
+ {
+@@ -785,7 +786,7 @@ int ActivePyModules::handle_command(
+   }
+ 
+   lock.Unlock();
+-  return mod_iter->second->handle_command(cmdmap, ds, ss);
++  return mod_iter->second->handle_command(cmdmap, inbuf, ds, ss);
+ }
+ 
+ void ActivePyModules::get_health_checks(health_check_map_t *checks)
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index c10a087c4e2..322f2bf10f0 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -96,6 +96,7 @@ public:
+   int handle_command(
+     const std::string &module_name,
+     const cmdmap_t &cmdmap,
++    const bufferlist &inbuf,
+     std::stringstream *ds,
+     std::stringstream *ss);
+ 

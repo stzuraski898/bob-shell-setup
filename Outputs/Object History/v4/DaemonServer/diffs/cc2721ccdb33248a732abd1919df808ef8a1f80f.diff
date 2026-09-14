@@ -1,0 +1,42 @@
+commit cc2721ccdb33248a732abd1919df808ef8a1f80f
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Thu Apr 21 11:57:25 2022 +0300
+
+    mgr: relax "pending_service_map.epoch > service_map.epoch" assert
+    
+    When we are activating we may receive several service map updates
+    initiated by the previous active mgr. Treat them all as initial map.
+    
+    The code also adds "pending_service_map_dirty == 0" assert, which we
+    expect is true when receiving an initial map -- otherwise we can't
+    just initialize pending_service_map with received map.
+    
+    Fixes: https://tracker.ceph.com/issues/51835
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 1cc2e977474..03a5867a338 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2983,13 +2983,19 @@ void DaemonServer::got_service_map()
+       if (pending_service_map.epoch == 0) {
+ 	// we just started up
+ 	dout(10) << "got initial map e" << service_map.epoch << dendl;
++	ceph_assert(pending_service_map_dirty == 0);
++	pending_service_map = service_map;
++	pending_service_map.epoch = service_map.epoch + 1;
++      } else if (pending_service_map.epoch <= service_map.epoch) {
++	// we just started up but got one more not our own map
++	dout(10) << "got newer initial map e" << service_map.epoch << dendl;
++	ceph_assert(pending_service_map_dirty == 0);
+ 	pending_service_map = service_map;
+ 	pending_service_map.epoch = service_map.epoch + 1;
+       } else {
+-	// we we already active and therefore must have persisted it,
++	// we already active and therefore must have persisted it,
+ 	// which means ours is the same or newer.
+ 	dout(10) << "got updated map e" << service_map.epoch << dendl;
+-	ceph_assert(pending_service_map.epoch > service_map.epoch);
+       }
+     });
+ 

@@ -1,0 +1,159 @@
+commit cbd1726fde08692848b5c0e42c06e4f089ebcd5c
+Author: Laura Flores <lflores@ibm.com>
+Date:   Fri Apr 25 22:11:19 2025 +0000
+
+    mgr: ensure that all modules have started before advertising active mgr
+    
+    ----------------- Explanation of Problem ----------------
+    
+    When the mgr is restarted or failed over via `ceph mgr fail` or during an
+    upgrade, mgr modules sometimes take longer to start up (this includes
+    loading their class, commands, and module options, and being removed
+    from the `pending_modules` map structure). This startup delay can happen
+    due to a cluster's specific hardware or if a code bottleneck is triggered in
+    a module’s `serve()` function (each mgr module has a `serve()` function that
+    performs initialization tasks right when the module is loaded).
+    
+    When this startup delay occurs, any mgr module command issued against the
+    cluster around the same time fails with error saying that the command is not
+    supported:
+    ```
+    $ ceph mgr fail; ceph fs volume ls
+    Error ENOTSUP: Warning: due to ceph-mgr restart, some PG states may not be up to date
+    Module 'volumes' is not enabled/loaded (required by command 'fs volume ls'): use `ceph mgr module enable volumes` to enable it
+    ```
+    
+    We should try to lighten any bottlenecks in the mgr module `serve()`
+    functions wherever possible, but the root cause of this failure is that the
+    mgr sends a beacon to the mon too early, indicating that it is active before
+    the module loading has completed. Specifically, some of the mgr modules
+    have loaded their class but have not yet been deleted from the `pending_modules`
+    structure, indicating that they have not finished starting up.
+    
+    --------------------- Explanation of Fix  --------------------
+    
+    This commit improves the criteria for sending the “active” beacon to the mon so
+    the mgr does not signal that it’s active too early. We do this through the following additions:
+    
+    1. A new context `ActivePyModules::recheck_modules_start` that will be set if not all modules
+       have finished startup.
+    
+    2. A new function `ActivePyModules::check_all_modules_started()` that checks if modules are
+       still pending startup; if all have started up (`pending_modules` is empty), then we send
+       the beacon right away. But if some are still pending, we pass the beacon task on to the new
+       recheck context `ActivePyModules::recheck_modules_start` so we know to send the beacon later.
+    
+    3. Logic in ActivePyModules::start_one() that only gets triggered if the modules did not all finish
+       startup the first time we checked. We know this is the case if the new recheck context
+       `recheck_modules_start` was set from `nullptr`. The beacon is only sent once `pending_modules` is
+       confirmed to be empty, which means that all the modules have started up and are ready to support commands.
+    
+    4. Adjustment of when the booleans `initializing` and `initialized` are set. These booleans come into play in
+       MgrStandby::send_beacon() when we check that the active mgr has been initialized (thus, it is available).
+       We only send the beacon when this boolean is set. Currently, we set these booleans at the end of Mgr::init(),
+       which means that it gets set early before `pending_modules` is clear. With this adjustment, the bools are set
+       only after we check that all modules have started up. The send_beacon code is triggered on mgr failover AND on
+       every Mgr::tick(), which occurs by default every two seconds. If we don’t adjust when these bools are set, we
+       only fix the mgr failover part, but the mgr still sends the beacon too early via Mgr::tick(). Below is the relevant
+       code from MgrStandby::send_beacon(), which is triggered in Mgr::background_init() AND in Mgr::tick():
+    ```
+      // Whether I think I am available (request MgrMonitor to set me
+      // as available in the map)
+      bool available = active_mgr != nullptr && active_mgr->is_initialized();
+    
+      auto addrs = available ? active_mgr->get_server_addrs() : entity_addrvec_t();
+      dout(10) << "sending beacon as gid " << monc.get_global_id() << dendl;
+    
+    ```
+    
+    --------------------- Reproducing the Bug ----------------------
+    
+    At face value, this issue is indeterministically reproducible since it
+    can depend on environmental factors or specific cluster workloads.
+    However, I was able to deterministically reproduce it by injecting a
+    bottleneck into the balancer module:
+    ```
+    diff --git a/src/pybind/mgr/balancer/module.py b/src/pybind/mgr/balancer/module.py
+    index d12d69f..91c83fa8023 100644
+    --- a/src/pybind/mgr/balancer/module.py
+    +++ b/src/pybind/mgr/balancer/module.py
+    @@ -772,10 +772,10 @@ class Module(MgrModule):
+                         self.update_pg_upmap_activity(plan)  # update pg activity in `balancer status detail`
+                     self.optimizing = False
+    +                # causing a bottleneck
+    +                for i in range(0, 1000):
+    +                    for j in range (0, 1000):
+    +                        x = i + j
+    +                        self.log.debug("hitting the bottleneck in the balancer module")
+                 self.log.debug('Sleeping for %d', sleep_interval)
+                 self.event.wait(sleep_interval)
+                 self.event.clear()
+    ```
+    
+    Then, the error reproduces every time by running:
+    ```
+    $ ./bin/ceph mgr fail; ./bin/ceph telemetry show
+    Error ENOTSUP: Warning: due to ceph-mgr restart, some PG states may not be up to date
+    Module 'telemetry' is not enabled/loaded (required by command 'telemetry show'): use `ceph mgr module enable telemetry` to enable it
+    ```
+    
+    With this fix, the active mgr is marked as "initialized" only after all
+    the modules have started up, and this error goes away. The command may
+    take a bit longer to execute depending on the extent of the delay.
+    
+    ---------------------- Integration Testing ---------------------
+    
+    This commit adds a dev-only config that can inject a longer
+    loading time into the mgr module loading sequence so we can
+    simulate this scenario in a test.
+    
+    The config is 0 ms by default since we do not add any delay
+    outside of testing scenarios. The config can be adjusted
+    with the following command:
+      `ceph config set mgr mgr_module_load_delay <ms>`
+    
+    A second dev-only config also allows you to specify which
+    module you want to be delayed in loading time. You may change
+    this with the following command:
+      `ceph config set mgr mgr_module_load_delay_name <module name>`
+    
+    The workunit added here tests a simulated slow loading module
+    scenario to ensure that this case is properly handled.
+    
+    --------------------- Documentation --------------------
+    
+    The new documentation describes the three existing mgr states so Ceph
+    operators can better interpret their Ceph status output.
+    
+    Fixes: https://tracker.ceph.com/issues/71631
+    Signed-off-by: Laura Flores <lflores@ibm.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index b340fc64e37..8ff9062cab2 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -508,3 +508,7 @@ void PyModuleRegistry::handle_config_notify()
+     active_modules->config_notify();
+   }
+ }
++
++void PyModuleRegistry::check_all_modules_started(Context *modules_start_complete) {
++  active_modules->check_all_modules_started(modules_start_complete);
++}
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 8d5a53093b9..111ff3ff5dc 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -239,5 +239,12 @@ public:
+     return active_modules->get_module_finisher(name);
+   }
+ 
++  // Sends the "active" beacon right away if all mgr modules
++  // have finished startup. If some modules are still pending
++  // startup, the "active" beacon is scheduled to send later
++  // after all modules are ready.
++  // See "Mgr::background_init()".
++  void check_all_modules_started(Context *modules_start_complete);
++
+   // <<< (end of ActivePyModules cheeky call-throughs)
+ };

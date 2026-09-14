@@ -1,0 +1,20 @@
+commit 08d1a6fc3c57ccbeb6dff8fce1aae429edca97f3
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Feb 5 10:16:22 2019 -0600
+
+    mgr: send progress events to mon
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index a05dd37c8be..c9e1feab34e 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2192,6 +2192,7 @@ void DaemonServer::send_report()
+ 
+   auto m = new MMonMgrReport();
+   py_modules.get_health_checks(&m->health_checks);
++  py_modules.get_progress_events(&m->progress_events);
+ 
+   cluster_state.with_mutable_pgmap([&](PGMap& pg_map) {
+       cluster_state.update_delta_stats();

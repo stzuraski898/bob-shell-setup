@@ -1,0 +1,9 @@
+# Rename chain for src/mgr/MgrStandby.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/MgrStandby.cc 75b6149b294e16b9463c05d270adf0e9f51a4268 7845f8d757adf63390d6cb0ff56afbc088bc508b
+#
+# Rename chain for src/mgr/MgrStandby.h
+#
+src/mgr/MgrStandby.h d8dde402b6dae6b6ebe0ee765bb83b25b0443271 f7e9ff174f8f84b0b3ccada87f6e4b18bdc4d130
+src/mds/MDSUtility.h f7e9ff174f8f84b0b3ccada87f6e4b18bdc4d130 7a985df6339499052bb7bad2df214477e7e1580a

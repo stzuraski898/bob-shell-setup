@@ -1,0 +1,22 @@
+commit ffd759b34b940830b982bf0525e7f3a299b77298
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Mon Jul 21 22:50:47 2025 -0400
+
+    msg: constify getter
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@ibm.com>
+    Change-Id: 725cfbf6-9c9c-49ae-a4f5-1edf65d3aaa7
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 83d71d308f7..1e1b1ea0b1e 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -290,7 +290,7 @@ bool DaemonServer::ms_handle_fast_authentication(Connection *con)
+ 	   << " addr " << con->get_peer_addrs()
+ 	   << dendl;
+ 
+-  AuthCapsInfo &caps_info = con->get_peer_caps_info();
++  auto& caps_info = con->get_peer_caps_info();
+   if (caps_info.allow_all) {
+     dout(10) << " session " << s << " " << s->entity_name
+ 	     << " allow_all" << dendl;

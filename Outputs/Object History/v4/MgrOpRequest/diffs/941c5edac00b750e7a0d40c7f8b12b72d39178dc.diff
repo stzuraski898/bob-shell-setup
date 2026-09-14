@@ -1,0 +1,22 @@
+commit 941c5edac00b750e7a0d40c7f8b12b72d39178dc
+Author: Milind Changire <mchangir@redhat.com>
+Date:   Fri Apr 4 07:20:02 2025 +0530
+
+    mgr: avoid explicitly dropping ref of MgrOpRequest.request
+    
+    Fixes: 66efcaae7a05abaefb12758239b0e1ad5cbd85c9
+    Fixes: https://tracker.ceph.com/issues/70618
+    Signed-off-by: Milind Changire <mchangir@redhat.com>
+
+diff --git a/src/mgr/MgrOpRequest.h b/src/mgr/MgrOpRequest.h
+index cc454aa6dc8..dd4ff21f5be 100644
+--- a/src/mgr/MgrOpRequest.h
++++ b/src/mgr/MgrOpRequest.h
+@@ -52,7 +52,6 @@ protected:
+ 
+ public:
+   ~MgrOpRequest() override {
+-    request->put();
+   }
+ 
+   template<class T>

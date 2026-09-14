@@ -1,0 +1,36 @@
+commit f5973ccef415571c72560a04968592e8a6daf93a
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Dec 3 13:48:32 2021 -0500
+
+    mgr/progress: avoid inefficient dump of all pg stats
+    
+    We only use a handful of fields, and the pg dump includes a gazillion
+    fields that we waste CPU copying to python-land.  This tends to lead to
+    long ClusterState::lock hold times, leading to long ms_dispatch delays
+    and generally gumming up the works.
+    
+    Instead, create a new "pg_progress" item that dumps only the fields that
+    mgr/progress needs.
+    
+    Fixes: https://tracker.ceph.com/issues/53475
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 04fbdc81040..5f050fe1d33 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -395,6 +395,14 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+   } else if (what == "pg_ready") {
+     server.dump_pg_ready(&f);
+     return f.get();
++  } else if (what == "pg_progress") {
++    without_gil_t no_gil;
++    return cluster_state.with_pgmap([&](const PGMap &pg_map) {
++      no_gil.acquire_gil();
++      pg_map.dump_pg_progress(&f);
++      server.dump_pg_ready(&f);
++      return f.get();
++    });
+   } else if (what == "osd_stats") {
+     without_gil_t no_gil;
+     return cluster_state.with_pgmap([&](const PGMap &pg_map) {

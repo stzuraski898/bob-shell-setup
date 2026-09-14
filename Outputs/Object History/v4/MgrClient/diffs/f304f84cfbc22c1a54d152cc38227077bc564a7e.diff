@@ -1,0 +1,20 @@
+commit f304f84cfbc22c1a54d152cc38227077bc564a7e
+Author: John Spray <jspray@redhat.com>
+Date:   Fri Sep 1 12:00:59 2017 -0400
+
+    mgr: transmit perf counter prio to the mgr
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 80cf3ca3638..9dff01964b9 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -263,6 +263,7 @@ void MgrClient::send_report()
+ 	  type.nick = data.nick;
+ 	}
+ 	type.type = data.type;
++        type.priority = data.prio;
+ 	report->declare_types.push_back(std::move(type));
+ 	session->declared.insert(path);
+       }

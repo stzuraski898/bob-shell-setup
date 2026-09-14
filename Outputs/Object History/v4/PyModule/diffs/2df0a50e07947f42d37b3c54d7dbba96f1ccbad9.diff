@@ -1,0 +1,36 @@
+commit 2df0a50e07947f42d37b3c54d7dbba96f1ccbad9
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue Jun 26 15:09:28 2018 +0800
+
+    common: add LockPolicy to md_config_t
+    
+    before this change, we guard all read/write access to md_config_t with a
+    lock. after this change, this policy is optional. and is controled by a
+    enum named `LockPolicy`. we will use `md_config_impl<LockPolicy::SINGLE>`
+    to implement the lockless config used by crimson/osd.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index fa8ab77fd46..80d96896375 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -13,13 +13,14 @@
+ 
+ #pragma once
+ 
++#include <map>
++#include <memory>
++#include <string>
++#include <boost/optional.hpp>
++#include "common/Mutex.h"
+ #include "Python.h"
+ #include "Gil.h"
+ 
+-#include <string>
+-#include "common/Mutex.h"
+-#include <memory>
+-#include <boost/optional.hpp>
+ 
+ class MonClient;
+ 

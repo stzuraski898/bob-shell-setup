@@ -1,0 +1,34 @@
+commit f146c6c514b7f1ab8a2420edb5f7b64702bc9639
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Tue May 15 23:56:39 2018 +0800
+
+    core: use const_iterator for decode
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index e9b72274191..57c3cf64a64 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -150,7 +150,7 @@ void DaemonPerfCounters::update(MMgrReport *report)
+   const auto now = ceph_clock_now();
+ 
+   // Parse packed data according to declared set of types
+-  bufferlist::iterator p = report->packed.begin();
++  auto p = report->packed.cbegin();
+   DECODE_START(1, p);
+   for (const auto &t_path : session->declared_types) {
+     const auto &t = types.at(t_path);
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 764a3a9a450..7124965264d 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -127,7 +127,7 @@ class DaemonState
+   const std::map<std::string,std::string>& get_config_defaults() {
+     if (config_defaults.empty() &&
+ 	config_defaults_bl.length()) {
+-      auto p = config_defaults_bl.begin();
++      auto p = config_defaults_bl.cbegin();
+       try {
+ 	decode(config_defaults, p);
+       } catch (buffer::error& e) {

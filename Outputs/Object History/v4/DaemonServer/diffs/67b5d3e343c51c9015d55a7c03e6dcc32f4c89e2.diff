@@ -1,0 +1,33 @@
+commit 67b5d3e343c51c9015d55a7c03e6dcc32f4c89e2
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 5 08:46:41 2018 -0500
+
+    mgr: parse out devids from daemon metadata
+    
+    Look for the "device_ids" key in the metadata and parse out a device
+    list.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index bda7c632369..06c55a78722 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -383,7 +383,7 @@ bool DaemonServer::handle_open(MMgrOpen *m)
+     daemon->perf_counters.clear();
+ 
+     if (m->service_daemon) {
+-      daemon->metadata = m->daemon_metadata;
++      daemon->set_metadata(m->daemon_metadata);
+       daemon->service_status = m->daemon_status;
+ 
+       utime_t now = ceph_clock_now();
+@@ -1885,7 +1885,7 @@ void DaemonServer::got_service_map()
+       if (!daemon_state.exists(key)) {
+ 	auto daemon = std::make_shared<DaemonState>(daemon_state.types);
+ 	daemon->key = key;
+-	daemon->metadata = q.second.metadata;
++	daemon->set_metadata(q.second.metadata);
+         if (q.second.metadata.count("hostname")) {
+           daemon->hostname = q.second.metadata["hostname"];
+         }

@@ -1,0 +1,28 @@
+commit 3da07ea0a599c92f24053e5d6778fa2fda89a461
+Author: Song Baisen <song.baisen@zte.com.cn>
+Date:   Mon Mar 20 19:31:37 2017 +0800
+
+    mgr: optimization some judgment and adjust the debug remove value in register_new_pgs
+    
+    Signed-off-by: song baisen <song.baisen@zte.com.cn>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index a0004086525..7693a252910 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -76,12 +76,9 @@ void ClusterState::ingest_pgstats(MPGStats *stats)
+                << " but DNE in pg_map; pool was probably deleted."
+                << dendl;
+       continue;
+-    }
+-
+-    // In case we already heard about more recent stats from this PG
+-    // from another OSD
+-    if (pg_map.pg_stat.count(pgid) &&
+-        pg_map.pg_stat[pgid].get_version_pair() > pg_stats.get_version_pair()) {
++     // In case we already heard about more recent stats from this PG
++     // from another OSD
++    } else if (pg_map.pg_stat[pgid].get_version_pair() > pg_stats.get_version_pair()) {
+       dout(15) << " had " << pgid << " from " << pg_map.pg_stat[pgid].reported_epoch << ":"
+                << pg_map.pg_stat[pgid].reported_seq << dendl;
+       continue;

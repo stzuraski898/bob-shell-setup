@@ -1,0 +1,23 @@
+# Function list for MetricCollector (via ctags)
+# Format: qualified_name | file:line
+#
+MetricCollector | src/mgr/MetricCollector.cc:17
+add_query | src/mgr/MetricCollector.cc:23
+get_counters_generic | src/mgr/MetricCollector.cc:124
+process_reports_generic | src/mgr/MetricCollector.cc:142
+remove_all_queries | src/mgr/MetricCollector.cc:101
+remove_query | src/mgr/MetricCollector.cc:57
+reregister_queries | src/mgr/MetricCollector.cc:118
+MetricCollector | src/mgr/MetricCollector.h:29
+__anon8d438db30102 | src/mgr/MetricCollector.h:81
+add_query | src/mgr/MetricCollector.h:31
+get_counters | src/mgr/MetricCollector.h:58
+get_counters_generic | src/mgr/MetricCollector.h:73
+get_queries | src/mgr/MetricCollector.h:39
+is_limited | src/mgr/MetricCollector.h:79
+process_reports | src/mgr/MetricCollector.h:57
+process_reports_generic | src/mgr/MetricCollector.h:72
+remove_all_queries | src/mgr/MetricCollector.h:35
+remove_query | src/mgr/MetricCollector.h:33
+reregister_queries | src/mgr/MetricCollector.h:37
+~MetricCollector | src/mgr/MetricCollector.h:24

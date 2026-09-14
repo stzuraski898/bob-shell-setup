@@ -1,0 +1,47 @@
+commit 29193a47e6cf8297d9b1ceecc7695f2c85434999
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Oct 16 10:51:34 2017 -0400
+
+    mgr: update for SafeThreadState
+    
+    A bunch of the previous commits were done
+    before this class existed, so updating in
+    one go instead of trying to edit history
+    in fine detail.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index 59d86a8bede..5e04e3da27c 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -66,7 +66,7 @@ void PyModuleRunner::shutdown()
+ {
+   assert(pClassInstance != nullptr);
+ 
+-  Gil gil(pMyThreadState);
++  Gil gil(pMyThreadState, true);
+ 
+   auto pValue = PyObject_CallMethod(pClassInstance,
+       const_cast<char*>("shutdown"), nullptr);
+diff --git a/src/mgr/PyModuleRunner.h b/src/mgr/PyModuleRunner.h
+index 1cb0506054e..cb51df3eaaf 100644
+--- a/src/mgr/PyModuleRunner.h
++++ b/src/mgr/PyModuleRunner.h
+@@ -55,14 +55,14 @@ public:
+   PyModuleRunner(
+       const std::string &module_name_,
+       PyObject *pClass_,
+-      PyThreadState *pMyThreadState_)
++      const SafeThreadState &pMyThreadState_)
+     : 
+       module_name(module_name_),
+       pClass(pClass_), pMyThreadState(pMyThreadState_),
+       thread(this)
+   {
+     assert(pClass != nullptr);
+-    assert(pMyThreadState != nullptr);
++    assert(pMyThreadState.ts != nullptr);
+     assert(!module_name.empty());
+   }
+ 

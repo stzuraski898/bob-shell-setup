@@ -1,0 +1,7 @@
+# Non-merge commits touching src/mgr/DaemonKey.cc and/or src/mgr/DaemonKey.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+aec62d9eb6f3308b9a2802dc9d2fa763ca8ec047 2025-08-14 Max Kellermann | mgr/DaemonKey: include cleanup
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+5aac7eba36be99861eb8726872e339ff55360f47 2019-09-29 Kefu Chai | mgr: use a struct for DaemonKey

@@ -1,0 +1,39 @@
+commit ce6013cd321e92a245c575a9d9ef9a8b032760d6
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Nov 15 17:10:41 2019 -0600
+
+    mgr: _exit(0) from signal handler even if we are standby
+    
+    In 3d360b97ed7dead8e9a5f602cfaf61ab7b41e531 a signal handler was added to
+    shut down modules and associated clients cleanly, but the standby case
+    was left ignoring the signal completely.
+    
+    Fixes: https://tracker.ceph.com/issues/42744
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index a10746a2cfb..8a8b7e9f28a 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -222,9 +222,7 @@ std::map<std::string, std::string> Mgr::load_store()
+ void Mgr::handle_signal(int signum)
+ {
+   ceph_assert(signum == SIGINT || signum == SIGTERM);
+-  derr << "*** Got signal " << sig_str(signum) << " ***" << dendl;
+   shutdown();
+-  _exit(0);  // exit with 0 result code, as if we had done an orderly shutdown
+ }
+ 
+ // A reference for use by the signal handler
+@@ -232,9 +230,11 @@ static Mgr *signal_mgr = nullptr;
+ 
+ static void handle_mgr_signal(int signum)
+ {
++  derr << " *** Got signal " << sig_str(signum) << " ***" << dendl;
+   if (signal_mgr) {
+     signal_mgr->handle_signal(signum);
+   }
++  _exit(0);  // exit with 0 result code, as if we had done an orderly shutdown
+ }
+ 
+ void Mgr::init()

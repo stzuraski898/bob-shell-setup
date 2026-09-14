@@ -1,0 +1,21 @@
+commit 8e019f661cf5090f2f2046eecc2771fa2177908e
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Oct 9 15:06:26 2016 +0800
+
+    mon/MonClient: remove unnecessary include
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 798b01ec140..ebbb6056059 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -13,6 +13,8 @@
+ 
+ #include "DaemonServer.h"
+ 
++#include "auth/RotatingKeyRing.h"
++
+ #include "messages/MMgrOpen.h"
+ #include "messages/MMgrConfigure.h"
+ #include "messages/MCommand.h"

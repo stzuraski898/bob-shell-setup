@@ -1,0 +1,25 @@
+commit 104c88cfea8e3d2d6bca1a22c26010256919862c
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Jul 19 13:42:20 2019 +0800
+
+    mgr/PyFormatter.h: add necessary #include
+    
+    this header uses `std::string`, `std::string_view` and
+    `std::stringstream`, so it should include the corresponding headers.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index 58fead174ec..e30ae9f054a 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -21,6 +21,9 @@
+ #include "PythonCompat.h"
+ 
+ #include <stack>
++#include <string>
++#include <string_view>
++#include <sstream>
+ #include <memory>
+ #include <list>
+ 

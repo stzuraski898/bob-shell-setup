@@ -1,0 +1,30 @@
+# Commit → function map for PyModuleRunner
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+95a90f7da8a32dd2a5a1e3b381aaeacea378437b | shutdown serve entry
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b | (no functions)
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+719d5e1836c95bcbc446dbeb7d8f03adefd02a3e | shutdown serve
+48c4bc445fcacd7980e84b4f135a3115b88b05f1 | (no functions)
+40c4b9ac9d8e2b2c17269affada304f5e1554974 | shutdown
+3e39413a222a9d649099b86e0338437a1c83257c | shutdown
+58a7a6f5e0bf3334b7174c87a162bbc8247be1f9 | shutdown
+2e8f9e690141641c06a6dc8e62ec4c63a2efebe9 | (no functions)
+ab23c506964753990f9fe23e314b9f3e2547a773 | serve ~PyModuleRunner
+4718b7cb2fac65b2ac7014f42ba1a10181350f0b | serve
+13bcddea23f834c520d86050d03a8fc2e8a21a6a | (no functions)
+39ffec281af577c766c619d568f7a7051d108b00 | (no functions)
+7c80548dba38a170ba33c964d3f6ad8dba49db4f | serve
+ce6e043a44e35144b038bc0236b5d244ffee1ca5 | (no functions)
+1a3e935774b2ff02acfda9bb0ffea0b85ff3edbc | log
+46003075924bb16b41149e7c12f31e9a6b7a3f15 | (no functions)
+6a8da7ca734726315c06929635c25dbb88599654 | shutdown serve
+712ad57d09a2a96dc1e21cd245fbf1a6372867ba | serve
+f4763c32fa84f57c93c559d742203fb3fd2985a8 | serve
+29193a47e6cf8297d9b1ceecc7695f2c85434999 | shutdown
+7e61f79f5d56b568103a067d9a1eb87af997ad61 | (no functions)
+df8797320bed7ad9f121477e35d7e3862efd89bd | (no functions)

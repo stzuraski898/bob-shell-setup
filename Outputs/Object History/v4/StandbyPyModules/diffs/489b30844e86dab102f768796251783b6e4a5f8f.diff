@@ -1,0 +1,25 @@
+commit 489b30844e86dab102f768796251783b6e4a5f8f
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Wed Aug 14 11:23:42 2019 -0700
+
+    include: convert FunctionContext usage to generic LambdaContext
+    
+    The main motivation for this change is to avoid copies due to the use of
+    boost::function/std::function where captures of std::unique_ptr (in
+    subsequent commits) would fail to compile.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/StandbyPyModules.cc b/src/mgr/StandbyPyModules.cc
+index 5735b415e60..cff60aded2a 100644
+--- a/src/mgr/StandbyPyModules.cc
++++ b/src/mgr/StandbyPyModules.cc
+@@ -87,7 +87,7 @@ void StandbyPyModules::start_one(PyModuleRef py_module)
+ 
+   // Send all python calls down a Finisher to avoid blocking
+   // C++ code, and avoid any potential lock cycles.
+-  finisher.queue(new FunctionContext([this, standby_module, name](int) {
++  finisher.queue(new LambdaContext([this, standby_module, name](int) {
+     int r = standby_module->load();
+     if (r != 0) {
+       derr << "Failed to run module in standby mode ('" << name << "')"

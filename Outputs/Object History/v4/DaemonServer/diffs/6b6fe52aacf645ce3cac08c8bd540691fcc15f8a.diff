@@ -1,0 +1,35 @@
+commit 6b6fe52aacf645ce3cac08c8bd540691fcc15f8a
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jun 6 08:44:42 2018 -0500
+
+    mgr: track and report device names too
+    
+    If you're looking at a specific device by its unique id, it's also nice
+    to know what device name (sdb etc) it is and on which host.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 43d6efd866e..d35a0c55dc0 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1686,15 +1686,15 @@ bool DaemonServer::handle_command(MCommand *m)
+       if (dm) {
+ 	if (f) {
+ 	  f->open_array_section("devices");
+-	  for (auto& i : dm->devids) {
+-	    f->dump_string("device", i);
++	  for (auto& i : dm->devices) {
++	    f->dump_string("device", i.first);
+ 	  }
+ 	  f->close_section();
+ 	  f->flush(cmdctx->odata);
+ 	} else {
+ 	  ostringstream rs;
+-	  for (auto& i : dm->devids) {
+-	    rs << i << "\n";
++	  for (auto& i : dm->devices) {
++	    rs << i.first << "\n";
+ 	  }
+ 	  cmdctx->odata.append(rs.str());
+ 	}

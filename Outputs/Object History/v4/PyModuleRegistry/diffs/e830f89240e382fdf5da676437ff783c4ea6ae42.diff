@@ -1,0 +1,34 @@
+commit e830f89240e382fdf5da676437ff783c4ea6ae42
+Author: Rishabh Dave <ridave@redhat.com>
+Date:   Wed Jul 17 18:05:33 2024 +0530
+
+    mon/MgrMonitor: improve a log message
+    
+    Following log message has 3 distinct information (enabled modules,
+    modules that are alwats on and total number of commands enabled) printed
+    on the same line which makes it hard to find one of the information and
+    also makes it comparatively hard to read -
+    
+    2024-07-17T17:21:16.609+0530 7f534ae006c0  0 mon.a@0(leader).mgr e0 create_initial initial modules iostat,nfs,volumes, always on modules balancer,crash,devicehealth,orchestrator,pg_autoscaler,progress,status,telemetry, 50 commands
+    
+    With this commit it would be easier to read and find needed info -
+    
+    2024-07-17T17:21:16.609+0530 7f534ae006c0  0 mon.a@0(leader).mgr e0 create_initial initial modules: iostat,nfs,volumes
+    2024-07-17T17:21:16.609+0530 7f534ae006c0  0 mon.a@0(leader).mgr e0 create_initial always on modules: balancer,crash,devicehealth,orchestrator,pg_autoscaler,progress,status,telemetry
+    2024-07-17T17:21:16.609+0530 7f534ae006c0  0 mon.a@0(leader).mgr e0 create_initial 50 commands
+    
+    Signed-off-by: Rishabh Dave <ridave@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 0eb304e7353..736e49b375f 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -243,7 +243,7 @@ void PyModuleRegistry::active_start(
+       continue;
+     }
+ 
+-    dout(4) << "Starting " << i.first << dendl;
++    dout(4) << "Starting module '" << i.first << "'" << dendl;
+     active_modules->start_one(i.second);
+   }
+ }

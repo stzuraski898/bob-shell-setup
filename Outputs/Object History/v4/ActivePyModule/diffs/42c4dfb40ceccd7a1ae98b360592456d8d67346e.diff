@@ -1,0 +1,63 @@
+commit 42c4dfb40ceccd7a1ae98b360592456d8d67346e
+Author: Nitzan Mordechai <nmordech@ibm.com>
+Date:   Tue Aug 11 07:07:12 2026 +0000
+
+    mgr: don't log NotImplementedError from dispatch_remote as an error
+    
+    Even after the crash dump was suppressed, BaseMgrModule.cc still
+    logged "Remote method threw exception: ..." at error level for every
+    NotImplementedError. Since that's not actually an error, log it at
+    debug level instead same crash_dump flag, threaded up from dispatch_remote()
+    through to the log call.
+    
+    Fixes: https://tracker.ceph.com/issues/79106
+    Signed-off-by: Nitzan Mordechai <nmordech@ibm.com>
+
+diff --git a/src/mgr/ActivePyModule.cc b/src/mgr/ActivePyModule.cc
+index 22e5b0fea21..a9f633ad8f8 100644
+--- a/src/mgr/ActivePyModule.cc
++++ b/src/mgr/ActivePyModule.cc
+@@ -145,9 +145,13 @@ std::optional<std::vector<std::byte>> ActivePyModule::dispatch_remote(
+     const std::string &method,
+     std::span<std::byte const> pickled_args,
+     std::span<std::byte const> pickled_kwargs,
+-    std::string *err)
++    std::string *err,
++    bool *crash_dump)
+ {
+   ceph_assert(err != nullptr);
++  if (crash_dump != nullptr) {
++    *crash_dump = true;
++  }
+ 
+   // deserialize arguments.
+ 
+@@ -206,9 +210,12 @@ std::optional<std::vector<std::byte>> ActivePyModule::dispatch_remote(
+     // scrape, which pinned RECENT_MGR_MODULE_CRASH permanently and added
+     // ~5,760 crash records per day. The exception is still reported to the
+     // caller, it is just not treated as a crash.
+-    const bool crash_dump = !PyErr_ExceptionMatches(PyExc_NotImplementedError);
++    const bool do_crash_dump = !PyErr_ExceptionMatches(PyExc_NotImplementedError);
+     std::string caller = "ActivePyModule::dispatch_remote "s + method;
+-    *err = handle_pyerror(crash_dump, get_name(), caller);
++    *err = handle_pyerror(do_crash_dump, get_name(), caller);
++    if (crash_dump != nullptr) {
++      *crash_dump = do_crash_dump;
++    }
+     return std::nullopt;
+   }
+   dout(20) << "Success calling '" << method << "'" << dendl;
+diff --git a/src/mgr/ActivePyModule.h b/src/mgr/ActivePyModule.h
+index 35fab34a162..1ecf1329c79 100644
+--- a/src/mgr/ActivePyModule.h
++++ b/src/mgr/ActivePyModule.h
+@@ -72,7 +72,8 @@ public:
+       const std::string &method,
+       std::span<std::byte const> pickled_args,
+       std::span<std::byte const> pickled_kwargs,
+-      std::string *err);
++      std::string *err,
++      bool *crash_dump = nullptr);
+ 
+   int handle_command(
+     const ModuleCommand& module_command,

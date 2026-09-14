@@ -1,0 +1,33 @@
+commit dac649753bcb49bcbeafd70b5128349cfc6f6856
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jan 18 09:24:34 2019 -0600
+
+    mgr/ActivePyModules: fix RestoreThread calls for get('devices')
+    
+    Fixes 61aa7e2e0230bff49e757c32932d1db4bcad5f67
+    
+    Fixes: http://tracker.ceph.com/issues/37736
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 692c265027c..680d4a0cc2c 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -334,6 +334,17 @@ public:
+     }
+   }
+ 
++  template<typename CallbackInitial, typename Callback, typename...Args>
++  void with_devices2(CallbackInitial&& cbi,  // with lock taken
++		     Callback&& cb,          // for each device
++		     Args&&... args) const {
++    RWLock::RLocker l(lock);
++    cbi();
++    for (auto& i : devices) {
++      std::forward<Callback>(cb)(*i.second, std::forward<Args>(args)...);
++    }
++  }
++
+   void list_devids_by_server(const std::string& server,
+ 			     std::set<std::string> *ls) {
+     auto m = get_by_server(server);

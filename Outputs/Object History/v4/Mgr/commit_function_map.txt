@@ -1,0 +1,159 @@
+# Commit → function map for Mgr
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+75b6149b294e16b9463c05d270adf0e9f51a4268 | Mgr
+fd4d4ce58b8616a8d87e244bb5f3c367dd20cf63 | Mgr
+403340bcf8c2122afff708519f176baa6b646fc1 | got_mgr_map ms_dispatch2 handle_mgr_digest
+ec59888070246a8c4192e7c146bd7b3799bf9719 | finish
+dcd9c5bac5e2670efd726e1ae89bc264bd404671 | handle_fs_map load_all_metadata finish handle_osd_map ~Mgr handle_mon_map
+e9abc5ce0bb784d2bdca887dfe8e7b003316eb38 | (no functions)
+68221661b00f8a6bef0fbd7b5401aa49eb5118d0 | call
+bf25a08cc58c8e872806e92dd36d9ff91e5523d9 | got_mgr_map Mgr background_init
+cbd1726fde08692848b5c0e42c06e4f089ebcd5c | init background_init
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b | (no functions)
+85d82faac250716549ebffeb9eb48f3b4f53711f | (no functions)
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 | (no functions)
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde | (no functions)
+de566549310733b0eb6571402f51e464ae3e667a | (no functions)
+3db2b5767056762287dac6005f99338455f7361b | handle_osd_map
+a17349b87afd4b4e66dfe50796e1594b47b13aba | (no functions)
+56cb05775a937159ee0e6e26e30fe204accb5223 | ms_dispatch2 handle_mon_map
+706b2be416246dd5923478d8a7ee015246f03e95 | load_all_metadata got_mgr_map finish init
+f20df2eb8545f2a4fc16acdde5edcb611868522e | init
+ae5aadf538c57cfd20e42f21fb3b7e46b5fe3a58 | (no functions)
+282558cf40274366360bb3b1ec0fa102fbb592a6 | handle_osd_map
+190f37978f72493ed34f02e919d9b89c405d0962 | ms_dispatch2
+dd9f9e268b5562bae8972bce03ec0970f353ae14 | load_all_metadata load_store
+3072b113242e01ed54a2154157f734e671d13a1a | handle_osd_map
+e72194b42ce1921e4b687fbed94e9d199923e77b | init
+07ad8df2dd74f2fb4bbde6332a04cc5453bff435 | get_services
+bbb1574eabf0945a626aeeb44ceb3dbb24d4391e | handle_mon_map
+d3c8f171e9aaa9cbf970b6dadda5837ca9b030c7 | ms_dispatch2 handle_mgr_digest
+5096685cd623de71a7c45a667e1dd776357fd997 | finish
+c63ecb602e5916d5e0beed137787fdfc67707f15 | (no functions)
+b1e78c4177484725d00326b3bd90aca5b8eb7b7c | (no functions)
+52446d00f647533f24e412dc8685a28d246bbdf2 | init
+3dbc1f0578d944217ad2bacb58ef561e678abb6c | handle_fs_map handle_log
+b356fd0a8c65b4f6dad9e51286df380e6974f842 | init
+8fc290bfba4d71a60d30c2374ce4bcba37e649de | handle_mon_map
+3bafb5e571681dd71df35bf1863a95d69142d02d | load_store
+edf1ea2f50927b97a4271c6754f855421dd4d4d0 | load_store init ms_dispatch2
+c037f4cb5d7436879d58c34748ef516b5269781f | handle_mon_map
+70e99e76b5f63265f6b2700f8af77ece4f1dd11b | init
+4e2d344eb34df86bbb290193c1d2a94ef077b4e3 | load_all_metadata finish
+79785efbdb7559fcf78756cf2de2739dfeb7e75e | finish
+dfd01d765304ed8783cef613930e65980d9aee23 | init
+b2582ee8a440788b4aef4d26baa4cc2b67b1d579 | ms_dispatch2
+3e056ca5c6d2359ff585b3c4223506992b96e857 | get_services init
+73078cf73c3a51f33ecb97eebbb97dbcd4089171 | handle_osd_map
+e3d3d0501e5095ce557e2e4ccaefc294a7d5c08c | finish
+48c4bc445fcacd7980e84b4f135a3115b88b05f1 | (no functions)
+3363a1001c7bb95763cdb7d8a9c2ebaff35a2cdd | init
+f2986a4400bb73d5ed3a80f626011609976c375a | init
+ce6013cd321e92a245c575a9d9ef9a8b032760d6 | load_store
+3d360b97ed7dead8e9a5f602cfaf61ab7b41e531 | load_all_metadata load_store
+5aac7eba36be99861eb8726872e339ff55360f47 | handle_fs_map load_all_metadata finish handle_osd_map
+489b30844e86dab102f768796251783b6e4a5f8f | load_all_metadata background_init
+5d3c1856415f8b66e31361a0a7b9c75edc46e49e | init
+c93dc8849145c1630058e4c0e527f404929216ff | load_all_metadata handle_service_map shutdown load_store init Mgr ms_dispatch2 handle_mgr_digest background_init
+dffce107fb68e21cd85938d67115bdafe4e697eb | handle_mon_map
+a50a91d24349c8147c53f7aa109974160e8db120 | got_mgr_map handle_osd_map handle_mon_map handle_mgr_digest
+8665a892f6eb5ab7afd19888fe266e9f8bc395d9 | shutdown
+92b2fe9e653f69ea855fa759a091ed75033bd7e0 | finish
+3c333f3599642f29dc7a080570ed6b1954e49dce | finish
+430ba5e231d6929a004a9758d31b426ecbe43951 | finish handle_service_map
+03a761c980a1171fe6adf7a463f3ab80ec6d4052 | handle_osd_map init
+8a2f4429b129a24a72fdbc374075bba954be5bd3 | finish
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f | handle_fs_map finish handle_service_map shutdown load_store handle_osd_map handle_mgr_digest
+80cee1d98816f6d48dbe038412f1e9486c493556 | load_all_metadata
+95746ecce9215c8428a02f1745d03e10536a4129 | init
+ef88206d1c2ef72b2a1073f0017ff823f4436b78 | (no functions)
+ab23c506964753990f9fe23e314b9f3e2547a773 | load_all_metadata finish shutdown load_store init background_init
+3068c4290166076093119d1dc08a2c0fada8235f | init handle_mgr_digest
+934443e2452f97184448210d11850285990b4384 | Mgr
+ea1481d08d561cdf0229e440b70b88fe336d3f89 | handle_fs_map
+f30843581d0809d7b11d6e6d91d85ea6fd7fe8d6 | init
+721335d55bda84552dc343ca1e44578492333a09 | (no functions)
+45d4dfed1ded628abcbb9f1c62dfb90095414f0d | load_store
+615a6562bc6ac78ca0f874c055cec4887363ba3e | load_store
+67b5d3e343c51c9015d55a7c03e6dcc32f4c89e2 | load_all_metadata finish
+c11183d4ee3397c906629e7d3e441d3eecaf02e5 | handle_osd_map
+7f787704cdcd55df18d204c5251cdd6a3cedd604 | init
+37484af0b86083c02a7a506a0c9be02b3fd67b28 | load_all_metadata init background_init
+3193d40d0daf766d5e210e7b1117afbfebd71f31 | load_all_metadata
+3eaf1516ebbfc03bb8e5469fdf09249374bd9bb6 | handle_fs_map handle_osd_map
+5c9db7200eb0274e1d87c4ce0ab5ca32e090f1ea | finish
+cf68ce511f31d3746ca1cb13a9d3b39c25bb06a8 | got_mgr_map
+2dca5b436a21f50fd1ec404ac3197fa48a7b1b49 | init
+46003075924bb16b41149e7c12f31e9a6b7a3f15 | (no functions)
+834bc27940507737f064bca7362b4c7f4cd54c98 | init
+4042bec19dbb477d032a9b964da949aa952cc6d1 | handle_fs_map
+3b6d6031ca2cba13f8010c83a56cfc904c6d37c9 | handle_fs_map
+a39813837ca84434e57afa47138973268ff366d3 | ~Mgr
+c1471c7501948004096581ee415ab4a1fa2d9379 | shutdown
+70d45a6b93c92baf8d6a3b15765110a5384c5e60 | (no functions)
+9718896c8b844db2f3c07df1d344636da4605e61 | load_all_metadata get_services shutdown handle_osd_map init Mgr handle_mgr_digest
+a0183a63fa791954d14c57632e184858cefe893d | (no functions)
+a38ad9714a3a31fdf756a3fc8592217bebad2580 | handle_osd_map
+29080134339e5e64d50af1db9fe50df7ea55c1d0 | handle_osd_map
+cb26eead3f195dd51ae79ec9e41700cdde674648 | (no functions)
+f236b5e78338f85a0ac82440ae44cdf4db83a04f | handle_fs_map handle_osd_map
+2ebb8e13f6f592efcc52bb4f4d7f2db38cc062f2 | (no functions)
+5c3846306b6bf7864327265bbac9607295f46cfc | (no functions)
+c86c8b717e1850410c59f7c6c708b20619c60a6c | (no functions)
+110e60f4e31a23a67cf55f142e81c8963d0f1c24 | init
+62935db879219be8c39f16b19beac919adc29463 | got_mgr_map
+617c96014bfb71a073a4ac37d33d5452fba629f1 | handle_mgr_digest
+97cfc3cb694eb2723cae22d71057323773746cee | init handle_log
+a22b256bad1f6a4fcb9ffc10015b17bab7216afb | handle_fs_map load_all_metadata handle_osd_map
+e0e87da6529d2c7c785aebd2aca88a517e150d0c | background_init
+f25763208ff67867d45bcaa56b3dff7e80f755db | init Mgr handle_mgr_digest
+16fcee1f71fce3a2365d17dfef0b1459f8da1948 | handle_fs_map
+6c10417f7ed365425019108c2cb9f6d1e091b975 | handle_fs_map Mgr
+67bd8c40ed3a71edef8baccdadfca979042c792c | Mgr
+30ae537a552096e9d3197d75af6b69731035c6f0 | (no functions)
+28c83737345e9b9547a87105ab4d32b6f636bd4b | (no functions)
+c93daaf92b643a06a822558973d377733dbd9d85 | (no functions)
+578cd59dd87d0c3f8c507a071b5a242e75cc25f9 | handle_mgr_digest
+74752505bfc30de11821fc5c7e6a6631a1cba2b6 | handle_mgr_digest
+ff1258e7ef39f1f1a69ef6475445712c1dc6e037 | handle_mgr_digest
+8d803e0483d797fc87c0e58de28009ba296b7dfb | (no functions)
+6f10373b7a23d83aaab1d68c9881c87d8e9123ad | handle_fs_map handle_osd_map
+3746e209d88137206b5ad319dc049207bc4e2524 | (no functions)
+562089d2a1c216fbe49654da81b64a0f808e3b56 | Mgr
+b1e5d492d684b5a28b0009301bf894531c53f3b9 | (no functions)
+f79ae2504ad5355d20b137019afddb4d3f3cd204 | handle_log handle_mgr_digest
+e7060410f720f792b97d3fd5392cec89ab67c249 | shutdown
+9988a564d816f8fb3768a382dd547519d8112f94 | Mgr
+145acbe976bdd6b9081f56f1dd1ead75c67d24ab | shutdown
+8ce30bc4cd2325bfbc238fd76952729cf4f7e0a6 | handle_fs_map
+abfb05733496d7c1c9f50558f47f4adaf87a1f7f | load_all_metadata
+f2a44f41607f0949a44b8399d56c6827a1a47fd5 | handle_mgr_digest
+025934423f9f17cc1b7902011e181c4fb197dff1 | init
+6d5e0132d97864f1058ba86584e2cc0e565977e7 | init
+1113eb123b1470f19feb3539153cad5159e54509 | handle_fs_map init Mgr
+3f857b9ae434274d0cf8b6288cefe9f703471870 | (no functions)
+d3a10d35120445bbf994b0a062f21af891a33440 | Mgr
+81834844f04b09d317872f0c850b8f0ceb9dfb1b | handle_osd_map
+a6fab0825f27c3cb0bb93a28abea9cd4d50c9150 | handle_fs_map
+523b7cafc4c84ef09dbae50cb8311d1694618d45 | shutdown
+9ea37c223f92b8f228c57a4c17d4da02d99be756 | handle_osd_map init
+ac66b7542782f60ae93de25d3b2075a8d0a0ac54 | handle_fs_map handle_osd_map
+491d653632f8f06c69408a9a6d0f64d0a6ce2352 | (no functions)
+b9182564c716fdfcb39cc77314ba295990dd4312 | (no functions)
+61fca96c29104683da74c913cfbf4005ba95cf77 | (no functions)
+624bdbcf3afe304ad043baca43d46bfda2746e78 | background_init
+ce6b1909dd5579326dc331937c002078c3a1e55a | shutdown
+b4a4a7a89b2178b04816f3532da7bb1fe5d26f6b | init
+1bb9edbaf27d026acbf3fcfb80bdbf7a34f00fce | init
+fa147e3a591a4d74a7a8692b17add420ffc9bf98 | handle_osd_map init Mgr
+9501bfdd711499c1314a3495549da24fbc02257e | handle_fs_map
+fd537bc696d65ce3baec88ecf5a825f7eaaaf484 | shutdown init Mgr
+7845f8d757adf63390d6cb0ff56afbc088bc508b | handle_fs_map shutdown init Mgr
+c81e542b32815effe9d107da378e6010e8a0b415 | shutdown init
+d9dfb436ea588a43be135a0808b28039d9ca2546 | load_all_metadata ~Mgr
+ac30e6cee2b2d3815438f1a392a951d511bddfd4 | (no functions)
+f7e9ff174f8f84b0b3ccada87f6e4b18bdc4d130 | (no functions)
+7a985df6339499052bb7bad2df214477e7e1580a | (no functions)

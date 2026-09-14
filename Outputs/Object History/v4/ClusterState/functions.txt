@@ -1,0 +1,40 @@
+# Function list for ClusterState (via ctags)
+# Format: qualified_name | file:line
+#
+ClusterSocketHook | src/mgr/ClusterState.cc:198
+ClusterState | src/mgr/ClusterState.cc:34
+__anon6548a3890102 | src/mgr/ClusterState.cc:82
+asok_command | src/mgr/ClusterState.cc:227
+call | src/mgr/ClusterState.cc:199
+final_init | src/mgr/ClusterState.cc:217
+ingest_pgstats | src/mgr/ClusterState.cc:77
+load_digest | src/mgr/ClusterState.cc:70
+notify_osdmap | src/mgr/ClusterState.cc:157
+operator < | src/mgr/ClusterState.cc:264
+set_fsmap | src/mgr/ClusterState.cc:51
+set_mgr_map | src/mgr/ClusterState.cc:58
+set_objecter | src/mgr/ClusterState.cc:44
+set_service_map | src/mgr/ClusterState.cc:64
+update_delta_stats | src/mgr/ClusterState.cc:139
+ClusterState | src/mgr/ClusterState.h:63
+asok_command | src/mgr/ClusterState.h:156
+final_init | src/mgr/ClusterState.h:155
+have_fsmap | src/mgr/ClusterState.h:72
+ingest_pgstats | src/mgr/ClusterState.h:59
+load_digest | src/mgr/ClusterState.h:58
+notify_osdmap | src/mgr/ClusterState.h:70
+set_fsmap | src/mgr/ClusterState.h:66
+set_mgr_map | src/mgr/ClusterState.h:67
+set_objecter | src/mgr/ClusterState.h:65
+set_service_map | src/mgr/ClusterState.h:68
+update_delta_stats | src/mgr/ClusterState.h:61
+with_fsmap | src/mgr/ClusterState.h:85
+with_health | src/mgr/ClusterState.h:142
+with_mgrmap | src/mgr/ClusterState.h:92
+with_mon_status | src/mgr/ClusterState.h:149
+with_monmap | src/mgr/ClusterState.h:115
+with_mutable_pgmap | src/mgr/ClusterState.h:107
+with_osdmap | src/mgr/ClusterState.h:123
+with_osdmap_and_pgmap | src/mgr/ClusterState.h:132
+with_pgmap | src/mgr/ClusterState.h:99
+with_servicemap | src/mgr/ClusterState.h:78

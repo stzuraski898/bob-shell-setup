@@ -1,0 +1,85 @@
+commit c63ecb602e5916d5e0beed137787fdfc67707f15
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Aug 11 11:48:33 2021 +0800
+
+    mgr: build without "using namespace std"
+    
+    * add "std::" prefix in headers
+    * add "using" declarations in .cc files.
+    
+    so we don't rely on "using namespace std" in one or more included
+    headers.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 552f8322ff5..36ab66db999 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -45,7 +45,16 @@
+ #define dout_subsys ceph_subsys_mgr
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr.server " << __func__ << " "
++
+ using namespace TOPNSPC::common;
++
++using std::list;
++using std::ostringstream;
++using std::string;
++using std::stringstream;
++using std::vector;
++using std::unique_ptr;
++
+ namespace {
+   template <typename Map>
+   bool map_compare(Map const &lhs, Map const &rhs) {
+@@ -1064,7 +1073,7 @@ bool DaemonServer::_handle_command(
+ 
+     auto dump_cmd = [&cmdnum, &f, m](const MonCommand &mc){
+       ostringstream secname;
+-      secname << "cmd" << setfill('0') << std::setw(3) << cmdnum;
++      secname << "cmd" << std::setfill('0') << std::setw(3) << cmdnum;
+       dump_cmddesc_to_json(&f, m->get_connection()->get_features(),
+                            secname.str(), mc.cmdstring, mc.helpstring,
+                            mc.module, mc.req_perms, 0);
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 3adcf6ccaf9..b3c9f191aa1 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -146,7 +146,7 @@ protected:
+   std::set<ConnectionRef> daemon_connections;
+ 
+   /// connections for osds
+-  ceph::unordered_map<int,set<ConnectionRef>> osd_cons;
++  ceph::unordered_map<int,std::set<ConnectionRef>> osd_cons;
+ 
+   ServiceMap pending_service_map;  // uncommitted
+ 
+@@ -155,13 +155,13 @@ protected:
+   ceph::mutex lock = ceph::make_mutex("DaemonServer");
+ 
+   static void _generate_command_map(cmdmap_t& cmdmap,
+-                                    map<string,string> &param_str_map);
+-  static const MonCommand *_get_mgrcommand(const string &cmd_prefix,
++                                    std::map<std::string,std::string> &param_str_map);
++  static const MonCommand *_get_mgrcommand(const std::string &cmd_prefix,
+                                            const std::vector<MonCommand> &commands);
+   bool _allowed_command(
+-    MgrSession *s, const string &service, const string &module,
+-    const string &prefix, const cmdmap_t& cmdmap,
+-    const map<string,string>& param_str_map,
++    MgrSession *s, const std::string &service, const std::string &module,
++    const std::string &prefix, const cmdmap_t& cmdmap,
++    const std::map<std::string,std::string>& param_str_map,
+     const MonCommand *this_cmd);
+ 
+ private:
+@@ -172,7 +172,7 @@ private:
+   void _prune_pending_service_map();
+ 
+   void _check_offlines_pgs(
+-    const set<int>& osds,
++    const std::set<int>& osds,
+     const OSDMap& osdmap,
+     const PGMap& pgmap,
+     offline_pg_report *report);

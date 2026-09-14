@@ -1,0 +1,424 @@
+# git blame -w -M -C src/mgr/PyFormatter.cc
+#
+3f410302449c src/test/crimson/test_errorator_abort.cc (Matan Breizman   2025-04-07 09:50:35 +0000   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+f1bac41828da src/mgr/PyFormatter.cc                   (Edwin Rodriguez  2025-10-01 09:09:50 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+c8c1019d1962 src/mgr/PyFormatter.cc                   (Edwin Rodriguez  2025-10-02 15:31:35 -0400   3) 
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100   4) /*
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100   5)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100   6)  *
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100   7)  * Copyright (C) 2015 Red Hat Inc
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100   9)  * Author: John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  10)  *
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  11)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  12)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  13)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  14)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  15)  *
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  16)  */
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  17) 
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  18) 
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  19) #include "PyFormatter.h"
+15dfa71cf7c8 src/mgr/PyFormatter.cc                   (Pere Diaz Bou    2021-05-26 17:47:06 +0200  20) #include <fstream>
+403340bcf8c2 src/mgr/PyFormatter.cc                   (Nitzan Mordechai 2025-07-17 06:17:00 +0000  21) #include "common/debug.h"
+ae5aadf538c5 src/mgr/Mgr.cc                           (Max Kellermann   2024-11-01 08:24:46 +0100  22) 
+b9182564c716 src/mgr/Mgr.cc                           (Adam C. Emerson  2016-11-16 12:38:08 -0500  23) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray       2016-06-30 14:05:02 +0100  24) #define dout_subsys ceph_subsys_mgr
+ac30e6cee2b2 src/mgr/Mgr.cc                           (John Spray       2016-06-30 14:05:02 +0100  25) #undef dout_prefix
+403340bcf8c2 src/mgr/PyFormatter.cc                   (Nitzan Mordechai 2025-07-17 06:17:00 +0000  26) #define dout_prefix *_dout << __func__ << " "
+403340bcf8c2 src/mgr/PyFormatter.cc                   (Nitzan Mordechai 2025-07-17 06:17:00 +0000  27) 
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  28) 
+86c851e138ae src/mgr/PyFormatter.cc                   (Sage Weil        2017-06-12 00:02:30 -0400  29) #define LARGE_SIZE 1024
+86c851e138ae src/mgr/PyFormatter.cc                   (Sage Weil        2017-06-12 00:02:30 -0400  30) 
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  31) 
+6712393fbc53 src/mgr/PyFormatter.cc                   (Kefu Chai        2020-02-10 12:15:12 +0800  32) void PyFormatter::open_array_section(std::string_view name)
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  33) {
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  34)   PyObject *list = PyList_New(0);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  35)   dump_pyobject(name, list);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  36)   stack.push(cursor);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  37)   cursor = list;
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  38) }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  39) 
+6712393fbc53 src/mgr/PyFormatter.cc                   (Kefu Chai        2020-02-10 12:15:12 +0800  40) void PyFormatter::open_object_section(std::string_view name)
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  41) {
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  42)   PyObject *dict = PyDict_New();
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  43)   dump_pyobject(name, dict);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  44)   stack.push(cursor);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  45)   cursor = dict;
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  46) }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  47) 
+5f57c526b22a src/mgr/PyFormatter.cc                   (Patrick Donnelly 2023-07-21 13:57:33 -0400  48) void PyFormatter::dump_null(std::string_view name)
+5f57c526b22a src/mgr/PyFormatter.cc                   (Patrick Donnelly 2023-07-21 13:57:33 -0400  49) {
+5f57c526b22a src/mgr/PyFormatter.cc                   (Patrick Donnelly 2023-07-21 13:57:33 -0400  50)   dump_pyobject(name, Py_None);
+5f57c526b22a src/mgr/PyFormatter.cc                   (Patrick Donnelly 2023-07-21 13:57:33 -0400  51) }
+5f57c526b22a src/mgr/PyFormatter.cc                   (Patrick Donnelly 2023-07-21 13:57:33 -0400  52) 
+6712393fbc53 src/mgr/PyFormatter.cc                   (Kefu Chai        2020-02-10 12:15:12 +0800  53) void PyFormatter::dump_unsigned(std::string_view name, uint64_t u)
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  54) {
+ac8b016b7237 src/mgr/PyFormatter.cc                   (Mykola Golub     2018-11-14 09:26:03 +0200  55)   PyObject *p = PyLong_FromUnsignedLong(u);
+ab23c5069647 src/mgr/PyFormatter.cc                   (Adam C. Emerson  2018-08-23 11:25:51 -0400  56)   ceph_assert(p);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  57)   dump_pyobject(name, p);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  58) }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  59) 
+6712393fbc53 src/mgr/PyFormatter.cc                   (Kefu Chai        2020-02-10 12:15:12 +0800  60) void PyFormatter::dump_int(std::string_view name, int64_t u)
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  61) {
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  62)   PyObject *p = PyLong_FromLongLong(u);
+ab23c5069647 src/mgr/PyFormatter.cc                   (Adam C. Emerson  2018-08-23 11:25:51 -0400  63)   ceph_assert(p);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  64)   dump_pyobject(name, p);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  65) }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  66) 
+6712393fbc53 src/mgr/PyFormatter.cc                   (Kefu Chai        2020-02-10 12:15:12 +0800  67) void PyFormatter::dump_float(std::string_view name, double d)
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  68) {
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  69)   dump_pyobject(name, PyFloat_FromDouble(d));
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  70) }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  71) 
+6712393fbc53 src/mgr/PyFormatter.cc                   (Kefu Chai        2020-02-10 12:15:12 +0800  72) void PyFormatter::dump_string(std::string_view name, std::string_view s)
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  73) {
+7c68a00cce5b src/mgr/PyFormatter.cc                   (NitzanMordhai    2026-01-21 13:07:56 +0000  74)   PyObject *p = PyUnicode_FromStringAndSize(s.data(), s.size());
+7c68a00cce5b src/mgr/PyFormatter.cc                   (NitzanMordhai    2026-01-21 13:07:56 +0000  75)   if (!p) {
+7c68a00cce5b src/mgr/PyFormatter.cc                   (NitzanMordhai    2026-01-21 13:07:56 +0000  76)     PyErr_Clear();
+7c68a00cce5b src/mgr/PyFormatter.cc                   (NitzanMordhai    2026-01-21 13:07:56 +0000  77)     return;
+7c68a00cce5b src/mgr/PyFormatter.cc                   (NitzanMordhai    2026-01-21 13:07:56 +0000  78)   }
+7c68a00cce5b src/mgr/PyFormatter.cc                   (NitzanMordhai    2026-01-21 13:07:56 +0000  79)   dump_pyobject(name, p);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  80) }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  81) 
+6712393fbc53 src/mgr/PyFormatter.cc                   (Kefu Chai        2020-02-10 12:15:12 +0800  82) void PyFormatter::dump_bool(std::string_view name, bool b)
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  83) {
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  84)   if (b) {
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  85)     Py_INCREF(Py_True);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  86)     dump_pyobject(name, Py_True);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  87)   } else {
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  88)     Py_INCREF(Py_False);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  89)     dump_pyobject(name, Py_False);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  90)   }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  91) }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  92) 
+6712393fbc53 src/mgr/PyFormatter.cc                   (Kefu Chai        2020-02-10 12:15:12 +0800  93) std::ostream& PyFormatter::dump_stream(std::string_view name)
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  94) {
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  95)   // Give the caller an ostream, construct a PyString,
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  96)   // and remember the association between the two.  On flush,
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  97)   // we'll read from the ostream into the PyString
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  98)   auto ps = std::make_shared<PendingStream>();
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100  99)   ps->cursor = cursor;
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 100)   ps->name = name;
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 101) 
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 102)   pending_streams.push_back(ps);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 103) 
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 104)   return ps->stream;
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 105) }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 106) 
+6712393fbc53 src/mgr/PyFormatter.cc                   (Kefu Chai        2020-02-10 12:15:12 +0800 107) void PyFormatter::dump_format_va(std::string_view name, const char *ns, bool quoted, const char *fmt, va_list ap)
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 108) {
+86c851e138ae src/mgr/PyFormatter.cc                   (Sage Weil        2017-06-12 00:02:30 -0400 109)   char buf[LARGE_SIZE];
+86c851e138ae src/mgr/PyFormatter.cc                   (Sage Weil        2017-06-12 00:02:30 -0400 110)   vsnprintf(buf, LARGE_SIZE, fmt, ap);
+86c851e138ae src/mgr/PyFormatter.cc                   (Sage Weil        2017-06-12 00:02:30 -0400 111) 
+48c4bc445fca src/mgr/PyFormatter.cc                   (Kefu Chai        2019-12-18 19:03:29 +0800 112)   dump_pyobject(name, PyUnicode_FromString(buf));
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 113) }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 114) 
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 115) /**
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 116)  * Steals reference to `p`
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 117)  */
+6712393fbc53 src/mgr/PyFormatter.cc                   (Kefu Chai        2020-02-10 12:15:12 +0800 118) void PyFormatter::dump_pyobject(std::string_view name, PyObject *p)
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 119) {
+7c68a00cce5b src/mgr/PyFormatter.cc                   (NitzanMordhai    2026-01-21 13:07:56 +0000 120)   if (!p) {
+7c68a00cce5b src/mgr/PyFormatter.cc                   (NitzanMordhai    2026-01-21 13:07:56 +0000 121)     ceph_abort_msg("PyFormatter::dump_pyobject received null PyObject");
+7c68a00cce5b src/mgr/PyFormatter.cc                   (NitzanMordhai    2026-01-21 13:07:56 +0000 122)   }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 123)   if (PyList_Check(cursor)) {
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 124)     PyList_Append(cursor, p);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 125)     Py_DECREF(p);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 126)   } else if (PyDict_Check(cursor)) {
+6712393fbc53 src/mgr/PyFormatter.cc                   (Kefu Chai        2020-02-10 12:15:12 +0800 127)     PyObject *key = PyUnicode_DecodeUTF8(name.data(), name.size(), nullptr);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 128)     PyDict_SetItem(cursor, key, p);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 129)     Py_DECREF(key);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 130)     Py_DECREF(p);
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 131)   } else {
+61fca96c2910 src/mgr/PyFormatter.cc                   (Sage Weil        2016-11-21 23:37:31 -0500 132)     ceph_abort();
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 133)   }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 134) }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 135) 
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 136) void PyFormatter::finish_pending_streams()
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 137) {
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 138)   for (const auto &i : pending_streams) {
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 139)     PyObject *tmp_cur = cursor;
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 140)     cursor = i->cursor;
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 141)     dump_pyobject(
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 142)         i->name.c_str(),
+48c4bc445fca src/mgr/PyFormatter.cc                   (Kefu Chai        2019-12-18 19:03:29 +0800 143)         PyUnicode_FromString(i->stream.str().c_str()));
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 144)     cursor = tmp_cur;
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 145)   }
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 146) 
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 147)   pending_streams.clear();
+ac30e6cee2b2 src/mgr/PyFormatter.cc                   (John Spray       2016-06-30 14:05:02 +0100 148) }
+
+# git blame -w -M -C src/mgr/PyFormatter.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng    2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/PyFormatter.h                                      (Edwin Rodriguez  2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/PyFormatter.h                                      (Edwin Rodriguez  2025-10-02 15:34:08 -0400   3) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   4) /*
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   5)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   6)  *
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   7)  * Copyright (C) 2015 Red Hat Inc
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   8)  *
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100   9)  * Author: John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  10)  *
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  11)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  12)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  13)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  14)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  15)  *
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  16)  */
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  17) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  18) #ifndef PY_FORMATTER_H_
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  19) #define PY_FORMATTER_H_
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  20) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  21) // Python.h comes first because otherwise it clobbers ceph's assert
+48c4bc445fca src/mgr/PyFormatter.h                                      (Kefu Chai        2019-12-18 19:03:29 +0800  22) #include <Python.h>
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  23) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  24) #include <stack>
+104c88cfea8e src/mgr/PyFormatter.h                                      (Kefu Chai        2019-07-19 13:42:20 +0800  25) #include <string>
+104c88cfea8e src/mgr/PyFormatter.h                                      (Kefu Chai        2019-07-19 13:42:20 +0800  26) #include <string_view>
+104c88cfea8e src/mgr/PyFormatter.h                                      (Kefu Chai        2019-07-19 13:42:20 +0800  27) #include <sstream>
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  28) #include <memory>
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  29) #include <list>
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  30) 
+3ab70dd3e115 src/mgr/PyFormatter.h                                      (Max Kellermann   2024-10-16 17:34:06 +0200  31) #include "common/JSONFormatter.h"
+5009d9ecc692 src/mgr/PyFormatter.h                                      (Brad Hubbard     2018-09-14 14:22:00 +1000  32) #include "include/ceph_assert.h"
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  33) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  34) class PyFormatter : public ceph::Formatter
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  35) {
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  36) public:
+938189e8f280 src/mgr/PyFormatter.h                                      (Jan Fajerski     2018-09-07 10:20:43 +0200  37)   PyFormatter (const PyFormatter&) = delete;
+938189e8f280 src/mgr/PyFormatter.h                                      (Jan Fajerski     2018-09-07 10:20:43 +0200  38)   PyFormatter& operator= (const PyFormatter&) = delete;
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  39)   PyFormatter(bool pretty = false, bool array = false)
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  40)   {
+9ea37c223f92 src/mgr/PyFormatter.h                                      (John Spray       2016-11-14 00:04:16 +0000  41)     // It is forbidden to instantiate me outside of the GIL,
+9ea37c223f92 src/mgr/PyFormatter.h                                      (John Spray       2016-11-14 00:04:16 +0000  42)     // because I construct python objects right away
+9ea37c223f92 src/mgr/PyFormatter.h                                      (John Spray       2016-11-14 00:04:16 +0000  43) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  44)     // Initialise cursor to an empty dict
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  45)     if (!array) {
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  46)       root = cursor = PyDict_New();
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  47)     } else {
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  48)       root = cursor = PyList_New(0);
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  49)     }
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  50)   }
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  51) 
+ecbcd591b785 src/mgr/PyFormatter.h                                      (Chang Liu        2017-02-22 19:52:46 +0800  52)   ~PyFormatter() override
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  53)   {
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  54)     cursor = NULL;
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  55)     Py_DECREF(root);
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  56)     root = NULL;
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  57)   }
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  58) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  59)   // Obscure, don't care.
+6712393fbc53 src/mgr/PyFormatter.h                                      (Kefu Chai        2020-02-10 12:15:12 +0800  60)   void open_array_section_in_ns(std::string_view name, const char *ns) override
+61fca96c2910 src/mgr/PyFormatter.h                                      (Sage Weil        2016-11-21 23:37:31 -0500  61)   {ceph_abort();}
+6712393fbc53 src/mgr/PyFormatter.h                                      (Kefu Chai        2020-02-10 12:15:12 +0800  62)   void open_object_section_in_ns(std::string_view name, const char *ns) override
+61fca96c2910 src/mgr/PyFormatter.h                                      (Sage Weil        2016-11-21 23:37:31 -0500  63)   {ceph_abort();}
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  64) 
+ecbcd591b785 src/mgr/PyFormatter.h                                      (Chang Liu        2017-02-22 19:52:46 +0800  65)   void reset() override
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  66)   {
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  67)     const bool array = PyList_Check(root);
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  68)     Py_DECREF(root);
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  69)     if (array) {
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  70)       root = cursor = PyList_New(0);
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  71)     } else {
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  72)       root = cursor = PyDict_New();
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  73)     }
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  74)   }
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  75) 
+ecbcd591b785 src/mgr/PyFormatter.h                                      (Chang Liu        2017-02-22 19:52:46 +0800  76)   void set_status(int status, const char* status_name) override {}
+ecbcd591b785 src/mgr/PyFormatter.h                                      (Chang Liu        2017-02-22 19:52:46 +0800  77)   void output_header() override {};
+ecbcd591b785 src/mgr/PyFormatter.h                                      (Chang Liu        2017-02-22 19:52:46 +0800  78)   void output_footer() override {};
+992829d38cb8 src/mgr/PyFormatter.h                                      (Song Weibin      2017-08-09 14:26:32 +0800  79)   void enable_line_break() override {};
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  80) 
+6712393fbc53 src/mgr/PyFormatter.h                                      (Kefu Chai        2020-02-10 12:15:12 +0800  81)   void open_array_section(std::string_view name) override;
+6712393fbc53 src/mgr/PyFormatter.h                                      (Kefu Chai        2020-02-10 12:15:12 +0800  82)   void open_object_section(std::string_view name) override;
+ecbcd591b785 src/mgr/PyFormatter.h                                      (Chang Liu        2017-02-22 19:52:46 +0800  83)   void close_section() override
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  84)   {
+ab23c5069647 src/mgr/PyFormatter.h                                      (Adam C. Emerson  2018-08-23 11:25:51 -0400  85)     ceph_assert(cursor != root);
+ab23c5069647 src/mgr/PyFormatter.h                                      (Adam C. Emerson  2018-08-23 11:25:51 -0400  86)     ceph_assert(!stack.empty());
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  87)     cursor = stack.top();
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  88)     stack.pop();
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100  89)   }
+6712393fbc53 src/mgr/PyFormatter.h                                      (Kefu Chai        2020-02-10 12:15:12 +0800  90)   void dump_bool(std::string_view name, bool b) override;
+5f57c526b22a src/mgr/PyFormatter.h                                      (Patrick Donnelly 2023-07-21 13:57:33 -0400  91)   void dump_null(std::string_view name) override;
+6712393fbc53 src/mgr/PyFormatter.h                                      (Kefu Chai        2020-02-10 12:15:12 +0800  92)   void dump_unsigned(std::string_view name, uint64_t u) override;
+6712393fbc53 src/mgr/PyFormatter.h                                      (Kefu Chai        2020-02-10 12:15:12 +0800  93)   void dump_int(std::string_view name, int64_t u) override;
+6712393fbc53 src/mgr/PyFormatter.h                                      (Kefu Chai        2020-02-10 12:15:12 +0800  94)   void dump_float(std::string_view name, double d) override;
+6712393fbc53 src/mgr/PyFormatter.h                                      (Kefu Chai        2020-02-10 12:15:12 +0800  95)   void dump_string(std::string_view name, std::string_view s) override;
+6712393fbc53 src/mgr/PyFormatter.h                                      (Kefu Chai        2020-02-10 12:15:12 +0800  96)   std::ostream& dump_stream(std::string_view name) override;
+6712393fbc53 src/mgr/PyFormatter.h                                      (Kefu Chai        2020-02-10 12:15:12 +0800  97)   void dump_format_va(std::string_view name, const char *ns, bool quoted, const char *fmt, va_list ap) override;
+ecbcd591b785 src/mgr/PyFormatter.h                                      (Chang Liu        2017-02-22 19:52:46 +0800  98) 
+ecbcd591b785 src/mgr/PyFormatter.h                                      (Chang Liu        2017-02-22 19:52:46 +0800  99)   void flush(std::ostream& os) override
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 100)   {
+34975103eae6 src/mgr/PyFormatter.h                                      (Kefu Chai        2018-09-18 11:27:25 +0800 101)       // This class is not a serializer: this doesn't make sense
+61fca96c2910 src/mgr/PyFormatter.h                                      (Sage Weil        2016-11-21 23:37:31 -0500 102)       ceph_abort();
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 103)   }
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 104) 
+ecbcd591b785 src/mgr/PyFormatter.h                                      (Chang Liu        2017-02-22 19:52:46 +0800 105)   int get_len() const override
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 106)   {
+34975103eae6 src/mgr/PyFormatter.h                                      (Kefu Chai        2018-09-18 11:27:25 +0800 107)       // This class is not a serializer: this doesn't make sense
+61fca96c2910 src/mgr/PyFormatter.h                                      (Sage Weil        2016-11-21 23:37:31 -0500 108)       ceph_abort();
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 109)       return 0;
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 110)   }
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 111) 
+ecbcd591b785 src/mgr/PyFormatter.h                                      (Chang Liu        2017-02-22 19:52:46 +0800 112)   void write_raw_data(const char *data) override
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 113)   {
+34975103eae6 src/mgr/PyFormatter.h                                      (Kefu Chai        2018-09-18 11:27:25 +0800 114)       // This class is not a serializer: this doesn't make sense
+61fca96c2910 src/mgr/PyFormatter.h                                      (Sage Weil        2016-11-21 23:37:31 -0500 115)       ceph_abort();
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 116)   }
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 117) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 118)   virtual PyObject *get()
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 119)   {
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 120)     finish_pending_streams();
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 121) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 122)     Py_INCREF(root);
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 123)     return root;
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 124)   }
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 125) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 126)   void finish_pending_streams();
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 127) 
+6712393fbc53 src/mgr/PyFormatter.h                                      (Kefu Chai        2020-02-10 12:15:12 +0800 128)   void dump_pyobject(std::string_view name, PyObject *p);
+7c68a00cce5b src/mgr/PyFormatter.h                                      (NitzanMordhai    2026-01-21 13:07:56 +0000 129) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 130) protected:
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 131)   PyObject *root;
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 132)   PyObject *cursor;
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 133)   std::stack<PyObject *> stack;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 134) private:
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 135)   class PendingStream {
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 136)     public:
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 137)     PyObject *cursor;
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 138)     std::string name;
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 139)     std::stringstream stream;
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 140)   };
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 141) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 142)   std::list<std::shared_ptr<PendingStream> > pending_streams;
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 143) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 144) };
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 145) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 146) class PyFormatterRO : public PyFormatter {
+15dfa71cf7c8 src/mgr/PyFormatter.h                                      (Pere Diaz Bou    2021-05-26 17:47:06 +0200 147) public:
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 148)   using PyFormatter::PyFormatter;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 149)   PyObject* get() override {
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 150)     finish_pending_streams();
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 151)     if (!is_converted_to_readonly) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 152)       convert_to_readonly();
+15dfa71cf7c8 src/mgr/PyFormatter.h                                      (Pere Diaz Bou    2021-05-26 17:47:06 +0200 153)     }
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 154)     Py_INCREF(root);
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 155)     return root;
+15dfa71cf7c8 src/mgr/PyFormatter.h                                      (Pere Diaz Bou    2021-05-26 17:47:06 +0200 156)   }
+15dfa71cf7c8 src/mgr/PyFormatter.h                                      (Pere Diaz Bou    2021-05-26 17:47:06 +0200 157) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 158)   void reset() override {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 159)     PyFormatter::reset();
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 160)     is_converted_to_readonly = false;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 161)   }
+15dfa71cf7c8 src/mgr/PyFormatter.h                                      (Pere Diaz Bou    2021-05-26 17:47:06 +0200 162) private:
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 163)   bool is_converted_to_readonly = false;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 164) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 165)   /// Convert entire data structure to read-only once
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 166)   void convert_to_readonly() {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 167)     PyObject* readonly_root = make_immutable(root);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 168) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 169)     if (readonly_root != root) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 170)       Py_DECREF(root);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 171)       root = readonly_root;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 172)       cursor = root;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 173)     }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 174)     is_converted_to_readonly = true;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 175)   }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 176) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 177)   /// Recursively convert object to immutable equivalent
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 178)   PyObject* make_immutable(PyObject* obj) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 179)     if (PyList_Check(obj)) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 180)       return convert_list_to_tuple(obj);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 181)     }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 182)     if (PyDict_Check(obj)) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 183)       return convert_dict_to_proxy(obj);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 184)     }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 185)     if (PySet_Check(obj)) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 186)       return convert_set_to_frozenset(obj);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 187)     }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 188)     if (PyTuple_Check(obj)) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 189)       return convert_tuple_contents(obj);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 190)     }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 191)     // Already immutable
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 192)     Py_INCREF(obj);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 193)     return obj;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 194)   }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 195) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 196)   PyObject* convert_list_to_tuple(PyObject* list) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 197)     Py_ssize_t size = PyList_Size(list);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 198)     PyObject* tuple = PyTuple_New(size);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 199) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 200)     for (Py_ssize_t i = 0; i < size; i++) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 201)       PyObject* item = PyList_GetItem(list, i);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 202)       PyObject* immutable_item = make_immutable(item);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 203)       if (!immutable_item) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 204)         Py_DECREF(tuple);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 205)         Py_INCREF(list);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 206)         return list;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 207)       }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 208)       PyTuple_SET_ITEM(tuple, i, immutable_item);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 209)     }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 210)     return tuple;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 211)   }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 212) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 213)   PyObject* convert_dict_to_proxy(PyObject* dict) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 214)     PyObject* immutable_dict = PyDict_New();
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 215)     PyObject* key, *value;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 216)     Py_ssize_t pos = 0;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 217) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 218)     while (PyDict_Next(dict, &pos, &key, &value)) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 219)       PyObject* immutable_value = make_immutable(value);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 220)       if (!immutable_value) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 221)         Py_DECREF(immutable_dict);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 222)         Py_INCREF(dict);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 223)         return dict;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 224)       }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 225)       if (PyDict_SetItem(immutable_dict, key, immutable_value) < 0) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 226)         Py_DECREF(immutable_value);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 227)         Py_DECREF(immutable_dict);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 228)         Py_INCREF(dict);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 229)         return dict;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 230)       }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 231)       Py_DECREF(immutable_value);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 232)     }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 233)     return immutable_dict;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 234)   }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 235) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 236)   PyObject* convert_set_to_frozenset(PyObject* set) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 237)     PyObject* frozenset = PyFrozenSet_New(set);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 238)     if (frozenset) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 239)       return frozenset;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 240)     }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 241) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 242)     // Fallback
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 243)     Py_INCREF(set);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 244)     return set;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 245)   }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 246) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 247)   PyObject* convert_tuple_contents(PyObject* tuple) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 248)     Py_ssize_t size = PyTuple_Size(tuple);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 249)     PyObject* new_tuple = PyTuple_New(size);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 250)     if (!new_tuple) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 251)       Py_INCREF(tuple);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 252)       return tuple;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 253)     }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 254) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 255)     for (Py_ssize_t i = 0; i < size; i++) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 256)       PyObject* item = PyTuple_GetItem(tuple, i);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 257)       PyObject* immutable_item = make_immutable(item);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 258) 
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 259)       if (!immutable_item) {
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 260)         Py_DECREF(new_tuple);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 261)         Py_INCREF(tuple);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 262)         return tuple;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 263)       }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 264)       PyTuple_SET_ITEM(new_tuple, i, immutable_item);
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 265)     }
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 266)     return new_tuple;
+403340bcf8c2 src/mgr/PyFormatter.h                                      (Nitzan Mordechai 2025-07-17 06:17:00 +0000 267)   }
+15dfa71cf7c8 src/mgr/PyFormatter.h                                      (Pere Diaz Bou    2021-05-26 17:47:06 +0200 268) };
+15dfa71cf7c8 src/mgr/PyFormatter.h                                      (Pere Diaz Bou    2021-05-26 17:47:06 +0200 269) 
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 270) #endif
+ac30e6cee2b2 src/mgr/PyFormatter.h                                      (John Spray       2016-06-30 14:05:02 +0100 271) 

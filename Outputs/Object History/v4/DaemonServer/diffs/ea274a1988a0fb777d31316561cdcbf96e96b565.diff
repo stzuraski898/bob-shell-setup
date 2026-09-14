@@ -1,0 +1,113 @@
+commit ea274a1988a0fb777d31316561cdcbf96e96b565
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sat Mar 28 16:22:27 2020 -0500
+
+    mgr/DaemonServer: fetch metadata for new daemons (e.g., mons)
+    
+    We fetch metadata for mon/osd/mds daemons on startup.  If a new one comes
+    along *after* we start up, we need to fetch it on demand.  Otherwise,
+    notably, we will ignore any new mons added to the cluster:
+    
+    - mon.a starts
+    - mgr starts, fetchs a's metadata
+    - mon.b added
+    - mon.b tries top open mgr connection, and is rejected each time
+    
+    This can lead to follow-on badness when the mon tries to proxy mgr
+    commands or do other things.
+    
+    Fix by fetching metadata on demand, like we already do in the report
+    path.
+    
+    Fixes: https://tracker.ceph.com/issues/44798
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index becd428aca6..de0a99cb870 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -389,9 +389,31 @@ static DaemonKey key_from_service(
+   }
+ }
+ 
++void DaemonServer::fetch_missing_metadata(const DaemonKey& key,
++					  const entity_addr_t& addr)
++{
++  if (!daemon_state.is_updating(key) &&
++      (key.type == "osd" || key.type == "mds" || key.type == "mon")) {
++    std::ostringstream oss;
++    auto c = new MetadataUpdate(daemon_state, key);
++    if (key.type == "osd") {
++      oss << "{\"prefix\": \"osd metadata\", \"id\": "
++	  << key.name<< "}";
++    } else if (key.type == "mds") {
++      c->set_default("addr", stringify(addr));
++      oss << "{\"prefix\": \"mds metadata\", \"who\": \""
++	  << key.name << "\"}";
++    } else if (key.type == "mon") {
++      oss << "{\"prefix\": \"mon metadata\", \"id\": \""
++	  << key.name << "\"}";
++    }
++    monc->start_mon_command({oss.str()}, {}, &c->outbl, &c->outs, c);
++  }
++}
++
+ bool DaemonServer::handle_open(const ref_t<MMgrOpen>& m)
+ {
+-  std::lock_guard l(lock);
++  std::unique_lock l(lock);
+ 
+   DaemonKey key = key_from_service(m->service_name,
+ 				   m->get_connection()->get_peer_type(),
+@@ -421,6 +443,8 @@ bool DaemonServer::handle_open(const ref_t<MMgrOpen>& m)
+       dout(2) << "ignoring open from " << key << " " << con->get_peer_addr()
+               << "; not ready for session (expect reconnect)" << dendl;
+       con->mark_down();
++      l.unlock();
++      fetch_missing_metadata(key, m->get_source_addr());
+       return true;
+     }
+   }
+@@ -553,29 +577,7 @@ bool DaemonServer::handle_report(const ref_t<MMgrReport>& m)
+       dout(5) << "rejecting report from " << key << ", since we do not have its metadata now."
+               << dendl;
+       // issue metadata request in background
+-      if (!daemon_state.is_updating(key) && 
+-          (key.type == "osd" || key.type == "mds" || key.type == "mon")) {
+-
+-        std::ostringstream oss;
+-        auto c = new MetadataUpdate(daemon_state, key);
+-        if (key.type == "osd") {
+-          oss << "{\"prefix\": \"osd metadata\", \"id\": "
+-              << key.name<< "}";
+-
+-        } else if (key.type == "mds") {
+-          c->set_default("addr", stringify(m->get_source_addr()));
+-          oss << "{\"prefix\": \"mds metadata\", \"who\": \""
+-              << key.name << "\"}";
+- 
+-        } else if (key.type == "mon") {
+-          oss << "{\"prefix\": \"mon metadata\", \"id\": \""
+-              << key.name << "\"}";
+-        } else {
+-          ceph_abort();
+-        }
+-
+-        monc->start_mon_command({oss.str()}, {}, &c->outbl, &c->outs, c);
+-      }
++      fetch_missing_metadata(key, m->get_source_addr());
+ 
+       locker.lock();
+ 
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 14514007efe..185d0d246c1 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -168,6 +168,7 @@ public:
+   void ms_handle_remote_reset(Connection *con) override {}
+   bool ms_handle_refused(Connection *con) override;
+ 
++  void fetch_missing_metadata(const DaemonKey& key, const entity_addr_t& addr);
+   bool handle_open(const ceph::ref_t<MMgrOpen>& m);
+   bool handle_close(const ceph::ref_t<MMgrClose>& m);
+   bool handle_report(const ceph::ref_t<MMgrReport>& m);

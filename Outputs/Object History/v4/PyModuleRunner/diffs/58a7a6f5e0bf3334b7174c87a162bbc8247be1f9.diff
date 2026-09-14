@@ -1,0 +1,40 @@
+commit 58a7a6f5e0bf3334b7174c87a162bbc8247be1f9
+Author: Ricardo Dias <rdias@suse.com>
+Date:   Wed Sep 25 11:45:38 2019 +0100
+
+    mgr: use modules' log_level instead of mgr log level
+    
+    Signed-off-by: Ricardo Dias <rdias@suse.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index 403c8a9f183..ca90f87a1db 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -90,11 +90,11 @@ void PyModuleRunner::shutdown()
+   }
+ }
+ 
+-void PyModuleRunner::log(int level, const std::string &record)
++void PyModuleRunner::log(const std::string &record)
+ {
+ #undef dout_prefix
+-#define dout_prefix *_dout << "mgr[" << get_name() << "] "
+-  dout(ceph::dout::need_dynamic(level)) << record << dendl;
++#define dout_prefix *_dout << "[" << get_name() << "] "
++  dout(0) << record << dendl;
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ }
+diff --git a/src/mgr/PyModuleRunner.h b/src/mgr/PyModuleRunner.h
+index 08c85a13263..4d0b7601928 100644
+--- a/src/mgr/PyModuleRunner.h
++++ b/src/mgr/PyModuleRunner.h
+@@ -52,7 +52,7 @@ protected:
+ public:
+   int serve();
+   void shutdown();
+-  void log(int level, const std::string &record);
++  void log(const std::string &record);
+ 
+   const char *get_thread_name() const
+   {

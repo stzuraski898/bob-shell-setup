@@ -1,0 +1,30 @@
+commit 03a761c980a1171fe6adf7a463f3ab80ec6d4052
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Nov 15 16:27:18 2018 -0600
+
+    mgr: lock pg_map too for osd_pool_stats and notify_osdmap
+    
+    Fixes: http://tracker.ceph.com/issues/36766
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 81dbe30705c..f712ec96c55 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -336,15 +336,13 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+     int64_t poolid = -ENOENT;
+     string pool_name;
+     PyFormatter f;
+-    cluster_state.with_pgmap([&](const PGMap& pg_map) {
+-      return cluster_state.with_osdmap([&](const OSDMap& osdmap) {
++    cluster_state.with_osdmap_and_pgmap([&](const OSDMap& osdmap, const PGMap& pg_map) {
+         f.open_array_section("pool_stats");
+         for (auto &p : osdmap.get_pools()) {
+           poolid = p.first;
+           pg_map.dump_pool_stats_and_io_rate(poolid, osdmap, &f, nullptr);
+         }
+         f.close_section();
+-      });
+     });
+     return f.get();
+   } else if (what == "health" || what == "mon_status") {

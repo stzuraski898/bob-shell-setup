@@ -1,0 +1,23 @@
+commit cf68ce511f31d3746ca1cb13a9d3b39c25bb06a8
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jan 5 14:55:12 2018 -0600
+
+    mgr: have MgrStandby send mgr reports to active mgr (even self!)
+    
+    This allows the mgr daemons to register state with the active mgr just
+    like the rest of the cluster, including perfcounters and current config.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index e2b73fdee64..0c901a6933e 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -593,6 +593,7 @@ bool Mgr::got_mgr_map(const MgrMap& m)
+   }
+ 
+   cluster_state.set_mgr_map(m);
++  server.got_mgr_map();
+ 
+   return false;
+ }

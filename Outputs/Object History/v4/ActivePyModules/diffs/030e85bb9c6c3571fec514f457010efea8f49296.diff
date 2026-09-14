@@ -1,0 +1,111 @@
+commit 030e85bb9c6c3571fec514f457010efea8f49296
+Author: Volker Theile <vtheile@suse.com>
+Date:   Thu Jan 3 17:02:52 2019 +0100
+
+    mgr: Allow modules to get/set other module options
+    
+    Add the _ceph_get_module_option_ex and _ceph_set_module_option_ex methods to the BaseMgrModule. This allows a module to get/set options from other modules, e.g. allow the Dashboard to set the telemetry module settings, either the other module is not enabled.
+    
+    Fixes: https://tracker.ceph.com/issues/37722
+    
+    Signed-off-by: Volker Theile <vtheile@suse.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 8e35353f778..4069b100b67 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -26,6 +26,7 @@
+ 
+ // For ::config_prefix
+ #include "PyModule.h"
++#include "PyModuleRegistry.h"
+ 
+ #include "ActivePyModules.h"
+ #include "DaemonServer.h"
+@@ -40,11 +41,12 @@ ActivePyModules::ActivePyModules(PyModuleConfig &module_config_,
+           DaemonStateIndex &ds, ClusterState &cs,
+           MonClient &mc, LogChannelRef clog_,
+           LogChannelRef audit_clog_, Objecter &objecter_,
+-          Client &client_, Finisher &f, DaemonServer &server)
++          Client &client_, Finisher &f, DaemonServer &server,
++          PyModuleRegistry &pmr)
+   : module_config(module_config_), daemon_state(ds), cluster_state(cs),
+     monc(mc), clog(clog_), audit_clog(audit_clog_), objecter(objecter_),
+     client(client_), finisher(f),
+-    server(server), lock("ActivePyModules")
++    server(server), py_module_registry(pmr), lock("ActivePyModules")
+ {
+   store_cache = std::move(store_data);
+ }
+@@ -519,6 +521,27 @@ bool ActivePyModules::get_config(const std::string &module_name,
+   }
+ }
+ 
++PyObject *ActivePyModules::get_typed_config(
++  const std::string &module_name,
++  const std::string &key) const
++{
++  if (!py_module_registry.module_exists(module_name)) {
++    derr << "Module '" << module_name << "' is not available" << dendl;
++    Py_RETURN_NONE;
++  }
++
++  std::string value;
++  bool found = get_config(module_name, key, &value);
++  if (found) {
++    PyModuleRef module = py_module_registry.get_module(module_name);
++    dout(10) << __func__ << " " << key << " found: " << value << dendl;
++    return module->get_typed_option_value(key, value);
++  }
++
++  dout(4) << __func__ << " " << key << " not found " << dendl;
++  Py_RETURN_NONE;
++}
++
+ PyObject *ActivePyModules::get_store_prefix(const std::string &module_name,
+     const std::string &prefix) const
+ {
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index b0d0eade8e1..df1477f8f35 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -32,6 +32,7 @@
+ 
+ class health_check_map_t;
+ class DaemonServer;
++class PyModuleRegistry;
+ 
+ class ActivePyModules
+ {
+@@ -46,6 +47,7 @@ class ActivePyModules
+   Client   &client;
+   Finisher &finisher;
+   DaemonServer &server;
++  PyModuleRegistry &py_module_registry;
+ 
+ 
+   mutable Mutex lock{"ActivePyModules::lock"};
+@@ -55,7 +57,7 @@ public:
+             std::map<std::string, std::string> store_data,
+             DaemonStateIndex &ds, ClusterState &cs, MonClient &mc,
+             LogChannelRef clog_, LogChannelRef audit_clog_, Objecter &objecter_, Client &client_,
+-            Finisher &f, DaemonServer &server);
++            Finisher &f, DaemonServer &server, PyModuleRegistry &pmr);
+ 
+   ~ActivePyModules();
+ 
+@@ -110,6 +112,9 @@ public:
+   void set_config(const std::string &module_name,
+       const std::string &key, const boost::optional<std::string> &val);
+ 
++  PyObject *get_typed_config(const std::string &module_name,
++    const std::string &key) const;
++
+   void set_health_checks(const std::string& module_name,
+ 			 health_check_map_t&& checks);
+   void get_health_checks(health_check_map_t *checks);
+@@ -165,4 +170,3 @@ public:
+   void cluster_log(const std::string &channel, clog_type prio,
+     const std::string &message);
+ };
+-

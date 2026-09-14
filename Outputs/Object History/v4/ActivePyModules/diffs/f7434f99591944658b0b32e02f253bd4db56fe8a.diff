@@ -1,0 +1,24 @@
+commit f7434f99591944658b0b32e02f253bd4db56fe8a
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Tue Sep 26 13:04:35 2017 -0400
+
+    {mgr,osd}: Remove pessimizing moves
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 290fa2a4188..4b3f5cc608b 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -746,9 +746,9 @@ PyObject* PyModules::get_perf_schema_python(
+   DaemonStateCollection daemons;
+ 
+   if (svc_type == "") {
+-    daemons = std::move(daemon_state.get_all());
++    daemons = daemon_state.get_all();
+   } else if (svc_id.empty()) {
+-    daemons = std::move(daemon_state.get_by_service(svc_type));
++    daemons = daemon_state.get_by_service(svc_type);
+   } else {
+     auto key = DaemonKey(svc_type, svc_id);
+     // so that the below can be a loop in all cases

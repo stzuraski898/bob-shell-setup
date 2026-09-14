@@ -1,0 +1,26 @@
+commit efc29fb3630aaab4e04d99621c40561d38a99c03
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Apr 16 12:12:01 2021 -0400
+
+    mgr/MgrStandby: respawn if mgr_standby_modules changes
+    
+    If we have standby modules and this goes false, or do not have modules
+    and this goes true, then respawn.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index a5f38e8f65a..ad48af9dafe 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -98,6 +98,10 @@ public:
+    */
+   bool handle_mgr_map(const MgrMap &mgr_map_);
+ 
++  bool have_standby_modules() const {
++    return !!standby_modules;
++  }
++
+   void init();
+ 
+   void upgrade_config(

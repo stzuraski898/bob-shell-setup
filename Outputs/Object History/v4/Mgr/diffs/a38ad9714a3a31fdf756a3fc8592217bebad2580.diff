@@ -1,0 +1,28 @@
+commit a38ad9714a3a31fdf756a3fc8592217bebad2580
+Author: Jos Collin <jcollin@redhat.com>
+Date:   Thu Sep 21 14:35:39 2017 +0530
+
+    mgr: silence warning from -Wsign-compare
+    
+    Fixed the warning:
+    
+    ceph/src/mgr/Mgr.cc: In lambda function:
+    ceph/src/mgr/Mgr.cc:413:42: warning: comparison between signed and unsigned integer expressions [-Wsign-compare]
+         for (unsigned int osd_id = 0; osd_id < osd_map.get_max_osd(); ++osd_id) {
+                                       ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~
+    
+    Signed-off-by: Jos Collin <jcollin@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index edb93846851..de60b4c771f 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -410,7 +410,7 @@ void Mgr::handle_osd_map()
+    * reload the metadata.
+    */
+   objecter->with_osdmap([this, &names_exist](const OSDMap &osd_map) {
+-    for (unsigned int osd_id = 0; osd_id < osd_map.get_max_osd(); ++osd_id) {
++    for (int osd_id = 0; osd_id < osd_map.get_max_osd(); ++osd_id) {
+       if (!osd_map.exists(osd_id)) {
+         continue;
+       }

@@ -1,0 +1,20 @@
+commit 9d68af58ce959aaafbe257ac999eec1efde86488
+Author: Willem Jan Withagen <wjw@digiware.nl>
+Date:   Thu Jun 28 10:24:15 2018 +0200
+
+    mgr: fix Clangs/FreeBSD missing vector
+    
+    Signed-off-by: Willem Jan Withagen <wjw@digiware.nl>
+
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index 80d96896375..162d0c90cef 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -16,6 +16,7 @@
+ #include <map>
+ #include <memory>
+ #include <string>
++#include <vector>
+ #include <boost/optional.hpp>
+ #include "common/Mutex.h"
+ #include "Python.h"

@@ -1,0 +1,30 @@
+commit 27bd39cd0550a25be39d93737c0dc91c25d34a33
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue May 16 13:27:00 2017 -0400
+
+    mgr/ClusterState: report health about pgs
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 9a498e95847..3ec59c17078 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -116,9 +116,16 @@ void ClusterState::notify_osdmap(const OSDMap &osd_map)
+ 
+ void ClusterState::tick(MMonMgrReport *m)
+ {
+-  dout(0) << __func__ << dendl;
++  dout(10) << __func__ << dendl;
+   // FIXME: no easy way to get mon features here.  this will do for
+   // now, though, as long as we don't make a backward-incompat change.
+   pg_map.encode_digest(m->get_data(), CEPH_FEATURES_ALL);
++
++  // FIXME: reporting health detail here might be a bad idea?
++  with_osdmap([&](const OSDMap& osdmap) {
++      pg_map.get_health(g_ceph_context, osdmap,
++			m->health_summary,
++			&m->health_detail);
++    });
+   m->needs_send = true;
+ }

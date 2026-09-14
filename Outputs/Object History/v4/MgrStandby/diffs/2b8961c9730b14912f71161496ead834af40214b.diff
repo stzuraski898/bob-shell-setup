@@ -1,0 +1,36 @@
+commit 2b8961c9730b14912f71161496ead834af40214b
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu May 4 16:50:08 2017 +0800
+
+    mgr: do the shutdown in the right order
+    
+    Fixes: http://tracker.ceph.com/issues/19813
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 99eb74db937..1bfcadd71b4 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -175,13 +175,19 @@ void MgrStandby::shutdown()
+   // Expect already to be locked as we're called from signal handler
+   assert(lock.is_locked_by_me());
+ 
++  // stop sending beacon first, i use monc to talk with monitors
++  timer.shutdown();
++  // client uses monc and objecter
++  client.shutdown();
++  // stop monc, so mon won't be able to instruct me to shutdown/activate after
++  // the active_mgr is stopped
++  monc.shutdown();
+   if (active_mgr) {
+     active_mgr->shutdown();
+   }
+-  client.shutdown();
++  // objecter is used by monc and active_mgr
+   objecter.shutdown();
+-  timer.shutdown();
+-  monc.shutdown();
++  // client_messenger is used by all of them, so stop it in the end
+   client_messenger->shutdown();
+ }
+ 

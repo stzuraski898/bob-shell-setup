@@ -1,0 +1,137 @@
+commit 5c25a018643b10aa78db8270cae1476f71d8f4f4
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Tue Jul 2 04:11:35 2019 -0400
+
+    mgr, mon: allow normal ceph services to register with manager
+    
+    Additionally, introduce `task status` field in manager report
+    messages to forward status of executing tasks in daemons (e.g.,
+    status of executing scrubs in ceph metadata servers).
+    
+    `task status` makes its way upto service map which is then used
+    to display the relevant information in ceph status.
+    
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/ServiceMap.cc b/src/mgr/ServiceMap.cc
+index 42f2e00b796..7870d222786 100644
+--- a/src/mgr/ServiceMap.cc
++++ b/src/mgr/ServiceMap.cc
+@@ -12,23 +12,27 @@ using ceph::Formatter;
+ 
+ void ServiceMap::Daemon::encode(bufferlist& bl, uint64_t features) const
+ {
+-  ENCODE_START(1, 1, bl);
++  ENCODE_START(2, 1, bl);
+   encode(gid, bl);
+   encode(addr, bl, features);
+   encode(start_epoch, bl);
+   encode(start_stamp, bl);
+   encode(metadata, bl);
++  encode(task_status, bl);
+   ENCODE_FINISH(bl);
+ }
+ 
+ void ServiceMap::Daemon::decode(bufferlist::const_iterator& p)
+ {
+-  DECODE_START(1, p);
++  DECODE_START(2, p);
+   decode(gid, p);
+   decode(addr, p);
+   decode(start_epoch, p);
+   decode(start_stamp, p);
+   decode(metadata, p);
++  if (struct_v >= 2) {
++    decode(task_status, p);
++  }
+   DECODE_FINISH(p);
+ }
+ 
+@@ -36,13 +40,18 @@ void ServiceMap::Daemon::dump(Formatter *f) const
+ {
+   f->dump_unsigned("start_epoch", start_epoch);
+   f->dump_stream("start_stamp") << start_stamp;
+-  f->dump_unsigned("gid", gid);
++  f->dump_unsigned("gid", *gid);
+   f->dump_string("addr", addr.get_legacy_str());
+   f->open_object_section("metadata");
+   for (auto& p : metadata) {
+     f->dump_string(p.first.c_str(), p.second);
+   }
+   f->close_section();
++  f->open_object_section("task_status");
++  for (auto& p : task_status) {
++    f->dump_string(p.first.c_str(), p.second);
++  }
++  f->close_section();
+ }
+ 
+ void ServiceMap::Daemon::generate_test_instances(std::list<Daemon*>& ls)
+@@ -51,6 +60,7 @@ void ServiceMap::Daemon::generate_test_instances(std::list<Daemon*>& ls)
+   ls.push_back(new Daemon);
+   ls.back()->gid = 222;
+   ls.back()->metadata["this"] = "that";
++  ls.back()->task_status["task1"] = "running";
+ }
+ 
+ // Service
+diff --git a/src/mgr/ServiceMap.h b/src/mgr/ServiceMap.h
+index 0c3304d6f1b..7ca9fbd8688 100644
+--- a/src/mgr/ServiceMap.h
++++ b/src/mgr/ServiceMap.h
+@@ -12,17 +12,20 @@
+ #include "include/buffer.h"
+ #include "msg/msg_types.h"
+ 
++#include <boost/optional.hpp>
++
+ namespace ceph {
+   class Formatter;
+ }
+ 
+ struct ServiceMap {
+   struct Daemon {
+-    uint64_t gid = 0;
++    boost::optional<uint64_t> gid;
+     entity_addr_t addr;
+     epoch_t start_epoch = 0;   ///< epoch first registered
+     utime_t start_stamp;       ///< timestamp daemon started/registered
+     std::map<std::string,std::string> metadata;  ///< static metadata
++    std::map<std::string,std::string> task_status; ///< running task status
+ 
+     void encode(ceph::buffer::list& bl, uint64_t features) const;
+     void decode(ceph::buffer::list::const_iterator& p);
+@@ -64,6 +67,33 @@ struct ServiceMap {
+       return ss.str();
+     }
+ 
++    std::string get_task_summary(const std::string_view task_prefix) const {
++      // contruct a map similar to:
++      //     {"service1 status" -> {"service1.0" -> "running"}}
++      //     {"service2 status" -> {"service2.0" -> "idle"},
++      //                           {"service2.1" -> "running"}}
++      std::map<std::string, std::map<std::string, std::string>> by_task;
++      for (const auto &p : daemons) {
++        std::stringstream d;
++        d << task_prefix << "." << p.first;
++        for (const auto &q : p.second.task_status) {
++          auto p1 = by_task.emplace(q.first, std::map<std::string, std::string>{}).first;
++          auto p2 = p1->second.emplace(d.str(), std::string()).first;
++          p2->second = q.second;
++        }
++      }
++
++      std::stringstream ss;
++      for (const auto &p : by_task) {
++        ss << "\n    " << p.first << ":";
++        for (auto q : p.second) {
++          ss << "\n        " << q.first << ": " << q.second;
++        }
++      }
++
++      return ss.str();
++    }
++
+     void count_metadata(const std::string& field,
+ 			std::map<std::string,int> *out) const {
+       for (auto& p : daemons) {

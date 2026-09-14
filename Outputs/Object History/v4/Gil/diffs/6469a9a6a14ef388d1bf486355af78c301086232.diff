@@ -1,0 +1,41 @@
+commit 6469a9a6a14ef388d1bf486355af78c301086232
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Nov 24 12:02:05 2021 -0500
+
+    mgr/ActivePyModule: avoid with_gil where possible
+    
+    The common pattern of
+    
+     without_gil_t no_gil;
+     ...
+     with_gil_t with_gil(no_gil);
+     ...
+    
+    is that when the stack unwindws, ~with_gil_t() will drop the GIL and then
+    ~without_gil_t() will retake it again, adding a completely unnecessary
+    unlock/lock cycle.
+    
+    Instead, do
+    
+     no_gil.acquire_gil();
+    
+    when we are ready to retake the GIL.  ~without_gil_t() will then be a
+    no-op.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/Gil.h b/src/mgr/Gil.h
+index ffade120fd3..72675a50388 100644
+--- a/src/mgr/Gil.h
++++ b/src/mgr/Gil.h
+@@ -86,9 +86,9 @@ private:
+ struct without_gil_t {
+   without_gil_t();
+   ~without_gil_t();
+-private:
+   void release_gil();
+   void acquire_gil();
++private:
+   PyThreadState *save = nullptr;
+   friend struct with_gil_t;
+ };

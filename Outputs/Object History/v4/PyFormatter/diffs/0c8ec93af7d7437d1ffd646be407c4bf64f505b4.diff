@@ -1,0 +1,39 @@
+commit 0c8ec93af7d7437d1ffd646be407c4bf64f505b4
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Mon Jan 15 14:30:55 2018 -0800
+
+    mds: convert to allocator agnostic string_view
+    
+    This is necessary to allow many interfaces to take mempool allocated strings.
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/PyFormatter.cc b/src/mgr/PyFormatter.cc
+index 4c9aec30537..f2ef0de0b6f 100644
+--- a/src/mgr/PyFormatter.cc
++++ b/src/mgr/PyFormatter.cc
+@@ -55,9 +55,9 @@ void PyFormatter::dump_float(const char *name, double d)
+   dump_pyobject(name, PyFloat_FromDouble(d));
+ }
+ 
+-void PyFormatter::dump_string(const char *name, const std::string& s)
++void PyFormatter::dump_string(const char *name, std::string_view s)
+ {
+-  dump_pyobject(name, PyString_FromString(s.c_str()));
++  dump_pyobject(name, PyString_FromString(s.data()));
+ }
+ 
+ void PyFormatter::dump_bool(const char *name, bool b)
+diff --git a/src/mgr/PyFormatter.h b/src/mgr/PyFormatter.h
+index e74f2fe7c49..8b44916a047 100644
+--- a/src/mgr/PyFormatter.h
++++ b/src/mgr/PyFormatter.h
+@@ -85,7 +85,7 @@ public:
+   void dump_unsigned(const char *name, uint64_t u) override;
+   void dump_int(const char *name, int64_t u) override;
+   void dump_float(const char *name, double d) override;
+-  void dump_string(const char *name, const std::string& s) override;
++  void dump_string(const char *name, std::string_view s) override;
+   std::ostream& dump_stream(const char *name) override;
+   void dump_format_va(const char *name, const char *ns, bool quoted, const char *fmt, va_list ap) override;
+ 

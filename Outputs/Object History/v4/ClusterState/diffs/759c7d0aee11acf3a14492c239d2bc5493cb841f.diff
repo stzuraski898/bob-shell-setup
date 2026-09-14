@@ -1,0 +1,21 @@
+commit 759c7d0aee11acf3a14492c239d2bc5493cb841f
+Author: Greg Farnum <gfarnum@redhat.com>
+Date:   Fri Mar 10 19:09:22 2017 -0800
+
+    mon: mgr: send a pgmap in reports
+    
+    This definitely isn't appropriate for long term but is a quick route to testing
+    
+    Signed-off-by: Greg Farnum <gfarnum@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index d96d1e99e3b..b23628473c7 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -117,4 +117,6 @@ void ClusterState::notify_osdmap(const OSDMap &osd_map)
+ void ClusterState::tick(MMonMgrReport *m)
+ {
+   dout(0) << __func__ << dendl;
++  m->pg_map = pg_map;
++  m->needs_send = true;
+ }

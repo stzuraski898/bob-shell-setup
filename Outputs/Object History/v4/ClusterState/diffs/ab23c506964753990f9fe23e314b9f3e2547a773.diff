@@ -1,0 +1,30 @@
+commit ab23c506964753990f9fe23e314b9f3e2547a773
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Thu Aug 23 11:25:51 2018 -0400
+
+    mgr: Use ceph_assert for asserts.
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index a270861e80b..d0ec594cc40 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -115,7 +115,7 @@ public:
+   void with_monmap(Args &&... args) const
+   {
+     Mutex::Locker l(lock);
+-    assert(monc != nullptr);
++    ceph_assert(monc != nullptr);
+     monc->with_monmap(std::forward<Args>(args)...);
+   }
+ 
+@@ -123,7 +123,7 @@ public:
+   auto with_osdmap(Args &&... args) const ->
+     decltype(objecter->with_osdmap(std::forward<Args>(args)...))
+   {
+-    assert(objecter != nullptr);
++    ceph_assert(objecter != nullptr);
+     return objecter->with_osdmap(std::forward<Args>(args)...);
+   }
+ 

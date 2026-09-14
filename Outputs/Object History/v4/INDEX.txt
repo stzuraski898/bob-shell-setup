@@ -1,0 +1,33 @@
+# Object History v4 Index (rename-aware)
+# collected_at: 2026-09-14T18:08:19Z
+# head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc (2026-09-02 14:01:02 -0400)
+#
+Class                                Commits Functions    Diffs
+-----                                ------- ---------    -----
+ActivePyModule                            60       23       60
+ActivePyModules                          233      173      233
+ClusterState                              70       37       70
+DaemonHealthMetric                        11       17       11
+DaemonHealthMetricCollector               13       17       13
+DaemonKey                                  3        8        3
+DaemonPerfCounters                         1        8        1
+DaemonServer                             353      183      353
+DaemonState                               81       67       81
+Gil                                       14       25       14
+MDSPerfMetricCollector                     6       11        6
+MetricCollector                            7       20        7
+Mgr                                      154       52      154
+MgrCap                                    17       46       17
+MgrClient                                105       68      105
+MgrMapCache                                1       63        1
+MgrOpRequest                               7       27        7
+MgrStandby                               126       38      126
+OSDPerfMetricCollector                    11        7       11
+PerfCounterInstance                       29       12       29
+PyFormatter                               26       48       26
+PyModule                                  78       66       78
+PyModuleRegistry                          98       47       98
+PyModuleRunner                            25       18       25
+ServiceMap                                24       36       24
+StandbyPyModules                          32       25       32
+ThreadMonitor                              2       23        2

@@ -1,0 +1,30 @@
+commit d8450574cf4884f5d45ef09fce99b7ad24b332a6
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Dec 4 16:51:33 2017 -0600
+
+    mgr/MgrClient: report running config to mgr
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 15be2e7ddd5..2b557d0acef 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -174,6 +174,7 @@ void MgrClient::_send_open()
+       open->service_daemon = service_daemon;
+       open->daemon_metadata = daemon_metadata;
+     }
++    cct->_conf->get_config_bl(&open->config_bl);
+     session->con->send_message(open);
+   }
+ }
+@@ -328,6 +329,9 @@ void MgrClient::send_report()
+   }
+ 
+   report->osd_health_metrics = std::move(osd_health_metrics);
++
++  cct->_conf->get_config_bl(&report->config_bl);
++
+   session->con->send_message(report);
+ }
+ 

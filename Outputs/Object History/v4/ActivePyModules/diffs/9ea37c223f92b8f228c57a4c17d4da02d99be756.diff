@@ -1,0 +1,50 @@
+commit 9ea37c223f92b8f228c57a4c17d4da02d99be756
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Nov 14 00:04:16 2016 +0000
+
+    mgr: pass through cluster log to plugins
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index a4ddcda38c1..f7812eac5a2 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -476,6 +476,25 @@ void PyModules::notify_all(const std::string &notify_type,
+   }
+ }
+ 
++void PyModules::notify_all(const LogEntry &log_entry)
++{
++  Mutex::Locker l(lock);
++
++  dout(10) << __func__ << ": notify_all (clog)" << dendl;
++  for (auto i : modules) {
++    auto module = i.second;
++    // Send all python calls down a Finisher to avoid blocking
++    // C++ code, and avoid any potential lock cycles.
++    //
++    // Note intentional use of non-reference lambda binding on
++    // log_entry: we take a copy because caller's instance is
++    // probably ephemeral.
++    finisher.queue(new FunctionContext([module, log_entry](int r){
++      module->notify_clog(log_entry);
++    }));
++  }
++}
++
+ bool PyModules::get_config(const std::string &handle,
+     const std::string &key, std::string *val) const
+ {
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index 107d43b8560..3c0f56c6ba5 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -73,6 +73,7 @@ public:
+   // send it to only the module that sent the command, not everyone
+   void notify_all(const std::string &notify_type,
+                   const std::string &notify_id);
++  void notify_all(const LogEntry &log_entry);
+ 
+   int init();
+   void start();

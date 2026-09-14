@@ -1,0 +1,28 @@
+# Function list for StandbyPyModules (via ctags)
+# Format: qualified_name | file:line
+#
+StandbyPyModules | src/mgr/StandbyPyModules.cc:33
+__anon5976737d0102 | src/mgr/StandbyPyModules.cc:83
+__anon5976737d0202 | src/mgr/StandbyPyModules.cc:133
+__anon5976737d0302 | src/mgr/StandbyPyModules.cc:192
+get_active_uri | src/mgr/StandbyPyModules.cc:189
+get_config | src/mgr/StandbyPyModules.cc:126
+get_store | src/mgr/StandbyPyModules.cc:143
+load | src/mgr/StandbyPyModules.cc:100
+shutdown | src/mgr/StandbyPyModules.cc:47
+start_one | src/mgr/StandbyPyModules.cc:75
+StandbyPyModule | src/mgr/StandbyPyModules.h:84
+StandbyPyModuleState | src/mgr/StandbyPyModules.h:46
+StandbyPyModules | src/mgr/StandbyPyModules.h:118
+get_active_uri | src/mgr/StandbyPyModules.h:96
+get_config | src/mgr/StandbyPyModules.h:94
+get_monc | src/mgr/StandbyPyModules.h:59
+get_myaddrs | src/mgr/StandbyPyModules.h:97
+get_store | src/mgr/StandbyPyModules.h:95
+handle_mgr_map | src/mgr/StandbyPyModules.h:129
+load | src/mgr/StandbyPyModules.h:101
+set_mgr_map | src/mgr/StandbyPyModules.h:50
+shutdown | src/mgr/StandbyPyModules.h:127
+start_one | src/mgr/StandbyPyModules.h:125
+with_config | src/mgr/StandbyPyModules.h:69
+with_mgr_map | src/mgr/StandbyPyModules.h:62

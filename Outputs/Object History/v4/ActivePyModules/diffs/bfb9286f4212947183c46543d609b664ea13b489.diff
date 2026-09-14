@@ -1,0 +1,28 @@
+commit bfb9286f4212947183c46543d609b664ea13b489
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Jul 27 10:06:45 2017 -0400
+
+    mgr/PyModules: add 'pg_dump' get
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 2ba4d628f43..d78640d44a0 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -262,7 +262,14 @@ PyObject *PyModules::get_python(const std::string &what)
+         }
+     );
+     return f.get();
+-
++  } else if (what == "pg_dump") {
++    PyFormatter f;
++        cluster_state.with_pgmap(
++        [&f](const PGMap &pg_map) {
++	  pg_map.dump(&f);
++        }
++    );
++    return f.get();
+   } else if (what == "df") {
+     PyFormatter f;
+ 

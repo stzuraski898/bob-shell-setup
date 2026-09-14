@@ -1,0 +1,36 @@
+commit 430ba5e231d6929a004a9758d31b426ecbe43951
+Author: Xinying Song <songxinyingftd@gmail.com>
+Date:   Sun Dec 30 11:49:58 2018 +0800
+
+    mgr: request mon metadata when receiving a report msg from an unknown monitor
+    
+    * Mgr needs to issue an metadata request when receiving a report message
+      from a monitor who hasn't been in the mgr's daemon_state. Otherwise the
+      connection between mgr and monitor cannot be established.
+    
+    Fixes: http://tracker.ceph.com/issues/37753
+    Signed-off-by: Xinying Song <songxinying@sensetime.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index d4e5f802114..bde92a37907 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -553,7 +553,7 @@ bool DaemonServer::handle_report(MMgrReport *m)
+ 
+     // issue metadata request in background
+     if (!daemon_state.is_updating(key) && 
+-	(key.first == "osd" || key.first == "mds")) {
++	(key.first == "osd" || key.first == "mds" || key.first == "mon")) {
+ 
+       std::ostringstream oss;
+       auto c = new MetadataUpdate(daemon_state, key);
+@@ -566,6 +566,9 @@ bool DaemonServer::handle_report(MMgrReport *m)
+         oss << "{\"prefix\": \"mds metadata\", \"who\": \""
+             << key.second << "\"}";
+  
++      } else if (key.first == "mon") {
++        oss << "{\"prefix\": \"mon metadata\", \"id\": \""
++            << key.second << "\"}";
+       } else {
+ 	ceph_abort();
+       }

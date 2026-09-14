@@ -1,0 +1,39 @@
+# Function list for ServiceMap (via ctags)
+# Format: qualified_name | file:line
+#
+__anon31caef950102 | src/mgr/ServiceMap.cc:132
+count_metadata | src/mgr/ServiceMap.cc:160
+decode | src/mgr/ServiceMap.cc:29
+decode | src/mgr/ServiceMap.cc:181
+decode | src/mgr/ServiceMap.cc:220
+dump | src/mgr/ServiceMap.cc:43
+dump | src/mgr/ServiceMap.cc:189
+dump | src/mgr/ServiceMap.cc:229
+encode | src/mgr/ServiceMap.cc:17
+encode | src/mgr/ServiceMap.cc:173
+encode | src/mgr/ServiceMap.cc:211
+generate_test_instances | src/mgr/ServiceMap.cc:61
+generate_test_instances | src/mgr/ServiceMap.cc:199
+generate_test_instances | src/mgr/ServiceMap.cc:240
+get_summary | src/mgr/ServiceMap.cc:74
+get_task_summary | src/mgr/ServiceMap.cc:137
+has_running_tasks | src/mgr/ServiceMap.cc:130
+count_metadata | src/mgr/ServiceMap.h:46
+decode | src/mgr/ServiceMap.h:29
+decode | src/mgr/ServiceMap.h:39
+decode | src/mgr/ServiceMap.h:55
+dump | src/mgr/ServiceMap.h:30
+dump | src/mgr/ServiceMap.h:40
+dump | src/mgr/ServiceMap.h:56
+encode | src/mgr/ServiceMap.h:28
+encode | src/mgr/ServiceMap.h:38
+encode | src/mgr/ServiceMap.h:54
+generate_test_instances | src/mgr/ServiceMap.h:31
+generate_test_instances | src/mgr/ServiceMap.h:41
+generate_test_instances | src/mgr/ServiceMap.h:57
+get_daemon | src/mgr/ServiceMap.h:59
+get_summary | src/mgr/ServiceMap.h:43
+get_task_summary | src/mgr/ServiceMap.h:45
+has_running_tasks | src/mgr/ServiceMap.h:44
+is_normal_ceph_entity | src/mgr/ServiceMap.h:83
+rm_daemon | src/mgr/ServiceMap.h:66

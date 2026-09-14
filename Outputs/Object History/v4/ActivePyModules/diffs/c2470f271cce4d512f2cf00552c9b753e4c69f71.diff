@@ -1,0 +1,54 @@
+commit c2470f271cce4d512f2cf00552c9b753e4c69f71
+Author: Jos Collin <jcollin@redhat.com>
+Date:   Tue Jun 29 15:29:01 2021 +0530
+
+    mgr, pybind/mgr, mgr/stats: be resilient to offline rank0 MDS
+    
+    Reregister the user queries during the rank0 MDS failover event
+    by calling listener.handle_query_updated(). This enables
+    `ceph fs perf stats` to receive the updated metrics after the
+    failover.
+    
+    Fixes: https://tracker.ceph.com/issues/50033
+    Signed-off-by: Jos Collin <jcollin@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 712471ca007..18b988ef3e0 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -1426,6 +1426,11 @@ void ActivePyModules::remove_mds_perf_query(MetricQueryID query_id)
+   }
+ }
+ 
++void ActivePyModules::reregister_mds_perf_queries()
++{
++  server.reregister_mds_perf_queries();
++}
++
+ PyObject *ActivePyModules::get_mds_perf_counters(MetricQueryID query_id)
+ {
+   MDSPerfCollector collector(query_id);
+@@ -1468,6 +1473,11 @@ PyObject *ActivePyModules::get_mds_perf_counters(MetricQueryID query_id)
+     f.close_section(); // i
+   }
+   f.close_section(); // counters
++
++  f.open_array_section("last_updated");
++  f.dump_float("last_updated_mono", collector.last_updated_mono);
++  f.close_section(); // last_updated
++
+   f.close_section(); // metrics
+ 
+   return f.get();
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 0469c4755e9..f283224f588 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -124,6 +124,7 @@ public:
+       const MDSPerfMetricQuery &query,
+       const std::optional<MDSPerfMetricLimit> &limit);
+   void remove_mds_perf_query(MetricQueryID query_id);
++  void reregister_mds_perf_queries();
+   PyObject *get_mds_perf_counters(MetricQueryID query_id);
+ 
+   bool get_store(const std::string &module_name,

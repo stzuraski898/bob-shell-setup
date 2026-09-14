@@ -1,0 +1,10 @@
+# Rename chain for src/mgr/DaemonState.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/DaemonState.cc e9abc5ce0bb784d2bdca887dfe8e7b003316eb38 d9dfb436ea588a43be135a0808b28039d9ca2546
+src/mgr/DaemonMetadata.cc d9dfb436ea588a43be135a0808b28039d9ca2546 ac30e6cee2b2d3815438f1a392a951d511bddfd4
+#
+# Rename chain for src/mgr/DaemonState.h
+#
+src/mgr/DaemonState.h e9abc5ce0bb784d2bdca887dfe8e7b003316eb38 d9dfb436ea588a43be135a0808b28039d9ca2546
+src/mgr/DaemonMetadata.h d9dfb436ea588a43be135a0808b28039d9ca2546 ac30e6cee2b2d3815438f1a392a951d511bddfd4

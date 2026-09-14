@@ -1,0 +1,60 @@
+commit 7523aef6e8656952418d17227c877952f9370f95
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Mon Aug 26 05:32:23 2019 -0400
+
+    mgr/stats: mds performance stats module
+    
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 87c293c924a..91e6c3759b9 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2937,9 +2937,24 @@ int DaemonServer::remove_osd_perf_query(MetricQueryID query_id)
+   return osd_perf_metric_collector.remove_query(query_id);
+ }
+ 
+-int DaemonServer::get_osd_perf_counters(
+-    MetricQueryID query_id,
+-    std::map<OSDPerfMetricKey, PerformanceCounters> *counters)
++int DaemonServer::get_osd_perf_counters(OSDPerfCollector *collector)
+ {
+-  return osd_perf_metric_collector.get_counters(query_id, counters);
++  return osd_perf_metric_collector.get_counters(collector);
++}
++
++MetricQueryID DaemonServer::add_mds_perf_query(
++    const MDSPerfMetricQuery &query,
++    const std::optional<MDSPerfMetricLimit> &limit)
++{
++  return mds_perf_metric_collector.add_query(query, limit);
++}
++
++int DaemonServer::remove_mds_perf_query(MetricQueryID query_id)
++{
++  return mds_perf_metric_collector.remove_query(query_id);
++}
++
++int DaemonServer::get_mds_perf_counters(MDSPerfCollector *collector)
++{
++  return mds_perf_metric_collector.get_counters(collector);
+ }
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 1e8bef75de7..7c5af91d1c0 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -207,8 +207,12 @@ public:
+       const OSDPerfMetricQuery &query,
+       const std::optional<OSDPerfMetricLimit> &limit);
+   int remove_osd_perf_query(MetricQueryID query_id);
+-  int get_osd_perf_counters(MetricQueryID query_id,
+-                            std::map<OSDPerfMetricKey, PerformanceCounters> *c);
++  int get_osd_perf_counters(OSDPerfCollector *collector);
++
++  MetricQueryID add_mds_perf_query(const MDSPerfMetricQuery &query,
++                                   const std::optional<MDSPerfMetricLimit> &limit);
++  int remove_mds_perf_query(MetricQueryID query_id);
++  int get_mds_perf_counters(MDSPerfCollector *collector);
+ 
+   virtual const char** get_tracked_conf_keys() const override;
+   virtual void handle_conf_change(const ConfigProxy& conf,

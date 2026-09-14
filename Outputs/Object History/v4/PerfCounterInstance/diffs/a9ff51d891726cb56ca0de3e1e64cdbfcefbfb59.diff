@@ -1,0 +1,98 @@
+commit a9ff51d891726cb56ca0de3e1e64cdbfcefbfb59
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Sep 14 23:07:48 2006 +0000
+
+    new clock stuff
+    
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@857 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/ceph/common/Clock.h b/ceph/common/Clock.h
+index 2b369c71098..10543a41cee 100644
+--- a/ceph/common/Clock.h
++++ b/ceph/common/Clock.h
+@@ -40,6 +40,9 @@ class utime_t {
+ 	}
+   }
+ 
++  struct timeval& timeval()  { return tv; }
++  friend class Clock;
++
+  public:
+   // cons
+   utime_t() { tv.tv_sec = 0; tv.tv_usec = 0; normalize(); }
+@@ -54,8 +57,6 @@ class utime_t {
+   time_t&         sec_ref()  { return tv.tv_sec; } 
+   long&           usec_ref() { return tv.tv_usec; }
+ 
+-  struct timeval& timeval()  { return tv; }
+-
+   // cast to double
+   operator double() {
+ 	return (double)sec() + ((double)usec() / 1000000.0L);
+@@ -126,38 +127,48 @@ class Clock {
+  public:
+   Clock() {
+ 	// set offset
+-	//start_offset = now();
+   }
+ 
+-  // relative time (from startup)
+-  const utime_t& now() {
+-	gettimeofday(&last.timeval(), NULL);
+-	last -= zero;
+-	//last = abs_last - start_offset;
+-	return last;
+-  }
+-
+-  void realify(utime_t& t) {
+-	t += zero;
+-  }
++  // real time.
+   utime_t real_now() {
+ 	utime_t realnow;
+ 	gettimeofday(&realnow.timeval(), NULL);
+ 	return realnow;
+   }
+ 
+-  const utime_t& recent_now() {
++  // relative time (from startup)
++  void tare() {
++	gettimeofday(&zero.timeval(), NULL);
++  }
++  utime_t now() {
++	utime_t n;
++	gettimeofday(&n.timeval(), NULL);
++	n -= zero;
++	last = n;
++	return n;
++  }
++  utime_t recent_now() {
+ 	return last;
+   }
+ 
+-  void tare() {
+-	gettimeofday(&zero.timeval(), NULL);
++  void realify(utime_t& t) {
++	t += zero;
++  }
++
++  void make_timespec(utime_t& t, struct timespec *ts) {
++	utime_t real = t;
++	realify(real);
++
++	memset(ts, 0, sizeof(*ts));
++	ts->tv_sec = real.sec();
++	ts->tv_nsec = real.nsec();
+   }
+ 
++
++
+   // absolute time
+   time_t gettime() {
+-	now();
+-	return last.sec();
++	return now().sec();
+   }
+ 
+ };

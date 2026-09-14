@@ -1,0 +1,110 @@
+commit 5aac7eba36be99861eb8726872e339ff55360f47
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Sep 29 17:28:28 2019 +0800
+
+    mgr: use a struct for DaemonKey
+    
+    instead of using `std::pair<>` for presenting it. there are three
+    advantages:
+    
+    1. better names for readability: `type` and `name` are better names
+       than `first` and `second`
+    2. so we can specliaze its behavior by its type: define
+       `operator<<` once, and use it everywhere. no need to worry
+       about ADL to pickup the generic operator of `operator<< (..., pair<>)`
+       anymore. so we can safely use `<< key`, and no need to
+       use `<< key.first << '.' << key.second`. kill the printed form of
+       `osd,1` once and for all, all of them are now "osd.1".
+    3. consolidate the print/parse in a single place
+    
+    Fixes: https://tracker.ceph.com/issues/42079
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 3e3a30aeeb8..de519a2b921 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -13,6 +13,8 @@
+ 
+ #include "DaemonState.h"
+ 
++#include <experimental/iterator>
++
+ #include "MgrSession.h"
+ #include "include/stringify.h"
+ #include "common/Formatter.h"
+@@ -103,7 +105,7 @@ void DeviceState::dump(Formatter *f) const
+   f->close_section();
+   f->open_array_section("daemons");
+   for (auto& i : daemons) {
+-    f->dump_string("daemon", to_string(i));
++    f->dump_stream("daemon") << i;
+   }
+   f->close_section();
+   if (life_expectancy.first != utime_t()) {
+@@ -120,11 +122,9 @@ void DeviceState::print(ostream& out) const
+   for (auto& i : devnames) {
+     out << "attachment " << i.first << ":" << i.second << "\n";
+   }
+-  set<string> d;
+-  for (auto& j : daemons) {
+-    d.insert(to_string(j));
+-  }
+-  out << "daemons " << d << "\n";
++  std::copy(std::begin(daemons), std::end(daemons),
++            std::experimental::make_ostream_joiner(out, ","));
++  out << '\n';
+   if (life_expectancy.first != utime_t()) {
+     out << "life_expectancy " << life_expectancy.first << " to "
+ 	<< life_expectancy.second
+@@ -188,9 +188,9 @@ DaemonStateCollection DaemonStateIndex::get_by_service(
+ 
+   DaemonStateCollection result;
+ 
+-  for (const auto &i : all) {
+-    if (i.first.first == svc) {
+-      result[i.first] = i.second;
++  for (const auto& [key, state] : all) {
++    if (key.type == svc) {
++      result[key] = state;
+     }
+   }
+ 
+@@ -251,10 +251,10 @@ void DaemonStateIndex::cull(const std::string& svc_name,
+   auto end = all.end();
+   for (auto &i = begin; i != end; ++i) {
+     const auto& daemon_key = i->first;
+-    if (daemon_key.first != svc_name)
++    if (daemon_key.type != svc_name)
+       break;
+-    if (names_exist.count(daemon_key.second) == 0) {
+-      victims.push_back(daemon_key.second);
++    if (names_exist.count(daemon_key.name) == 0) {
++      victims.push_back(daemon_key.name);
+     }
+   }
+ 
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 356dcc6b111..3a0c13b712e 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -27,18 +27,12 @@
+ 
+ // For PerfCounterType
+ #include "messages/MMgrReport.h"
++#include "DaemonKey.h"
+ 
+ namespace ceph {
+   class Formatter;
+ }
+ 
+-// Unique reference to a daemon within a cluster
+-typedef std::pair<std::string, std::string> DaemonKey;
+-
+-static inline std::string to_string(const DaemonKey& dk) {
+-  return dk.first + "." + dk.second;
+-}
+-
+ // An instance of a performance counter type, within
+ // a particular daemon.
+ class PerfCounterInstance

@@ -1,0 +1,28 @@
+commit 14bb815060a4d156bb5f7cc5d66e77466cba4351
+Author: Rubab-Syed <rubab.syed21@gmail.com>
+Date:   Mon Jan 22 07:54:11 2018 +0500
+
+    mgr/dashboard: add configuration setting browser
+    
+    Signed-off-by: Rubab Syed<rubab.syed21@gmail.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 7b370800926..f684a30ba2c 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -186,9 +186,13 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+       }
+     });
+     return f.get();
+-  } else if (what == "config") {
++  } else if (what.substr(0, 6) == "config") {
+     PyFormatter f;
+-    g_conf->show_config(&f);
++    if (what == "config_options") {
++      g_conf->config_options(&f);  
++    } else if (what == "config") {
++      g_conf->show_config(&f);
++    }
+     return f.get();
+   } else if (what == "mon_map") {
+     PyFormatter f;

@@ -1,0 +1,48 @@
+commit 40c4b9ac9d8e2b2c17269affada304f5e1554974
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Wed Nov 13 11:00:44 2019 -0800
+
+    mgr: handle race with finisher after shutdown
+    
+    The module is deleted when modules is cleared. The notify method is
+    called on a destructed class.
+    
+    Fixes: https://tracker.ceph.com/issues/42744
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index 403c8a9f183..cde54f21554 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -88,6 +88,8 @@ void PyModuleRunner::shutdown()
+     derr << "Failed to invoke shutdown() on " << get_name() << dendl;
+     derr << handle_pyerror() << dendl;
+   }
++
++  dead = true;
+ }
+ 
+ void PyModuleRunner::log(int level, const std::string &record)
+diff --git a/src/mgr/PyModuleRunner.h b/src/mgr/PyModuleRunner.h
+index 08c85a13263..52f60be55f8 100644
+--- a/src/mgr/PyModuleRunner.h
++++ b/src/mgr/PyModuleRunner.h
+@@ -47,6 +47,8 @@ protected:
+     void *entry() override;
+   };
+ 
++  bool is_dead() const { return dead; }
++
+   std::string thread_name;
+ 
+ public:
+@@ -79,6 +81,9 @@ public:
+   PyModuleRunnerThread thread;
+ 
+   std::string const &get_name() const { return py_module->get_name(); }
++
++private:
++  bool dead = false;
+ };
+ 
+ 

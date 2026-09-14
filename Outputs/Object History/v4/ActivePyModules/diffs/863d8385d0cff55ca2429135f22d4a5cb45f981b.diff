@@ -1,0 +1,24 @@
+commit 863d8385d0cff55ca2429135f22d4a5cb45f981b
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jun 27 10:38:39 2021 +0800
+
+    common/options: s/boost::variant/std::variant/
+    
+    we should use standard library for more well defined behavior, and
+    less dependencies on 3rd party libraries.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index f4ee27e8c31..e78cc458fc7 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -1117,7 +1117,7 @@ PyObject *ActivePyModules::get_foreign_config(
+     value = p->second;
+   } else {
+     if (!entity.is_client() &&
+-	!boost::get<boost::blank>(&opt->daemon_value)) {
++	opt->daemon_value != Option::value_t{}) {
+       value = Option::to_str(opt->daemon_value);
+     } else {
+       value = Option::to_str(opt->value);

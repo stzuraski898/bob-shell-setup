@@ -1,0 +1,25 @@
+commit fc1905b4a74aedc6bdbc928b6d6e514183bbf090
+Author: Paul Cuzner <pcuzner@redhat.com>
+Date:   Thu Oct 8 16:35:45 2020 +1300
+
+    mgr: add doc to describe relationship to prometheus
+    
+    The healthcheck for slow_ops is used by the mgr/prometheus
+    module so it's important the alert generated matches the
+    format expected in mgr/prometheus.
+    
+    Signed-off-by: Paul Cuzner <pcuzner@redhat.com>
+
+diff --git a/src/mgr/DaemonHealthMetricCollector.cc b/src/mgr/DaemonHealthMetricCollector.cc
+index 4b51100ee2e..53c0b78a690 100644
+--- a/src/mgr/DaemonHealthMetricCollector.cc
++++ b/src/mgr/DaemonHealthMetricCollector.cc
+@@ -30,6 +30,8 @@ class SlowOps final : public DaemonHealthMetricCollector {
+     if (daemons.empty()) {
+       return;
+     }
++    // Note this message format is used in mgr/prometheus, so any change in format
++    // requires a corresponding change in the mgr/prometheus module.
+     ostringstream ss;
+     if (daemons.size() > 1) {
+       if (daemons.size() > 10) {

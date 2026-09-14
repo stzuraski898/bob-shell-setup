@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/OSDPerfMetricCollector.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/OSDPerfMetricCollector.cc f1bac41828da8775acb7ea30ff5e3ce2bfe65bde a6c3390834759e3f953962d46cc7c840c9970046
+#
+# Rename chain for src/mgr/OSDPerfMetricCollector.h
+#
+src/mgr/OSDPerfMetricCollector.h 85d82faac250716549ebffeb9eb48f3b4f53711f a6c3390834759e3f953962d46cc7c840c9970046

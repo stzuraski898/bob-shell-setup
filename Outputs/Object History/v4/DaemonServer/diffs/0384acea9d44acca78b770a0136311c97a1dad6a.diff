@@ -1,0 +1,44 @@
+commit 0384acea9d44acca78b770a0136311c97a1dad6a
+Author: Dan Mick <dmick@redhat.com>
+Date:   Wed Jun 7 19:52:13 2017 -0700
+
+    mgr/DaemonServer.cc: log daemon type string as well as id
+    
+    Signed-off-by: Dan Mick <dan.mick@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index faa60a77659..a8ac275d7ce 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -263,12 +263,11 @@ void DaemonServer::shutdown()
+ 
+ bool DaemonServer::handle_open(MMgrOpen *m)
+ {
+-  DaemonKey key(
+-      m->get_connection()->get_peer_type(),
+-      m->daemon_name);
++  uint32_t type = m->get_connection()->get_peer_type();
++  DaemonKey key(type, m->daemon_name);
+ 
+   dout(4) << "from " << m->get_connection() << " name "
+-          << m->daemon_name << dendl;
++          << ceph_entity_type_name(type) << "." << m->daemon_name << dendl;
+ 
+   auto configure = new MMgrConfigure();
+   configure->stats_period = g_conf->mgr_stats_period;
+@@ -285,12 +284,11 @@ bool DaemonServer::handle_open(MMgrOpen *m)
+ 
+ bool DaemonServer::handle_report(MMgrReport *m)
+ {
+-  DaemonKey key(
+-      m->get_connection()->get_peer_type(),
+-      m->daemon_name);
++  uint32_t type = m->get_connection()->get_peer_type();
++  DaemonKey key(type, m->daemon_name);
+ 
+   dout(4) << "from " << m->get_connection() << " name "
+-          << m->daemon_name << dendl;
++          << ceph_entity_type_name(type) << "." << m->daemon_name << dendl;
+ 
+   DaemonStatePtr daemon;
+   if (daemon_state.exists(key)) {

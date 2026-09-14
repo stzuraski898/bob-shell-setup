@@ -1,0 +1,30 @@
+commit ab23c506964753990f9fe23e314b9f3e2547a773
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Thu Aug 23 11:25:51 2018 -0400
+
+    mgr: Use ceph_assert for asserts.
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/Gil.cc b/src/mgr/Gil.cc
+index 9489a313108..d476c7177fb 100644
+--- a/src/mgr/Gil.cc
++++ b/src/mgr/Gil.cc
+@@ -27,7 +27,7 @@
+ SafeThreadState::SafeThreadState(PyThreadState *ts_)
+     : ts(ts_)
+ {
+-  assert(ts != nullptr);
++  ceph_assert(ts != nullptr);
+   thread = pthread_self();
+ }
+ 
+@@ -60,7 +60,7 @@ Gil::Gil(SafeThreadState &ts, bool new_thread) : pThreadState(ts)
+     PyThreadState_Swap(pNewThreadState);
+     dout(20) << "Switched to new thread state " << pNewThreadState << dendl;
+   } else {
+-    assert(pthread_self() == pThreadState.thread);
++    ceph_assert(pthread_self() == pThreadState.thread);
+   }
+ }
+ 

@@ -1,0 +1,80 @@
+commit edf1ea2f50927b97a4271c6754f855421dd4d4d0
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Feb 16 14:47:23 2021 -0500
+
+    mgr: use new kv subscription for mgr/, device/, config/
+    
+    Include the config/ prefix (which we weren't loading before).
+    
+    Before we are active, we collect these changes, and then pass them to
+    the ActivePyModules ctor.  No change in functionality here, except that
+    when we make a change from a mgr module, we'll (1) put it in our local
+    cache store, (2) send the mon command to set it, and (3) get a notification
+    that updates the same value.  Since this whole process is synchronous (see
+    ActivePyModules::set_store()), and the notification will generally arrive
+    *before* the command ack, there is no change in behavior.
+    
+    If the mon cluster is not yet pacific, we still need to load
+    kv values the old way.  If it's a mixed-mon cluster (and, e.g., our
+    current mon has the feature but not all of them do), we'll get this data
+    both ways, but no harm is done.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 221b93beed7..1ae44143c7d 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -183,6 +183,7 @@ void PyModuleRegistry::standby_start(MonClient &mc, Finisher &f)
+ void PyModuleRegistry::active_start(
+             DaemonStateIndex &ds, ClusterState &cs,
+             const std::map<std::string, std::string> &kv_store,
++	    bool mon_provides_kv_sub,
+             MonClient &mc, LogChannelRef clog_, LogChannelRef audit_clog_,
+             Objecter &objecter_, Client &client_, Finisher &f,
+             DaemonServer &server)
+@@ -202,10 +203,13 @@ void PyModuleRegistry::active_start(
+     standby_modules.reset();
+   }
+ 
+-  active_modules.reset(new ActivePyModules(
+-              module_config, kv_store, ds, cs, mc,
+-              clog_, audit_clog_, objecter_, client_, f, server,
+-              *this));
++  active_modules.reset(
++    new ActivePyModules(
++      module_config,
++      kv_store, mon_provides_kv_sub,
++      ds, cs, mc,
++      clog_, audit_clog_, objecter_, client_, f, server,
++      *this));
+ 
+   for (const auto &i : modules) {
+     // Anything we're skipping because of !can_run will be flagged
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index c16c4bf4c8e..a5f38e8f65a 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -66,6 +66,14 @@ public:
+   void handle_config(const std::string &k, const std::string &v);
+   void handle_config_notify();
+ 
++  void update_kv_data(
++    const std::string prefix,
++    bool incremental,
++    const map<std::string, boost::optional<bufferlist>, std::less<>>& data) {
++    ceph_assert(active_modules);
++    active_modules->update_kv_data(prefix, incremental, data);
++  }
++
+   /**
+    * Get references to all modules (whether they have loaded and/or
+    * errored) or not.
+@@ -99,6 +107,7 @@ public:
+   void active_start(
+                 DaemonStateIndex &ds, ClusterState &cs,
+                 const std::map<std::string, std::string> &kv_store,
++		bool mon_provides_kv_sub,
+                 MonClient &mc, LogChannelRef clog_, LogChannelRef audit_clog_,
+                 Objecter &objecter_, Client &client_, Finisher &f,
+                 DaemonServer &server);

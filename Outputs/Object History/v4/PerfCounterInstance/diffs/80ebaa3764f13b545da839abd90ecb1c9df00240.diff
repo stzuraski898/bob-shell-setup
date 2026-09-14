@@ -1,0 +1,40 @@
+commit 80ebaa3764f13b545da839abd90ecb1c9df00240
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Feb 20 05:15:16 2006 +0000
+
+    *** empty log message ***
+    
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@656 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/ceph/common/Clock.h b/ceph/common/Clock.h
+index 1761940d04a..158d039a519 100644
+--- a/ceph/common/Clock.h
++++ b/ceph/common/Clock.h
+@@ -4,22 +4,15 @@
+  *
+  * Copyright (C) 2004-2006 Sage Weil <sage@newdream.net>
+  *
+- * This library is free software; you can redistribute it and/or
++ * This is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Lesser General Public
+- * License as published by the Free Software Foundation; either
+- * version 2.1 of the License, or (at your option) any later version.
++ * License version 2.1, as published by the Free Software 
++ * Foundation.  See file COPYING.
+  * 
+- * This library is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * Lesser General Public License for more details.
+- * 
+- * You should have received a copy of the GNU Lesser General Public
+- * License along with this library; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+  */
+ 
+ 
++
+ #ifndef __CLOCK_H
+ #define __CLOCK_H
+ 

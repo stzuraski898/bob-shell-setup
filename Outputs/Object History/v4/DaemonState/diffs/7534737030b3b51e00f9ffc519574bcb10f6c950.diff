@@ -1,0 +1,60 @@
+commit 7534737030b3b51e00f9ffc519574bcb10f6c950
+Author: Jason Dillaman <dillaman@redhat.com>
+Date:   Wed Nov 27 12:01:39 2019 -0500
+
+    mgr: cull service daemons when the last instance has been removed
+    
+    Previously, when the last daemon of a given service was stopped, it
+    would not have been removed from the MGR internal service daemon
+    collection. This would result in "ceph service dump" not showing the
+    service but the dashboard would incorrectly show it.
+    
+    Signed-off-by: Jason Dillaman <dillaman@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index de519a2b921..13e42ff1006 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -258,9 +258,29 @@ void DaemonStateIndex::cull(const std::string& svc_name,
+     }
+   }
+ 
++  for (auto &i : victims) {
++    DaemonKey daemon_key{svc_name, i};
++    dout(4) << "Removing data for " << daemon_key << dendl;
++    _erase(daemon_key);
++  }
++}
++
++void DaemonStateIndex::cull_services(const std::set<std::string>& types_exist)
++{
++  std::set<DaemonKey> victims;
++
++  std::unique_lock l{lock};
++  for (auto it = all.begin(); it != all.end(); ++it) {
++    const auto& daemon_key = it->first;
++    if (it->second->service_daemon &&
++        types_exist.count(daemon_key.type) == 0) {
++      victims.insert(daemon_key);
++    }
++  }
++
+   for (auto &i : victims) {
+     dout(4) << "Removing data for " << i << dendl;
+-    _erase({svc_name, i});
++    _erase(i);
+   }
+ }
+ 
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 3a0c13b712e..1d374b225ea 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -387,6 +387,7 @@ public:
+    */
+   void cull(const std::string& svc_name,
+ 	    const std::set<std::string>& names_exist);
++  void cull_services(const std::set<std::string>& types_exist);
+ };
+ 
+ #endif

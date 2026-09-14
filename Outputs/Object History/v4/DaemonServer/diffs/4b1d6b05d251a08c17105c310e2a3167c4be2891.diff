@@ -1,0 +1,26 @@
+commit 4b1d6b05d251a08c17105c310e2a3167c4be2891
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Apr 24 18:54:16 2017 -0400
+
+    osd/OSDMap: move to 'osdmap' mempool
+    
+    We leave a few things out:
+    
+    - strings (to annoying, and they are small)
+    - erasure code profiles (ditto)
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index f54d903dbd2..fe0729d7484 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -572,7 +572,7 @@ bool DaemonServer::handle_command(MCommand *m)
+     string no_increasing;
+     cmd_getval(g_ceph_context, cmdmap, "no_increasing", no_increasing);
+     string out_str;
+-    map<int32_t, uint32_t> new_weights;
++    mempool::osdmap::map<int32_t, uint32_t> new_weights;
+     r = cluster_state.with_pgmap([&](const PGMap& pgmap) {
+ 	return cluster_state.with_osdmap([&](const OSDMap& osdmap) {
+ 	    return reweight::by_utilization(osdmap, pgmap,

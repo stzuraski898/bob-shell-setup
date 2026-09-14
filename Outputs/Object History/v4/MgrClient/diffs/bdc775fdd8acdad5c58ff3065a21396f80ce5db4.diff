@@ -1,0 +1,85 @@
+commit bdc775fdd8acdad5c58ff3065a21396f80ce5db4
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Jul 31 09:24:09 2017 -0400
+
+    mgr: apply a threshold to perf counter prios
+    
+    ...so that we can control the level of load
+    we're putting on ceph-mgr with perf counters.  Don't collect
+    anything below PRIO_USEFUL by default.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index e85aab6ebc5..5f40b2b54c1 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -228,9 +228,15 @@ void MgrClient::send_report()
+   pcc->with_counters([this, report](
+         const PerfCountersCollection::CounterMap &by_path)
+   {
++    auto include_counter = [this](
++        const PerfCounters::perf_counter_data_any_d &ctr)
++    {
++      return ctr.prio >= (int)stats_threshold;
++    };
++
+     ENCODE_START(1, 1, report->packed);
+     for (auto p = session->declared.begin(); p != session->declared.end(); ) {
+-      if (by_path.count(*p) == 0) {
++      if (by_path.count(*p) == 0 || !include_counter(*(by_path.at(*p)))) {
+ 	report->undeclare_types.push_back(*p);
+ 	ldout(cct,20) << __func__ << " undeclare " << *p << dendl;
+ 	p = session->declared.erase(p);
+@@ -242,8 +248,12 @@ void MgrClient::send_report()
+       auto& path = i.first;
+       auto& data = *(i.second);
+ 
++      if (!include_counter(data)) {
++        continue;
++      }
++
+       if (session->declared.count(path) == 0) {
+-	ldout(cct,20) << __func__ << " declare " << path << dendl;
++	ldout(cct,20) << " declare " << path << dendl;
+ 	PerfCounterType type;
+ 	type.path = path;
+ 	if (data.description) {
+@@ -265,8 +275,11 @@ void MgrClient::send_report()
+     }
+     ENCODE_FINISH(report->packed);
+ 
+-    ldout(cct, 20) << by_path.size() << " counters, of which "
+-		   << report->declare_types.size() << " new" << dendl;
++    ldout(cct, 20) << "sending " << session->declared.size() << " counters ("
++                      "of possible " << by_path.size() << "), "
++		   << report->declare_types.size() << " new, "
++                   << report->undeclare_types.size() << " removed"
++                   << dendl;
+   });
+ 
+   ldout(cct, 20) << "encoded " << report->packed.length() << " bytes" << dendl;
+@@ -314,6 +327,11 @@ bool MgrClient::handle_mgr_configure(MMgrConfigure *m)
+ 
+   ldout(cct, 4) << "stats_period=" << m->stats_period << dendl;
+ 
++  if (stats_threshold != m->stats_threshold) {
++    ldout(cct, 4) << "updated stats threshold: " << m->stats_threshold << dendl;
++    stats_threshold = m->stats_threshold;
++  }
++
+   bool starting = (stats_period == 0) && (m->stats_period != 0);
+   stats_period = m->stats_period;
+   if (starting) {
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 09fe831b394..08ff24c2384 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -59,6 +59,7 @@ protected:
+   Mutex lock = {"MgrClient::lock"};
+ 
+   uint32_t stats_period = 0;
++  uint32_t stats_threshold = 0;
+   SafeTimer timer;
+ 
+   CommandTable<MgrCommand> command_table;

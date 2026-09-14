@@ -1,0 +1,23 @@
+commit 5d5b0f96df39fd0c7e7ae5998043d53cd785b18e
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Jan 31 18:59:39 2020 +0800
+
+    src/: drop cct from cmd_getval()
+    
+    it's not used.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index a34fb1de826..2b54a5c2402 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -226,7 +226,7 @@ bool ClusterState::asok_command(
+   if (admin_command == "dump_osd_network") {
+     int64_t value = 0;
+     // Default to health warning level if nothing specified
+-    if (!(cmd_getval(g_ceph_context, cmdmap, "value", value))) {
++    if (!(cmd_getval(cmdmap, "value", value))) {
+       // Convert milliseconds to microseconds
+       value = static_cast<int64_t>(g_ceph_context->_conf.get_val<double>("mon_warn_on_slow_ping_time")) * 1000;
+       if (value == 0) {

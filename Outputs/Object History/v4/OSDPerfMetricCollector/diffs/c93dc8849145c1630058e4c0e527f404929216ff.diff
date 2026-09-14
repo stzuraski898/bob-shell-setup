@@ -1,0 +1,43 @@
+commit c93dc8849145c1630058e4c0e527f404929216ff
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jul 7 11:14:49 2019 +0800
+
+    mgr: s/Mutex/ceph::mutex/
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/OSDPerfMetricCollector.cc b/src/mgr/OSDPerfMetricCollector.cc
+index 5cd8e27326a..e57ee9aa544 100644
+--- a/src/mgr/OSDPerfMetricCollector.cc
++++ b/src/mgr/OSDPerfMetricCollector.cc
+@@ -26,7 +26,7 @@ bool is_limited(const std::map<OSDPerfMetricQueryID,
+ } // anonymous namespace
+ 
+ OSDPerfMetricCollector::OSDPerfMetricCollector(Listener &listener)
+-  : listener(listener), lock("OSDPerfMetricCollector::lock") {
++  : listener(listener) {
+ }
+ 
+ std::map<OSDPerfMetricQuery, OSDPerfMetricLimits>
+diff --git a/src/mgr/OSDPerfMetricCollector.h b/src/mgr/OSDPerfMetricCollector.h
+index 89e33091574..266278972b1 100644
+--- a/src/mgr/OSDPerfMetricCollector.h
++++ b/src/mgr/OSDPerfMetricCollector.h
+@@ -4,7 +4,7 @@
+ #ifndef OSD_PERF_METRIC_COLLECTOR_H_
+ #define OSD_PERF_METRIC_COLLECTOR_H_
+ 
+-#include "common/Mutex.h"
++#include "common/ceph_mutex.h"
+ 
+ #include "mgr/OSDPerfMetricTypes.h"
+ 
+@@ -46,7 +46,7 @@ private:
+                    std::map<OSDPerfMetricKey, PerformanceCounters>> Counters;
+ 
+   Listener &listener;
+-  mutable Mutex lock;
++  mutable ceph::mutex lock = ceph::make_mutex("OSDPerfMetricCollector::lock");
+   OSDPerfMetricQueryID next_query_id = 0;
+   Queries queries;
+   Counters counters;

@@ -1,0 +1,94 @@
+commit 156c941ad0d27c3cd487a085e04df9faeeffa768
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Mon Dec 25 03:33:57 2017 -0500
+
+    mgr: Use unqualified encode/decode
+    
+    This is a portion of Part 1 of the namespace project: using ADL
+    properly in encode and decode so we can use namespaces easily in Ceph.
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/ServiceMap.cc b/src/mgr/ServiceMap.cc
+index 9074e2f8716..cde279efc5c 100644
+--- a/src/mgr/ServiceMap.cc
++++ b/src/mgr/ServiceMap.cc
+@@ -10,22 +10,22 @@
+ void ServiceMap::Daemon::encode(bufferlist& bl, uint64_t features) const
+ {
+   ENCODE_START(1, 1, bl);
+-  ::encode(gid, bl);
+-  ::encode(addr, bl, features);
+-  ::encode(start_epoch, bl);
+-  ::encode(start_stamp, bl);
+-  ::encode(metadata, bl);
++  encode(gid, bl);
++  encode(addr, bl, features);
++  encode(start_epoch, bl);
++  encode(start_stamp, bl);
++  encode(metadata, bl);
+   ENCODE_FINISH(bl);
+ }
+ 
+ void ServiceMap::Daemon::decode(bufferlist::iterator& p)
+ {
+   DECODE_START(1, p);
+-  ::decode(gid, p);
+-  ::decode(addr, p);
+-  ::decode(start_epoch, p);
+-  ::decode(start_stamp, p);
+-  ::decode(metadata, p);
++  decode(gid, p);
++  decode(addr, p);
++  decode(start_epoch, p);
++  decode(start_stamp, p);
++  decode(metadata, p);
+   DECODE_FINISH(p);
+ }
+ 
+@@ -55,16 +55,16 @@ void ServiceMap::Daemon::generate_test_instances(std::list<Daemon*>& ls)
+ void ServiceMap::Service::encode(bufferlist& bl, uint64_t features) const
+ {
+   ENCODE_START(1, 1, bl);
+-  ::encode(daemons, bl, features);
+-  ::encode(summary, bl);
++  encode(daemons, bl, features);
++  encode(summary, bl);
+   ENCODE_FINISH(bl);
+ }
+ 
+ void ServiceMap::Service::decode(bufferlist::iterator& p)
+ {
+   DECODE_START(1, p);
+-  ::decode(daemons, p);
+-  ::decode(summary, p);
++  decode(daemons, p);
++  decode(summary, p);
+   DECODE_FINISH(p);
+ }
+ 
+@@ -91,18 +91,18 @@ void ServiceMap::Service::generate_test_instances(std::list<Service*>& ls)
+ void ServiceMap::encode(bufferlist& bl, uint64_t features) const
+ {
+   ENCODE_START(1, 1, bl);
+-  ::encode(epoch, bl);
+-  ::encode(modified, bl);
+-  ::encode(services, bl, features);
++  encode(epoch, bl);
++  encode(modified, bl);
++  encode(services, bl, features);
+   ENCODE_FINISH(bl);
+ }
+ 
+ void ServiceMap::decode(bufferlist::iterator& p)
+ {
+   DECODE_START(1, p);
+-  ::decode(epoch, p);
+-  ::decode(modified, p);
+-  ::decode(services, p);
++  decode(epoch, p);
++  decode(modified, p);
++  decode(services, p);
+   DECODE_FINISH(p);
+ }
+ 

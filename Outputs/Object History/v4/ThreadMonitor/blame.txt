@@ -1,0 +1,357 @@
+# git blame -w -M -C src/mgr/ThreadMonitor.cc
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng    2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/PyModuleRunner.h                                   (Edwin Rodriguez  2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/PyModuleRunner.h                                   (Edwin Rodriguez  2025-10-02 15:34:08 -0400   3) 
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray       2017-10-06 11:02:44 -0400   4) /*
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray       2017-10-06 11:02:44 -0400   5)  * Ceph - scalable distributed file system
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray       2017-10-06 11:02:44 -0400   6)  *
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000   7)  * Copyright 2026 IBM Corporation
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000   8)  *
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000   9)  * This is free software; you can redistribute it and/or modify it under the
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  10)  * terms of the GNU Lesser General Public License version 2.1, as published by
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  11)  * the Free Software Foundation.  See file COPYING.
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  12)  */
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  13) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  14) #include "ThreadMonitor.h"
+9718896c8b84 src/mgr/PyModules.cc                                       (John Spray       2017-08-14 06:31:18 -0400  15) 
+b9182564c716 src/mgr/PyModules.cc                                       (Adam C. Emerson  2016-11-16 12:38:08 -0500  16) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/PyModules.cc                                       (John Spray       2016-06-30 14:05:02 +0100  17) #define dout_subsys ceph_subsys_mgr
+f50d9f799dec src/mgr/PyModules.cc                                       (Kefu Chai        2017-03-28 18:49:01 +0800  18) #undef dout_prefix
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  19) #define dout_prefix *_dout << "mgr[ThreadMonitor] " << __func__ << " "
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  20) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  21) void ThreadMonitor::start_monitoring() {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  22)   if (running.exchange(true)) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  23)     return;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  24)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  25) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  26)   dout(20) << "Starting monitoring thread." << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  27)   monitor_thread = std::make_unique<std::thread>(&ThreadMonitor::monitoring_loop, this);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  28) }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  29) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  30) void ThreadMonitor::stop_monitoring() {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  31)   if (!running.exchange(false)) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  32)     return;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  33)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  34) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  35)   if (monitor_thread && monitor_thread->joinable()) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  36)     monitor_thread->join();
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  37)     dout(20) << "Monitoring thread stopped." << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  38)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  39) }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  40) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  41) void ThreadMonitor::register_thread(const pid_t thread_id,
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  42)   const pid_t serve_thread_id,
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  43)   const std::string& thread_name,
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  44)   const PyModuleRef py_module_) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  45)   std::lock_guard<std::mutex> lock(monitored_threads_mutex);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  46) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  47)   if (monitored_threads.count(thread_id)) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  48)     dout(20) << "Attempted to register already known thread (TID: " << thread_id << ")." << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  49)     return;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  50)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  51) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  52)   MonitoredThreadInfo info;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  53)   info.name = thread_name;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  54)   info.py_module = py_module_;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  55)   info.serve_thread_id = serve_thread_id;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  56)   info.last_snapshot.timestamp = ceph::mono_clock::now();
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  57)   info.last_serve_snapshot.timestamp = ceph::mono_clock::now();
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  58)   monitored_threads[thread_id] = info;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  59)   dout(0) << "Registered thread: '" << thread_name << "' (TID: " << thread_id << ") module: "
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  60)     << (py_module_ ? py_module_->get_name() : "unknown") << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  61) }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  62) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  63) void ThreadMonitor::handle_conf_change(
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  64)   const ConfigProxy& conf,
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  65)   const std::set<std::string> &changed) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  66)   if (changed.count("mgr_module_monitor_interval")) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  67)     int interval = m_cct->_conf.get_val<int64_t>("mgr_module_monitor_interval");
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  68)     monitoring_interval = std::chrono::seconds(interval);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  69)     dout(20) << "Updated monitoring interval to " << interval << " seconds." << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  70)     if (interval == 0) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  71)       stop_monitoring();
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  72)     } else if (!running) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  73)       start_monitoring();
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  74)     }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  75)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  76) }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  77) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  78) void ThreadMonitor::monitoring_loop() {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  79)   if (m_clock_ticks_per_sec <= 0 || m_page_size <= 0) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  80)     derr << "Failed to retrieve system configuration "
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  81)          << "(clock ticks per second or page size). Monitoring will not start." << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  82)     running = false;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  83)     return;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  84)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  85) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  86)   while (running) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  87)     // Phase 1: under lock — update RSS counters and copy all state needed for CPU computation.
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  88)     long long process_rss_pages = 0;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  89)     if (!read_process_statm(process_rss_pages)) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  90)       derr << "Failed to read process memory info from /proc/self/statm." << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  91)       std::this_thread::sleep_for(monitoring_interval);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  92)       continue;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  93)     }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  94) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  95)     std::vector<ThreadEntry> entries;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  96)     {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  97)       std::lock_guard<std::mutex> lock(monitored_threads_mutex);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  98)       for (auto& [tid, info] : monitored_threads) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000  99)         if (info.py_module && info.py_module->perfcounter) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 100)           long long rss_bytes = process_rss_pages * m_page_size;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 101)           long long rss_change = rss_bytes - info.last_snapshot.rss_pages * m_page_size;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 102)           info.py_module->perfcounter->set(info.py_module->l_pym_mem_rss_current, rss_bytes);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 103)           info.py_module->perfcounter->set(info.py_module->l_pym_mem_rss_change, rss_change);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 104)           info.last_snapshot.rss_pages = process_rss_pages;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 105)           dout(20) << "Module '" << info.name << "' (TID: " << tid << "): "
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 106)                    << "Memory RSS: " << rss_bytes << " bytes"
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 107)                    << ", Change: " << rss_change << " bytes" << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 108)         }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 109)         entries.push_back({tid, info.serve_thread_id, info.name,
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 110)                            info.py_module, info.last_snapshot, info.last_serve_snapshot});
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 111)       }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 112)     }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 113) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 114)     // Phase 2: no lock — do slow /proc reads and CPU calculations using copied snapshots.
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 115)     std::vector<ThreadResult> results;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 116)     results.reserve(entries.size());
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 117)     for (const auto& e : entries) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 118)       results.push_back(process_thread_stats(e));
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 119)     }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 120) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 121)     // Phase 3: under lock — write results back; remove dead threads.
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 122)     {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 123)       std::lock_guard<std::mutex> lock(monitored_threads_mutex);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 124)       for (const auto& r : results) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 125)         auto it = monitored_threads.find(r.tid);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 126)         if (it == monitored_threads.end()) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 127)           continue; // deregistered between phase 1 and 3
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 128)         }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 129)         MonitoredThreadInfo& info = it->second;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 130)         if (!r.main_ok) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 131)           dout(0) << "Removing dead thread '" << info.name << "' (TID: " << r.tid << ")" << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 132)           monitored_threads.erase(it);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 133)           continue;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 134)         }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 135)         info.last_snapshot.utime = r.new_utime;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 136)         info.last_snapshot.stime = r.new_stime;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 137)         info.last_snapshot.timestamp = r.new_ts;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 138)         if (info.py_module && info.py_module->perfcounter) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 139)           info.py_module->perfcounter->set(info.py_module->l_pym_cpu_usage,
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 140)                                             static_cast<uint64_t>(r.cpu_pct));
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 141)         }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 142)         if (info.serve_thread_id) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 143)           if (!r.serve_ok) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 144)             info.serve_thread_id = 0;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 145)           } else {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 146)             info.last_serve_snapshot.utime = r.new_serve_utime;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 147)             info.last_serve_snapshot.stime = r.new_serve_stime;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 148)             info.last_serve_snapshot.timestamp = r.new_serve_ts;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 149)             if (info.py_module && info.py_module->perfcounter) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 150)               info.py_module->perfcounter->set(info.py_module->l_pym_serve_cpu_usage,
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 151)                                                static_cast<uint64_t>(r.serve_cpu_pct));
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 152)             }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 153)           }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 154)         }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 155)       }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 156)     }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 157) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 158)     std::this_thread::sleep_for(monitoring_interval);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 159)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 160) }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 161) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 162) ThreadMonitor::ThreadResult ThreadMonitor::process_thread_stats(const ThreadEntry& e) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 163)   ThreadResult r;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 164)   r.tid = e.tid;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 165)   long long utime, stime;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 166)   r.new_ts = ceph::mono_clock::now();
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 167)   r.main_ok = read_thread_stat(e.tid, utime, stime);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 168)   if (!r.main_ok) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 169)     dout(20) << "Thread '" << e.name << "' (TID: " << e.tid << ") may have exited." << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 170)     return r;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 171)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 172)   double elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 173)                      r.new_ts - e.last_snapshot.timestamp).count();
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 174)   r.cpu_pct = calculate_cpu_percentage(utime - e.last_snapshot.utime,
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 175)                                         stime - e.last_snapshot.stime, elapsed);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 176)   r.new_utime = utime;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 177)   r.new_stime = stime;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 178)   dout(20) << "Module '" << e.name << "' (TID: " << e.tid << "): "
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 179)            << "CPU: " << std::fixed << std::setprecision(2) << r.cpu_pct << "%" << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 180) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 181)   if (!e.serve_tid) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 182)     return r;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 183)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 184)   r.new_serve_ts = ceph::mono_clock::now();
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 185)   r.serve_ok = read_thread_stat(e.serve_tid, utime, stime);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 186)   if (!r.serve_ok) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 187)     dout(20) << "Serve thread (TID: " << e.serve_tid << ") may have exited." << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 188)     return r;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 189)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 190)   double serve_elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 191)                            r.new_serve_ts - e.last_serve_snapshot.timestamp).count();
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 192)   r.serve_cpu_pct = calculate_cpu_percentage(utime - e.last_serve_snapshot.utime,
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 193)                                               stime - e.last_serve_snapshot.stime, serve_elapsed);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 194)   r.new_serve_utime = utime;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 195)   r.new_serve_stime = stime;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 196)   dout(20) << "Serve thread (TID: " << e.serve_tid << "): "
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 197)            << "CPU: " << std::fixed << std::setprecision(2) << r.serve_cpu_pct << "%" << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 198)   return r;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 199) }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 200) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 201) bool ThreadMonitor::read_thread_stat(pid_t tid, long long& utime, long long& stime) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 202)   std::string stat_path = "/proc/self/task/" + std::to_string(tid) + "/stat";
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 203)   std::ifstream stat_file(stat_path);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 204)   if (!stat_file.is_open()) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 205)     dout(20) << __func__ << "Could not open " << stat_path << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 206)     return false;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 207)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 208)   std::string line;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 209)   std::getline(stat_file, line);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 210)   size_t start = line.find('(');
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 211)   size_t end = line.rfind(')');
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 212)   if (start == std::string::npos || end == std::string::npos) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 213)     dout(20) << __func__ << "Malformed stat file for TID " << tid << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 214)     return false;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 215)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 216) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 217)   std::string remainder = line.substr(end + 2); // +2 to skip ") "
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 218)   std::stringstream ss(remainder);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 219)   std::string val;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 220) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 221)   // skip 11 fields before utime/stime: 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 222)   // state ppid pgrp session tty_nr tpgid flags minflt cminflt majflt cmajflt
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 223)   for (int i = 0; i < 11; ++i) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 224)     ss >> val;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 225)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 226)   ss >> utime >> stime;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 227)   return true;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 228) }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 229) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 230) bool ThreadMonitor::read_process_statm(long long& rss_pages) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 231)   std::string statm_path = "/proc/self/statm";
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 232)   std::ifstream statm_file(statm_path);
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 233) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 234)   if (!statm_file.is_open()) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 235)     dout(20) << __func__ << "Could not open " << statm_path << dendl;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 236)     return false;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 237)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 238) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 239)   long long vsize_pages;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 240)   statm_file >> vsize_pages >> rss_pages;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 241)   return true;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 242) }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 243) 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 244) double ThreadMonitor::calculate_cpu_percentage(long long utime_diff, long long stime_diff, 
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 245)                                               double elapsed_seconds) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 246)   if (elapsed_seconds <= 0) {
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 247)     return 0.0;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 248)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 249)   long long total_jiffies = utime_diff + stime_diff;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 250)   return (static_cast<double>(total_jiffies) / (m_clock_ticks_per_sec * elapsed_seconds)) * 100.0;
+95a90f7da8a3 src/mgr/ThreadMonitor.cc                                   (Nitzan Mordechai 2024-12-08 18:08:39 +0000 251) }
+
+# git blame -w -M -C src/mgr/ThreadMonitor.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng    2020-04-08 10:35:40 +0800   1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/PyModuleRunner.h                                   (Edwin Rodriguez  2025-10-01 09:09:51 -0400   2) // vim: ts=8 sw=2 sts=2 expandtab
+4adaf64d7187 src/mgr/PyModuleRunner.h                                   (Edwin Rodriguez  2025-10-02 15:34:08 -0400   3) 
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray       2017-10-06 11:02:44 -0400   4) /*
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray       2017-10-06 11:02:44 -0400   5)  * Ceph - scalable distributed file system
+df8797320bed src/mgr/PyModuleRunner.h                                   (John Spray       2017-10-06 11:02:44 -0400   6)  *
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000   7)  * Copyright 2026 IBM Corporation
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000   8)  *
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000   9)  * This is free software; you can redistribute it and/or modify it under the
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  10)  * terms of the GNU Lesser General Public License version 2.1, as published by
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  11)  * the Free Software Foundation.  See file COPYING.
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  12)  */
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  13) 
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  14) #pragma once
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  15) #include <unistd.h>
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  16) #include "PyModule.h"
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  17) #include "common/debug.h"
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  18) 
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  19) class ThreadMonitor : public md_config_obs_t {
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  20) public:
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  21)   ThreadMonitor(CephContext *cct)
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  22)     : m_cct(cct),
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  23)       running(false),
+28647966e2e0 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2026-05-27 11:48:14 +0000  24)       monitoring_interval(std::chrono::seconds(m_cct->_conf.get_val<int64_t>("mgr_module_monitor_interval")))
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  25)   {
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  26)     m_cct->_conf.add_observer(this);
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  27)     m_clock_ticks_per_sec = sysconf(_SC_CLK_TCK);
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  28)     m_page_size = sysconf(_SC_PAGESIZE);
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  29)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  30) 
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  31)   ~ThreadMonitor() {
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  32)     m_cct->_conf.remove_observer(this);
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  33)     stop_monitoring();
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  34)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  35) 
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  36)   void start_monitoring();
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  37)   void stop_monitoring();
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  38)   void register_thread(const pid_t thread_id, const pid_t serve_thread_id, const std::string& name, const PyModuleRef py_module);
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  39) 
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  40) protected:
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  41)   std::vector<std::string> get_tracked_keys() const noexcept override {
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  42)     return std::vector<std::string>{"mgr_module_monitor_interval"};
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  43)   }
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  44)   void handle_conf_change(const ConfigProxy& conf,
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  45)     const std::set<std::string> &changed) override;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  46) private:
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  47)   CephContext *m_cct;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  48)   struct ThreadSnapshot {
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  49)     long long utime = 0;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  50)     long long stime = 0;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  51)     long long rss_pages = 0;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  52)     ceph::mono_clock::time_point timestamp;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  53)   };
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  54) 
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  55)   // Information about a thread that is currently being monitored
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  56)   struct MonitoredThreadInfo {
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  57)     std::string name;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  58)     PyModuleRef py_module;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  59)     ThreadSnapshot last_snapshot;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  60)     pid_t serve_thread_id = 0; // TID of the thread runner
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  61)     ThreadSnapshot last_serve_snapshot; // Last snapshot of the thread runner
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  62)   };
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  63) 
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  64)   struct ThreadEntry {
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  65)     pid_t tid;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  66)     pid_t serve_tid;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  67)     std::string name;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  68)     PyModuleRef py_module;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  69)     ThreadSnapshot last_snapshot;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  70)     ThreadSnapshot last_serve_snapshot;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  71)   };
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  72) 
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  73)   struct ThreadResult {
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  74)     pid_t tid;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  75)     bool main_ok = false;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  76)     bool serve_ok = false;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  77)     long long new_utime = 0, new_stime = 0;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  78)     ceph::mono_clock::time_point new_ts;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  79)     double cpu_pct = 0;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  80)     long long new_serve_utime = 0, new_serve_stime = 0;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  81)     ceph::mono_clock::time_point new_serve_ts;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  82)     double serve_cpu_pct = 0;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  83)   };
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  84) 
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  85)   std::map<pid_t, MonitoredThreadInfo> monitored_threads;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  86) 
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  87)   std::mutex monitored_threads_mutex;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  88)   std::atomic<bool> running;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  89)   std::unique_ptr<std::thread> monitor_thread;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  90)   ceph::mono_clock::duration monitoring_interval = std::chrono::seconds(2);
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  91)   long m_clock_ticks_per_sec = 0;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  92)   long m_page_size = 0; 
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  93) 
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  94)   void monitoring_loop();
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  95)   bool read_thread_stat(pid_t tid, long long& utime, long long& stime);
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  96)   bool read_process_statm(long long& rss_pages);
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  97)   long get_clock_ticks_per_sec() const;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  98)   long get_page_size() const;
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000  99)   double calculate_cpu_percentage(long long utime_diff, long long stime_diff, double elapsed_seconds);
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000 100)   ThreadResult process_thread_stats(const ThreadEntry& e);
+95a90f7da8a3 src/mgr/ThreadMonitor.h                                    (Nitzan Mordechai 2024-12-08 18:08:39 +0000 101) };

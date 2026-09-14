@@ -1,0 +1,99 @@
+commit 712ad57d09a2a96dc1e21cd245fbf1a6372867ba
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Nov 16 16:30:39 2017 -0500
+
+    mgr: evaluate `can_run` method on modules
+    
+    ...and transmit the result to the monitor in
+    our beacon.
+    
+    Fixes: http://tracker.ceph.com/issues/21502
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 1e1d2659a46..3d4eb7e90fc 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -233,8 +233,37 @@ int PyModule::load(PyThreadState *pMainThreadState)
+ 
+     // Populate can_run by interrogating the module's callback that
+     // may check for dependencies etc
+-    // TODO
++    PyObject *pCanRunTuple = PyObject_CallMethod(pClass,
++      const_cast<char*>("can_run"), const_cast<char*>("()"));
++    if (pCanRunTuple != nullptr) {
++      if (PyTuple_Check(pCanRunTuple) && PyTuple_Size(pCanRunTuple) == 2) {
++        PyObject *pCanRun = PyTuple_GetItem(pCanRunTuple, 0);
++        PyObject *can_run_str = PyTuple_GetItem(pCanRunTuple, 1);
++        if (!PyBool_Check(pCanRun) || !PyString_Check(can_run_str)) {
++          derr << "Module " << get_name()
++               << " returned wrong type in can_run" << dendl;
++          can_run = false;
++        } else {
++          can_run = (pCanRun == Py_True);
++          if (!can_run) {
++            error_string = PyString_AsString(can_run_str);
++            dout(4) << "Module " << get_name()
++                    << " reported that it cannot run: "
++                    << error_string << dendl;
++          }
++        }
++      } else {
++        derr << "Module " << get_name()
++             << " returned wrong type in can_run" << dendl;
++        can_run = false;
++      }
+ 
++      Py_DECREF(pCanRunTuple);
++    } else {
++      derr << "Exception calling can_run on " << get_name() << dendl;
++      derr << handle_pyerror() << dendl;
++      can_run = false;
++    }
+   }
+   return 0;
+ }
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index ae56e11167e..d3c39f4abb3 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -45,6 +45,9 @@ private:
+   // (e.g. throwing an exception from serve())
+   bool failed = false;
+ 
++  // Populated if loaded, can_run or failed indicates a problem
++  std::string error_string;
++
+ public:
+   SafeThreadState pMyThreadState;
+   PyObject *pClass = nullptr;
+@@ -59,9 +62,27 @@ public:
+ 
+   int load(PyThreadState *pMainThreadState);
+ 
++  /**
++   * Mark the module as failed, recording the reason in the error
++   * string.
++   */
++  void fail(const std::string &reason)
++  {
++    Mutex::Locker l(lock);
++    failed = true;
++    error_string = reason;
++  }
++
+   bool is_enabled() const { Mutex::Locker l(lock) ; return enabled; }
+-  const std::string &get_name() const
+-    { Mutex::Locker l(lock) ; return module_name; }
++  const std::string &get_name() const {
++    Mutex::Locker l(lock) ; return module_name;
++  }
++  const std::string &get_error_string() const {
++    Mutex::Locker l(lock) ; return error_string;
++  }
++  bool get_can_run() const {
++    Mutex::Locker l(lock) ; return can_run;
++  }
+ };
+ 
+ typedef std::shared_ptr<PyModule> PyModuleRef;

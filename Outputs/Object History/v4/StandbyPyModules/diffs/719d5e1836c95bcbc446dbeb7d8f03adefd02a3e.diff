@@ -1,0 +1,43 @@
+commit 719d5e1836c95bcbc446dbeb7d8f03adefd02a3e
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jun 18 17:02:40 2021 -0400
+
+    mgr: generate crash dump for python exceptions
+    
+    Extend handle_pyerror() to generate a crash dump.  Pass some additional
+    context through from the callers (including the ability to not generate
+    a crash dump in the CLI handler case).
+    
+    Extra crash dump fields look like so:
+    
+        "backtrace": [
+            "  File \"/home/sage/src/ceph/src/pybind/mgr/balancer/module.py\", line 652, in serve\n    self.ifail()",
+            "  File \"/home/sage/src/ceph/src/pybind/mgr/balancer/module.py\", line 648, in ifail\n    raise RuntimeError('test')",
+        ],
+        "mgr_module": "balancer",
+        "mgr_module_caller": "PyModuleRunner::serve",
+        "mgr_python_exception": "RuntimeError",
+    
+    Notably, the backtrace deliberately excludes the 'value' of the exception,
+    as that may leak identifying information about the system.  Instead, we
+    only include the exception *type* and the portion of the traceback that
+    identifies the call path (where in the code we crashed).
+    
+    Also note: a side-effect of this change is that module exceptions will
+    trigger cluster health warnings about daemon crashes.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/StandbyPyModules.cc b/src/mgr/StandbyPyModules.cc
+index 86ee8550cad..337aab02927 100644
+--- a/src/mgr/StandbyPyModules.cc
++++ b/src/mgr/StandbyPyModules.cc
+@@ -114,7 +114,7 @@ int StandbyPyModule::load()
+   Py_DECREF(pArgs);
+   if (pClassInstance == nullptr) {
+     derr << "Failed to construct class in '" << get_name() << "'" << dendl;
+-    derr << handle_pyerror() << dendl;
++    derr << handle_pyerror(true, get_name(), "StandbyPyModule::load") << dendl;
+     return -EINVAL;
+   } else {
+     dout(1) << "Constructed class from module: " << get_name() << dendl;

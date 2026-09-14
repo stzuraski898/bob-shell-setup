@@ -1,0 +1,30 @@
+commit 62ade6b38d1a9ee9f853f165d7b8adfcad4ce53b
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Thu Oct 10 08:36:37 2024 +0200
+
+    mgr/ActivePyModule: build thread name with fmt
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/ActivePyModule.h b/src/mgr/ActivePyModule.h
+index fb4a43e2de7..225a8edb4fc 100644
+--- a/src/mgr/ActivePyModule.h
++++ b/src/mgr/ActivePyModule.h
+@@ -27,6 +27,8 @@
+ #include "PyModuleRunner.h"
+ #include "PyModule.h"
+ 
++#include <fmt/core.h>
++
+ #include <vector>
+ #include <string>
+ 
+@@ -54,7 +56,7 @@ public:
+   ActivePyModule(const PyModuleRef &py_module_,
+       LogChannelRef clog_)
+     : PyModuleRunner(py_module_, clog_),
+-      fin_thread_name(std::string("m-fin-" + py_module->get_name()).substr(0,15)),
++      fin_thread_name(fmt::format("m-fin-{}", py_module->get_name()).substr(0,15)),
+       finisher(g_ceph_context, thread_name, fin_thread_name)
+ 
+   {

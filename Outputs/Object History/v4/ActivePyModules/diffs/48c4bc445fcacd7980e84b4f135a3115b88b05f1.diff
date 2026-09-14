@@ -1,0 +1,21 @@
+commit 48c4bc445fcacd7980e84b4f135a3115b88b05f1
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Dec 18 19:03:29 2019 +0800
+
+    mgr: drop the compatibility with python2
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 4d38a6e1e0f..5595a2e6607 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -183,7 +183,7 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+       osd_map.crush->encode(rdata, CEPH_FEATURES_SUPPORTED_DEFAULT);
+     });
+     std::string crush_text = rdata.to_str();
+-    return PyString_FromString(crush_text.c_str());
++    return PyUnicode_FromString(crush_text.c_str());
+   } else if (what.substr(0, 7) == "osd_map") {
+     cluster_state.with_osdmap([&f, &what, &tstate](const OSDMap &osd_map){
+       PyEval_RestoreThread(tstate);

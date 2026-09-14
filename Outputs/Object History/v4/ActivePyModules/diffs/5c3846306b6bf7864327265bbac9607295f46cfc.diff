@@ -1,0 +1,79 @@
+commit 5c3846306b6bf7864327265bbac9607295f46cfc
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Jun 29 15:11:12 2017 -0400
+
+    mgr: transmit command descriptions to mgr in activating beacon
+    
+    The mgr already sends a beacon to the mon immediately
+    after loading python modules in Mgr::init, to indicate
+    that it is now available.  Use that beacon to transmit
+    the command descriptions.
+    
+    The monitor should handle this beacon by persisting
+    the command descriptions before persisting the updated
+    mgrmap that indicates that the mgr is now active.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 8412e6cbf5f..7860a88903f 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -608,12 +608,12 @@ void PyModules::set_config(const std::string &handle,
+   }
+ }
+ 
+-std::vector<ModuleCommand> PyModules::get_commands()
++std::vector<ModuleCommand> PyModules::get_py_commands() const
+ {
+   Mutex::Locker l(lock);
+ 
+   std::vector<ModuleCommand> result;
+-  for (auto& i : modules) {
++  for (const auto& i : modules) {
+     auto module = i.second.get();
+     auto mod_commands = module->get_commands();
+     for (auto j : mod_commands) {
+@@ -624,6 +624,17 @@ std::vector<ModuleCommand> PyModules::get_commands()
+   return result;
+ }
+ 
++std::vector<MonCommand> PyModules::get_commands() const
++{
++  std::vector<ModuleCommand> commands = get_py_commands();
++  std::vector<MonCommand> result;
++  for (auto &pyc: commands) {
++    result.push_back({pyc.cmdstring, pyc.helpstring, "mgr",
++                        pyc.perm, "cli", MonCommand::FLAG_MGR});
++  }
++  return result;
++}
++
+ void PyModules::insert_config(const std::map<std::string,
+                               std::string> &new_config)
+ {
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index 467555b51a1..9d9b8e1ec6c 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -24,6 +24,7 @@
+ #include "client/Client.h"
+ #include "common/LogClient.h"
+ #include "mon/MgrMap.h"
++#include "mon/MonCommand.h"
+ 
+ #include "DaemonState.h"
+ #include "ClusterState.h"
+@@ -80,7 +81,11 @@ public:
+ 
+   std::map<std::string, std::string> config_cache;
+ 
+-  std::vector<ModuleCommand> get_commands();
++  // Python command definitions, including callback
++  std::vector<ModuleCommand> get_py_commands() const;
++
++  // Monitor command definitions, suitable for CLI
++  std::vector<MonCommand> get_commands() const;
+ 
+   void insert_config(const std::map<std::string, std::string> &new_config);
+ 

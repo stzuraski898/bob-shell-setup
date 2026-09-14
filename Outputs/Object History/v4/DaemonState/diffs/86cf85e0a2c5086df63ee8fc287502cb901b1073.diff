@@ -1,0 +1,26 @@
+commit 86cf85e0a2c5086df63ee8fc287502cb901b1073
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Jan 5 17:44:56 2018 -0600
+
+    mgr: get config defaults on session open
+    
+    Leave them encoded until they are used, since usually we won't use them.
+    This is about 50k currently.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 352541583b3..4efd91b8770 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -109,6 +109,10 @@ class DaemonState
+   // running config
+   std::map<std::string,std::map<int32_t,std::string>> config;
+ 
++  // compiled-in config defaults (rarely used, so we leave them encoded!)
++  bufferlist config_defaults_bl;
++  std::map<std::string,std::string> config_defaults;
++
+   // The perf counters received in MMgrReport messages
+   DaemonPerfCounters perf_counters;
+ 

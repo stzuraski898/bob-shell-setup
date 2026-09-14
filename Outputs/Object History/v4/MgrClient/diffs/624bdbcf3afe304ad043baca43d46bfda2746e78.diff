@@ -1,0 +1,23 @@
+commit 624bdbcf3afe304ad043baca43d46bfda2746e78
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Nov 9 19:52:03 2016 +0000
+
+    mgr: remove unnecessary C_StdFunction
+    
+    FunctionContext works fine and already existed.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 070de31c8e1..157baa9b8e2 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -229,7 +229,7 @@ void MgrClient::send_report()
+   session->con->send_message(report);
+ 
+   if (stats_period != 0) {
+-    report_callback = new C_StdFunction([this](){send_report();});
++    report_callback = new FunctionContext([this](int r){send_report();});
+     timer.add_event_after(stats_period, report_callback);
+   }
+ 

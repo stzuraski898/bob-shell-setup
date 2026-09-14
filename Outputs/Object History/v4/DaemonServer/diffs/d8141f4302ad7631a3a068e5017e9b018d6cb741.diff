@@ -1,0 +1,29 @@
+commit d8141f4302ad7631a3a068e5017e9b018d6cb741
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Fri Apr 25 23:53:08 2025 +0800
+
+    mgr: migrate from boost::variant to std::variant
+    
+    Replace `boost::variant` with `std::variant` as part of our effort to reduce
+    third-party dependencies in favor of C++ standard library alternatives.
+    
+    Benefits include:
+    - Improved code readability and maintainability
+    - Reduced external dependency surface
+    - More consistent API usage with other components
+    
+    Signed-off-by: Kefu Chai <tchaikov@gmail.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index f950c01ee72..c59051e385c 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -812,7 +812,7 @@ bool DaemonServer::handle_report(const ref_t<MMgrReport>& m)
+ 
+   if (m->metric_report_message) {
+     const MetricReportMessage &message = *m->metric_report_message;
+-    boost::apply_visitor(HandlePayloadVisitor(this), message.payload);
++    std::visit(HandlePayloadVisitor(this), message.payload);
+   }
+ 
+   return true;

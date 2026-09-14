@@ -1,0 +1,39 @@
+commit fc60989bf7a72c35b8f6b8fec2407b3080ad9bbd
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Oct 30 09:39:47 2019 -0500
+
+    mgr/MgrClient: fix open condition
+    
+    Do not open a mgr daemon session if we are a client using a non-client
+    key to authenticate.  This is a bit of a corner case, but it can
+    happen when using the mon. key do bootstrap functions.
+    
+    This aligns the MgrClient condition with the mgr/DaemonServer.cc
+    handle_report condition, which rejects non-daemon client connections
+    based on the connection entity type, not the auth identity.
+    
+    Fixes: https://tracker.ceph.com/issues/42566
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 94ff99c390f..0f24ab8171e 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -183,7 +183,7 @@ void MgrClient::reconnect()
+ 
+   // Don't send an open if we're just a client (i.e. doing
+   // command-sending, not stats etc)
+-  if (!cct->_conf->name.is_client() || service_daemon) {
++  if (msgr->get_mytype() != CEPH_ENTITY_TYPE_CLIENT || service_daemon) {
+     _send_open();
+   }
+ 
+@@ -574,7 +574,7 @@ int MgrClient::service_daemon_register(
+   daemon_dirty_status = true;
+ 
+   // late register?
+-  if (cct->_conf->name.is_client() && session && session->con) {
++  if (msgr->get_mytype() != CEPH_ENTITY_TYPE_CLIENT && session && session->con) {
+     _send_open();
+   }
+ 

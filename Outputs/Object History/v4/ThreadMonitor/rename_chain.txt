@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/ThreadMonitor.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/ThreadMonitor.cc 28647966e2e085f7c1a8514faafe1f82df99fb5a 95a90f7da8a32dd2a5a1e3b381aaeacea378437b
+#
+# Rename chain for src/mgr/ThreadMonitor.h
+#
+src/mgr/ThreadMonitor.h 28647966e2e085f7c1a8514faafe1f82df99fb5a 95a90f7da8a32dd2a5a1e3b381aaeacea378437b

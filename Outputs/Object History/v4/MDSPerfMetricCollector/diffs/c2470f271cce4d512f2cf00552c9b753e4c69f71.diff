@@ -1,0 +1,60 @@
+commit c2470f271cce4d512f2cf00552c9b753e4c69f71
+Author: Jos Collin <jcollin@redhat.com>
+Date:   Tue Jun 29 15:29:01 2021 +0530
+
+    mgr, pybind/mgr, mgr/stats: be resilient to offline rank0 MDS
+    
+    Reregister the user queries during the rank0 MDS failover event
+    by calling listener.handle_query_updated(). This enables
+    `ceph fs perf stats` to receive the updated metrics after the
+    failover.
+    
+    Fixes: https://tracker.ceph.com/issues/50033
+    Signed-off-by: Jos Collin <jcollin@redhat.com>
+
+diff --git a/src/mgr/MDSPerfMetricCollector.cc b/src/mgr/MDSPerfMetricCollector.cc
+index 74404a89d51..62298aba36a 100644
+--- a/src/mgr/MDSPerfMetricCollector.cc
++++ b/src/mgr/MDSPerfMetricCollector.cc
+@@ -33,6 +33,8 @@ void MDSPerfMetricCollector::process_reports(const MetricPayload &payload) {
+   // update delayed rank set
+   delayed_ranks = metric_report.rank_metrics_delayed;
+   dout(20) << ": delayed ranks=[" << delayed_ranks << "]" << dendl;
++
++  clock_gettime(CLOCK_MONOTONIC_COARSE, &last_updated_mono);
+ }
+ 
+ int MDSPerfMetricCollector::get_counters(PerfCollector *collector) {
+@@ -47,6 +49,7 @@ int MDSPerfMetricCollector::get_counters(PerfCollector *collector) {
+ 
+   get_delayed_ranks(&c->delayed_ranks);
+ 
++  get_last_updated(&c->last_updated_mono);
+   return r;
+ }
+ 
+@@ -54,3 +57,8 @@ void MDSPerfMetricCollector::get_delayed_ranks(std::set<mds_rank_t> *ranks) {
+   ceph_assert(ceph_mutex_is_locked(lock));
+   *ranks = delayed_ranks;
+ }
++
++void MDSPerfMetricCollector::get_last_updated(utime_t *ts) {
++  ceph_assert(ceph_mutex_is_locked(lock));
++  *ts = utime_t(last_updated_mono);
++}
+diff --git a/src/mgr/MDSPerfMetricCollector.h b/src/mgr/MDSPerfMetricCollector.h
+index c6b379ec5b7..c72bce09103 100644
+--- a/src/mgr/MDSPerfMetricCollector.h
++++ b/src/mgr/MDSPerfMetricCollector.h
+@@ -13,9 +13,11 @@ class MDSPerfMetricCollector
+                            MDSPerfMetrics> {
+ private:
+   std::set<mds_rank_t> delayed_ranks;
++  struct timespec last_updated_mono;
+ 
+   void get_delayed_ranks(std::set<mds_rank_t> *ranks);
+ 
++  void get_last_updated(utime_t *ts);
+ public:
+   MDSPerfMetricCollector(MetricListener &listener);
+ 

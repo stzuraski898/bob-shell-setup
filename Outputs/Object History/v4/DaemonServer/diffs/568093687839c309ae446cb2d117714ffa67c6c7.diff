@@ -1,0 +1,35 @@
+commit 568093687839c309ae446cb2d117714ffa67c6c7
+Author: Chang Liu <liuchang0812@gmail.com>
+Date:   Tue May 16 18:16:46 2017 +0800
+
+    tool/ceph: create "tell x help" command
+    
+    Fixes: http://tracker.ceph.com/issues/19885
+    
+    Signed-off-by: liuchang0812 <liuchang0812@gmail.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index bb1927e25d6..ac23a9f9028 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -492,17 +492,14 @@ bool DaemonServer::handle_command(MCommand *m)
+ 			   "mgr", pyc.perm, "cli", 0);
+       cmdnum++;
+     }
+-#if 0
+-    for (MgrCommand *cp = mgr_commands;
+-	 cp < &mgr_commands[ARRAY_SIZE(mgr_commands)]; cp++) {
+ 
++    for (const auto &cp : mgr_commands) {
+       ostringstream secname;
+       secname << "cmd" << setfill('0') << std::setw(3) << cmdnum;
+-      dump_cmddesc_to_json(f, secname.str(), cp->cmdstring, cp->helpstring,
+-			   cp->module, cp->perm, cp->availability, 0);
++      dump_cmddesc_to_json(&f, secname.str(), cp.cmdstring, cp.helpstring,
++			   cp.module, cp.perm, cp.availability, 0);
+       cmdnum++;
+     }
+-#endif
+     f.close_section();	// command_descriptions
+     f.flush(cmdctx->odata);
+     cmdctx->reply(0, ss);

@@ -1,0 +1,25 @@
+commit 92b2fe9e653f69ea855fa759a091ed75033bd7e0
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jan 30 16:17:25 2019 -0600
+
+    mgr/Mgr: print bad (non-object) json
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 24188518bfa..7cd6c91eb65 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -80,6 +80,12 @@ void MetadataUpdate::finish(int r)
+                 << key.first << "." << key.second << dendl;
+         return;
+       }
++      if (json_result.type() != json_spirit::obj_type) {
++        dout(1) << "mon returned valid JSON "
++                << key.first << "." << key.second
++		<< " but not an object: '" << outbl.to_str() << "'" << dendl;
++        return;
++      }
+       dout(4) << "mon returned valid metadata JSON for "
+               << key.first << "." << key.second << dendl;
+ 

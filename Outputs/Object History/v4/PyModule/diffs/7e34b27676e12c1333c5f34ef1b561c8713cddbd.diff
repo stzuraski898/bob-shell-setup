@@ -1,0 +1,60 @@
+commit 7e34b27676e12c1333c5f34ef1b561c8713cddbd
+Author: Tim Serong <tserong@suse.com>
+Date:   Mon Feb 25 14:47:12 2019 +1100
+
+    mgr/PyModule: put mgr_module_path first in sys.path
+    
+    If the various python site packages appear first in sys.path, and there
+    happens to be a package whose name is the same as an mgr module, mgr will
+    try to load that thing instead of the expected mgr module.  This results
+    in a very terse couple of errors:
+    
+      mgr[py] Class not found in module 'deepsea'
+      mgr[py] Error loading module 'deepsea': (22) Invalid argument
+    
+    Before this commit, sys.path on my SLE 11 SP1 dev system is:
+    
+      /usr/lib/python36.zip
+      /usr/lib64/python3.6
+      /usr/lib64/python3.6
+      /usr/lib64/python3.6/lib-dynload
+      /usr/lib64/python3.6/site-packages
+      /usr/lib/python3.6/site-packages
+      /usr/local/lib64/python3.6/site-packages
+      /usr/local/lib/python3.6/site-packages
+      /usr/lib64/ceph/mgr
+    
+    After this commit, /usr/share/ceph/mgr comes before python's site-packages,
+    and everything works properly:
+    
+      /usr/lib/python36.zip
+      /usr/lib64/python3.6
+      /usr/lib64/python3.6
+      /usr/lib64/python3.6/lib-dynload
+      /usr/share/ceph/mgr
+      /usr/lib64/python3.6/site-packages
+      /usr/lib/python3.6/site-packages
+      /usr/local/lib64/python3.6/site-packages
+      /usr/local/lib/python3.6/site-packages
+    
+    (If you're interested in seeing what's in sys.path, turn "debug mgr" up
+    to at least 10, then grep the logs for "Computed sys.path")
+    
+    Fixes: https://tracker.ceph.com/issues/38469
+    Signed-off-by: Tim Serong <tserong@suse.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index d8c5f8eee26..53d9e2b95fa 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -337,8 +337,8 @@ int PyModule::load(PyThreadState *pMainThreadState)
+       PySys_SetArgv(1, (char**)argv);
+ #endif
+       // Configure sys.path to include mgr_module_path
+-      string paths = (":" + get_site_packages() +
+-		      ":" + g_conf().get_val<std::string>("mgr_module_path"));
++      string paths = (":" + g_conf().get_val<std::string>("mgr_module_path") +
++		      ":" + get_site_packages());
+ #if PY_MAJOR_VERSION >= 3
+       wstring sys_path(Py_GetPath() + wstring(begin(paths), end(paths)));
+       PySys_SetPath(const_cast<wchar_t*>(sys_path.c_str()));

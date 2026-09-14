@@ -1,0 +1,21 @@
+commit 3e39413a222a9d649099b86e0338437a1c83257c
+Author: Ricardo Dias <rdias@suse.com>
+Date:   Thu Oct 17 10:16:25 2019 +0100
+
+    mgr: module file logger support
+    
+    Signed-off-by: Ricardo Dias <rdias@suse.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index ca90f87a1db..dbddfd411ee 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -93,7 +93,7 @@ void PyModuleRunner::shutdown()
+ void PyModuleRunner::log(const std::string &record)
+ {
+ #undef dout_prefix
+-#define dout_prefix *_dout << "[" << get_name() << "] "
++#define dout_prefix *_dout
+   dout(0) << record << dendl;
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "

@@ -1,0 +1,66 @@
+# git blame -w -M -C src/mgr/DaemonKey.cc
+#
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800  1) #include "DaemonKey.h"
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800  2) 
+aec62d9eb6f3 (Max Kellermann 2025-08-14 13:55:50 +0200  3) #include <ostream>
+aec62d9eb6f3 (Max Kellermann 2025-08-14 13:55:50 +0200  4) 
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800  5) std::pair<DaemonKey, bool> DaemonKey::parse(const std::string& s)
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800  6) {
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800  7)   auto p = s.find('.');
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800  8)   if (p == s.npos) {
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800  9)     return {{}, false};
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 10)   } else {
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 11)     return {DaemonKey{s.substr(0, p), s.substr(p + 1)}, true};
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 12)   }
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 13) }
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 14) 
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 15) bool operator<(const DaemonKey& lhs, const DaemonKey& rhs)
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 16) {
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 17)   if (int cmp = lhs.type.compare(rhs.type); cmp < 0) {
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 18)     return true;
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 19)   } else if (cmp > 0) {
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 20)     return false;
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 21)   } else {
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 22)     return lhs.name < rhs.name;
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 23)   }
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 24) }
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 25) 
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 26) std::ostream& operator<<(std::ostream& os, const DaemonKey& key)
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 27) {
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 28)   return os << key.type << '.' << key.name;
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 29) }
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 30) 
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 31) namespace ceph {
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 32) std::string to_string(const DaemonKey& key)
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 33) {
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 34)   return key.type + '.' + key.name;
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 35) }
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 36) }
+5aac7eba36be (Kefu Chai      2019-09-29 17:28:28 +0800 37) 
+
+# git blame -w -M -C src/mgr/DaemonKey.h
+#
+24202782fff3 src/test/crimson/seastore/onode_tree/test_staged_fltree.cc (Yingxin Cheng   2020-04-08 10:35:40 +0800  1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
+85d82faac250 src/mgr/DaemonKey.h                                        (Edwin Rodriguez 2025-10-01 09:09:51 -0400  2) // vim: ts=8 sw=2 sts=2 expandtab
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800  3) 
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800  4) #pragma once
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800  5) 
+aec62d9eb6f3 src/mgr/DaemonKey.h                                        (Max Kellermann  2025-08-14 13:55:50 +0200  6) #include <iosfwd>
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800  7) #include <string>
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800  8) #include <utility>
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800  9) 
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 10) // Unique reference to a daemon within a cluster
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 11) struct DaemonKey
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 12) {
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 13)   std::string type; // service type, like "osd", "mon"
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 14)   std::string name; // service id / name, like "1", "a"
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 15)   static std::pair<DaemonKey, bool> parse(const std::string& s);
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 16) };
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 17) 
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 18) bool operator<(const DaemonKey& lhs, const DaemonKey& rhs);
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 19) std::ostream& operator<<(std::ostream& os, const DaemonKey& key);
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 20) 
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 21) namespace ceph {
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 22)   std::string to_string(const DaemonKey& key);
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 23) }
+5aac7eba36be src/mgr/DaemonKey.h                                        (Kefu Chai       2019-09-29 17:28:28 +0800 24) 

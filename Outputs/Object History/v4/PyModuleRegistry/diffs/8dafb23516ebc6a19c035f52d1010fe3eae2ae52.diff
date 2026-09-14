@@ -1,0 +1,23 @@
+commit 8dafb23516ebc6a19c035f52d1010fe3eae2ae52
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Mon Nov 20 16:10:13 2017 -0500
+
+    mgr: Call _list_modules under with_val
+    
+    Avoid a temporary heap allocation.
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index ff1d6a95185..ed32cf76041 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -481,6 +481,6 @@ static void _list_modules(
+ 
+ void PyModuleRegistry::list_modules(std::set<std::string> *modules)
+ {
+-  _list_modules(g_conf->get_val<std::string>("mgr_module_path"), modules);
++  g_conf->with_val<std::string>("mgr_module_path",
++				&_list_modules, modules);
+ }
+-

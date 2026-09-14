@@ -1,0 +1,39 @@
+commit dd23fb4be3c31227aef6afb0afa611b101bb2cbe
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Dec 3 17:56:46 2019 -0600
+
+    mgr/MgrClient: fix 'tell mgr.x ...'
+    
+    If we start the command before we get the mgrmap at the client, we
+    will send MCommand via a different code path; make sure it behaves
+    correctly too.
+    
+    Missed this in 6f35d2835268eade059535b62378d6d407ef9e87
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 0667d8c7273..fd22c05e998 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -193,7 +193,7 @@ void MgrClient::reconnect()
+   while (p != command_table.get_commands().end()) {
+     auto tid = p->first;
+     auto& op = p->second;
+-    ldout(cct,10) << "resending " << tid << dendl;
++    ldout(cct,10) << "resending " << tid << (op.tell ? " (tell)":" (cli)") << dendl;
+     MessageRef m;
+     if (op.tell) {
+       if (op.name.size() && op.name != map.active_name) {
+@@ -206,8 +206,9 @@ void MgrClient::reconnect()
+ 	command_table.erase(tid);
+ 	continue;
+       }
+-      // note: will not work for pre-octopus mgrs
+-      m = op.get_message({}, false);
++      // Set fsid argument to signal that this is really a tell message (and
++      // we are not a legacy client sending a non-tell command via MCommand).
++      m = op.get_message(monmap->fsid, false);
+     } else {
+       m = op.get_message(
+ 	{},

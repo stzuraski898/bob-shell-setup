@@ -1,0 +1,28 @@
+commit c63ecb602e5916d5e0beed137787fdfc67707f15
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Aug 11 11:48:33 2021 +0800
+
+    mgr: build without "using namespace std"
+    
+    * add "std::" prefix in headers
+    * add "using" declarations in .cc files.
+    
+    so we don't rely on "using namespace std" in one or more included
+    headers.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 144f4354c2f..87100c50421 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -46,6 +46,9 @@ std::string PyModule::mgr_store_prefix = "mgr/";
+ #include "include/ceph_assert.h"  // boost clobbers this
+ 
+ 
++using std::string;
++using std::wstring;
++
+ // decode a Python exception into a string
+ std::string handle_pyerror(
+   bool crash_dump,

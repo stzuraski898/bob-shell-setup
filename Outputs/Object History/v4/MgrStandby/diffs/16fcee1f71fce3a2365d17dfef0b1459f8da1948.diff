@@ -1,0 +1,35 @@
+commit 16fcee1f71fce3a2365d17dfef0b1459f8da1948
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 27 15:58:44 2017 -0400
+
+    mon,mgr: manage mgr module list in mgrmap
+    
+    Kill old mgr_modules option.
+    
+    Add new mgr_initial_modules option, on the mon, for the initial cluster
+    mgrmap.
+    
+    Add ls, enable, disable commands.
+    
+    Respawn mgr if the module list changes.  In the future we could enable
+    new modules without a full restart, but disabling probably requires (and
+    is best handled by) a respawn.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 5d2e735bb85..bc7422ba630 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -288,7 +288,10 @@ void MgrStandby::handle_mgr_map(MMgrMap* mmap)
+       dout(1) << "I am now active" << dendl;
+     } else {
+       dout(10) << "I was already active" << dendl;
+-      active_mgr->got_mgr_map(map);
++      bool need_respawn = active_mgr->got_mgr_map(map);
++      if (need_respawn) {
++	respawn();
++      }
+     }
+   } else {
+     if (active_mgr != nullptr) {

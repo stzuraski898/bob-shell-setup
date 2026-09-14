@@ -1,0 +1,39 @@
+commit a9b04900366d238ba78036e3c4b3e6bc77461059
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Oct 12 08:40:30 2018 -0500
+
+    mgr/DaemonState: clean up device life_expectancy values
+    
+    Instead of "0.000000" for empty time values, use "".
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 8bae839c719..2ef768e352e 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -43,9 +43,21 @@ void DeviceState::set_life_expectancy(utime_t from, utime_t to, utime_t now)
+ {
+   life_expectancy = make_pair(from, to);
+   life_expectancy_stamp = now;
+-  metadata["life_expectancy_min"] = stringify(life_expectancy.first);
+-  metadata["life_expectancy_max"] = stringify(life_expectancy.second);
+-  metadata["life_expectancy_stamp"] = stringify(life_expectancy_stamp);
++  if (from != utime_t()) {
++    metadata["life_expectancy_min"] = from;
++  } else {
++    metadata["life_expectancy_min"] = "";
++  }
++  if (to != utime_t()) {
++    metadata["life_expectancy_max"] = to;
++  } else {
++    metadata["life_expectancy_max"] = "";
++  }
++  if (now != utime_t()) {
++    metadata["life_expectancy_stamp"] = stringify(now);
++  } else {
++    metadata["life_expectancy_stamp"] = "";
++  }
+ }
+ 
+ void DeviceState::rm_life_expectancy()

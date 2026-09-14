@@ -1,0 +1,87 @@
+commit 67bd8c40ed3a71edef8baccdadfca979042c792c
+Author: John Spray <jspray@redhat.com>
+Date:   Sun Jun 25 12:08:37 2017 -0400
+
+    mgr: cluster log message on plugin load error
+    
+    To make it a bit more obvious what's going on, otherwise
+    user's first sign is when they try and use a CLI bit
+    and get a command not found.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 988e16ba608..6d5788a3033 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -40,9 +40,9 @@ std::string PyModules::config_prefix;
+ // because ServeThread is still an "incomplete" type there
+ 
+ PyModules::PyModules(DaemonStateIndex &ds, ClusterState &cs,
+-	  MonClient &mc, Objecter &objecter_, Client &client_,
+-	  Finisher &f)
+-  : daemon_state(ds), cluster_state(cs), monc(mc),
++	  MonClient &mc, LogChannelRef clog_, Objecter &objecter_,
++          Client &client_, Finisher &f)
++  : daemon_state(ds), cluster_state(cs), monc(mc), clog(clog_),
+     objecter(objecter_), client(client_), finisher(f),
+     lock("PyModules")
+ {}
+@@ -360,6 +360,8 @@ int PyModules::init()
+   // thread state becomes NULL)
+   pMainThreadState = PyEval_SaveThread();
+ 
++  std::list<std::string> failed_modules;
++
+   // Load python code
+   boost::tokenizer<> tok(g_conf->mgr_modules);
+   for(const auto& module_name : tok) {
+@@ -371,6 +373,7 @@ int PyModules::init()
+       // or the right thread state (this is deliberate).
+       derr << "Error loading module '" << module_name << "': "
+         << cpp_strerror(r) << dendl;
++      failed_modules.push_back(module_name);
+       // Don't drop out here, load the other modules
+     } else {
+       // Success!
+@@ -378,6 +381,11 @@ int PyModules::init()
+     }
+   }
+ 
++  if (!failed_modules.empty()) {
++    clog->error() << "Failed to load ceph-mgr modules: " << joinify(
++        failed_modules.begin(), failed_modules.end(), std::string(", "));
++  }
++
+   return 0;
+ }
+ 
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index 6a71b649331..c98f7694bf6 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -22,6 +22,7 @@
+ 
+ #include "osdc/Objecter.h"
+ #include "client/Client.h"
++#include "common/LogClient.h"
+ 
+ #include "DaemonState.h"
+ #include "ClusterState.h"
+@@ -35,6 +36,7 @@ class PyModules
+   DaemonStateIndex &daemon_state;
+   ClusterState &cluster_state;
+   MonClient &monc;
++  LogChannelRef clog;
+   Objecter &objecter;
+   Client   &client;
+   Finisher &finisher;
+@@ -49,7 +51,7 @@ public:
+   static std::string config_prefix;
+ 
+   PyModules(DaemonStateIndex &ds, ClusterState &cs, MonClient &mc,
+-            Objecter &objecter_, Client &client_,
++            LogChannelRef clog_, Objecter &objecter_, Client &client_,
+             Finisher &f);
+ 
+   ~PyModules();

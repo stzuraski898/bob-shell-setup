@@ -1,0 +1,79 @@
+commit f941025561ecd6e42b032980d77555ef2540aa70
+Author: Naveen Naidu <naveennaidu479@gmail.com>
+Date:   Wed Mar 19 19:13:47 2025 +0530
+
+    mgr: do not ignore labeled perf counters in MMgrReport
+    
+    The labeled perf counters are now included in the MMgrReport sent from
+    MgrClients. The 'get_unlabeled_perf_schema_python' is also updated to
+    ignore labeled counters, since labels counters requires new
+    representation format not supported by the current logic.
+    
+    Signed-off-by: Naveen Naidu <naveen.naidu@ibm.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 5a0fa1c817a..33a82e53c4d 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -19,6 +19,7 @@
+ #include <rocksdb/version.h>
+ 
+ #include "common/errno.h"
++#include "common/perf_counters_key.h"
+ #include "crush/CrushWrapper.h"
+ #include "include/stringify.h"
+ 
+@@ -964,8 +965,17 @@ PyObject* ActivePyModules::get_unlabeled_perf_schema_python(
+         f.open_object_section(key.c_str());
+         for (auto ctr_inst_iter : state->perf_counters.instances) {
+           const auto &counter_name = ctr_inst_iter.first;
+-          f.open_object_section(counter_name.c_str());
+-          auto type = state->perf_counters.types[counter_name];
++
++	  // Ignore labeled counters. The perf schema format below can not
++	  // accomodate counters with labels. A new representation format is
++	  // requried to do support this.
++	  auto labels = ceph::perf_counters::key_labels(counter_name);
++	  if (labels.begin() != labels.end()) {
++	    continue;
++	  }
++
++	  f.open_object_section(counter_name.c_str());
++	  auto type = state->perf_counters.types[counter_name];
+           f.dump_string("description", type.description);
+           if (!type.nick.empty()) {
+             f.dump_string("nick", type.nick);
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index cb2587b1be8..172fc85694c 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -96,21 +96,21 @@ public:
+     const std::string &svc_id,
+     const std::string &path);
+   PyObject *get_latest_unlabeled_counter_python(
+-    const std::string &svc_type,
+-    const std::string &svc_id,
+-    const std::string &path);
++      const std::string &svc_type,
++      const std::string &svc_id,
++      const std::string &path);
+   PyObject *get_unlabeled_perf_schema_python(
+-     const std::string &svc_type,
+-     const std::string &svc_id);
++      const std::string &svc_type,
++      const std::string &svc_id);
+   PyObject *get_rocksdb_version();
+   PyObject *get_context();
+   PyObject *get_osdmap();
+   /// @note @c fct is not allowed to acquire locks when holding GIL
+   PyObject *with_unlabled_perf_counters(
+       std::function<void(
+-        PerfCounterInstance& counter_instance,
+-        PerfCounterType& counter_type,
+-        PyFormatter& f)> fct,
++	  PerfCounterInstance &counter_instance,
++	  PerfCounterType &counter_type,
++	  PyFormatter &f)> fct,
+       const std::string &svc_name,
+       const std::string &svc_id,
+       const std::string &path) const;

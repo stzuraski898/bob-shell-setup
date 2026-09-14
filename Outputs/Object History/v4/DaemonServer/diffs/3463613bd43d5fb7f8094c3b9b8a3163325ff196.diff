@@ -1,0 +1,26 @@
+commit 3463613bd43d5fb7f8094c3b9b8a3163325ff196
+Author: Jason Dillaman <dillaman@redhat.com>
+Date:   Fri Oct 11 11:25:56 2019 -0400
+
+    mgr: add new 'allow module' cap to MgrCap
+    
+    This allows specific python add-on modules to be whitelisted instead
+    of manually adding each command exported by the module.
+    
+      allow module {module-name} {access-spec}
+    
+    Signed-off-by: Jason Dillaman <dillaman@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 2eceda48ba5..3fd549dcbb8 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -682,7 +682,7 @@ bool DaemonServer::_allowed_command(
+   bool capable = s->caps.is_capable(
+     g_ceph_context,
+     s->entity_name,
+-    module, prefix, param_str_map,
++    module, "", prefix, param_str_map,
+     cmd_r, cmd_w, cmd_x,
+     s->get_peer_addr());
+ 

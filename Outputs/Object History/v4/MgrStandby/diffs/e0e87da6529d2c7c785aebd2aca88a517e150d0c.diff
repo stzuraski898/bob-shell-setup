@@ -1,0 +1,31 @@
+commit e0e87da6529d2c7c785aebd2aca88a517e150d0c
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Jun 29 09:35:39 2017 -0400
+
+    mgr: send beacon to mon as soon as done with Mgr::init
+    
+    ...instead of waiting for next periodic beacon.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index a3c3234a208..0af01e68ba1 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -288,8 +288,14 @@ void MgrStandby::handle_mgr_map(MMgrMap* mmap)
+       dout(1) << "Activating!" << dendl;
+       active_mgr.reset(new Mgr(&monc, map, client_messenger.get(), &objecter,
+ 			       &client, clog, audit_clog));
+-      active_mgr->background_init();
+-      dout(1) << "I am now active" << dendl;
++      active_mgr->background_init(new FunctionContext(
++            [this](int r){
++              // Advertise our active-ness ASAP instead of waiting for
++              // next tick.
++              Mutex::Locker l(lock);
++              send_beacon();
++            }));
++      dout(1) << "I am now activating" << dendl;
+     } else {
+       dout(10) << "I was already active" << dendl;
+       bool need_respawn = active_mgr->got_mgr_map(map);

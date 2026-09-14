@@ -1,0 +1,24 @@
+commit 0d60c26318e59c8c459be439c1ed7aa23d5ae1b3
+Author: Gu Zhongyan <guzhongyan@360.cn>
+Date:   Wed Mar 28 17:43:16 2018 +0800
+
+    src: no 'dne' acronym in user cmd output
+    
+    So the cmd output would be more friendly to
+    non native speaker users.
+    
+    Signed-off-by: Gu Zhongyan <guzhongyan@360.cn>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 405a22cdbb8..c8cd57e45d8 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -902,7 +902,7 @@ bool DaemonServer::handle_command(MCommand *m)
+ 	pg_exists = osdmap.pg_exists(pgid);
+       });
+     if (!pg_exists) {
+-      ss << "pg " << pgid << " dne";
++      ss << "pg " << pgid << " does not exist";
+       cmdctx->reply(-ENOENT, ss);
+       return true;
+     }

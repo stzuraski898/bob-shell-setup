@@ -1,0 +1,21 @@
+commit 722b27cd12ece9fef4681a8844e7814848a26f61
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Mon Jul 3 19:16:49 2017 +0800
+
+    mon/OSDMonitor: add more wildcards support for scrub and fix description
+    
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index afb156c728f..e6b3100f09d 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -635,7 +635,7 @@ bool DaemonServer::handle_command(MCommand *m)
+     get_str_vec(prefix, pvec);
+ 
+     set<int> osds;
+-    if (whostr == "*") {
++    if (whostr == "*" || whostr == "all" || whostr == "any") {
+       cluster_state.with_osdmap([&](const OSDMap& osdmap) {
+ 	  for (int i = 0; i < osdmap.get_max_osd(); i++)
+ 	    if (osdmap.is_up(i)) {

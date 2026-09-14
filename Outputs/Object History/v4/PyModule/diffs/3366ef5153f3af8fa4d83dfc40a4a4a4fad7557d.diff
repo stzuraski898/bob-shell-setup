@@ -1,0 +1,25 @@
+commit 3366ef5153f3af8fa4d83dfc40a4a4a4fad7557d
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Sun Feb 9 07:14:55 2025 +0000
+
+    PyModule: Fix memory leak in load
+    
+    PyModule: Interpreter never ended - leaks
+    
+    Need to ending the interpreter to prevent valgrind leaks
+    
+    Signed-off-by: Nitzan Mordechai <nmordech@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index e4b70956299..fe33555280e 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -708,6 +708,8 @@ PyModule::~PyModule()
+     Gil gil(pMyThreadState, true);
+     Py_XDECREF(pClass);
+     Py_XDECREF(pStandbyClass);
++    Py_EndInterpreter(pMyThreadState.ts);
++    pMyThreadState.ts = nullptr;
+   }
+ }
+ 

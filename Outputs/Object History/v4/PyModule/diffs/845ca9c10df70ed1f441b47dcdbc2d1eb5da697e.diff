@@ -1,0 +1,54 @@
+commit 845ca9c10df70ed1f441b47dcdbc2d1eb5da697e
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Aug 23 12:14:24 2019 -0500
+
+    mgr: return get_ceph_option result as typed Py object (not string)
+    
+    We already return module options as the proper Py type; do the same for
+    native ceph options.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 53d9e2b95fa..e65b46befff 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -15,6 +15,7 @@
+ #include "BaseMgrStandbyModule.h"
+ #include "PyOSDMap.h"
+ #include "MgrContext.h"
++#include "PyUtil.h"
+ 
+ #include "PyModule.h"
+ 
+@@ -626,29 +627,7 @@ PyObject *PyModule::get_typed_option_value(const std::string& name,
+   // are set up exactly once during startup.
+   auto p = options.find(name);
+   if (p != options.end()) {
+-    switch (p->second.type) {
+-    case Option::TYPE_INT:
+-    case Option::TYPE_UINT:
+-    case Option::TYPE_SIZE:
+-      return PyInt_FromString((char *)value.c_str(), nullptr, 0);
+-    case Option::TYPE_SECS:
+-    case Option::TYPE_FLOAT:
+-      {
+-	PyObject *s = PyString_FromString(value.c_str());
+-	PyObject *f = PyFloat_FromString(s, nullptr);
+-	Py_DECREF(s);
+-	return f;
+-      }
+-    case Option::TYPE_BOOL:
+-      if (value == "1" || value == "true" || value == "True" ||
+-	  value == "on" || value == "yes") {
+-	Py_INCREF(Py_True);
+-	return Py_True;
+-      } else {
+-	Py_INCREF(Py_False);
+-	return Py_False;
+-      }
+-    }
++    return get_python_typed_option_value((Option::type_t)p->second.type, value);
+   }
+   return PyString_FromString(value.c_str());
+ }

@@ -1,0 +1,25 @@
+commit 3030fb8512bc8db0da5c37e1944c56c1b15e246b
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Jun 7 22:04:09 2018 -0500
+
+    mgr: allow open-ended life expectancy
+    
+    If you leave off the second part of the life expectancy interval, it means
+    "more than".  e.g., Setting only the first time to today + one month would
+    mean "more than one month".
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 7f1e1cfb951..f8c77479846 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1834,7 +1834,7 @@ bool DaemonServer::handle_command(MCommand *m)
+       ss << "unable to parse datetime '" << from_str << "'";
+       r = -EINVAL;
+       cmdctx->reply(r, ss);
+-    } else if (!to.parse(to_str)) {
++    } else if (to_str.size() && !to.parse(to_str)) {
+       ss << "unable to parse datetime '" << to_str << "'";
+       r = -EINVAL;
+       cmdctx->reply(r, ss);

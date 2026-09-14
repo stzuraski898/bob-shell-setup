@@ -1,0 +1,33 @@
+commit e65f676cd17836b2144fca82408412fe9e21fdaf
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Nov 16 16:04:01 2021 -0500
+
+    mon/ConfigMap: use ValueSource type for generate_entity_map()
+    
+    Changes from original commit:
+    - switch to unordered map
+    - use nullptr instead of 0
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+    Signed-off-by: Matan Breizman <mbreizma@redhat.com>
+    (cherry picked from commit e36da92118eac4d2af11d8a8a1795e7b08d08874)
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 45038e734af..701b41bef8e 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -1198,13 +1198,11 @@ PyObject *ActivePyModules::get_foreign_config(
+ 		 << " class " << device_class << dendl;
+       }
+ 
+-      std::map<std::string,pair<std::string,const MaskedOption*>> src;
+       config = config_map.generate_entity_map(
+ 	entity,
+ 	crush_location,
+ 	osdmap.crush.get(),
+-	device_class,
+-	&src);
++	device_class);
+     });
+ 
+   // get a single value

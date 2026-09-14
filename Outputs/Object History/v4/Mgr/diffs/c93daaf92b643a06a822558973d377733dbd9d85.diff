@@ -1,0 +1,22 @@
+commit c93daaf92b643a06a822558973d377733dbd9d85
+Author: Jesse Williamson <jesse.williamson@suse.com>
+Date:   Wed May 24 04:33:24 2017 -0700
+
+    compile fixups for dout
+    
+    Signed-off-by: Jesse Williamson <jwilliamson@suse.de>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 9df32239bd0..d1f91364b52 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -33,6 +33,9 @@
+ 
+ #include "Mgr.h"
+ 
++// reinclude our assert to clobber the system one
++#include "include/assert.h"
++
+ #define dout_context g_ceph_context
+ #define dout_subsys ceph_subsys_mgr
+ #undef dout_prefix

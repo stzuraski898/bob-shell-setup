@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/PyModuleRegistry.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/PyModuleRegistry.cc 95a90f7da8a32dd2a5a1e3b381aaeacea378437b 9718896c8b844db2f3c07df1d344636da4605e61
+#
+# Rename chain for src/mgr/PyModuleRegistry.h
+#
+src/mgr/PyModuleRegistry.h 4c7621dadc4dc555cda05d0908f63671801622e5 9718896c8b844db2f3c07df1d344636da4605e61

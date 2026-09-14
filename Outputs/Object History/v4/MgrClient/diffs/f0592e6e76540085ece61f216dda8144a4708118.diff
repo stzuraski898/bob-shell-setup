@@ -1,0 +1,39 @@
+commit f0592e6e76540085ece61f216dda8144a4708118
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Oct 23 12:17:47 2017 +0800
+
+    rados,mgr: pass daemon_status by rvalue reference
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 26b27df7691..910d747f88a 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -459,11 +459,11 @@ int MgrClient::service_daemon_register(
+ }
+ 
+ int MgrClient::service_daemon_update_status(
+-  const std::map<std::string,std::string>& status)
++  std::map<std::string,std::string>&& status)
+ {
+   Mutex::Locker l(lock);
+   ldout(cct,10) << status << dendl;
+-  daemon_status = status;
++  daemon_status = std::move(status);
+   daemon_dirty_status = true;
+   return 0;
+ }
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index be7a0945fbe..5fcbe638384 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -116,7 +116,7 @@ public:
+     const std::string& name,
+     const std::map<std::string,std::string>& metadata);
+   int service_daemon_update_status(
+-    const std::map<std::string,std::string>& status);
++    std::map<std::string,std::string>&& status);
+ 
+ private:
+   void send_stats();

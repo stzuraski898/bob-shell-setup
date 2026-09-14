@@ -1,0 +1,44 @@
+commit 6540937a6d1865642dd799b4996d85d2ee9a99ad
+Author: Prashant D <pdhange@redhat.com>
+Date:   Fri Jun 24 11:10:03 2022 -0400
+
+    mgr: Remove service_daemon handling from MMgrUpdate
+    
+    The service_daemon is only required if client services
+    needs to be registered with mgr. The service_daemon
+    handling is not required in case of MMgrUpdate as it
+    handles mon metadata updates only.
+    
+    Fixes: https://tracker.ceph.com/issues/55322
+    
+    Signed-off-by: Prashant D <pdhange@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index cfb2e99672e..6253d267034 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -256,8 +256,7 @@ void MgrClient::_send_update()
+     } else {
+       update->daemon_name = cct->_conf->name.get_id();
+     }
+-    if (service_daemon) {
+-      update->service_daemon = service_daemon;
++    if (need_metadata_update) {
+       update->daemon_metadata = daemon_metadata;
+     }
+     update->need_metadata_update = need_metadata_update;
+@@ -596,13 +595,12 @@ int MgrClient::update_daemon_metadata(
+     return -EEXIST;
+   }
+   ldout(cct,1) << service << "." << name << " metadata " << metadata << dendl;
+-  service_daemon = true;
+   service_name = service;
+   daemon_name = name;
+   daemon_metadata = metadata;
+   daemon_dirty_status = true;
+ 
+-  if (need_metadata_update == true &&
++  if (need_metadata_update &&
+       !daemon_metadata.empty()) {
+     _send_update();
+     need_metadata_update = false;

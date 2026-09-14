@@ -1,0 +1,30 @@
+commit ff1258e7ef39f1f1a69ef6475445712c1dc6e037
+Author: Greg Farnum <gfarnum@redhat.com>
+Date:   Fri Mar 10 18:48:47 2017 -0800
+
+    mgr: introduce tick() calls through the system
+    
+    Still empty for the moment
+    
+    Signed-off-by: Greg Farnum <gfarnum@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 0ef4a5655ee..66b8045c8f0 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -32,6 +32,7 @@
+ 
+ class MMgrReport;
+ class MMgrOpen;
++class MMonMgrReport;
+ class MCommand;
+ struct MgrCommand;
+ 
+@@ -111,6 +112,7 @@ public:
+   bool handle_open(MMgrOpen *m);
+   bool handle_report(MMgrReport *m);
+   bool handle_command(MCommand *m);
++  void tick(MMonMgrReport *m) {}
+ };
+ 
+ #endif

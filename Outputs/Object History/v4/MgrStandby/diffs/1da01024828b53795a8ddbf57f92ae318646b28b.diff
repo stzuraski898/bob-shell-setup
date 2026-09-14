@@ -1,0 +1,23 @@
+commit 1da01024828b53795a8ddbf57f92ae318646b28b
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Mon Mar 11 19:32:14 2019 +0800
+
+    mgr/MgrStandby: do not track 'osd_objectstore_fuse' config
+    
+    Have no idea how does this come from..
+    Must be a copy&paste error..
+    
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index ee246b8cbf6..2b0715421e2 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -73,7 +73,6 @@ const char** MgrStandby::get_tracked_conf_keys() const
+     "clog_to_syslog",
+     "clog_to_syslog_facility",
+     "clog_to_syslog_level",
+-    "osd_objectstore_fuse",
+     "clog_to_graylog",
+     "clog_to_graylog_host",
+     "clog_to_graylog_port",

@@ -1,0 +1,21 @@
+commit ec09a7abc515f802451bf7ef3d22ce8ee6c6c7b3
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Aug 30 13:56:39 2017 +0100
+
+    mgr: remove old-style config opt usage
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 5f40b2b54c1..80cf3ca3638 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -111,7 +111,7 @@ void MgrClient::reconnect()
+   if (last_connect_attempt != utime_t()) {
+     utime_t now = ceph_clock_now();
+     utime_t when = last_connect_attempt;
+-    when += cct->_conf->mgr_connect_retry_interval;
++    when += cct->_conf->get_val<double>("mgr_connect_retry_interval");
+     if (now < when) {
+       if (!connect_retry_callback) {
+ 	connect_retry_callback = timer.add_event_at(

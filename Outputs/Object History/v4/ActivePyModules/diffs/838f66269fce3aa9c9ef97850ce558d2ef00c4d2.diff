@@ -1,0 +1,56 @@
+commit 838f66269fce3aa9c9ef97850ce558d2ef00c4d2
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Mar 29 13:34:29 2017 -0400
+
+    mgr: fix waiting for module shutdown() before destroying
+    
+    Fixes: http://tracker.ceph.com/issues/19412
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 6bb5384ec9b..33cb6264c38 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -446,20 +446,39 @@ void PyModules::shutdown()
+ {
+   Mutex::Locker locker(lock);
+ 
+-  // Signal modules to drop out of serve()
+-  for (auto& i : modules) {
++  // Signal modules to drop out of serve() and/or tear down resources
++  C_SaferCond shutdown_called;
++  C_GatherBuilder gather(g_ceph_context);
++  for (auto &i : modules) {
+     auto module = i.second.get();
+-    finisher.queue(new FunctionContext([module](int r){
++    auto shutdown_cb = gather.new_sub();
++    finisher.queue(new FunctionContext([module, shutdown_cb](int r){
+       module->shutdown();
++      shutdown_cb->complete(0);
+     }));
+   }
+ 
++  if (gather.has_subs()) {
++    gather.set_finisher(&shutdown_called);
++    gather.activate();
++  }
++
++  // For modules implementing serve(), finish the threads where we
++  // were running that.
+   for (auto &i : serve_threads) {
+     lock.Unlock();
+     i.second->join();
+     lock.Lock();
+   }
+   serve_threads.clear();
++
++  // Wait for the module's shutdown() to complete before
++  // we proceed to destroy the module.
++  if (!modules.empty()) {
++    dout(4) << "waiting for module shutdown calls" << dendl;
++    shutdown_called.wait();
++  }
++
+   modules.clear();
+ 
+   PyGILState_Ensure();

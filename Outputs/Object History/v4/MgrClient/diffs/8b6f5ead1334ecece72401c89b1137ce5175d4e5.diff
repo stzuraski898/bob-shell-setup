@@ -1,0 +1,25 @@
+commit 8b6f5ead1334ecece72401c89b1137ce5175d4e5
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Feb 1 14:57:06 2021 -0500
+
+    mgr/MgrClient; less copying of mgr report struct
+    
+    This includes pg stats; may be expensive.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 4ac88dd99d4..66ac5901e50 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -404,9 +404,7 @@ void MgrClient::_send_report()
+ 			    &last_config_bl_version);
+ 
+   if (get_perf_report_cb) {
+-    MetricPayload payload = get_perf_report_cb();
+-    MetricReportMessage message(payload);
+-    report->metric_report_message = message;
++    report->metric_report_message = MetricReportMessage(get_perf_report_cb());
+   }
+ 
+   session->con->send_message2(report);

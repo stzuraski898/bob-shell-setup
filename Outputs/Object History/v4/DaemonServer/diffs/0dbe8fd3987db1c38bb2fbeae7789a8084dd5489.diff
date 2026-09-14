@@ -1,0 +1,30 @@
+commit 0dbe8fd3987db1c38bb2fbeae7789a8084dd5489
+Author: Sage Weil <sweil@redhat.com>
+Date:   Mon Oct 10 09:55:54 2016 -0400
+
+    msg: make loopback Connection feature accurate all the time
+    
+    In 626360aab05545ddacb0ac28e54a70e31fd5695d we made the
+    OSD cluster loopback connection CEPH_FEATURES_ALL, but
+    all other loopback connections got features == 0.  I
+    can't come up with any reason we wouldn't want those
+    connections to have accurate feature bits, so let's just
+    use CEPH_FEATURES_ALL for all of them.
+    
+    While we're here, make the cflags argument required.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index f0be92a1a9d..31f0ce999d3 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -46,7 +46,7 @@ int DaemonServer::init(uint64_t gid, entity_addr_t client_addr)
+ {
+   // Initialize Messenger
+   msgr = Messenger::create(g_ceph_context, g_conf->ms_type,
+-      entity_name_t::MGR(gid), "server", getpid());
++			   entity_name_t::MGR(gid), "server", getpid(), 0);
+   int r = msgr->bind(g_conf->public_addr);
+   if (r < 0)
+     return r;

@@ -1,0 +1,39 @@
+commit 28647966e2e085f7c1a8514faafe1f82df99fb5a
+Author: Nitzan Mordechai <nmordech@ibm.com>
+Date:   Wed May 27 11:48:14 2026 +0000
+
+    mgr/ThreadMonitor: monitor interval running in seconds and not nanoseconds
+    
+    The ctor accidently use the mgr_module_monitor_interval as nanoseconds
+    we need to use it as seconds.
+    Also, prevent high cpu loop in case read_process_statm failed during
+    while loop
+    
+    Fixes: https://tracker.ceph.com/issues/76938
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+
+diff --git a/src/mgr/ThreadMonitor.cc b/src/mgr/ThreadMonitor.cc
+index d26a747ed6e..46f86f6e894 100644
+--- a/src/mgr/ThreadMonitor.cc
++++ b/src/mgr/ThreadMonitor.cc
+@@ -88,6 +88,7 @@ void ThreadMonitor::monitoring_loop() {
+     long long process_rss_pages = 0;
+     if (!read_process_statm(process_rss_pages)) {
+       derr << "Failed to read process memory info from /proc/self/statm." << dendl;
++      std::this_thread::sleep_for(monitoring_interval);
+       continue;
+     }
+ 
+diff --git a/src/mgr/ThreadMonitor.h b/src/mgr/ThreadMonitor.h
+index 60a839ae965..fe09fd73fd0 100644
+--- a/src/mgr/ThreadMonitor.h
++++ b/src/mgr/ThreadMonitor.h
+@@ -21,7 +21,7 @@ public:
+   ThreadMonitor(CephContext *cct)
+     : m_cct(cct),
+       running(false),
+-      monitoring_interval(m_cct->_conf.get_val<int64_t>("mgr_module_monitor_interval"))
++      monitoring_interval(std::chrono::seconds(m_cct->_conf.get_val<int64_t>("mgr_module_monitor_interval")))
+   {
+     m_cct->_conf.add_observer(this);
+     m_clock_ticks_per_sec = sysconf(_SC_CLK_TCK);

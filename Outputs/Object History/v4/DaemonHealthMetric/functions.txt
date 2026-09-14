@@ -1,0 +1,20 @@
+# Function list for DaemonHealthMetric (via ctags)
+# Format: qualified_name | file:line
+#
+dump | src/mgr/DaemonHealthMetric.cc:10
+generate_test_instances | src/mgr/DaemonHealthMetric.cc:17
+operator << | src/mgr/DaemonHealthMetric.cc:24
+DENC | src/mgr/DaemonHealthMetric.h:67
+DaemonHealthMetric | src/mgr/DaemonHealthMetric.h:46
+DaemonHealthMetric | src/mgr/DaemonHealthMetric.h:50
+DaemonHealthMetric | src/mgr/DaemonHealthMetric.h:47
+daemon_metric_name | src/mgr/DaemonHealthMetric.h:20
+daemon_metric_t | src/mgr/DaemonHealthMetric.h:35
+daemon_metric_t | src/mgr/DaemonHealthMetric.h:38
+dump | src/mgr/DaemonHealthMetric.h:73
+generate_test_instances | src/mgr/DaemonHealthMetric.h:74
+get_n | src/mgr/DaemonHealthMetric.h:57
+get_n1 | src/mgr/DaemonHealthMetric.h:60
+get_n2 | src/mgr/DaemonHealthMetric.h:63
+get_type | src/mgr/DaemonHealthMetric.h:54
+get_type_name | src/mgr/DaemonHealthMetric.h:75

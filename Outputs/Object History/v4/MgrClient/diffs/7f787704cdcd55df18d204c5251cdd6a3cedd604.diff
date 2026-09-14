@@ -1,0 +1,51 @@
+commit 7f787704cdcd55df18d204c5251cdd6a3cedd604
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue May 29 16:47:07 2018 -0500
+
+    mgr: use entity_addrvec_t for MgrMap
+    
+    This does several entity_addr_t -> entity_addrvec_t conversions across the
+    mgr code.
+    
+    (Note that entity_addr_t and entity_addrvec_t already encode in an
+    interoperable way.)
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 804c9d639e7..377e2086267 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -149,15 +149,13 @@ void MgrClient::reconnect()
+     connect_retry_callback = nullptr;
+   }
+ 
+-  ldout(cct, 4) << "Starting new session with " << map.get_active_addr()
++  ldout(cct, 4) << "Starting new session with " << map.get_active_addrs()
+ 		<< dendl;
+-  entity_inst_t inst;
+-  inst.addr = map.get_active_addr();
+-  inst.name = entity_name_t::MGR(map.get_active_gid());
+   last_connect_attempt = ceph_clock_now();
+ 
+   session.reset(new MgrSessionState());
+-  session->con = msgr->get_connection(inst);
++  session->con = msgr->connect_to(CEPH_ENTITY_TYPE_MGR,
++				  map.get_active_addrs());
+ 
+   if (service_daemon) {
+     daemon_dirty_status = true;
+@@ -208,11 +206,11 @@ bool MgrClient::handle_mgr_map(MMgrMap *m)
+   ldout(cct, 4) << "Got map version " << map.epoch << dendl;
+   m->put();
+ 
+-  ldout(cct, 4) << "Active mgr is now " << map.get_active_addr() << dendl;
++  ldout(cct, 4) << "Active mgr is now " << map.get_active_addrs() << dendl;
+ 
+   // Reset session?
+   if (!session ||
+-      session->con->get_peer_addr() != map.get_active_addr()) {
++      session->con->get_peer_addrs() != map.get_active_addrs()) {
+     reconnect();
+   }
+ 

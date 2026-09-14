@@ -1,0 +1,89 @@
+commit fd4d4ce58b8616a8d87e244bb5f3c367dd20cf63
+Author: Steven Zuraski <steven.zuraski@ibm.com>
+Date:   Thu May 21 19:23:09 2026 +0000
+
+    mgr/DaemonServer: add explicit DaemonServer shutdown handling
+    
+    The mgr unit tests were experiencing segfaults and 'pure virtual method called'
+    errors during rapid creation and destruction of DaemonServer objects. This
+    occurred because the OpTracker's OpHistory background thread could still be
+    running and accessing DaemonServer's op_tracker after DaemonServer began
+    destruction, leading to use-after-free conditions.
+    
+    When DaemonServer's destructor runs, its members (including op_tracker) begin
+    destruction, but the OpHistory thread may still be running and attempting to
+    access the op_tracker that is being destroyed.
+    
+    Add an explicit shutdown() method to DaemonServer that stops the OpTracker's
+    OpHistory thread before any member destruction begins. Call this from Mgr's
+    destructor to ensure proper shutdown ordering. Use an atomic compare_exchange
+    to make shutdown idempotent, allowing it to be safely called from both Mgr's
+    destructor (preferred path) and DaemonServer's destructor (fallback).
+    
+    This establishes a clear shutdown lifecycle: Mgr calls server.shutdown() which
+    stops the OpHistory thread, then DaemonServer's destructor runs and safely
+    destroys op_tracker with no background threads accessing it.
+    
+    Fixes: https://tracker.ceph.com/issues/76334
+    Signed-off-by: stzuraski898 <steven.zuraski@ibm.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 3fc0551e830..2ad40d32ed8 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -139,11 +139,24 @@ DaemonServer::DaemonServer(MonClient *monc_,
+                                                     cct->_conf->mgr_op_history_slow_op_threshold);
+ }
+ 
+-DaemonServer::~DaemonServer() {
++void DaemonServer::shutdown()
++{
++  bool expected = false;
++  if (!shutting_down.compare_exchange_strong(expected, true)) {
++    return;
++  }
++
++  op_tracker.on_shutdown();
++
+   delete msgr;
++  msgr = nullptr;
+   g_conf().remove_observer(this);
+ }
+ 
++DaemonServer::~DaemonServer() {
++  shutdown();
++}
++
+ class DaemonServerHook : public AdminSocketHook {
+   DaemonServer *daemon_server;
+ public:
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 51405047f07..264a3c3cb4d 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -249,6 +249,7 @@ private:
+   void tick();
+   void maybe_adjust_stats_period();
+   void schedule_tick_locked(double delay_sec);
++  std::atomic<bool> shutting_down = false;
+ 
+   class OSDPerfMetricCollectorListener : public MetricListener {
+   public:
+@@ -318,11 +319,12 @@ public:
+ 
+   DaemonServer(MonClient *monc_,
+                Finisher &finisher_,
+-	       DaemonStateIndex &daemon_state_,
+-	       ClusterState &cluster_state_,
+-	       PyModuleRegistry &py_modules_,
+-	       LogChannelRef cl,
+-	       LogChannelRef auditcl);
++        DaemonStateIndex &daemon_state_,
++        ClusterState &cluster_state_,
++        PyModuleRegistry &py_modules_,
++        LogChannelRef cl,
++        LogChannelRef auditcl);
++  void shutdown();
+   ~DaemonServer() override;
+ 
+   Dispatcher::dispatch_result_t ms_dispatch2(const ceph::ref_t<Message>& m) override;

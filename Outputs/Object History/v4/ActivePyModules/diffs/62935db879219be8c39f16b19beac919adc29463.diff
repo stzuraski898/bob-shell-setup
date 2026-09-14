@@ -1,0 +1,37 @@
+commit 62935db879219be8c39f16b19beac919adc29463
+Author: John Spray <jspray@redhat.com>
+Date:   Wed Jun 21 20:12:58 2017 -0400
+
+    mgr: expose a MgrMap in PyModules
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 113dd665d9c..8412e6cbf5f 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -281,6 +281,12 @@ PyObject *PyModules::get_python(const std::string &what)
+     }
+     f.dump_string("json", json.to_str());
+     return f.get();
++  } else if (what == "mgr_map") {
++    PyFormatter f;
++    cluster_state.with_mgrmap([&f](const MgrMap &mgr_map) {
++      mgr_map.dump(&f);
++    });
++    return f.get();
+   } else {
+     derr << "Python module requested unknown data '" << what << "'" << dendl;
+     Py_RETURN_NONE;
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index 8e52e173062..467555b51a1 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -23,6 +23,7 @@
+ #include "osdc/Objecter.h"
+ #include "client/Client.h"
+ #include "common/LogClient.h"
++#include "mon/MgrMap.h"
+ 
+ #include "DaemonState.h"
+ #include "ClusterState.h"

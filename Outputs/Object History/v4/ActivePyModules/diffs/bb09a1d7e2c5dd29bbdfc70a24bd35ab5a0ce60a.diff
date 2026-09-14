@@ -1,0 +1,46 @@
+commit bb09a1d7e2c5dd29bbdfc70a24bd35ab5a0ce60a
+Author: Ronen Friedman <rfriedma@redhat.com>
+Date:   Sun Oct 17 06:21:16 2021 +0000
+
+    common: hide internal logger configuration strings from clients
+    
+    Replace the common pattern used by clients of the logger, of:
+    - creating multiple "one element maps" for all config options;
+    - passing them, untouched, to the logger's update config.
+    with one that hides the configuration handling details from
+    the users.
+    
+    Note: a followup PR, bypassing the strmaps construction altogether,
+    should be considered.
+    
+    Signed-off-by: Ronen Friedman <rfriedma@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 27b1baf8d1e..249cb73c9e4 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -1422,23 +1422,7 @@ void ActivePyModules::cluster_log(const std::string &channel, clog_type prio,
+   std::lock_guard l(lock);
+ 
+   auto cl = monc.get_log_client()->create_channel(channel);
+-  map<string,string> log_to_monitors;
+-  map<string,string> log_to_syslog;
+-  map<string,string> log_channel;
+-  map<string,string> log_prio;
+-  map<string,string> log_to_graylog;
+-  map<string,string> log_to_graylog_host;
+-  map<string,string> log_to_graylog_port;
+-  uuid_d fsid;
+-  string host;
+-  if (parse_log_client_options(g_ceph_context, log_to_monitors, log_to_syslog,
+-			       log_channel, log_prio, log_to_graylog,
+-			       log_to_graylog_host, log_to_graylog_port,
+-			       fsid, host) == 0)
+-    cl->update_config(log_to_monitors, log_to_syslog,
+-		      log_channel, log_prio, log_to_graylog,
+-		      log_to_graylog_host, log_to_graylog_port,
+-		      fsid, host);
++  cl->parse_client_options(g_ceph_context);
+   cl->do_log(prio, message);
+ }
+ 

@@ -1,0 +1,36 @@
+commit d0eb22f3ba557b9e98836995c813ea77c5e7c2a5
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jul 31 04:14:01 2019 -0500
+
+    mon/health_checks: associate a count with health_alert_t
+    
+    0 means this is a singleton.  Otherwise, we can sum this up, either
+    via merge() or get_or_add().
+    
+    We always structure this so the count goes toward zero (more healthy), so
+    if a value is too low, then we count how much too low it is.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonHealthMetricCollector.cc b/src/mgr/DaemonHealthMetricCollector.cc
+index beba5dad815..0f4d5bd643e 100644
+--- a/src/mgr/DaemonHealthMetricCollector.cc
++++ b/src/mgr/DaemonHealthMetricCollector.cc
+@@ -18,7 +18,7 @@ class SlowOps final : public DaemonHealthMetricCollector {
+     return type == daemon_metric::SLOW_OPS;
+   }
+   health_check_t& _get_check(health_check_map_t& cm) const override {
+-    return cm.get_or_add("SLOW_OPS", HEALTH_WARN, "");
++    return cm.get_or_add("SLOW_OPS", HEALTH_WARN, "", 1);
+   }
+   bool _update(const DaemonKey& daemon,
+                const DaemonHealthMetric& metric) override {
+@@ -61,7 +61,7 @@ class PendingPGs final : public DaemonHealthMetricCollector {
+     return type == daemon_metric::PENDING_CREATING_PGS;
+   }
+   health_check_t& _get_check(health_check_map_t& cm) const override {
+-    return cm.get_or_add("PENDING_CREATING_PGS", HEALTH_WARN, "");
++    return cm.get_or_add("PENDING_CREATING_PGS", HEALTH_WARN, "", 1);
+   }
+   bool _update(const DaemonKey& osd,
+                const DaemonHealthMetric& metric) override {

@@ -1,0 +1,79 @@
+commit adf1486e46cb1f7820c77adb7b6436c47c743242
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Sep 19 11:11:55 2019 -0500
+
+    common/admin_socket: pass Formatter from generic infrastructure
+    
+    The implementation can choose to either use the provided Formatter, or
+    put something directly into outbl.  The implementation may choose to
+    flush the formatter to the output buffer|stream, or let the caller do it
+    for them (usually the latter).
+    
+    Lots of fiddling/cleanup in the implementations to make this build,
+    including dropping the (seeminlyg unused?) ostream& output mode for
+    the librbd asok implementations.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index f9e8d8eb844..a34fb1de826 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -182,13 +182,13 @@ class ClusterSocketHook : public AdminSocketHook {
+ public:
+   explicit ClusterSocketHook(ClusterState *o) : cluster_state(o) {}
+   int call(std::string_view admin_command, const cmdmap_t& cmdmap,
+-	   std::string_view format,
++	   Formatter *f,
+ 	   std::ostream& errss,
+ 	   bufferlist& out) override {
+     stringstream outss;
+     int r = 0;
+     try {
+-      r = cluster_state->asok_command(admin_command, cmdmap, format, outss);
++      r = cluster_state->asok_command(admin_command, cmdmap, f, outss);
+       out.append(outss);
+     } catch (const bad_cmd_get& e) {
+       errss << e.what();
+@@ -216,11 +216,13 @@ void ClusterState::shutdown()
+   asok_hook = NULL;
+ }
+ 
+-bool ClusterState::asok_command(std::string_view admin_command, const cmdmap_t& cmdmap,
+-		       std::string_view format, ostream& ss)
++bool ClusterState::asok_command(
++  std::string_view admin_command,
++  const cmdmap_t& cmdmap,
++  Formatter *f,
++  ostream& ss)
+ {
+   std::lock_guard l(lock);
+-  Formatter *f = Formatter::create(format, "json-pretty", "json-pretty");
+   if (admin_command == "dump_osd_network") {
+     int64_t value = 0;
+     // Default to health warning level if nothing specified
+@@ -367,7 +369,5 @@ bool ClusterState::asok_command(std::string_view admin_command, const cmdmap_t&
+   } else {
+     ceph_abort_msg("broken asok registration");
+   }
+-  f->flush(ss);
+-  delete f;
+   return true;
+ }
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index 66045194dd4..3b06808de86 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -141,8 +141,10 @@ public:
+   }
+   void final_init();
+   void shutdown();
+-  bool asok_command(std::string_view admin_command, const cmdmap_t& cmdmap,
+-		       std::string_view format, ostream& ss);
++  bool asok_command(std::string_view admin_command,
++		    const cmdmap_t& cmdmap,
++		    Formatter *f,
++		    ostream& ss);
+ };
+ 
+ #endif

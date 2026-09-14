@@ -1,0 +1,32 @@
+commit 39ffec281af577c766c619d568f7a7051d108b00
+Author: Danny Al-Gaaf <danny.al-gaaf@bisect.de>
+Date:   Wed Apr 25 09:30:56 2018 +0200
+
+    misc: mark constructors as explicit
+    
+    Set 218 constructors as explicit to avoid implicit usage.
+    
+    Fix for cppcheck warning:
+     Class has a constructor with 1 argument that is
+     not explicit. Such constructors should in general be explicit for
+     type safety reasons. Using the explicit keyword in the constructor
+     means some mistakes when using the class can be avoided.
+    
+     For more information check:
+      https://www.codeproject.com/Articles/28663/Explicit-Constructor-in-C
+    
+    Signed-off-by: Danny Al-Gaaf <danny.al-gaaf@bisect.de>
+
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index d9ce1695609..fa8ab77fd46 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -94,7 +94,7 @@ public:
+   PyObject *pClass = nullptr;
+   PyObject *pStandbyClass = nullptr;
+ 
+-  PyModule(const std::string &module_name_)
++  explicit PyModule(const std::string &module_name_)
+     : module_name(module_name_)
+   {
+   }

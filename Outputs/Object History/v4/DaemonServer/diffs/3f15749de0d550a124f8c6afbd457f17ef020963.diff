@@ -1,0 +1,38 @@
+commit 3f15749de0d550a124f8c6afbd457f17ef020963
+Author: Dan van der Ster <daniel.vanderster@cern.ch>
+Date:   Tue Jun 29 22:36:00 2021 +0200
+
+    mgr/DaemonServer: skip redundant update of pgp_num_actual
+    
+    During PG merge the MGR was observed repeatedly sending identical
+    set pgp_num_actual values, leading to osdmap churn at 2000/hr.
+    
+    Skip the redundant osd set pgp_num_actual command if the
+    pgp_num is already our computed next.
+    
+    Fixes: https://tracker.ceph.com/issues/51433
+    Signed-off-by: Dan van der Ster <daniel.vanderster@cern.ch>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 334badc264e..a9d785177c1 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2859,11 +2859,13 @@ void DaemonServer::adjust_pgs()
+ 		}
+ 	      }
+ 	    }
+-	    dout(10) << "pool " << i.first
+-		     << " pgp_num_target " << p.get_pgp_num_target()
+-		     << " pgp_num " << p.get_pgp_num()
+-		     << " -> " << next << dendl;
+-	    pgp_num_to_set[osdmap.get_pool_name(i.first)] = next;
++	    if (next != p.get_pgp_num()) {
++	      dout(10) << "pool " << i.first
++		       << " pgp_num_target " << p.get_pgp_num_target()
++		       << " pgp_num " << p.get_pgp_num()
++		       << " -> " << next << dendl;
++	      pgp_num_to_set[osdmap.get_pool_name(i.first)] = next;
++	    }
+ 	  }
+ 	}
+ 	if (left == 0) {

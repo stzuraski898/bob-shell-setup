@@ -1,0 +1,33 @@
+# Non-merge commits touching src/mgr/PerfCounterInstance.cc and/or src/mgr/PerfCounterInstance.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+35f6dd06dd0b3c78235e21ac309e4226aa733af1 2025-08-14 Max Kellermann | mgr/DaemonState: move PerfCounters classes to separate sources
+c1865445c5b88cae2df499e4d2047af156225177 2007-12-19 Sage Weil | reorganized source tree
+ef4a4f1a401e2216d13acfd3454ae7586765c853 2007-11-16 Sage Weil | some client request/reply struct redefinition; no more file_data_version, for now; utime_t now uses ceph_timeval
+653205e94a7d02581b084ff719c6fd1ffa279da6 2007-06-01 Sage Weil | * added vim modeline
+6b365d79e812f16f9293046cd7ec62474212d713 2007-05-16 Sage Weil | merged branches/sage/cephmds2 into trunk/ceph
+a67c29d2773779de4ef98c7cf84b21a66876e5b2 2007-03-22 Sage Weil | * clock_tare arg to allow wall clock time * cleaned out some old build targets
+92f7e6e053a334e90ddfcaeb5e9036385ce08108 2007-02-17 Sage Weil | merge from branches/sage/cephmds2
+e1a58442ea046f7ed786789793faf47e7b704081 2007-01-30 Sage Weil | updates to build on darwin.  fuse untested.  need to edit Makefile to enable darwin cflags.
+9b453154cf913cea60ffdd947ac1f8944f643b6e 2007-01-19 Sage Weil | move into trunk
+4f1091440fb8571e8bf9dff9c64bd019ff026256 2006-12-12 Sage Weil | git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@992 29311d96-e01e-0410-9327-a35deaab8ce9
+90764b3117d338ede8c7254d80043015b2d8ead3 2006-10-24 Sage Weil | mds restructuring; logstreamer -> journaler; basic journaler recovery working; mds and osd boot changes; buffer bugfixes
+65004196a52a0d79eb3bb0f1d92009256193b729 2006-10-12 Sage Weil | namespace
+ff7ce8ce8075eec5bdd79bc38b73108c9c27d9f4 2006-10-09 Sage Weil | new object_t struct; monitor work
+8fcfa31a83e23b6c621e859c80eb769a2c6483e6 2006-10-05 Sage Weil | tab cleanup; monitor maps, mds maps; monitor cleanup
+922c58860165f286c995bcbad1b32361510d7a2d 2006-09-26 Sage Weil | client readdir() realted stuff; some mds bug fixes;
+ee14d9841ccea9362d1f2c3ca10a59545ae90b18 2006-09-15 Sage Weil | cleanup of osd failure recovery
+a9ff51d891726cb56ca0de3e1e64cdbfcefbfb59 2006-09-14 Sage Weil | new clock stuff
+1693db33ccb1abb2bdac1fa2d8ffc5ccab4d993a 2006-09-10 Sage Weil | newrepop merge
+45e23298dd4534deb376f0a546510ae07fdb6806 2006-08-09 Sage Weil | client oc fixup
+7d2afd1f3f58ad1ca812ca9bc7ab9ad18758869d 2006-08-08 Sage Weil | *** empty log message ***
+80ebaa3764f13b545da839abd90ecb1c9df00240 2006-02-20 Sage Weil | *** empty log message ***
+a5fef101ec473aaeb2bde3e130f61384ab70e3e6 2006-02-12 Sage Weil | *** empty log message ***
+281a7d31b2df2462e64a5e81b42dc8510fd9bb5c 2006-02-05 Sage Weil | *** empty log message ***
+8bf725f74a2359d2ce8fcacc5cb3f03d94491ea9 2006-02-01 Sage Weil | *** empty log message ***
+8c7283a709cbd1031e4adc5c129a44d81b7a0f8d 2005-07-19 Sage Weil | lots of cleanup clock stuff bug fixes client capabilities! object store attributes, collections (untested in FakeStore)
+ef8d0989b5c3550e70a3c19ad240b7e9fd3dfae3 2005-06-08 Sage Weil | random stuff, mostly time related
+19b194b262d60304792005d1a87875d355ec17ce 2005-05-11 Sage Weil | timers work
+ba1cfdbd4b1cc93c2da34cba1c89377f13c05a15 2005-05-10 Sage Weil | *** empty log message ***
+9afeaa0127bc5e2993e6eea718db81f10d059f10 2004-07-02 Sage Weil | *** empty log message ***

@@ -1,0 +1,78 @@
+commit 8a2f4429b129a24a72fdbc374075bba954be5bd3
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Oct 18 17:33:46 2018 -0500
+
+    mgr: adjust DaemonState device index when daemon metadata is updated
+    
+    We need to unregister the old metadata (in particular, its devices
+    in the DaemonState device indexes) before adjusting and reregistering
+    the new metadata.
+    
+    Do the whole thing under the DaemonState lock to that there isn't a window
+    where the osd metadata isn't present at all.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index 2ef768e352e..2d8d32b2459 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -135,7 +135,11 @@ void DeviceState::print(ostream& out) const
+ void DaemonStateIndex::insert(DaemonStatePtr dm)
+ {
+   RWLock::WLocker l(lock);
++  _insert(dm);
++}
+ 
++void DaemonStateIndex::_insert(DaemonStatePtr dm)
++{
+   if (all.count(dm->key)) {
+     _erase(dm->key);
+   }
+@@ -227,6 +231,11 @@ DaemonStatePtr DaemonStateIndex::get(const DaemonKey &key)
+ void DaemonStateIndex::rm(const DaemonKey &key)
+ {
+   RWLock::WLocker l(lock);
++  _rm(key);
++}
++
++void DaemonStateIndex::_rm(const DaemonKey &key)
++{
+   if (all.count(key)) {
+     _erase(key);
+   }
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index d0822fee886..9f2456b4590 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -268,9 +268,11 @@ public:
+   PerfCounterTypes types;
+ 
+   void insert(DaemonStatePtr dm);
++  void _insert(DaemonStatePtr dm);
+   bool exists(const DaemonKey &key) const;
+   DaemonStatePtr get(const DaemonKey &key);
+   void rm(const DaemonKey &key);
++  void _rm(const DaemonKey &key);
+ 
+   // Note that these return by value rather than reference to avoid
+   // callers needing to stay in lock while using result.  Callers must
+@@ -354,6 +356,18 @@ public:
+     return updating.count(k) > 0;
+   }
+ 
++  void update_metadata(DaemonStatePtr state,
++		       const map<string,string>& meta) {
++    // remove and re-insert in case the device metadata changed
++    RWLock::WLocker l(lock);
++    _rm(state->key);
++    {
++      Mutex::Locker l2(state->lock);
++      state->set_metadata(meta);
++    }
++    _insert(state);
++  }
++
+   /**
+    * Remove state for all daemons of this type whose names are
+    * not present in `names_exist`.  Use this function when you have

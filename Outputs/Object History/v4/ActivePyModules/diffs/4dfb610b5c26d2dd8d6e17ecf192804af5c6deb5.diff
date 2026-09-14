@@ -1,0 +1,21 @@
+commit 4dfb610b5c26d2dd8d6e17ecf192804af5c6deb5
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Tue Nov 26 15:44:37 2019 -0800
+
+    mgr: fix debug typo
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 6cb62910d50..4707a7d74d4 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -953,7 +953,7 @@ void ActivePyModules::get_health_checks(health_check_map_t *checks)
+ {
+   std::lock_guard l(lock);
+   for (auto& [name, module] : modules) {
+-    dout(15) << "getting health checks for" << name << dendl;
++    dout(15) << "getting health checks for " << name << dendl;
+     module->get_health_checks(checks);
+   }
+ }

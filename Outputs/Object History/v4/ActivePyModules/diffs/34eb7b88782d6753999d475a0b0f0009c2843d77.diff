@@ -1,0 +1,23 @@
+commit 34eb7b88782d6753999d475a0b0f0009c2843d77
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Nov 20 11:25:01 2018 -0600
+
+    mon/PGMap: dump_fs_stats -> dump_cluster_stats
+    
+    Better naming (nothing to do with cephfs fs's)
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index b5391b2566b..9f57ed9b0ce 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -320,7 +320,7 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+     cluster_state.with_pgmap([this, &f](const PGMap &pg_map) {
+       cluster_state.with_osdmap(
+           [&pg_map, &f](const OSDMap &osd_map) {
+-        pg_map.dump_fs_stats(nullptr, &f, true);
++        pg_map.dump_cluster_stats(nullptr, &f, true);
+         pg_map.dump_pool_stats_full(osd_map, nullptr, &f, true);
+       });
+     });

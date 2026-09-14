@@ -1,0 +1,42 @@
+commit 7f787704cdcd55df18d204c5251cdd6a3cedd604
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue May 29 16:47:07 2018 -0500
+
+    mgr: use entity_addrvec_t for MgrMap
+    
+    This does several entity_addr_t -> entity_addrvec_t conversions across the
+    mgr code.
+    
+    (Note that entity_addr_t and entity_addrvec_t already encode in an
+    interoperable way.)
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 75f1877931a..3dfdcec8ca6 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -202,7 +202,7 @@ void Mgr::init()
+     // systemd restart us.
+     exit(1);
+   }
+-  dout(4) << "Initialized server at " << server.get_myaddr() << dendl;
++  dout(4) << "Initialized server at " << server.get_myaddrs() << dendl;
+ 
+   // Preload all daemon metadata (will subsequently keep this
+   // up to date by watching maps, so do the initial load before
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index e5b558a791b..2a4c9eec6b4 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -78,7 +78,9 @@ public:
+   ~Mgr();
+ 
+   bool is_initialized() const {return initialized;}
+-  entity_addr_t get_server_addr() const { return server.get_myaddr(); }
++  entity_addrvec_t get_server_addrs() const {
++    return server.get_myaddrs();
++  }
+ 
+   void handle_mgr_digest(MMgrDigest* m);
+   void handle_fs_map(MFSMap* m);

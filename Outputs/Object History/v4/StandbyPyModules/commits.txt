@@ -1,0 +1,36 @@
+# Non-merge commits touching src/mgr/StandbyPyModules.cc and/or src/mgr/StandbyPyModules.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b 2025-10-02 Edwin Rodriguez | Add blank line after header block
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 2025-10-02 Edwin Rodriguez | Add missing blank line after comment block
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+8b8e7522982476d25685ad055d4a89f6173041f8 2021-06-29 Sage Weil | mgr: add get() for standby modules
+719d5e1836c95bcbc446dbeb7d8f03adefd02a3e 2021-06-18 Sage Weil | mgr: generate crash dump for python exceptions
+3bafb5e571681dd71df35bf1863a95d69142d02d 2021-02-16 Sage Weil | mgr: rename config_prefix -> mgr_store_prefix
+b0a4bff845bec0f9bdd07db1acbc78c59f2efca4 2021-02-16 Sage Weil | mgr: fix config option prefix
+662e64ef5d3af402f14f41e8b393687c14b24cd0 2020-11-16 Kefu Chai | mgr: do not include unused header files
+5c95e22109695abec5b481e28428f1b153d932ff 2020-07-16 Adam C. Emerson | {tools,rbd,rados,rgw}: Fix Boost.Bind placeholder warning
+56e34f58cb7a84439c53779467b2d5b495beb3ef 2020-01-13 Mykola Golub | mgr: fix race between module load and notify
+48c4bc445fcacd7980e84b4f135a3115b88b05f1 2019-12-18 Kefu Chai | mgr: drop the compatibility with python2
+489b30844e86dab102f768796251783b6e4a5f8f 2019-08-14 Patrick Donnelly | include: convert FunctionContext usage to generic LambdaContext
+c93dc8849145c1630058e4c0e527f404929216ff 2019-07-07 Kefu Chai | mgr: s/Mutex/ceph::mutex/
+f22347db5509dc2da3cac6bc9f7a9b627798d3ac 2019-01-24 Mykola Golub | mgr: load modules in finisher to avoid potential lock cycles
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f 2018-10-16 Sage Weil | mgr: Mutex::Locker -> std::lock_guard
+5009d9ecc692076360ff777e47db9902c7bff669 2018-09-14 Brad Hubbard | Rename "include/assert.h"
+ab23c506964753990f9fe23e314b9f3e2547a773 2018-08-23 Adam C. Emerson | mgr: Use ceph_assert for asserts.
+abca98058926f8a97af274ab990bf5ae4475c0cf 2018-07-05 Kefu Chai | common: extract SubProcess impl into .cc
+6185bd66a9e9b23f1d1982b0bc12d672c33c6fcd 2018-04-26 John Spray | mgr: implement get_store in StandbyPyModules
+306e4854b5bef5ac1000d80eafaa942cc3f8868e 2018-04-04 John Spray | mgr: separate out module_config and store_cache
+37484af0b86083c02a7a506a0c9be02b3fd67b28 2018-04-09 John Spray | mgr: rework kv store load path
+3193d40d0daf766d5e210e7b1117afbfebd71f31 2018-02-16 Rubab-Syed | mgr: centralized setting/getting of mgr configs
+d3b5c4cd4d90174355820fa77dabe00959992c01 2018-03-29 Gu Zhongyan | misc: fix various log messages
+ce6e043a44e35144b038bc0236b5d244ffee1ca5 2018-03-27 Wilson E. Alvarez | src: Added const references to various function parameters
+46003075924bb16b41149e7c12f31e9a6b7a3f15 2018-01-24 Kefu Chai | mgr: be compatible with py3
+6a8da7ca734726315c06929635c25dbb88599654 2017-11-16 John Spray | mgr: load all modules (not just active ones)
+f4763c32fa84f57c93c559d742203fb3fd2985a8 2017-11-01 John Spray | mgr: emit cluster log message on serve() exception
+29193a47e6cf8297d9b1ceecc7695f2c85434999 2017-10-16 John Spray | mgr: update for SafeThreadState
+bb4e71ed2ebdee1ac5e4b3eee390060e19fea0d8 2017-10-12 John Spray | mgr: fix thread naming
+c1471c7501948004096581ee415ab4a1fa2d9379 2017-08-22 John Spray | mgr: standby modules come up and run now
+df8797320bed7ad9f121477e35d7e3862efd89bd 2017-10-06 John Spray | mgr: cut down duplication between active+standby

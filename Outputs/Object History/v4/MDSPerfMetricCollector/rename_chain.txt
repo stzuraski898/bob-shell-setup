@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/MDSPerfMetricCollector.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/MDSPerfMetricCollector.cc f1bac41828da8775acb7ea30ff5e3ce2bfe65bde f6ba1eea4cde2354e639518210a56d157081ecac
+#
+# Rename chain for src/mgr/MDSPerfMetricCollector.h
+#
+src/mgr/MDSPerfMetricCollector.h 85d82faac250716549ebffeb9eb48f3b4f53711f f6ba1eea4cde2354e639518210a56d157081ecac

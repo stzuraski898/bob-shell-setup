@@ -1,0 +1,111 @@
+commit 1a065043b964f8c014ebb5bc890a243c398ff07c
+Author: Prashant D <pdhange@redhat.com>
+Date:   Mon Mar 28 14:02:08 2022 +0100
+
+    mgr, mon: Keep upto date metadata with mgr for MONs
+    
+    The mgr updates mon metadata through handle_mon_map which
+    gets triggered when MONs were removed/added from/to cluster or
+    the active mgr is restarted or mgr failsover.
+    We could have handled metadata update through MMgrOpen or
+    early MMgrReport messages but these are sent before monitor
+    electin completes and lead monitor updates pending metadata
+    in monstore. Instead of relying on fetching mon metadata using
+    'ceph mon metadata <id>' command, explicitly send metadata
+    update request with mon metadata to mgr.
+    
+    Fixes: https://tracker.ceph.com/issues/55088
+    
+    Signed-off-by: Prashant D <pdhange@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index fd493a8d947..1cc2e977474 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -27,6 +27,7 @@
+ #include "mon/MonCommand.h"
+ 
+ #include "messages/MMgrOpen.h"
++#include "messages/MMgrUpdate.h"
+ #include "messages/MMgrClose.h"
+ #include "messages/MMgrConfigure.h"
+ #include "messages/MMonMgrReport.h"
+@@ -267,6 +268,8 @@ bool DaemonServer::ms_dispatch2(const ref_t<Message>& m)
+       return handle_report(ref_cast<MMgrReport>(m));
+     case MSG_MGR_OPEN:
+       return handle_open(ref_cast<MMgrOpen>(m));
++    case MSG_MGR_UPDATE:
++      return handle_update(ref_cast<MMgrUpdate>(m));
+     case MSG_MGR_CLOSE:
+       return handle_close(ref_cast<MMgrClose>(m));
+     case MSG_COMMAND:
+@@ -531,6 +534,49 @@ bool DaemonServer::handle_open(const ref_t<MMgrOpen>& m)
+   return true;
+ }
+ 
++bool DaemonServer::handle_update(const ref_t<MMgrUpdate>& m)
++{
++  DaemonKey key;
++  if (!m->service_name.empty()) {
++    key.type = m->service_name;
++  } else {
++    key.type = ceph_entity_type_name(m->get_connection()->get_peer_type());
++  }
++  key.name = m->daemon_name;
++
++  dout(10) << "from " << m->get_connection() << " " << key << dendl;
++
++  if (m->get_connection()->get_peer_type() == entity_name_t::TYPE_CLIENT &&
++      m->service_name.empty()) {
++    // Clients should not be sending us update request
++    dout(10) << "rejecting update request from non-daemon client " << m->daemon_name
++	     << dendl;
++    clog->warn() << "rejecting report from non-daemon client " << m->daemon_name
++		 << " at " << m->get_connection()->get_peer_addrs();
++    m->get_connection()->mark_down();
++    return true;
++  }
++
++
++  {
++    std::unique_lock locker(lock);
++
++    DaemonStatePtr daemon;
++    // Look up the DaemonState
++    if (daemon_state.exists(key)) {
++      dout(20) << "updating existing DaemonState for " << key << dendl;
++
++      daemon = daemon_state.get(key);
++      if (m->need_metadata_update == true &&
++          !m->daemon_metadata.empty()) {
++        daemon_state.update_metadata(daemon, m->daemon_metadata);
++      }
++    }
++  }
++
++  return true;
++}
++
+ bool DaemonServer::handle_close(const ref_t<MMgrClose>& m)
+ {
+   std::lock_guard l(lock);
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index d719a96a7bc..ff98356807a 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -36,6 +36,7 @@
+ 
+ class MMgrReport;
+ class MMgrOpen;
++class MMgrUpdate;
+ class MMgrClose;
+ class MMonMgrReport;
+ class MCommand;
+@@ -275,6 +276,7 @@ public:
+ 
+   void fetch_missing_metadata(const DaemonKey& key, const entity_addr_t& addr);
+   bool handle_open(const ceph::ref_t<MMgrOpen>& m);
++  bool handle_update(const ceph::ref_t<MMgrUpdate>& m);
+   bool handle_close(const ceph::ref_t<MMgrClose>& m);
+   bool handle_report(const ceph::ref_t<MMgrReport>& m);
+   bool handle_command(const ceph::ref_t<MCommand>& m);

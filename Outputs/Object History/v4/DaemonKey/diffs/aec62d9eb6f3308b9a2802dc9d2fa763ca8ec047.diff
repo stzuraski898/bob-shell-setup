@@ -1,0 +1,33 @@
+commit aec62d9eb6f3308b9a2802dc9d2fa763ca8ec047
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Thu Aug 14 13:55:50 2025 +0200
+
+    mgr/DaemonKey: include cleanup
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/DaemonKey.cc b/src/mgr/DaemonKey.cc
+index 5501ac106db..062a98e4337 100644
+--- a/src/mgr/DaemonKey.cc
++++ b/src/mgr/DaemonKey.cc
+@@ -1,5 +1,7 @@
+ #include "DaemonKey.h"
+ 
++#include <ostream>
++
+ std::pair<DaemonKey, bool> DaemonKey::parse(const std::string& s)
+ {
+   auto p = s.find('.');
+diff --git a/src/mgr/DaemonKey.h b/src/mgr/DaemonKey.h
+index d43672096f2..8de9d331a11 100644
+--- a/src/mgr/DaemonKey.h
++++ b/src/mgr/DaemonKey.h
+@@ -3,7 +3,7 @@
+ 
+ #pragma once
+ 
+-#include <ostream>
++#include <iosfwd>
+ #include <string>
+ #include <utility>
+ 

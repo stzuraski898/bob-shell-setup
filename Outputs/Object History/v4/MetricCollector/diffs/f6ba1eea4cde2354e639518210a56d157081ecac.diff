@@ -1,0 +1,32 @@
+commit f6ba1eea4cde2354e639518210a56d157081ecac
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Tue Sep 10 09:53:09 2019 -0400
+
+    mds: forward mds metrics to ceph manager w/ quering interfaces
+    
+    `MetricAggregator` sets up manager callback to forward metrics
+    data to ceph-mgr. Also, add querying interfaces for adding and
+    removing user queries and a simple interface to fetch MDS perf
+    metrics.
+    
+    Fixes: http://tracker.ceph.com/issues/36253
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/MetricCollector.cc b/src/mgr/MetricCollector.cc
+index 1eb26a8faad..836662a165d 100644
+--- a/src/mgr/MetricCollector.cc
++++ b/src/mgr/MetricCollector.cc
+@@ -6,6 +6,7 @@
+ 
+ #include "mgr/MetricCollector.h"
+ #include "mgr/OSDPerfMetricTypes.h"
++#include "mgr/MDSPerfMetricTypes.h"
+ 
+ #define dout_context g_ceph_context
+ #define dout_subsys ceph_subsys_mgr
+@@ -181,3 +182,5 @@ void MetricCollector<Query, Limit, Key, Report>::process_reports_generic(
+ 
+ template class
+ MetricCollector<OSDPerfMetricQuery, OSDPerfMetricLimit, OSDPerfMetricKey, OSDPerfMetricReport>;
++template class
++MetricCollector<MDSPerfMetricQuery, MDSPerfMetricLimit, MDSPerfMetricKey, MDSPerfMetrics>;

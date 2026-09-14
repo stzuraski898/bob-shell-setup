@@ -1,0 +1,41 @@
+commit efc29fb3630aaab4e04d99621c40561d38a99c03
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Apr 16 12:12:01 2021 -0400
+
+    mgr/MgrStandby: respawn if mgr_standby_modules changes
+    
+    If we have standby modules and this goes false, or do not have modules
+    and this goes true, then respawn.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index ea15a1456eb..b78874c05ff 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -75,6 +75,7 @@ const char** MgrStandby::get_tracked_conf_keys() const
+     "clog_to_graylog",
+     "clog_to_graylog_host",
+     "clog_to_graylog_port",
++    "mgr_standby_modules",
+     "host",
+     "fsid",
+     NULL
+@@ -97,6 +98,17 @@ void MgrStandby::handle_conf_change(
+       changed.count("fsid")) {
+     _update_log_config();
+   }
++  if (changed.count("mgr_standby_modules") && !active_mgr) {
++    if (g_conf().get_val<bool>("mgr_standby_modules") != py_module_registry.have_standby_modules()) {
++      dout(1) << "mgr_standby_modules now "
++	      << (int)g_conf().get_val<bool>("mgr_standby_modules")
++	      << ", standby modules are "
++	      << (py_module_registry.have_standby_modules() ? "":"not ")
++	      << "active, respawning"
++	      << dendl;
++      respawn();
++    }
++  }
+ }
+ 
+ int MgrStandby::init()

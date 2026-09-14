@@ -1,0 +1,58 @@
+commit 5c3846306b6bf7864327265bbac9607295f46cfc
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Jun 29 15:11:12 2017 -0400
+
+    mgr: transmit command descriptions to mgr in activating beacon
+    
+    The mgr already sends a beacon to the mon immediately
+    after loading python modules in Mgr::init, to indicate
+    that it is now available.  Use that beacon to transmit
+    the command descriptions.
+    
+    The monitor should handle this beacon by persisting
+    the command descriptions before persisting the updated
+    mgrmap that indicates that the mgr is now active.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 68126e9430e..e46b2cabd63 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -632,3 +632,14 @@ void Mgr::tick()
+   dout(10) << dendl;
+   server.send_report();
+ }
++
++std::vector<MonCommand> Mgr::get_command_set() const
++{
++  Mutex::Locker l(lock);
++
++  std::vector<MonCommand> commands = DaemonServer::mgr_commands;
++  std::vector<MonCommand> py_commands = py_modules.get_commands();
++  commands.insert(commands.end(), py_commands.begin(), py_commands.end());
++  return commands;
++}
++
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index ccf22da9e7c..68f2b40b461 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -53,7 +53,7 @@ protected:
+   Client    *client;
+   Messenger *client_messenger;
+ 
+-  Mutex lock;
++  mutable Mutex lock;
+   SafeTimer timer;
+   Finisher finisher;
+ 
+@@ -98,6 +98,8 @@ public:
+ 
+   void background_init(Context *completion);
+   void shutdown();
++
++  std::vector<MonCommand> get_command_set() const;
+ };
+ 
+ #endif

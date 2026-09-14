@@ -1,0 +1,62 @@
+commit 91c6016dd9e0c6997ca0e8b7f946864d66987bec
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Apr 12 14:21:20 2019 -0500
+
+    msg: remove old ms_* auth methods from Dispatcher interface
+    
+    In the mon there is an opportunity to further clean up the code around
+    get_authorizer().
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index e6976cb3891..b7c5e35f59b 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -158,11 +158,6 @@ entity_addrvec_t DaemonServer::get_myaddrs() const
+   return msgr->get_myaddrs();
+ }
+ 
+-KeyStore *DaemonServer::ms_get_auth1_authorizer_keystore()
+-{
+-  return monc->rotating_secrets.get();
+-}
+-
+ int DaemonServer::ms_handle_authentication(Connection *con)
+ {
+   MgrSession *s = new MgrSession(cct);
+@@ -210,21 +205,6 @@ int DaemonServer::ms_handle_authentication(Connection *con)
+   return 1;
+ }
+ 
+-bool DaemonServer::ms_get_authorizer(
+-  int dest_type,
+-  AuthAuthorizer **authorizer)
+-{
+-  dout(10) << "type=" << ceph_entity_type_name(dest_type) << dendl;
+-
+-  if (dest_type == CEPH_ENTITY_TYPE_MON) {
+-    return true;
+-  }
+-
+-  *authorizer = monc->build_authorizer(dest_type);
+-  dout(20) << "got authorizer " << *authorizer << dendl;
+-  return *authorizer != NULL;
+-}
+-
+ bool DaemonServer::ms_handle_reset(Connection *con)
+ {
+   if (con->get_peer_type() == CEPH_ENTITY_TYPE_OSD) {
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index b728fabad8d..5c87dec15e7 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -142,8 +142,6 @@ public:
+   bool ms_handle_reset(Connection *con) override;
+   void ms_handle_remote_reset(Connection *con) override {}
+   bool ms_handle_refused(Connection *con) override;
+-  bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer) override;
+-  KeyStore *ms_get_auth1_authorizer_keystore() override;
+ 
+   bool handle_open(const ceph::ref_t<MMgrOpen>& m);
+   bool handle_close(const ceph::ref_t<MMgrClose>& m);

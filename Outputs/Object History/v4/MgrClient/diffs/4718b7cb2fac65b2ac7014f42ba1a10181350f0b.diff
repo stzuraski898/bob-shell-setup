@@ -1,0 +1,71 @@
+commit 4718b7cb2fac65b2ac7014f42ba1a10181350f0b
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Jul 6 17:20:32 2018 +0800
+
+    common,rbd,rgw,osd: extract config values into ConfigValues
+    
+    this change introduce three classes: ConfigValues, ConfigProxy and
+    ConfigReader. in seastar port of OSD, each CPU shard will hold its own
+    reference of configuration, and upon changes of settings, each
+    shard will be updated with the new setting in async. so this forces us
+    to be able to keep two set of configuration at the same time. so we
+    need to extract the changeable part of md_config_t out. so we can
+    replace the old one with new one on demand, and let different shards
+    share the same unchanged part, amon the other things, the Options map
+    and the lookup tables. that's why we need ConfigValues. we will add
+    a policy template for this class, so we can specialize for Seastar
+    implementation to allow different ConfigProxy instances to point
+    md_config_impl<> to different ConfigValues.
+    
+    because the observer interface is still using md_config_t, to minimise
+    the impact of this change, handle_conf_change() and
+    handle_subsys_change() are not changed. but as it accepts a `const
+    md_config_t`, which cannot be used to create/reference the ConfigProxy
+    holding it, we need to introduce ConfigReader for reading the updated
+    setting from md_config_t in a simpler way, without exposing the
+    internal "values" member variable.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 377e2086267..f1a10f0bd17 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -69,7 +69,7 @@ void MgrClient::shutdown()
+     m->service_name = service_name;
+     session->con->send_message(m);
+     utime_t timeout;
+-    timeout.set_from_double(cct->_conf->get_val<double>(
++    timeout.set_from_double(cct->_conf.get_val<double>(
+ 			      "mgr_client_service_daemon_unregister_timeout"));
+     shutdown_cond.WaitInterval(lock, timeout);
+   }
+@@ -129,7 +129,7 @@ void MgrClient::reconnect()
+   if (last_connect_attempt != utime_t()) {
+     utime_t now = ceph_clock_now();
+     utime_t when = last_connect_attempt;
+-    when += cct->_conf->get_val<double>("mgr_connect_retry_interval");
++    when += cct->_conf.get_val<double>("mgr_connect_retry_interval");
+     if (now < when) {
+       if (!connect_retry_callback) {
+ 	connect_retry_callback = timer.add_event_at(
+@@ -190,8 +190,8 @@ void MgrClient::_send_open()
+       open->service_daemon = service_daemon;
+       open->daemon_metadata = daemon_metadata;
+     }
+-    cct->_conf->get_config_bl(0, &open->config_bl, &last_config_bl_version);
+-    cct->_conf->get_defaults_bl(&open->config_defaults_bl);
++    cct->_conf.get_config_bl(0, &open->config_bl, &last_config_bl_version);
++    cct->_conf.get_defaults_bl(&open->config_defaults_bl);
+     session->con->send_message(open);
+   }
+ }
+@@ -347,7 +347,7 @@ void MgrClient::_send_report()
+ 
+   report->daemon_health_metrics = std::move(daemon_health_metrics);
+ 
+-  cct->_conf->get_config_bl(last_config_bl_version, &report->config_bl,
++  cct->_conf.get_config_bl(last_config_bl_version, &report->config_bl,
+ 			    &last_config_bl_version);
+ 
+   session->con->send_message(report);

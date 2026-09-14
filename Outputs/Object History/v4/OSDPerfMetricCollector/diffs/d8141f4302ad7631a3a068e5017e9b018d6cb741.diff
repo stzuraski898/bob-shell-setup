@@ -1,0 +1,29 @@
+commit d8141f4302ad7631a3a068e5017e9b018d6cb741
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Fri Apr 25 23:53:08 2025 +0800
+
+    mgr: migrate from boost::variant to std::variant
+    
+    Replace `boost::variant` with `std::variant` as part of our effort to reduce
+    third-party dependencies in favor of C++ standard library alternatives.
+    
+    Benefits include:
+    - Improved code readability and maintainability
+    - Reduced external dependency surface
+    - More consistent API usage with other components
+    
+    Signed-off-by: Kefu Chai <tchaikov@gmail.com>
+
+diff --git a/src/mgr/OSDPerfMetricCollector.cc b/src/mgr/OSDPerfMetricCollector.cc
+index eb548ce70c4..eba49b920c6 100644
+--- a/src/mgr/OSDPerfMetricCollector.cc
++++ b/src/mgr/OSDPerfMetricCollector.cc
+@@ -21,7 +21,7 @@ OSDPerfMetricCollector::OSDPerfMetricCollector(MetricListener &listener)
+ 
+ void OSDPerfMetricCollector::process_reports(const MetricPayload &payload) {
+   const std::map<OSDPerfMetricQuery, OSDPerfMetricReport> &reports =
+-    boost::get<OSDMetricPayload>(payload).report;
++    std::get<OSDMetricPayload>(payload).report;
+ 
+   std::lock_guard locker(lock);
+   process_reports_generic(

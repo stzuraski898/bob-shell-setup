@@ -1,0 +1,24 @@
+commit 671641df5af03c296c6d8f2869ed624a1d6e9f17
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jan 8 09:23:12 2019 -0600
+
+    mgr/ServiceMap: print daemon addr in legacy format
+    
+    The v1/v2 prefix isn't useful anyway since the client can connect via
+    any protocol.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ServiceMap.cc b/src/mgr/ServiceMap.cc
+index e873aa7eee2..ba7a43b24a8 100644
+--- a/src/mgr/ServiceMap.cc
++++ b/src/mgr/ServiceMap.cc
+@@ -34,7 +34,7 @@ void ServiceMap::Daemon::dump(Formatter *f) const
+   f->dump_unsigned("start_epoch", start_epoch);
+   f->dump_stream("start_stamp") << start_stamp;
+   f->dump_unsigned("gid", gid);
+-  f->dump_stream("addr") << addr;
++  f->dump_string("addr", addr.get_legacy_str());
+   f->open_object_section("metadata");
+   for (auto& p : metadata) {
+     f->dump_string(p.first.c_str(), p.second);

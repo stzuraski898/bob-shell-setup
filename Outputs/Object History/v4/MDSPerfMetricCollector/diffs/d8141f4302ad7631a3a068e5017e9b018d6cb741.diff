@@ -1,0 +1,29 @@
+commit d8141f4302ad7631a3a068e5017e9b018d6cb741
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Fri Apr 25 23:53:08 2025 +0800
+
+    mgr: migrate from boost::variant to std::variant
+    
+    Replace `boost::variant` with `std::variant` as part of our effort to reduce
+    third-party dependencies in favor of C++ standard library alternatives.
+    
+    Benefits include:
+    - Improved code readability and maintainability
+    - Reduced external dependency surface
+    - More consistent API usage with other components
+    
+    Signed-off-by: Kefu Chai <tchaikov@gmail.com>
+
+diff --git a/src/mgr/MDSPerfMetricCollector.cc b/src/mgr/MDSPerfMetricCollector.cc
+index 62298aba36a..2d62e3ef355 100644
+--- a/src/mgr/MDSPerfMetricCollector.cc
++++ b/src/mgr/MDSPerfMetricCollector.cc
+@@ -21,7 +21,7 @@ MDSPerfMetricCollector::MDSPerfMetricCollector(MetricListener &listener)
+ }
+ 
+ void MDSPerfMetricCollector::process_reports(const MetricPayload &payload) {
+-  const MDSPerfMetricReport &metric_report = boost::get<MDSMetricPayload>(payload).metric_report;
++  const MDSPerfMetricReport &metric_report = std::get<MDSMetricPayload>(payload).metric_report;
+ 
+   std::lock_guard locker(lock);
+   process_reports_generic(

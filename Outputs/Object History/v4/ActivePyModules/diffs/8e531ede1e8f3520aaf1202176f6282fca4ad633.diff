@@ -1,0 +1,27 @@
+commit 8e531ede1e8f3520aaf1202176f6282fca4ad633
+Author: peng jiaqi <peng.jiaqi@zte.com.cn>
+Date:   Tue Jan 5 11:15:26 2021 +0800
+
+    mgr: fix deadlock in ActivePyModules::get_osdmap()
+    
+    In function "ActivePyModules::get_osdmap()", We do not read or write to
+    object "ActivePyModules", so it is safe to delete lock
+    "ActivePyModules::lock", and it can avoid other thread waiting for lock
+    "ActivePyModules::lock"
+    
+     Fixes: https://tracker.ceph.com/issues/48852
+    
+    Signed-off-by: peng jiaqi <peng.jiaqi@zte.com.cn>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 0b9fd9d158c..41fdd01a0ea 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -930,7 +930,6 @@ PyObject *ActivePyModules::get_osdmap()
+ 
+   PyThreadState *tstate = PyEval_SaveThread();
+   {
+-    std::lock_guard l(lock);
+     cluster_state.with_osdmap([&](const OSDMap& o) {
+         newmap->deepish_copy_from(o);
+       });

@@ -1,0 +1,39 @@
+commit b1e5d492d684b5a28b0009301bf894531c53f3b9
+Author: John Spray <jspray@redhat.com>
+Date:   Mon Apr 3 14:27:02 2017 -0400
+
+    mgr: fix deadlock in dispatch
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index a6f26cbcb86..771d21058c1 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -354,17 +354,16 @@ void Mgr::load_config()
+ 
+ void Mgr::shutdown()
+ {
+-  // FIXME: pre-empt init() if it is currently running, so that it will
+-  // give up the lock for us.
+-  Mutex::Locker l(lock);
+-
+   finisher.queue(new FunctionContext([&](int) {
+-    monc->sub_unwant("log-info");
+-    monc->sub_unwant("mgrdigest");
+-    monc->sub_unwant("fsmap");
+-    // First stop the server so that we're not taking any more incoming
+-    // requests
+-    server.shutdown();
++    {
++      Mutex::Locker l(lock);
++      monc->sub_unwant("log-info");
++      monc->sub_unwant("mgrdigest");
++      monc->sub_unwant("fsmap");
++      // First stop the server so that we're not taking any more incoming
++      // requests
++      server.shutdown();
++    }
+     // after the messenger is stopped, signal modules to shutdown via finisher
+     py_modules.shutdown();
+   }));

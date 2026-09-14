@@ -1,0 +1,35 @@
+commit f941025561ecd6e42b032980d77555ef2540aa70
+Author: Naveen Naidu <naveennaidu479@gmail.com>
+Date:   Wed Mar 19 19:13:47 2025 +0530
+
+    mgr: do not ignore labeled perf counters in MMgrReport
+    
+    The labeled perf counters are now included in the MMgrReport sent from
+    MgrClients. The 'get_unlabeled_perf_schema_python' is also updated to
+    ignore labeled counters, since labels counters requires new
+    representation format not supported by the current logic.
+    
+    Signed-off-by: Naveen Naidu <naveen.naidu@ibm.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 01dbf2914eb..23843622b38 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -330,15 +330,8 @@ void MgrClient::_send_report()
+   {
+     // Helper for checking whether a counter should be included
+     auto include_counter = [this](
+-        const PerfCounters::perf_counter_data_any_d &ctr,
+-        const PerfCounters &perf_counters)
+-    {
+-      // FIXME: We don't send labeled perf counters to the mgr currently.
+-      auto labels = ceph::perf_counters::key_labels(perf_counters.get_name());
+-      if (labels.begin() != labels.end()) {
+-        return false;
+-      }
+-
++			       const PerfCounters::perf_counter_data_any_d &ctr,
++			       const PerfCounters &perf_counters) {
+       return perf_counters.get_adjusted_priority(ctr.prio) >= (int)stats_threshold;
+     };
+ 

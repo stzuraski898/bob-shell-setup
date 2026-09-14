@@ -1,0 +1,35 @@
+commit f2f4493b26debbc0ce956c0de0f5da43627d035d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Sep 13 14:27:49 2018 -0500
+
+    mgr/DaemonServer: expose keyring for authenticator verification
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index baacf9bc632..d6dfde3bf05 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -161,6 +161,10 @@ entity_addrvec_t DaemonServer::get_myaddrs() const
+   return msgr->get_myaddrs();
+ }
+ 
++KeyStore *DaemonServer::ms_get_auth1_authorizer_keystore()
++{
++  return monc->rotating_secrets.get();
++}
+ 
+ bool DaemonServer::ms_verify_authorizer(
+   Connection *con,
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 3dbc2f8f98f..1f78d3f8acf 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -160,6 +160,7 @@ public:
+     bool& isvalid,
+     CryptoKey& session_key,
+     std::unique_ptr<AuthAuthorizerChallenge> *challenge) override;
++  KeyStore *ms_get_auth1_authorizer_keystore() override;
+ 
+   bool handle_open(MMgrOpen *m);
+   bool handle_close(MMgrClose *m);

@@ -1,0 +1,79 @@
+commit dd9f9e268b5562bae8972bce03ec0970f353ae14
+Author: Ramana Raja <rraja@redhat.com>
+Date:   Thu Nov 2 14:38:02 2023 -0400
+
+    mgr/Mgr: remove shutdown() and handle_signal()
+    
+    Mgr::shutdown() and Mgr::handle_signal() are never called since
+    3363a10. The mgr just exits on SIGINT or SIGTERM.
+    
+    Also found and removed other unreachable code associated with
+    shutdown in mgr codebase.
+    
+    Fixes: https://tracker.ceph.com/issues/63410
+    Signed-off-by: Ramana Raja <rraja@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index a4e85e2fc42..b1781316f82 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -98,7 +98,6 @@ DaemonServer::DaemonServer(MonClient *monc_,
+       audit_clog(audit_clog_),
+       pgmap_ready(false),
+       timer(g_ceph_context, lock),
+-      shutting_down(false),
+       tick_event(nullptr),
+       osd_perf_metric_collector_listener(this),
+       osd_perf_metric_collector(osd_perf_metric_collector_listener),
+@@ -358,11 +357,6 @@ void DaemonServer::schedule_tick_locked(double delay_sec)
+     tick_event = nullptr;
+   }
+ 
+-  // on shutdown start rejecting explicit requests to send reports that may
+-  // originate from python land which may still be running.
+-  if (shutting_down)
+-    return;
+-
+   tick_event = timer.add_event_after(delay_sec,
+     new LambdaContext([this](int r) {
+       tick();
+@@ -407,19 +401,6 @@ void DaemonServer::handle_mds_perf_metric_query_updated()
+       }));
+ }
+ 
+-void DaemonServer::shutdown()
+-{
+-  dout(10) << "begin" << dendl;
+-  msgr->shutdown();
+-  msgr->wait();
+-  cluster_state.shutdown();
+-  dout(10) << "done" << dendl;
+-
+-  std::lock_guard l(lock);
+-  shutting_down = true;
+-  timer.shutdown();
+-}
+-
+ static DaemonKey key_from_service(
+   const std::string& service_name,
+   int peer_type,
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index a7b64561004..43125533e74 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -190,7 +190,6 @@ private:
+   void maybe_ready(int32_t osd_id);
+ 
+   SafeTimer timer;
+-  bool shutting_down;
+   Context *tick_event;
+   void tick();
+   void schedule_tick_locked(double delay_sec);
+@@ -255,7 +254,6 @@ private:
+ 
+ public:
+   int init(uint64_t gid, entity_addrvec_t client_addrs);
+-  void shutdown();
+ 
+   entity_addrvec_t get_myaddrs() const;
+ 

@@ -1,0 +1,52 @@
+commit b8f2bc43b49b3d9ab815797c3f95a5d10277e6a1
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Apr 18 13:10:15 2019 -0500
+
+    mgr/BaseMgrModule: run MonCommandCompletion on the finisher
+    
+    The completion takes the ActivePyModules::lock, but the caller may be
+    holding an internal lock for Objecter and/or MonClient.  Avoid deadlock
+    by putting the completion on our finisher.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index f4fc0c173fc..d5520c310e9 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -46,9 +46,11 @@ ActivePyModules::ActivePyModules(PyModuleConfig &module_config_,
+   : module_config(module_config_), daemon_state(ds), cluster_state(cs),
+     monc(mc), clog(clog_), audit_clog(audit_clog_), objecter(objecter_),
+     client(client_), finisher(f),
++    cmd_finisher(g_ceph_context, "cmd_finisher", "cmdfin"),
+     server(server), py_module_registry(pmr), lock("ActivePyModules")
+ {
+   store_cache = std::move(store_data);
++  cmd_finisher.start();
+ }
+ 
+ ActivePyModules::~ActivePyModules() = default;
+@@ -434,6 +436,9 @@ void ActivePyModules::shutdown()
+     lock.Lock();
+   }
+ 
++  cmd_finisher.wait_for_empty();
++  cmd_finisher.stop();
++
+   modules.clear();
+ }
+ 
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 758f94f0647..b3feb0be4e6 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -47,6 +47,9 @@ class ActivePyModules
+   Objecter &objecter;
+   Client   &client;
+   Finisher &finisher;
++public:
++  Finisher cmd_finisher;
++private:
+   DaemonServer &server;
+   PyModuleRegistry &py_module_registry;
+ 

@@ -1,0 +1,57 @@
+commit f69069e114ea8c785d6c27c57560a0b9bb8c16be
+Author: Samuel Just <sjust@redhat.com>
+Date:   Fri Oct 24 03:00:45 2025 +0000
+
+    mgr: serialize python objects sent between subinterpreters via remote
+    
+    Signed-off-by: Samuel Just <sjust@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 0cf6aa3c116..8df65080904 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -625,19 +625,21 @@ bool ActivePyModules::get_store(const std::string &module_name,
+   }
+ }
+ 
+-PyObject *ActivePyModules::dispatch_remote(
++std::optional<std::vector<std::byte>> ActivePyModules::dispatch_remote(
+     const std::string &other_module,
+     const std::string &method,
+-    PyObject *args,
+-    PyObject *kwargs,
++    std::span<std::byte const> pickled_args,
++    std::span<std::byte const> pickled_kwargs,
+     std::string *err)
+ {
+   auto mod_iter = modules.find(other_module);
+   ceph_assert(mod_iter != modules.end());
+ 
+-  return mod_iter->second->dispatch_remote(method, args, kwargs, err);
++  return mod_iter->second->dispatch_remote(
++    method, pickled_args, pickled_kwargs, err);
+ }
+ 
++
+ bool ActivePyModules::get_config(const std::string &module_name,
+     const std::string &key, std::string *val) const
+ {
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index c688c3485f3..1864befe5ec 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -233,11 +233,11 @@ public:
+     return modules.at(module_name)->method_exists(method_name);
+   }
+ 
+-  PyObject *dispatch_remote(
++  std::optional<std::vector<std::byte>> dispatch_remote(
+       const std::string &other_module,
+       const std::string &method,
+-      PyObject *args,
+-      PyObject *kwargs,
++      std::span<std::byte const> pickled_args,
++      std::span<std::byte const> pickled_kwargs,
+       std::string *err);
+ 
+   int init();

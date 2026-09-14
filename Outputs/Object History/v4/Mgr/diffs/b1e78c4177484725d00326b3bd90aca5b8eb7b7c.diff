@@ -1,0 +1,29 @@
+commit b1e78c4177484725d00326b3bd90aca5b8eb7b7c
+Author: Greg Farnum <gfarnum@redhat.com>
+Date:   Tue Apr 13 04:12:11 2021 +0000
+
+    mgr: do not require sqlite3.h if WITH_LIBCEPHSQLITE=OFF
+    
+    Signed-off-by: Greg Farnum <gfarnum@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index ea73177edb4..c20242e9fe6 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -13,8 +13,6 @@
+ 
+ #include <Python.h>
+ 
+-#include <sqlite3.h>
+-
+ #include "osdc/Objecter.h"
+ #include "client/Client.h"
+ #include "common/errno.h"
+@@ -24,6 +22,7 @@
+ #include "global/signal_handler.h"
+ 
+ #ifdef WITH_LIBCEPHSQLITE
++#  include <sqlite3.h>
+ #  include "include/libcephsqlite.h"
+ #endif
+ 

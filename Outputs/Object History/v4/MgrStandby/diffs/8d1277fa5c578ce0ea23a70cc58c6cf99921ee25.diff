@@ -1,0 +1,28 @@
+commit 8d1277fa5c578ce0ea23a70cc58c6cf99921ee25
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Aug 3 13:00:56 2017 -0400
+
+    mgr: omit module list in beacon logging
+    
+    This is useful in itself, but awkward when dealing
+    with logs generally, because it means that when you
+    grep on the name of a module, you get mostly beacon
+    messages rather than the log messages from the
+    module.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 70542754ece..9ea5276ad99 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -158,8 +158,7 @@ void MgrStandby::send_beacon()
+   bool available = active_mgr != nullptr && active_mgr->is_initialized();
+ 
+   auto addr = available ? active_mgr->get_server_addr() : entity_addr_t();
+-  dout(10) << "sending beacon as gid " << monc.get_global_id()
+-	   << " modules " << modules << dendl;
++  dout(10) << "sending beacon as gid " << monc.get_global_id() << dendl;
+ 
+   map<string,string> metadata;
+   metadata["addr"] = monc.get_my_addr().ip_only_to_str();

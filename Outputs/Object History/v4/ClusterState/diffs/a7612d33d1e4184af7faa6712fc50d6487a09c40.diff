@@ -1,0 +1,33 @@
+commit a7612d33d1e4184af7faa6712fc50d6487a09c40
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Aug 10 15:00:46 2017 -0400
+
+    mgr/ClusterState: record osd_stat for out osds too
+    
+    I'm not quite sure why we were doing this. :/
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 7e01a811ef1..b727ac1867e 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -70,16 +70,8 @@ void ClusterState::ingest_pgstats(MPGStats *stats)
+   Mutex::Locker l(lock);
+ 
+   const int from = stats->get_orig_source().num();
+-  bool is_in = false;
+-  objecter->with_osdmap([&is_in, from](const OSDMap &osd_map){
+-      is_in = osd_map.is_in(from);
+-  });
+-
+-  if (is_in) {
+-    pending_inc.update_stat(from, stats->epoch, std::move(stats->osd_stat));
+-  } else {
+-    pending_inc.update_stat(from, stats->epoch, osd_stat_t());
+-  }
++
++  pending_inc.update_stat(from, stats->epoch, std::move(stats->osd_stat));
+ 
+   for (auto p : stats->pg_stat) {
+     pg_t pgid = p.first;

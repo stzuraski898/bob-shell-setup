@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/DaemonKey.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/DaemonKey.cc aec62d9eb6f3308b9a2802dc9d2fa763ca8ec047 5aac7eba36be99861eb8726872e339ff55360f47
+#
+# Rename chain for src/mgr/DaemonKey.h
+#
+src/mgr/DaemonKey.h aec62d9eb6f3308b9a2802dc9d2fa763ca8ec047 5aac7eba36be99861eb8726872e339ff55360f47

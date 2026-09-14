@@ -1,0 +1,26 @@
+commit 10d2d2e2dd613badd0801763b0586d524dfc2121
+Author: Kamoltat Sirivadhna <ksirivad@redhat.com>
+Date:   Tue Jun 21 20:06:07 2022 +0000
+
+    src/mgr/DaemonServer.cc: fix typo in output gap >= max_pg_num_change
+    
+    Fix typo of the output when pgnum is scaling faster
+    than pgp_num in the function DaemonServer::adjust_pgs().
+    
+    Fixes: https://tracker.ceph.com/issues/56151
+    
+    Signed-off-by: Kamoltat <ksirivad@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 03a5867a338..b8120a14a7e 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2826,7 +2826,7 @@ void DaemonServer::adjust_pgs()
+ 	      dout(10) << "pool " << i.first
+ 		       << " pg_num " << p.get_pg_num()
+ 		       << " - pgp_num " << p.get_pgp_num()
+-		       << " gap > max_pg_num_change " << max_jump
++		       << " gap >= max_pg_num_change " << max_jump
+ 		       << " - must scale pgp_num first"
+ 		       << dendl;
+ 	    } else {

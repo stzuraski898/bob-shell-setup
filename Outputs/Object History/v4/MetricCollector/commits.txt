@@ -1,0 +1,11 @@
+# Non-merge commits touching src/mgr/MetricCollector.cc and/or src/mgr/MetricCollector.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+c2470f271cce4d512f2cf00552c9b753e4c69f71 2021-06-29 Jos Collin | mgr, pybind/mgr, mgr/stats: be resilient to offline rank0 MDS
+9a05872fdd499575961ee1a8d188d19054841eb8 2021-10-01 Aswin Toni | MetricCollector.h: Add check to prevent mgr from crashing
+7523aef6e8656952418d17227c877952f9370f95 2019-08-26 Venky Shankar | mgr/stats: mds performance stats module
+f6ba1eea4cde2354e639518210a56d157081ecac 2019-09-10 Venky Shankar | mds: forward mds metrics to ceph manager w/ quering interfaces
+efcebe1eb4ae16ea9c633436e3e105add4a2662c 2019-09-10 Venky Shankar | mgr: templatize/generalize metrics collection interface

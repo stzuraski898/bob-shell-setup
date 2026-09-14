@@ -1,0 +1,7 @@
+# Commit → function map for ThreadMonitor
+# Format: SHA | func1 func2 ...
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+# Method: git @@ hunk context matched against current functions.txt
+#
+28647966e2e085f7c1a8514faafe1f82df99fb5a | monitoring_loop
+95a90f7da8a32dd2a5a1e3b381aaeacea378437b | (no functions)

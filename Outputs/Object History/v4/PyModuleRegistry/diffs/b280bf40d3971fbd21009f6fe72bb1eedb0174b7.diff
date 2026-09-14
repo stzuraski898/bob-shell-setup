@@ -1,0 +1,21 @@
+commit b280bf40d3971fbd21009f6fe72bb1eedb0174b7
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Tue Dec 5 21:56:19 2017 -0500
+
+    common: Remove backported max and make_unique
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index ed32cf76041..a70e622be3e 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -162,7 +162,7 @@ int PyModuleRegistry::init(const MgrMap &map)
+   // Load python code
+   for (const auto& module_name : mgr_map.modules) {
+     dout(1) << "Loading python module '" << module_name << "'" << dendl;
+-    auto mod = ceph::make_unique<PyModule>(module_name);
++    auto mod = std::make_unique<PyModule>(module_name);
+     int r = mod->load(pMainThreadState);
+     if (r != 0) {
+       // Don't use handle_pyerror() here; we don't have the GIL

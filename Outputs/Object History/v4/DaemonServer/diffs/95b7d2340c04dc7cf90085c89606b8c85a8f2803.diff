@@ -1,0 +1,44 @@
+commit 95b7d2340c04dc7cf90085c89606b8c85a8f2803
+Author: Ren Huanwen <ren.huanwen@zte.com.cn>
+Date:   Wed Aug 22 15:07:57 2018 +0800
+
+    mgr: add pg_state_ready for pgs show in unknown state
+    
+    Pgs show the unknown state, when the mgr has just started, use the command ceph pg dump pgs_brief\pgs\...,
+    because the pgs state has not been reported from the Osd to the Mgr service,
+    we need to add this state for pgs show. in this way,our management system can judge whether to filter
+    the unknown pg state based on this flag.
+    
+    Fixes: http://tracker.ceph.com/issues/25103
+    Signed-off-by: huanwen ren <ren.huanwen@zte.com.cn>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ebdacaf6901..4a3c88360bf 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1998,6 +1998,14 @@ bool DaemonServer::handle_command(MCommand *m)
+     }
+     return true;
+   } else {
++    if (!pgmap_ready) {
++      ss << "Warning: due to ceph-mgr restart, some PG states may not be up to date\n";
++    }
++    if (f) {
++       f->open_object_section("pg_info");
++       f->dump_bool("pg_ready", pgmap_ready);
++    }
++
+     // fall back to feeding command to PGMap
+     r = cluster_state.with_pgmap([&](const PGMap& pg_map) {
+ 	return cluster_state.with_osdmap([&](const OSDMap& osdmap) {
+@@ -2006,6 +2014,10 @@ bool DaemonServer::handle_command(MCommand *m)
+ 	  });
+       });
+ 
++    if (f) {
++      f->close_section();
++      f->flush(cmdctx->odata);
++    }
+     if (r != -EOPNOTSUPP) {
+       cmdctx->reply(r, ss);
+       return true;

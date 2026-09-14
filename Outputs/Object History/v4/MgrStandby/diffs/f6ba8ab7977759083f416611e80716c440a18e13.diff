@@ -1,0 +1,57 @@
+commit f6ba8ab7977759083f416611e80716c440a18e13
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Jun 15 15:57:36 2017 -0400
+
+    mgr: fix MgrStandby eating messages
+    
+    It was failing to pass up the Mgr::ms_dispatch
+    return value, so messages were being consumed
+    even if Mgr was returning false.  Mgr returns
+    false to enable Client to see FSMap, so the
+    symptom was the Client not working.
+    
+    While we're here, refactor switch into if, because
+    there were only two paths in the switch and we
+    don't expect to be adding more.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 12a211b120b..d46dc194aa7 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -304,23 +304,18 @@ bool MgrStandby::ms_dispatch(Message *m)
+   Mutex::Locker l(lock);
+   dout(4) << state_str() << " " << *m << dendl;
+ 
+-  switch (m->get_type()) {
+-    case MSG_MGR_MAP:
+-      handle_mgr_map(static_cast<MMgrMap*>(m));
+-      break;
+-
+-    default:
+-      if (active_mgr) {
+-	auto am = active_mgr;
+-        lock.Unlock();
+-        am->ms_dispatch(m);
+-        lock.Lock();
+-      } else {
+-        return false;
+-      }
++  if (m->get_type() == MSG_MGR_MAP) {
++    handle_mgr_map(static_cast<MMgrMap*>(m));
++    return true;
++  } else if (active_mgr) {
++    auto am = active_mgr;
++    lock.Unlock();
++    bool handled = am->ms_dispatch(m);
++    lock.Lock();
++    return handled;
++  } else {
++    return false;
+   }
+-
+-  return true;
+ }
+ 
+ 

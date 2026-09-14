@@ -1,0 +1,25 @@
+commit 8bf92fb6f687f113193163c512419a13cb0dcd57
+Author: chunmei Liu <chunmei.liu@intel.com>
+Date:   Tue Oct 23 15:08:07 2018 -0700
+
+    common: move lock out of PerfCounterCollection and rename it
+    
+    extract PerfCounterCollectionImpl and move m_lock out
+    from perfcounters.cc to upper,then seastar osd can reuse
+    functions in perfcounters.cc.
+    
+    Signed-off-by: chunmei Liu <chunmei.liu@intel.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 4bddbe2a19c..5f2a62a465d 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -257,7 +257,7 @@ void MgrClient::_send_report()
+   auto pcc = cct->get_perfcounters_collection();
+ 
+   pcc->with_counters([this, report](
+-        const PerfCountersCollection::CounterMap &by_path)
++        const PerfCountersCollectionImpl::CounterMap &by_path)
+   {
+     // Helper for checking whether a counter should be included
+     auto include_counter = [this](

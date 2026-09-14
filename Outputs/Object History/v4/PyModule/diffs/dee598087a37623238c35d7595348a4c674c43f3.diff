@@ -1,0 +1,69 @@
+commit dee598087a37623238c35d7595348a4c674c43f3
+Author: Tim Serong <tserong@suse.com>
+Date:   Thu Apr 2 16:46:57 2020 +1100
+
+    mgr/PyModule: fix missing tracebacks in handle_pyerror()
+    
+    In certain cases, errors raised in mgr modules don't actually result in a
+    proper traceback in the mgr log; all you see is a message like "'Hello'
+    object has no a ttribute 'dneasdfasdf'", but you have no idea where that
+    came from, which is a complete PITA to debug.
+    
+    Here's what's going on: handle_pyerror() calls PyErr_Fetch() to get
+    information about the error that occurred, then passes that information
+    back to python's traceback.format_exception() function to get the traceback.
+    If we write code in an mgr module that explicitly raises an exception
+    (e.g.: 'raise RuntimeError("that didn't work")'), the error value returned
+    by PyErr_Fetch() is of type RuntimeError, and traceback.format_exception()
+    does the right thing.  If however we accidentally write code that's just
+    broken (e.g.: 'self.dneasdfasdf += 1'), the error value returned is not
+    an actual exception, it's just a string.  So traceback.format_exception()
+    freaks out with something like "'str' object has no attribute '__cause__'"
+    (which we don't actually ever see in the logs), which in turn dumps us in a
+    "catch (error_already_set const &)" block, which just prints out the
+    single line error string.
+    
+    https://docs.python.org/3/c-api/exceptions.html#c.PyErr_NormalizeException
+    tells us that "Under certain circumstances, the values returned by
+    PyErr_Fetch() below can be “unnormalized”, meaning that *exc is a class
+    object but *val is not an instance of the same class.".  And that's exactly
+    the problem we're having here.  We're getting a 'str', not an Exception.
+    Adding a call to PyErr_NormalizeException() turns the value back into a
+    proper Exception type and traceback.format_exception() now always does the
+    right thing.
+    
+    I've also added calls to peek_pyerror() in the catch blocks, so if anything
+    else ever somehow causes traceback.format_exception to fail, we'll at least
+    have an idea of what it is in the log.
+    
+    Fixes: https://tracker.ceph.com/issues/44799
+    Signed-off-by: Tim Serong <tserong@suse.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 016a6cf7df5..6ebf2b9ad2b 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -43,6 +43,7 @@ std::string handle_pyerror()
+     PyObject *exc, *val, *tb;
+     object formatted_list, formatted;
+     PyErr_Fetch(&exc, &val, &tb);
++    PyErr_NormalizeException(&exc, &val, &tb);
+     handle<> hexc(exc), hval(allow_null(val)), htb(allow_null(tb));
+     object traceback(import("traceback"));
+     if (!tb) {
+@@ -56,6 +57,7 @@ std::string handle_pyerror()
+           std::stringstream ss;
+           ss << PyUnicode_AsUTF8(name_attr) << ": " << PyUnicode_AsUTF8(val);
+           Py_XDECREF(name_attr);
++          ss << "\nError processing exception object: " << peek_pyerror();
+           return ss.str();
+         }
+     } else {
+@@ -69,6 +71,7 @@ std::string handle_pyerror()
+           std::stringstream ss;
+           ss << PyUnicode_AsUTF8(name_attr) << ": " << PyUnicode_AsUTF8(val);
+           Py_XDECREF(name_attr);
++          ss << "\nError processing exception object: " << peek_pyerror();
+           return ss.str();
+         }
+     }

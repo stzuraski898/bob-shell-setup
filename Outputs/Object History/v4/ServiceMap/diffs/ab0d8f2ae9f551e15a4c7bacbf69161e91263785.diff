@@ -1,0 +1,120 @@
+commit ab0d8f2ae9f551e15a4c7bacbf69161e91263785
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Mar 19 08:21:18 2021 -0400
+
+    mgr/ServiceMap: adjust 'ceph -s' summary
+    
+    - Do not list individual daemon ids as this won't scale for larger
+      clusters
+    - Do not contemplate multile daemons of the same type that register with
+      different "daemon_type" -- not until we actually have any that do that.
+    - Present counts by various groupings: distinct hosts and rgw zones to
+      start.
+    
+      services:
+        mon:           1 daemons, quorum a (age 4m)
+        mgr:           x(active, since 3m)
+        osd:           1 osds: 1 up (since 3m), 1 in (since 3m)
+        cephfs-mirror: 1 daemon active (1 hosts)
+        rbd-mirror:    2 daemons active (1 hosts)
+        rgw:           2 daemons active (1 hosts, 1 zones)
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/ServiceMap.cc b/src/mgr/ServiceMap.cc
+index 4babb81f224..b6f8ad97c86 100644
+--- a/src/mgr/ServiceMap.cc
++++ b/src/mgr/ServiceMap.cc
+@@ -78,60 +78,48 @@ std::string ServiceMap::Service::get_summary() const
+     return "no daemons active";
+   }
+ 
+-  std::ostringstream ss;
+-
+-  // The format two pairs in metadata:
+-  //   "daemon_type"   : "${TYPE}"
+-  //   "daemon_prefix" : "${PREFIX}"
++  // If "daemon_type" is present, this will be used in place of "daemon" when
++  // reporting the count (e.g., "${N} daemons").
+   //
+-  // TYPE: will be used to replace the default "daemon(s)"
+-  // showed in `ceph -s`. If absent, the "daemon" will be used.
+-  // PREFIX: if present the active members will be classified
+-  // by the prefix instead of "daemon_name".
++  // We will additional break down the count by various groupings, based
++  // on the following keys:
++  //
++  //   "hostname" -> host(s)
++  //   "zone_id" -> zone(s)
+   //
+-  // For exmaple for iscsi gateways, it will be something likes:
+-  //   "daemon_type"   : "portal"
+-  //   "daemon_prefix" : "gateway${N}"
+   // The `ceph -s` will be something likes:
+-  //    iscsi: 3 portals active (gateway0, gateway1, gateway2)
++  //    iscsi: 3 portals active (3 hosts)
++  //      rgw: 3 gateways active (3 hosts, 1 zone)
+ 
+-  std::map<std::string, std::set<std::string>> prefs;
++  std::map<std::string, std::set<std::string>> groupings;
++  std::string type("daemon");
++  int num = 0;
+   for (auto& d : daemons) {
+-    // In case the "daemon_type" is absent, use the
+-    // default "daemon" type
+-    std::string type("daemon");
+-    std::string prefix;
+-
+-    auto t = d.second.metadata.find("daemon_type");
+-    if (t != d.second.metadata.end()) {
+-      type = d.second.metadata.at("daemon_type");
++    ++num;
++    if (auto p = d.second.metadata.find("daemon_type");
++	p != d.second.metadata.end()) {
++      type = p->second;
+     }
+-    auto p = d.second.metadata.find("daemon_prefix");
+-    if (p != d.second.metadata.end()) {
+-      prefix = d.second.metadata.at("daemon_prefix");
+-    } else {
+-      // In case the "daemon_prefix" is absent, show
+-      // the daemon_name instead.
+-      prefix = d.first;
++    for (auto k : {make_pair("zone", "zone_id"),
++	  make_pair("host", "hostname")}) {
++      auto p = d.second.metadata.find(k.second);
++      if (p != d.second.metadata.end()) {
++	groupings[k.first].insert(p->second);
++      }
+     }
+-    auto& pref = prefs[type];
+-    pref.insert(prefix);
+   }
+ 
+-  for (auto &pr : prefs) {
+-    if (!ss.str().empty())
+-      ss << ", ";
+-
+-    ss << pr.second.size() << " " << pr.first
+-       << (pr.second.size() > 1 ? "s" : "")
+-       << " active";
+-
+-    if (pr.second.size()) {
+-      ss << " (";
+-      std::copy(std::begin(pr.second), std::end(pr.second),
+-                std::experimental::make_ostream_joiner(ss, ", "));
+-      ss << ")";
++  std::ostringstream ss;
++  ss << num << " " << type << (num > 1 ? "s" : "") << " active";
++  if (groupings.size()) {
++    ss << " (";
++    for (auto i = groupings.begin(); i != groupings.end(); ++i) {
++      if (i != groupings.begin()) {
++	ss << ", ";
++      }
++      ss << i->second.size() << " " << i->first << (i->second.size() ? "s" : "");
+     }
++    ss << ")";
+   }
+ 
+   return ss.str();

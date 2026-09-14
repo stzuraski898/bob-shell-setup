@@ -1,0 +1,37 @@
+commit 3bafb5e571681dd71df35bf1863a95d69142d02d
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Feb 16 18:27:08 2021 -0500
+
+    mgr: rename config_prefix -> mgr_store_prefix
+    
+    The prefix for module kv store is "mgr/", but it is not *config* (which
+    lives under /config/mgr/...).  Rename the constant.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 6595f4426c2..60c18eb3773 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -28,7 +28,7 @@
+ #define dout_prefix *_dout << "mgr[py] "
+ 
+ // definition for non-const static member
+-std::string PyModule::config_prefix = "mgr/";
++std::string PyModule::mgr_store_prefix = "mgr/";
+ 
+ // Courtesy of http://stackoverflow.com/questions/1418015/how-to-get-python-exception-text
+ #define BOOST_BIND_GLOBAL_PLACEHOLDERS
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index 72a3ef491fa..6df3ee5860f 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -86,7 +86,7 @@ private:
+   std::map<std::string, MgrMap::ModuleOption> options;
+ 
+ public:
+-  static std::string config_prefix;
++  static std::string mgr_store_prefix;
+ 
+   SafeThreadState pMyThreadState;
+   PyObject *pClass = nullptr;

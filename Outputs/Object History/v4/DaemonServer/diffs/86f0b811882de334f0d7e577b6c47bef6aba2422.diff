@@ -1,0 +1,21 @@
+commit 86f0b811882de334f0d7e577b6c47bef6aba2422
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Oct 12 21:57:48 2017 -0500
+
+    mon/PGMap: add purged_snaps map to PGMapDigest
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 2fe220b50b3..e46631ca42d 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1422,7 +1422,7 @@ void DaemonServer::send_report()
+   auto m = new MMonMgrReport();
+   py_modules.get_health_checks(&m->health_checks);
+ 
+-  cluster_state.with_pgmap([&](const PGMap& pg_map) {
++  cluster_state.with_mutable_pgmap([&](PGMap& pg_map) {
+       cluster_state.update_delta_stats();
+ 
+       if (pending_service_map.epoch) {

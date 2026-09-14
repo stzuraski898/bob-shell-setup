@@ -1,0 +1,10 @@
+# Function list for OSDPerfMetricCollector (via ctags)
+# Format: qualified_name | file:line
+#
+OSDPerfMetricCollector | src/mgr/OSDPerfMetricCollector.cc:15
+__anon0fe74f640102 | src/mgr/OSDPerfMetricCollector.cc:28
+get_counters | src/mgr/OSDPerfMetricCollector.cc:34
+process_reports | src/mgr/OSDPerfMetricCollector.cc:22
+OSDPerfMetricCollector | src/mgr/OSDPerfMetricCollector.h:17
+get_counters | src/mgr/OSDPerfMetricCollector.h:20
+process_reports | src/mgr/OSDPerfMetricCollector.h:19

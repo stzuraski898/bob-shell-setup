@@ -1,0 +1,45 @@
+commit 72d72fc5db33110effdbfcdfd19e086d4dd831be
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Jun 1 22:31:11 2021 -0400
+
+    pybind/mgr/mgr_module: make get_mgr_ip() return mgr's IP from mgrmap
+    
+    The previous approach was convoluted: we tried to do a DNS lookup on the
+    hostname, which would fail if /etc/hosts had an entry.  Which, with podman,
+    it does.  And the IP it has will vary in all sorts of weird ways.  For
+    example, CNI on my host means that I get a dynamic address in 10.88.0.0/24.
+    
+    Avoid all of that nonsense and use the IP that is in the mgrmap.  There
+    may be multiple IPs (v2 + v1, or maybe even IPv4 + v6 in the future); in
+    that case, use the first one.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index eb7c81b47e2..eeb2d8cba58 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -425,6 +425,23 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+       mgr_map.dump(&f);
+       return f.get();
+     });
++  } else if (what == "mgr_ips") {
++    return cluster_state.with_mgrmap([&](const MgrMap &mgr_map) {
++      with_gil_t with_gil{no_gil};
++      f.open_array_section("ips");
++      std::set<std::string> did;
++      for (auto& i : server.get_myaddrs().v) {
++	std::string ip = i.ip_only_to_str();
++	if (did.count(ip)) {
++	  continue;
++	}
++	did.insert(ip);
++	f.dump_string("ip", ip);
++      }
++      f.close_section();
++      return f.get();
++    });
++
+   } else if (what == "have_local_config_map") {
+     with_gil_t with_gil{no_gil};
+     f.dump_bool("have_local_config_map", have_local_config_map);

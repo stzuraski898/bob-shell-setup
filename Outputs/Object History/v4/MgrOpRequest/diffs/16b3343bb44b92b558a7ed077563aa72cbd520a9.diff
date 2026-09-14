@@ -1,0 +1,31 @@
+commit 16b3343bb44b92b558a7ed077563aa72cbd520a9
+Author: Mohit Agrawal <moagrawa@redhat.com>
+Date:   Fri Jun 14 13:31:39 2024 +0530
+
+    mgr: Convert the last_event_detail data_type to std::string
+    
+    During restart of osd and run a command "ceph tell mgr
+    dump_historic_ops_by_duration" the flag_point shows some garbage
+    characters. The garbage character is showing due to having
+    garbage value of last_event_detail string variable.
+    
+    The data type of last_event_detail is const char* not
+    a std::string so the value can become garbage during call
+    op->mark_reched so to avoid an issue change the data type.
+    
+    Fixes: https://tracker.ceph.com/issues/66268
+    Signed-off-by: Mohit Agrawal <moagrawa@redhat.com>
+
+diff --git a/src/mgr/MgrOpRequest.h b/src/mgr/MgrOpRequest.h
+index 9e67af080f8..5b29e5980a3 100644
+--- a/src/mgr/MgrOpRequest.h
++++ b/src/mgr/MgrOpRequest.h
+@@ -32,7 +32,7 @@ private:
+   entity_inst_t req_src_inst;
+   uint8_t hit_flag_points;
+   uint8_t latest_flag_point;
+-  const char* last_event_detail = nullptr;
++  std::string last_event_detail;
+ 
+   static const uint8_t flag_started =              1 << 0;
+   static const uint8_t flag_queued_for_module =    1 << 1;

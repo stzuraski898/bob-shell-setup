@@ -1,0 +1,40 @@
+commit b1f12671184a8da25c1b0059f23bf366483e395f
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Fri Nov 23 15:25:22 2018 +0200
+
+    mgr: add limit param to osd perf query
+    
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 716ae6dde75..a1d5f87208e 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2684,9 +2684,10 @@ void DaemonServer::_send_configure(ConnectionRef c)
+ }
+ 
+ OSDPerfMetricQueryID DaemonServer::add_osd_perf_query(
+-  const OSDPerfMetricQuery &query)
++    const OSDPerfMetricQuery &query,
++    const std::optional<OSDPerfMetricLimit> &limit)
+ {
+-  return osd_perf_metric_collector.add_query(query);
++  return osd_perf_metric_collector.add_query(query, limit);
+ }
+ 
+ int DaemonServer::remove_osd_perf_query(OSDPerfMetricQueryID query_id)
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 47020a884b4..d6a5aafbd6b 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -165,7 +165,9 @@ public:
+ 
+   void _send_configure(ConnectionRef c);
+ 
+-  OSDPerfMetricQueryID add_osd_perf_query(const OSDPerfMetricQuery &query);
++  OSDPerfMetricQueryID add_osd_perf_query(
++      const OSDPerfMetricQuery &query,
++      const std::optional<OSDPerfMetricLimit> &limit);
+   int remove_osd_perf_query(OSDPerfMetricQueryID query_id);
+   int get_osd_perf_counters(OSDPerfMetricQueryID query_id,
+                             std::map<OSDPerfMetricKey, PerformanceCounters> *c);

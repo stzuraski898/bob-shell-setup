@@ -1,0 +1,23 @@
+commit 08d1a6fc3c57ccbeb6dff8fce1aae429edca97f3
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Feb 5 10:16:22 2019 -0600
+
+    mgr: send progress events to mon
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index eccc2bfb0f6..7245c677d9f 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -151,6 +151,10 @@ public:
+    */
+   void get_health_checks(health_check_map_t *checks);
+ 
++  void get_progress_events(map<std::string,ProgressEvent> *events) {
++    return active_modules->get_progress_events(events);
++  }
++
+   // FIXME: breaking interface so that I don't have to go rewrite all
+   // the places that call into these (for now)
+   // >>>

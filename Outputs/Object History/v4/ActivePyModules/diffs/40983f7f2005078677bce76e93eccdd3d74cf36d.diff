@@ -1,0 +1,30 @@
+commit 40983f7f2005078677bce76e93eccdd3d74cf36d
+Author: Mohamad Gebai <mgebai@suse.com>
+Date:   Tue Jan 23 08:56:36 2018 -0500
+
+    mgr/iostat: implement 'ceph iostat' as a mgr plugin
+    
+    Allow a mgr module to fetch 'io_rate' to access pg_sum_delta,
+    which holds the IO activity recently completed by the OSDs.
+    
+    Signed-off-by: Mohamad Gebai <mgebai@suse.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 08d907ec556..215ae3ca191 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -282,6 +282,14 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+         }
+     );
+     return f.get();
++  } else if (what == "io_rate") {
++    PyFormatter f;
++    cluster_state.with_pgmap(
++      [&f](const PGMap &pg_map) {
++        pg_map.dump_delta(&f);
++      }
++    );
++    return f.get();
+   } else if (what == "df") {
+     PyFormatter f;
+ 

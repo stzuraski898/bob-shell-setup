@@ -1,0 +1,21 @@
+commit e8b32359731be7e8ac5c50f125e5ad10c254aeca
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Jan 11 17:24:43 2018 -0600
+
+    common/config,mgr: fix config for new encode/decode syntax
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 8ff21144ff3..545d4b1bebc 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -129,7 +129,7 @@ class DaemonState
+ 	config_defaults_bl.length()) {
+       auto p = config_defaults_bl.begin();
+       try {
+-	::decode(config_defaults, p);
++	decode(config_defaults, p);
+       } catch (buffer::error e) {
+       }
+     }

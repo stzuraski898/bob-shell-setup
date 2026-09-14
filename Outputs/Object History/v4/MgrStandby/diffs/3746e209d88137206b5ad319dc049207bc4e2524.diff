@@ -1,0 +1,94 @@
+commit 3746e209d88137206b5ad319dc049207bc4e2524
+Author: John Spray <jspray@redhat.com>
+Date:   Thu Mar 30 10:07:23 2017 -0400
+
+    mgr: embed Client instance for mds_command
+    
+    Now plugins can talk to MDS daemons.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 613a075e7ed..ea7055b5bfc 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -15,6 +15,9 @@
+ 
+ #include "common/errno.h"
+ #include "mon/MonClient.h"
++#include "osdc/Objecter.h"
++#include "client/Client.h"
++
+ #include "include/stringify.h"
+ #include "global/global_context.h"
+ #include "global/signal_handler.h"
+@@ -38,6 +41,7 @@ MgrStandby::MgrStandby() :
+   monc(new MonClient(g_ceph_context)),
+   client_messenger(Messenger::create_client_messenger(g_ceph_context, "mgr")),
+   objecter(new Objecter(g_ceph_context, client_messenger, monc, NULL, 0, 0)),
++  client(new Client(client_messenger, monc, objecter)),
+   log_client(g_ceph_context, client_messenger, &monc->monmap, LogClient::NO_FLAGS),
+   clog(log_client.create_channel(CLOG_CHANNEL_CLUSTER)),
+   audit_clog(log_client.create_channel(CLOG_CHANNEL_AUDIT)),
+@@ -97,6 +101,8 @@ int MgrStandby::init()
+ 
+   // Initialize Messenger
+   client_messenger->add_dispatcher_tail(this);
++  client_messenger->add_dispatcher_head(objecter);
++  client_messenger->add_dispatcher_tail(client.get());
+   client_messenger->start();
+ 
+   // Initialize MonClient
+@@ -135,9 +141,10 @@ int MgrStandby::init()
+ 
+   objecter->set_client_incarnation(0);
+   objecter->init();
+-  client_messenger->add_dispatcher_head(objecter);
+   objecter->start();
+ 
++  client->init();
++
+   timer.init();
+   send_beacon();
+ 
+@@ -184,6 +191,8 @@ void MgrStandby::shutdown()
+     active_mgr->shutdown();
+   }
+ 
++  client->shutdown();
++
+   objecter->shutdown();
+ 
+   timer.shutdown();
+@@ -229,7 +238,8 @@ void MgrStandby::handle_mgr_map(MMgrMap* mmap)
+   if (active_in_map) {
+     if (!active_mgr) {
+       dout(1) << "Activating!" << dendl;
+-      active_mgr.reset(new Mgr(monc, client_messenger, objecter, clog, audit_clog));
++      active_mgr.reset(new Mgr(monc, client_messenger, objecter,
++            client.get(), clog, audit_clog));
+       active_mgr->background_init();
+       dout(1) << "I am now active" << dendl;
+     } else {
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index 89ede8cee2c..0eaf11c1016 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -26,6 +26,9 @@
+ #include "DaemonState.h"
+ #include "ClusterState.h"
+ 
++class Objecter;
++class Client;
++
+ class MMgrMap;
+ class Mgr;
+ 
+@@ -41,6 +44,7 @@ protected:
+   MonClient *monc;
+   Messenger *client_messenger;
+   Objecter *objecter;
++  std::unique_ptr<Client> client;
+ 
+   LogClient log_client;
+   LogChannelRef clog, audit_clog;

@@ -1,0 +1,81 @@
+commit b17ff3c54b38c37f715a8cd165eba2c6b79f8d70
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu Mar 15 13:30:34 2018 +0800
+
+    mgr/MgrClient: guard send_pgstats() with lock
+    
+    ms_handle_reset() races with send_pgstats(), and the latter could
+    reference a session with a null connection. so we need to guard
+    send_pgstats() with a lock.
+    
+    Fixes: http://tracker.ceph.com/issues/23370
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 25b0eea2cc8..372adaaf2df 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -218,20 +218,20 @@ bool MgrClient::ms_handle_refused(Connection *con)
+   return false;
+ }
+ 
+-void MgrClient::send_stats()
++void MgrClient::_send_stats()
+ {
+-  send_report();
+-  send_pgstats();
++  _send_report();
++  _send_pgstats();
+   if (stats_period != 0) {
+     report_callback = timer.add_event_after(
+       stats_period,
+       new FunctionContext([this](int) {
+-	  send_stats();
++	  _send_stats();
+ 	}));
+   }
+ }
+ 
+-void MgrClient::send_report()
++void MgrClient::_send_report()
+ {
+   assert(lock.is_locked_by_me());
+   assert(session);
+@@ -338,6 +338,12 @@ void MgrClient::send_report()
+ }
+ 
+ void MgrClient::send_pgstats()
++{
++  Mutex::Locker l(lock);
++  _send_pgstats();
++}
++
++void MgrClient::_send_pgstats()
+ {
+   if (pgstats_cb && session) {
+     session->con->send_message(pgstats_cb());
+@@ -366,7 +372,7 @@ bool MgrClient::handle_mgr_configure(MMgrConfigure *m)
+   bool starting = (stats_period == 0) && (m->stats_period != 0);
+   stats_period = m->stats_period;
+   if (starting) {
+-    send_stats();
++    _send_stats();
+   }
+ 
+   m->put();
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 0f4d3c32e69..09d90851bb4 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -123,8 +123,9 @@ public:
+   void update_osd_health(std::vector<OSDHealthMetric>&& metrics);
+ 
+ private:
+-  void send_stats();
+-  void send_report();
++  void _send_stats();
++  void _send_pgstats();
++  void _send_report();
+ };
+ 
+ #endif

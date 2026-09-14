@@ -1,0 +1,28 @@
+commit d7ba56f4214148a2378adcf47da9916a752bc7a0
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sat Jul 22 13:48:00 2017 -0400
+
+    mgr/DaemonServer: fix lock cycle
+    
+    This breaks a lock cycle with DaemonState::lock and PyModules::lock.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 16729abc246..dffa6b7c3b9 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -398,9 +398,11 @@ bool DaemonServer::handle_report(MMgrReport *m)
+     // always contains metadata.
+   }
+   assert(daemon != nullptr);
+-  Mutex::Locker l(daemon->lock);
+   auto &daemon_counters = daemon->perf_counters;
+-  daemon_counters.update(m);
++  {
++    Mutex::Locker l(daemon->lock);
++    daemon_counters.update(m);
++  }
+   // if there are any schema updates, notify the python modules
+   if (!m->declare_types.empty() || !m->undeclare_types.empty()) {
+     ostringstream oss;

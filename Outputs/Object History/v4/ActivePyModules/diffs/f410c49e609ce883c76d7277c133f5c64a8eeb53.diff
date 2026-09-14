@@ -1,0 +1,22 @@
+commit f410c49e609ce883c76d7277c133f5c64a8eeb53
+Author: Steven Zuraski <steven.zuraski@ibm.com>
+Date:   Thu Apr 16 21:56:53 2026 +0000
+
+    mgr: Properly set description in labeled get_perf_schema_python
+    
+    Fixes: https://tracker.ceph.com/issues/76048
+    Signed-off-by: stzuraski898 <steven.zuraski@ibm.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index fcef67daa37..431da2c76ca 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -1141,7 +1141,7 @@ PyObject* ActivePyModules::get_perf_schema_python(
+     size_t pos = type.path.rfind('.');
+     std::string sub_counter_name = type.path.substr(pos + 1, type.path.length());
+     Formatter::ObjectSection counter_section(*f, sub_counter_name);
+-    f->create_unique("description", type.description);
++    f->dump_string("description", type.description);
+     if (!type.nick.empty()) {
+       f->dump_string("nick", type.nick);
+     }

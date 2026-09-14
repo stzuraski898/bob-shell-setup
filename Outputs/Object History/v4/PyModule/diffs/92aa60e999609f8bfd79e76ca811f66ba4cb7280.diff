@@ -1,0 +1,29 @@
+commit 92aa60e999609f8bfd79e76ca811f66ba4cb7280
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Fri Oct 11 12:32:11 2024 +0200
+
+    mgr/PyModule: get_error_string() returns copy
+    
+    The explanation from the previous commit about get_name() applies here
+    as well; but other than `module_name`, the `error_string` field is
+    mutable and does indeed need protection.  But still, returning a
+    reference is wrong, because the reference does not need protection;
+    the pointed-to value does.  This can be fixed easily by making the
+    method return a value instead of a reference.  The copy is made while
+    holding the lock.
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index 3dd39a77865..a47db3a47ef 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -163,7 +163,7 @@ public:
+   const std::string &get_name() const {
+     return module_name;
+   }
+-  const std::string &get_error_string() const {
++  std::string get_error_string() const {
+     std::lock_guard l(lock) ; return error_string;
+   }
+   bool get_can_run() const {

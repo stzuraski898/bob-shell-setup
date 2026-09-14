@@ -1,0 +1,33 @@
+commit ff6b3997caa43d3eac0fc462f3be9ec4fa5ae6ed
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Sep 18 11:59:18 2019 +0800
+
+    mgr: set hostname in DeviceState::set_metadata()
+    
+    before this change, we don't update daemon's host if the daemon already
+    exists in the `daemon_state` registry when handling MMgrOpen even if the
+    hostname is updated and different from the existing one. and we set
+    daemon's metadata and update daemon's hostname when handling MMgrOpen or
+    MServiceMap.
+    
+    after this change, daemon's hostname is always set whenever
+    `DaemonState::set_metadata()` is called.
+    
+    Fixes: https://tracker.ceph.com/issues/40871
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 8c5a8021eaf..356dcc6b111 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -181,6 +181,10 @@ class DaemonState
+ 	}
+       }
+     }
++    p = m.find("hostname");
++    if (p != m.end()) {
++      hostname = p->second;
++    }
+   }
+ 
+   const std::map<std::string,std::string>& _get_config_defaults() {

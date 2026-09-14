@@ -1,0 +1,111 @@
+commit a22b256bad1f6a4fcb9ffc10015b17bab7216afb
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Jun 22 14:19:17 2017 -0400
+
+    mgr: index daemon state by string service type
+    
+    If we use a string we can allow for other service names like
+    'rgw' and 'rbd-mirror' and 'iscsigw' and so on.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 96b2698e3c3..e561c9e481a 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -58,7 +58,7 @@ void PyModules::dump_server(const std::string &hostname,
+ 
+   for (const auto &i : dmc) {
+     const auto &key = i.first;
+-    const std::string str_type = ceph_entity_type_name(key.first);
++    const std::string &str_type = key.first;
+     const std::string &svc_name = key.second;
+ 
+     // TODO: pick the highest version, and make sure that
+@@ -116,10 +116,12 @@ PyObject *PyModules::list_servers_python()
+   return f.get();
+ }
+ 
+-PyObject *PyModules::get_metadata_python(std::string const &handle,
+-    entity_type_t svc_type, const std::string &svc_id)
++PyObject *PyModules::get_metadata_python(
++  std::string const &handle,
++  const std::string &svc_name,
++  const std::string &svc_id)
+ {
+-  auto metadata = daemon_state.get(DaemonKey(svc_type, svc_id));
++  auto metadata = daemon_state.get(DaemonKey(svc_name, svc_id));
+   PyFormatter f;
+   f.dump_string("hostname", metadata->hostname);
+   for (const auto &i : metadata->metadata) {
+@@ -175,7 +177,7 @@ PyObject *PyModules::get_python(const std::string &what)
+     return f.get();
+   } else if (what == "osd_metadata") {
+     PyFormatter f;
+-    auto dmc = daemon_state.get_by_type(CEPH_ENTITY_TYPE_OSD);
++    auto dmc = daemon_state.get_by_service("osd");
+     for (const auto &i : dmc) {
+       f.open_object_section(i.first.second.c_str());
+       f.dump_string("hostname", i.second->hostname);
+@@ -617,7 +619,7 @@ void PyModules::log(const std::string &handle,
+ 
+ PyObject* PyModules::get_counter_python(
+     const std::string &handle,
+-    entity_type_t svc_type,
++    const std::string &svc_name,
+     const std::string &svc_id,
+     const std::string &path)
+ {
+@@ -628,7 +630,7 @@ PyObject* PyModules::get_counter_python(
+   PyFormatter f;
+   f.open_array_section(path.c_str());
+ 
+-  auto metadata = daemon_state.get(DaemonKey(svc_type, svc_id));
++  auto metadata = daemon_state.get(DaemonKey(svc_name, svc_id));
+ 
+   // FIXME: this is unsafe, I need to either be inside DaemonStateIndex's
+   // lock or put a lock on individual DaemonStates
+@@ -645,8 +647,7 @@ PyObject* PyModules::get_counter_python(
+       }
+     } else {
+       dout(4) << "Missing counter: '" << path << "' ("
+-              << ceph_entity_type_name(svc_type) << "."
+-              << svc_id << ")" << dendl;
++              << svc_name << "." << svc_id << ")" << dendl;
+       dout(20) << "Paths are:" << dendl;
+       for (const auto &i : metadata->perf_counters.instances) {
+         dout(20) << i.first << dendl;
+@@ -654,8 +655,7 @@ PyObject* PyModules::get_counter_python(
+     }
+   } else {
+     dout(4) << "No daemon state for "
+-              << ceph_entity_type_name(svc_type) << "."
+-              << svc_id << ")" << dendl;
++              << svc_name << "." << svc_id << ")" << dendl;
+   }
+   f.close_section();
+   return f.get();
+diff --git a/src/mgr/PyModules.h b/src/mgr/PyModules.h
+index 93cbd5be851..80f8813d5ee 100644
+--- a/src/mgr/PyModules.h
++++ b/src/mgr/PyModules.h
+@@ -64,11 +64,14 @@ public:
+   PyObject *get_python(const std::string &what);
+   PyObject *get_server_python(const std::string &hostname);
+   PyObject *list_servers_python();
+-  PyObject *get_metadata_python(std::string const &handle,
+-      entity_type_t svc_type, const std::string &svc_id);
+-  PyObject *get_counter_python(std::string const &handle,
+-      entity_type_t svc_type, const std::string &svc_id,
+-      const std::string &path);
++  PyObject *get_metadata_python(
++    std::string const &handle,
++    const std::string &svc_name, const std::string &svc_id);
++  PyObject *get_counter_python(
++    std::string const &handle,
++    const std::string &svc_name,
++    const std::string &svc_id,
++    const std::string &path);
+   PyObject *get_context();
+ 
+   std::map<std::string, std::string> config_cache;

@@ -1,0 +1,20 @@
+commit 3752b67ec9d0e90e80c78b81bec5c218bad5c35e
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sun Aug 12 15:00:44 2018 -0500
+
+    auth: remove auid args from handle_request and verify_authorizer
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 0a802227ce0..ce30ac879e1 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -195,7 +195,6 @@ bool DaemonServer::ms_verify_authorizer(
+       authorizer_reply, s->entity_name,
+       s->global_id, caps_info,
+       session_key,
+-      nullptr,
+       challenge);
+   } else {
+     dout(10) << __func__ << " no rotating_keys (yet), denied" << dendl;

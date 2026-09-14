@@ -1,0 +1,66 @@
+commit e61de15ddb8502abcd74c01617e0c8416bd77bd1
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Sun Jul 12 22:50:00 2026 +0800
+
+    mgr: forward the root-logger fallback at the record's own level
+    
+    ceph_module.mgr_log() emitted every record at dout(0): a record either
+    passed the Python-side gate and went unconditionally to both the log
+    file and the in-memory recent buffer, or never reached the C++ log at
+    all.  The two-level debug_mgr semantics (file level / memory level)
+    never applied, so capturing third-party DEBUG logs meant sending each
+    record to the log file and a log_max_recent slot; with the kubernetes
+    client logging multi-megabyte HTTP response bodies at DEBUG, the
+    recent buffer alone could grow to tens of gigabytes.
+    
+    Pass the record's level through mgr_log() and emit at the mapped ceph
+    level: CRITICAL/ERROR at 0, WARNING at 1, INFO at 2, DEBUG at 20.
+    INFO maps to 2 so it stays visible in the log file at the default
+    debug_mgr=2/5; DEBUG maps to 20 so floods are dropped there, while
+    debug_mgr=2/20 captures third-party DEBUG in the in-memory buffer
+    without touching the log file.  The Python-side gate follows the
+    higher of the two debug_mgr levels so memory-only records still
+    reach the C++ side.
+    
+    Fixes: https://tracker.ceph.com/issues/77633
+    Signed-off-by: Kefu Chai <k.chai@proxmox.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 8e152e248e4..16bbd7a8a06 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -300,17 +300,22 @@ PyObject* PyModule::init_ceph_logger()
+ }
+ 
+ // module-independent sink for the Python root-logger fallback; the Python
+-// side filters and formats, this just emits like PyModuleRunner::log()
++// side maps the record's level to a ceph debug level, so the usual
++// subsystem gating applies per record
+ static PyObject*
+ ceph_mgr_log(PyObject *self, PyObject *args)
+ {
++  int level = 0;
+   char *record = nullptr;
+-  if (!PyArg_ParseTuple(args, "s:mgr_log", &record)) {
++  if (!PyArg_ParseTuple(args, "is:mgr_log", &level, &record)) {
+     return nullptr;
+   }
++  if (level < 0) {
++    level = 0;
++  }
+ #undef dout_prefix
+ #define dout_prefix *_dout
+-  dout(0) << record << dendl;
++  dout(ceph::dout::need_dynamic(level)) << record << dendl;
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr[py] "
+   Py_RETURN_NONE;
+@@ -320,7 +325,7 @@ PyObject* PyModule::init_ceph_module()
+ {
+   static PyMethodDef module_methods[] = {
+     {"mgr_log", ceph_mgr_log, METH_VARARGS,
+-     "log a preformatted record to the mgr daemon log"},
++     "log a preformatted record to the mgr daemon log at a debug level"},
+     {nullptr, nullptr, 0, nullptr}
+   };
+   static PyModuleDef ceph_module_def = {

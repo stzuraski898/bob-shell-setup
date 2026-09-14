@@ -1,0 +1,23 @@
+commit dcc4c52ee8a8c33fabd4d56a42b9667658ed730c
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue May 23 10:05:45 2017 -0400
+
+    mgr/DaemonServer: log pgmap usage to cluster log
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 7fe9208ab23..d061b204753 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -829,6 +829,10 @@ void DaemonServer::send_report()
+ 	  pg_map.get_health(g_ceph_context, osdmap,
+ 			    m->health_summary,
+ 			    &m->health_detail);
++
++	  if (osdmap.require_osd_release >= CEPH_RELEASE_LUMINOUS) {
++	    clog->info() << "pgmap v" << pg_map.version << ": " << pg_map;
++	  }
+ 	});
+     });
+   // TODO? We currently do not notify the PyModules

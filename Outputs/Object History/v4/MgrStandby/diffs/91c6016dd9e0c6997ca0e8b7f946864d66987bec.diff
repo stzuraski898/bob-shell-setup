@@ -1,0 +1,43 @@
+commit 91c6016dd9e0c6997ca0e8b7f946864d66987bec
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Apr 12 14:21:20 2019 -0500
+
+    msg: remove old ms_* auth methods from Dispatcher interface
+    
+    In the mon there is an opportunity to further clean up the code around
+    get_authorizer().
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 418a2114cd2..13d03a69efd 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -452,15 +452,6 @@ bool MgrStandby::ms_dispatch2(const ref_t<Message>& m)
+ }
+ 
+ 
+-bool MgrStandby::ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer)
+-{
+-  if (dest_type == CEPH_ENTITY_TYPE_MON)
+-    return true;
+-
+-  *authorizer = monc.build_authorizer(dest_type);
+-  return *authorizer != NULL;
+-}
+-
+ bool MgrStandby::ms_handle_refused(Connection *con)
+ {
+   // do nothing for now
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index 8a7e633b1d7..ae1d02e3328 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -74,7 +74,6 @@ public:
+   bool ms_dispatch2(const ceph::ref_t<Message>& m) override;
+   bool ms_handle_reset(Connection *con) override { return false; }
+   void ms_handle_remote_reset(Connection *con) override {}
+-  bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer) override;
+   bool ms_handle_refused(Connection *con) override;
+ 
+   int init();

@@ -1,0 +1,21 @@
+commit 523b7cafc4c84ef09dbae50cb8311d1694618d45
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Mar 22 14:10:23 2017 +0800
+
+    mgr: shutdown py_modules in Mgr::shutdown()
+    
+    Fixes: http://tracker.ceph.com/issues/19258
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModules.cc b/src/mgr/PyModules.cc
+index 72eda5e58cd..7f2a8f6ca02 100644
+--- a/src/mgr/PyModules.cc
++++ b/src/mgr/PyModules.cc
+@@ -460,6 +460,7 @@ void PyModules::shutdown()
+   }
+   modules.clear();
+ 
++  PyGILState_Ensure();
+   Py_Finalize();
+ }
+ 

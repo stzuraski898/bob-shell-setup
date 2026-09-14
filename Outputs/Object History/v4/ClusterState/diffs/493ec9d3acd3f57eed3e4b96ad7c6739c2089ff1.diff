@@ -1,0 +1,37 @@
+commit 493ec9d3acd3f57eed3e4b96ad7c6739c2089ff1
+Author: Zhi Zhang <willzzhang@tencent.com>
+Date:   Wed Jul 29 18:47:42 2020 +0800
+
+    mgr: don't update osd stat which is already out
+    
+    Ceph status still reports slow requests on the OSD which is already out.
+    When orignal PG monitor handled PGSTATS msg, it wouldn't update osd stat
+    if this OSD is not in OSD map, but current MGR had no checks on that.
+    
+    Fixes: https://tracker.ceph.com/issues/46440
+    
+    Signed-off-by: Zhi Zhang <zhangz.david@outlook.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index fc7d42cb073..28340d56ddd 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -72,7 +72,17 @@ void ClusterState::ingest_pgstats(ref_t<MPGStats> stats)
+   std::lock_guard l(lock);
+ 
+   const int from = stats->get_orig_source().num();
+-  pending_inc.update_stat(from, std::move(stats->osd_stat));
++  bool is_in = with_osdmap([from](const OSDMap& osdmap) {
++    return osdmap.is_in(from);
++  });
++
++  if (is_in) {
++    pending_inc.update_stat(from, std::move(stats->osd_stat));
++  } else {
++    osd_stat_t empty_stat;
++    empty_stat.seq = stats->osd_stat.seq;
++    pending_inc.update_stat(from, std::move(empty_stat));  
++  }
+ 
+   for (auto p : stats->pg_stat) {
+     pg_t pgid = p.first;

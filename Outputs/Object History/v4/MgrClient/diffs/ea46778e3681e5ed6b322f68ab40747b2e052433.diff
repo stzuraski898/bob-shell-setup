@@ -1,0 +1,17 @@
+commit ea46778e3681e5ed6b322f68ab40747b2e052433
+Author: John Spray <jspray@redhat.com>
+Date:   Sun Jul 31 23:23:54 2016 +0100
+
+    mgr: expose "df" to python modules
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 1cc610c20d2..3f32934f707 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -336,3 +336,4 @@ bool MgrClient::handle_command_reply(MCommandReply *m)
+   m->put();
+   return true;
+ }
++

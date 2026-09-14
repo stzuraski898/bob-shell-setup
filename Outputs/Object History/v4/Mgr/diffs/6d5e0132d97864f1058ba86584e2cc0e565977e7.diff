@@ -1,0 +1,74 @@
+commit 6d5e0132d97864f1058ba86584e2cc0e565977e7
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Apr 4 14:27:54 2017 -0400
+
+    mgr/Mgr: fix map waits in init
+    
+    If we go active multiple times we may already have an fsmap
+    subscription registered via MonClient, which means that we
+    won't receive a net new FSMap during the init phase.  This is
+    trivial to reproduce; just 'ceph mgr fail x' and when it
+    activates the second time init() will get stuck waiting.
+    
+    The core issue is that monc subs are stateful, but we forget
+    the various maps with the previous Mgr incarnation.  Sipmle
+    workaround is to reset the mon connection as we init.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index a0e908eecf6..5fa65f7b757 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -162,10 +162,19 @@ void Mgr::init()
+   dout(4) << "Loading daemon metadata..." << dendl;
+   load_all_metadata();
+ 
+-  // Preload config keys (`get` for plugins is to be a fast local
+-  // operation, we we don't have to synchronize these later because
+-  // all sets will come via mgr)
+-  load_config();
++  // subscribe to all the maps
++  monc->sub_want("log-info", 0, 0);
++  monc->sub_want("mgrdigest", 0, 0);
++  monc->sub_want("fsmap", 0, 0);
++
++  dout(4) << "waiting for OSDMap..." << dendl;
++  // Subscribe to OSDMap update to pass on to ClusterState
++  objecter->maybe_request_map();
++
++  // reset the mon session.  we get these maps through subscriptions which
++  // are stateful with the connection, so even if *we* don't have them a
++  // previous incarnation sharing the same MonClient may have.
++  monc->reopen_session();
+ 
+   // Start Objecter and wait for OSD map
+   lock.Unlock();  // Drop lock because OSDMap dispatch calls into my ms_dispatch
+@@ -177,22 +186,17 @@ void Mgr::init()
+     cluster_state.notify_osdmap(osd_map);
+   });
+ 
+-  // Subscribe to OSDMap update to pass on to ClusterState
+-  objecter->maybe_request_map();
+-
+-  monc->sub_want("log-info", 0, 0);
+-  monc->sub_want("mgrdigest", 0, 0);
+-
+-  // Prepare to receive FSMap and request it
+-  monc->sub_want("fsmap", 0, 0);
+-  monc->renew_subs();
+-
+   // Wait for FSMap
+   dout(4) << "waiting for FSMap..." << dendl;
+   while (!cluster_state.have_fsmap()) {
+     fs_map_cond.Wait(lock);
+   }
+ 
++  dout(4) << "waiting for config-keys..." << dendl;
++  // Preload config keys (`get` for plugins is to be a fast local
++  // operation, we we don't have to synchronize these later because
++  // all sets will come via mgr)
++  load_config();
+ 
+   // Wait for MgrDigest...?
+   // TODO

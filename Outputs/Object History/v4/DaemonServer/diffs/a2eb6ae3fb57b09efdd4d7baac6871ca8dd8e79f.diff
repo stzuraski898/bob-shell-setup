@@ -1,0 +1,26 @@
+commit a2eb6ae3fb57b09efdd4d7baac6871ca8dd8e79f
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Sep 14 21:39:04 2016 +0800
+
+    mon/monclient: hunt for multiple monitor in parallel
+    
+    * add an option "mon_client_hunt_parallel" for the maxmimum number of parallel
+      hunting sessions.
+    
+    Fixes: http://tracker.ceph.com/issues/16091
+    Signed-off-by: Steven Dieffenbach <sdieffen@redhat.com>
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index e3f327c0ecc..798b01ec140 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -117,7 +117,7 @@ bool DaemonServer::ms_get_authorizer(int dest_type,
+       return false;
+   }
+ 
+-  *authorizer = monc->auth->build_authorizer(dest_type);
++  *authorizer = monc->build_authorizer(dest_type);
+   dout(20) << "got authorizer " << *authorizer << dendl;
+   return *authorizer != NULL;
+ }

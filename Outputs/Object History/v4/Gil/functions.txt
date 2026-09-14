@@ -1,0 +1,28 @@
+# Function list for Gil (via ctags)
+# Format: qualified_name | file:line
+#
+Gil | src/mgr/Gil.cc:59
+SafeThreadState | src/mgr/Gil.cc:52
+acquire_gil | src/mgr/Gil.cc:124
+assert_gil | src/mgr/Gil.cc:28
+release_gil | src/mgr/Gil.cc:119
+with_gil_t | src/mgr/Gil.cc:131
+without_gil_t | src/mgr/Gil.cc:106
+~Gil | src/mgr/Gil.cc:92
+~with_gil_t | src/mgr/Gil.cc:137
+~without_gil_t | src/mgr/Gil.cc:112
+Gil | src/mgr/Gil.h:69
+Gil | src/mgr/Gil.h:66
+SafeThreadState | src/mgr/Gil.h:37
+SafeThreadState | src/mgr/Gil.h:35
+acquire_gil | src/mgr/Gil.h:91
+operator = | src/mgr/Gil.h:67
+release_gil | src/mgr/Gil.h:90
+set | src/mgr/Gil.h:45
+with_gil | src/mgr/Gil.h:106
+with_gil_t | src/mgr/Gil.h:98
+without_gil | src/mgr/Gil.h:112
+without_gil_t | src/mgr/Gil.h:88
+~Gil | src/mgr/Gil.h:70
+~with_gil_t | src/mgr/Gil.h:99
+~without_gil_t | src/mgr/Gil.h:89

@@ -1,0 +1,11 @@
+# Function list for DaemonKey (via ctags)
+# Format: qualified_name | file:line
+#
+operator < | src/mgr/DaemonKey.cc:15
+operator << | src/mgr/DaemonKey.cc:26
+parse | src/mgr/DaemonKey.cc:5
+to_string | src/mgr/DaemonKey.cc:32
+operator < | src/mgr/DaemonKey.h:18
+operator << | src/mgr/DaemonKey.h:19
+parse | src/mgr/DaemonKey.h:15
+to_string | src/mgr/DaemonKey.h:22

@@ -1,0 +1,42 @@
+commit c93dc8849145c1630058e4c0e527f404929216ff
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sun Jul 7 11:14:49 2019 +0800
+
+    mgr: s/Mutex/ceph::mutex/
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index a74fa4feb14..d616141caf5 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -28,7 +28,6 @@ ClusterState::ClusterState(
+   const MgrMap& mgrmap)
+   : monc(monc_),
+     objecter(objecter_),
+-    lock("ClusterState"),
+     mgr_map(mgrmap)
+ {}
+ 
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index 4d43cddbe89..897eaa7aed5 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -16,7 +16,7 @@
+ 
+ #include "mds/FSMap.h"
+ #include "mon/MgrMap.h"
+-#include "common/Mutex.h"
++#include "common/ceph_mutex.h"
+ 
+ #include "osdc/Objecter.h"
+ #include "mon/MonClient.h"
+@@ -39,7 +39,7 @@ protected:
+   Objecter *objecter;
+   FSMap fsmap;
+   ServiceMap servicemap;
+-  mutable Mutex lock;
++  mutable ceph::mutex lock = ceph::make_mutex("ClusterState");
+ 
+   MgrMap mgr_map;
+ 

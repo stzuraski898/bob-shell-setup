@@ -1,0 +1,31 @@
+commit 10bf5123f8f9e2ccdc440c3d9be1dec1e7c3e7d5
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Sun Oct 9 10:21:20 2016 +0800
+
+    mgr/MgrStandby: do not ignore result of init() of monc
+    
+    Which can fail due to missing keyring.
+    
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index f555f791f10..0beb8937d76 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -73,8 +73,14 @@ int MgrStandby::init()
+   monc->set_want_keys(CEPH_ENTITY_TYPE_MON|CEPH_ENTITY_TYPE_OSD
+       |CEPH_ENTITY_TYPE_MDS|CEPH_ENTITY_TYPE_MGR);
+   monc->set_messenger(client_messenger);
+-  monc->init();
+-  int r = monc->authenticate();
++  int r = monc->init();
++  if (r < 0) {
++    monc->shutdown();
++    client_messenger->shutdown();
++    client_messenger->wait();
++    return r;
++  }
++  r = monc->authenticate();
+   if (r < 0) {
+     derr << "Authentication failed, did you specify a mgr ID with a valid keyring?" << dendl;
+     monc->shutdown();

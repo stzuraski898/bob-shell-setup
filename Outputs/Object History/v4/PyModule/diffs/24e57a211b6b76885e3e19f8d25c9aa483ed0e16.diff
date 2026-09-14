@@ -1,0 +1,34 @@
+commit 24e57a211b6b76885e3e19f8d25c9aa483ed0e16
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Nov 16 16:16:38 2020 +0800
+
+    mgr: only include necessary headers
+    
+    for two reasons:
+    
+    * faster compilation with less source files to process
+    * avoid including "boost/detail/iterator.hpp", so we can
+      silence the warning like:
+    
+    boost/detail/iterator.hpp:13:1: note: ‘#pragma message: This header is
+    deprecated. Use <iterator> instead.’
+       13 | BOOST_HEADER_DEPRECATED("<iterator>")
+          | ^~~~~~~~~~~~~~~~~~~~~~~
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 365c3e3cd9b..07461af3b88 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -34,7 +34,9 @@ std::string PyModule::config_prefix = "mgr/";
+ #define BOOST_BIND_GLOBAL_PLACEHOLDERS
+ // Boost apparently can't be bothered to fix its own usage of its own
+ // deprecated features.
+-#include <boost/python.hpp>
++#include <boost/python/extract.hpp>
++#include <boost/python/import.hpp>
++#include <boost/python/object.hpp>
+ #undef BOOST_BIND_GLOBAL_PLACEHOLDERS
+ #include <boost/algorithm/string/predicate.hpp>
+ #include "include/ceph_assert.h"  // boost clobbers this

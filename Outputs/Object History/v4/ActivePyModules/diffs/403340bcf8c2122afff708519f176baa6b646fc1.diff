@@ -1,0 +1,248 @@
+commit 403340bcf8c2122afff708519f176baa6b646fc1
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Thu Jul 17 06:17:00 2025 +0000
+
+    mgr: replace TTLCache with MgrMapCache and protect api with readonly
+    
+    This patch removes the old TTLCache implementation and introduces
+    a new generic MgrMapCache driven by a runtime toggle:
+    
+    - Add `mgr_map_cache_enabled` config option in global.yaml
+    - Swap out `ttl_cache` for `api_cache` (MgrMapCache) in ActivePyModules
+    - Update cacheable_get_python() and get_python() to use LFU‐based api_cache
+    - add new get_mutable parameter to the get api call to get a copy.
+    - Invalidate api_cache on notify_all events
+    - Remove all TTLCache headers, sources, and tests
+    - Include MgrMapCache.cc in CMakeLists and update BaseMgrModule bindings
+    - Improve logging around cache hits, misses, and state changes
+    
+    - ActivePyModules
+      * Remove unused update_cache_metrics()
+      * Log cache hits/misses inline and only insert into cache when
+        enabled+cacheable (with proper Py_INCREF)
+      * Switch get_python() to use PyFormatterRO for cacheable routes, PyFormatter otherwise
+    
+    - MgrMapCache/LFUCache
+      * Add can_read_cache()/can_write_cache() helpers and use const& for key parameters
+      * Guard perf counter increments and improve debug logging
+    
+    - PyFormatter
+      * Add PyFormatterRO subclass that freezes dicts/lists into read-only
+        proxies on the fly
+    
+    - Python mgr_module
+      * Simplify get() to return raw result
+    
+    This change ensures immutable JSON output on cache hits and tightens up cache logic.
+    
+    mgr/cli: add cache flush command with proper status reporting
+    
+    Allow operators to invalidate individual mgr Python caches at runtime
+    without restarting the manager. Introduces a new CLI command:
+    
+      $ ceph mgr cli cache flush <map-name>
+    
+    which returns success or a clear error if the named cache entry doesn’t
+    exist or isn’t cacheable. This makes it easy to drop stale cached maps
+    (e.g. osd_map, mon_map) on demand.
+    
+    Fixes: https://tracker.ceph.com/issues/72447
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+    
+    mgr: add new unit tests for MgrMapCache
+    
+    - Guard against null perf‐counter before calling inc(), preventing crashes
+    - Add “foo” to allowed_keys list (for test coverage)
+    - Rename and refocus the CMake test target from TTLCache to MgrMapCache
+    - Introduce test_mgrmapcache.cc with LFUCache tests.
+    - Remove the obsolete test_ttlcache.cc
+    
+    Fixes: https://tracker.ceph.com/issues/72447
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+    
+    mgr/test_cache: add new tests
+    
+    adding new unit-test for mgrcache
+    
+    Fixes: https://tracker.ceph.com/issues/72447
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 93ad567def4..ba11fa2d21c 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -29,7 +29,7 @@
+ #include "osd/OSDMap.h"
+ #include "osd/osd_types.h"
+ #include "mgr/MgrContext.h"
+-#include "mgr/TTLCache.h"
++#include "mgr/MgrMapCache.h"
+ #include "mgr/mgr_perf_counters.h"
+ #include "messages/MMgrReport.h" // for class PerfCounterType
+ 
+@@ -197,41 +197,55 @@ PyObject *ActivePyModules::get_daemon_status_python(
+   return f.get();
+ }
+ 
+-void ActivePyModules::update_cache_metrics() {
+-    auto hit_miss_ratio = ttl_cache.get_hit_miss_ratio();
+-    perfcounter->set(l_mgr_cache_hit, hit_miss_ratio.first);
+-    perfcounter->set(l_mgr_cache_miss, hit_miss_ratio.second);
++int ActivePyModules::ceph_cache_map_erase(std::string_view what)
++{
++  if (!api_cache.exists(what)) {
++    dout(10) << " what: " << what << " not in cache" << dendl;
++    return -ENOENT;
++  } else if (!api_cache.is_cacheable(what)) {
++    dout(10) << " what: " << what << " not cacheable" << dendl;
++    return -EINVAL;
++  }
++  dout(10) << " what: " << what << dendl;
++  api_cache.erase(what);
++  return 0;
+ }
+ 
+-PyObject *ActivePyModules::cacheable_get_python(const std::string &what)
++PyObject *ActivePyModules::cacheable_get_python(std::string_view what, const bool get_mutable)
+ {
+-  uint64_t ttl_seconds = g_conf().get_val<uint64_t>("mgr_ttl_cache_expire_seconds");
+-  if(ttl_seconds > 0) {
+-    ttl_cache.set_ttl(ttl_seconds);
+-    try{
+-      PyObject* cached = ttl_cache.get(what);
+-      update_cache_metrics();
++  const bool use_cache =
++    !get_mutable &&
++    api_cache.is_enabled() &&
++    api_cache.is_cacheable(what);
++  if (use_cache) {
++    PyObject* cached = api_cache.get(what);
++    if (cached) {
++      dout(20) << ": api cache hit for " << what << " hit/miss "
++               << api_cache.get_hits() << "/" << api_cache.get_misses()
++               << dendl;
+       return cached;
+-    } catch (std::out_of_range& e) {}
++    }
+   }
+ 
+-  PyObject *obj = get_python(what);
+-  if(ttl_seconds && ttl_cache.is_cacheable(what)) {
+-    ttl_cache.insert(what, obj);
++  PyObject *obj = get_python(what, get_mutable);
++  if (use_cache && obj) {
++    api_cache.insert(what, obj);
+   }
+-  update_cache_metrics();
+   return obj;
+ }
+ 
+-PyObject *ActivePyModules::get_python(const std::string &what)
++PyObject *ActivePyModules::get_python(std::string_view what, const bool get_mutable)
+ {
+-  uint64_t ttl_seconds = g_conf().get_val<uint64_t>("mgr_ttl_cache_expire_seconds");
+-
+-  PyFormatter pf;
+-  PyJSONFormatter jf;
+-  // Use PyJSONFormatter if TTL cache is enabled.
+-  Formatter &f = ttl_seconds ? (Formatter&)jf : (Formatter&)pf;
+-
++  const bool use_cache =
++    !get_mutable &&
++    api_cache.is_enabled() &&
++    api_cache.is_cacheable(what) &&
++    PyGILState_Check();
++
++  PyFormatter py_formatter;
++  PyFormatterRO py_formatter_ro;
++  PyFormatter &f = use_cache ? (PyFormatter&)py_formatter_ro :
++                               py_formatter;
+   if (what == "fs_map") {
+     without_gil_t no_gil;
+     cluster_state.with_fsmap([&](const FSMap &fsmap) {
+@@ -404,7 +418,7 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+   } else if (what.size() > 7 &&
+ 	     what.substr(0, 7) == "device ") {
+     without_gil_t no_gil;
+-    string devid = what.substr(7);
++    string devid(what.substr(7));
+     if (!daemon_state.with_device(devid,
+       [&] (const DeviceState& dev) {
+         with_gil_t with_gil{no_gil};
+@@ -535,11 +549,8 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+     derr << "Python module requested unknown data '" << what << "'" << dendl;
+     Py_RETURN_NONE;
+   }
+-  if(ttl_seconds) {
+-    return jf.get();
+-  } else {
+-    return pf.get();
+-  }
++
++  return f.get();
+ }
+ 
+ void ActivePyModules::start_one(PyModuleRef py_module)
+@@ -594,6 +605,9 @@ void ActivePyModules::notify_all(const std::string &notify_type,
+                      const std::string &notify_id)
+ {
+   std::lock_guard l(lock);
++  
++  // invalidate api cache for this notify type
++  api_cache.invalidate(notify_type);
+ 
+   dout(10) << __func__ << ": notify_all " << notify_type << dendl;
+   for (auto& [name, module] : modules) {
+@@ -1563,6 +1577,7 @@ void ActivePyModules::get_progress_events(std::map<std::string,ProgressEvent> *e
+ void ActivePyModules::config_notify()
+ {
+   std::lock_guard l(lock);
++  api_cache.invalidate("config");
+   for (auto& [name, module] : modules) {
+     // Send all python calls down a Finisher to avoid blocking
+     // C++ code, and avoid any potential lock cycles.
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 151be14926c..3a5a129ef9c 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -28,7 +28,7 @@
+ #include "mon/mon_types.h"
+ #include "mon/ConfigMap.h"
+ #include "mgr/MDSPerfMetricTypes.h"
+-#include "mgr/TTLCache.h"
++#include "mgr/MgrMapCache.h"
+ 
+ #include "DaemonState.h"
+ #include "ClusterState.h"
+@@ -38,6 +38,7 @@
+ #include <optional>
+ #include <set>
+ #include <string>
++#include <string_view>
+ 
+ class health_check_map_t;
+ class DaemonServer;
+@@ -66,8 +67,8 @@ class ActivePyModules
+   LogChannelRef clog, audit_clog;
+   Objecter &objecter;
+   Finisher &finisher;
+-  TTLCache<std::string, PyObject*> ttl_cache;
+   ThreadMonitor* m_thread_monitor = nullptr;
++  MgrMapCache<PyObject*> api_cache;
+ public:
+   Finisher cmd_finisher;
+ private:
+@@ -92,8 +93,11 @@ public:
+   // FIXME: wrap for send_command?
+   MonClient &get_monc() {return monc;}
+   Objecter  &get_objecter() {return objecter;}
+-  PyObject *cacheable_get_python(const std::string &what);
+-  PyObject *get_python(const std::string &what);
++  PyObject *cacheable_get_python(std::string_view what,
++    const bool get_mutable = false);
++  PyObject *get_python(std::string_view what,
++    const bool get_mutable = false);
++  int ceph_cache_map_erase(std::string_view what);
+   PyObject *get_server_python(const std::string &hostname);
+   PyObject *list_servers_python();
+   PyObject *get_metadata_python(

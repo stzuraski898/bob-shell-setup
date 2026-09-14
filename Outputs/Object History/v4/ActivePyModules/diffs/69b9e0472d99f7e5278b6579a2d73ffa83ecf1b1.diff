@@ -1,0 +1,41 @@
+commit 69b9e0472d99f7e5278b6579a2d73ffa83ecf1b1
+Author: David Zafman <dzafman@redhat.com>
+Date:   Tue Jan 7 17:39:11 2020 -0800
+
+    mgr: Add pg_stats and pool_stats direct access
+    
+    More efficient to get just what you need out of the PGMap
+    
+    mgr/progress: Use pg_stats instead of pg_dump
+    mgr/diskprediction_cloud: Use pg_stats instead of pg_dump
+    mgr/balancer: Use pg_stats and pool_stats instead of pg_dump
+    
+    Fixes: https://tracker.ceph.com/issues/43556
+    
+    Signed-off-by: David Zafman <dzafman@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index b29a61459d8..10b7e0d4e2d 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -369,6 +369,20 @@ PyObject *ActivePyModules::get_python(const std::string &what)
+         pg_map.dump_pool_stats_full(osd_map, nullptr, &f, true);
+       });
+     return f.get();
++  } else if (what == "pg_stats") {
++    cluster_state.with_pgmap(
++        [&f, &tstate](const PGMap &pg_map) {
++      PyEval_RestoreThread(tstate);
++      pg_map.dump_pg_stats(&f, false);
++    });
++    return f.get();
++  } else if (what == "pool_stats") {
++    cluster_state.with_pgmap(
++        [&f, &tstate](const PGMap &pg_map) {
++      PyEval_RestoreThread(tstate);
++      pg_map.dump_pool_stats(&f);
++    });
++    return f.get();
+   } else if (what == "osd_stats") {
+     cluster_state.with_pgmap(
+         [&f, &tstate](const PGMap &pg_map) {

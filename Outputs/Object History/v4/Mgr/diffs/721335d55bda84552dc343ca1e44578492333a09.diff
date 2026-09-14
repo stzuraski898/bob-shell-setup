@@ -1,0 +1,21 @@
+commit 721335d55bda84552dc343ca1e44578492333a09
+Author: Danny Al-Gaaf <danny.al-gaaf@bisect.de>
+Date:   Mon May 14 22:59:44 2018 +0200
+
+    mgr: use static_cast instead of c-style casts
+    
+    Signed-off-by: Danny Al-Gaaf <danny.al-gaaf@bisect.de>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 2acebb4d8c3..d0ef7cd45eb 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -495,7 +495,7 @@ bool Mgr::ms_dispatch(Message *m)
+       m->put();
+       break;
+     case MSG_SERVICE_MAP:
+-      handle_service_map((MServiceMap*)m);
++      handle_service_map(static_cast<MServiceMap*>(m));
+       py_module_registry->notify_all("service_map", "");
+       m->put();
+       break;

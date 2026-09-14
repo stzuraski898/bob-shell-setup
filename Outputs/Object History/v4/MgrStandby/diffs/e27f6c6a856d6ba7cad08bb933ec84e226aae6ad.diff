@@ -1,0 +1,27 @@
+commit e27f6c6a856d6ba7cad08bb933ec84e226aae6ad
+Author: Radoslaw Zarzynski <rzarzynski@redhat.com>
+Date:   Wed Mar 1 16:10:38 2023 +0000
+
+    msg: always generate random nonce; don't try to reuse PID
+    
+    Too much of pain with containerized world. The autodection,
+    based on `getpid() == 1`, turned out to be problematic.
+    This patch removes it and switches the behavior to always
+    use a random-generated nonce.
+    
+    Fixes: https://tracker.ceph.com/issues/57977
+    Signed-off-by: Radoslaw Zarzynski <rzarzyns@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 7649298432f..545624eb79b 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -50,7 +50,7 @@ MgrStandby::MgrStandby(int argc, const char **argv) :
+ 			cct->_conf.get_val<std::string>("ms_type") : cct->_conf.get_val<std::string>("ms_public_type"),
+ 		     entity_name_t::MGR(),
+ 		     "mgr",
+-		     Messenger::get_pid_nonce())),
++		     Messenger::get_random_nonce())),
+   objecter{g_ceph_context, client_messenger.get(), &monc, poolctx},
+   client{client_messenger.get(), &monc, &objecter},
+   mgrc(g_ceph_context, client_messenger.get(), &monc.monmap),

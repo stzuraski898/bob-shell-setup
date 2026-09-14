@@ -1,0 +1,8 @@
+# Rename chain for src/mgr/MgrMapCache.cc (newest segment first)
+# Format: path sha_newest sha_oldest
+#
+src/mgr/MgrMapCache.cc 403340bcf8c2122afff708519f176baa6b646fc1 403340bcf8c2122afff708519f176baa6b646fc1
+#
+# Rename chain for src/mgr/MgrMapCache.h
+#
+src/mgr/MgrMapCache.h 403340bcf8c2122afff708519f176baa6b646fc1 403340bcf8c2122afff708519f176baa6b646fc1

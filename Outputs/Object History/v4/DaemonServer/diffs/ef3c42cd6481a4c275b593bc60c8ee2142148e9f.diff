@@ -1,0 +1,31 @@
+commit ef3c42cd6481a4c275b593bc60c8ee2142148e9f
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Oct 23 13:36:48 2019 -0500
+
+    auth: EACCES, not EPERM
+    
+    EPERM means an operation requires superuser; EACCES more generally means
+    permission denied.  We use EACCES elsewhere for ceph auth denials; use it
+    here too for consistency.  This fixes qa/workunits/mon/caps.sh.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 454179727df..e087f0ea931 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -191,12 +191,12 @@ int DaemonServer::ms_handle_authentication(Connection *con)
+     catch (buffer::error& e) {
+       dout(10) << " session " << s << " " << s->entity_name
+                << " failed to decode caps" << dendl;
+-      return -EPERM;
++      return -EACCES;
+     }
+     if (!s->caps.parse(str)) {
+       dout(10) << " session " << s << " " << s->entity_name
+ 	       << " failed to parse caps '" << str << "'" << dendl;
+-      return -EPERM;
++      return -EACCES;
+     }
+     dout(10) << " session " << s << " " << s->entity_name
+              << " has caps " << s->caps << " '" << str << "'" << dendl;

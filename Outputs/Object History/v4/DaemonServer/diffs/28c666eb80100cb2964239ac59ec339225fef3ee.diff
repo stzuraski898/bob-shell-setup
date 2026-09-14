@@ -1,0 +1,31 @@
+commit 28c666eb80100cb2964239ac59ec339225fef3ee
+Author: ericqzhao <125110732+ericqzhao@users.noreply.github.com>
+Date:   Thu Jul 20 02:06:55 2023 +0000
+
+    mgr: add throttle policy for DaemonServer
+    This commit fix the throttle parameter of osd does not take effect for mgr
+    Fixes: https://tracker.ceph.com/issues/61942
+    
+    Signed-off-by: ericqzhao <125110732+ericqzhao@users.noreply.github.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 83253d25bd0..02b18e4d074 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -123,6 +123,16 @@ int DaemonServer::init(uint64_t gid, entity_addrvec_t client_addrs)
+ 			   "mgr",
+ 			   Messenger::get_random_nonce());
+   msgr->set_default_policy(Messenger::Policy::stateless_server(0));
++  // throttle policy
++  msgr->set_policy(entity_name_t::TYPE_OSD,
++                   Messenger::Policy::stateless_server(
++                     CEPH_FEATURE_SERVER_LUMINOUS));
++  msgr->set_policy(entity_name_t::TYPE_MON,
++                   Messenger::Policy::lossy_client(CEPH_FEATURE_UID |
++                                                   CEPH_FEATURE_PGID64));
++  msgr->set_policy(entity_name_t::TYPE_MDS,
++                   Messenger::Policy::stateless_server(
++                     CEPH_FEATURE_SERVER_LUMINOUS));
+ 
+   msgr->set_auth_client(monc);
+ 

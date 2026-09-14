@@ -1,0 +1,36 @@
+commit 926ec5b4c505bbef1f9574d6df5548b470f3bf57
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Jan 10 17:06:56 2018 -0600
+
+    common/config: report failed mon config values to mgr
+    
+    If we can't set a mon config value, report that back to the mgr.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ea971983102..71aed90f22b 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -393,7 +393,9 @@ bool DaemonServer::handle_open(MMgrOpen *m)
+     auto p = m->config_bl.begin();
+     if (p != m->config_bl.end()) {
+       ::decode(daemon->config, p);
+-      dout(20) << " got config " << daemon->config << dendl;
++      ::decode(daemon->ignored_mon_config, p);
++      dout(20) << " got config " << daemon->config
++	       << " ignored " << daemon->ignored_mon_config << dendl;
+     }
+     daemon->config_defaults_bl = m->config_defaults_bl;
+     daemon->config_defaults.clear();
+@@ -505,7 +507,9 @@ bool DaemonServer::handle_report(MMgrReport *m)
+     auto p = m->config_bl.begin();
+     if (p != m->config_bl.end()) {
+       ::decode(daemon->config, p);
+-      dout(20) << " got config " << daemon->config << dendl;
++      ::decode(daemon->ignored_mon_config, p);
++      dout(20) << " got config " << daemon->config
++	       << " ignored " << daemon->ignored_mon_config << dendl;
+     }
+ 
+     if (daemon->service_daemon) {

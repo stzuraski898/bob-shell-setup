@@ -1,0 +1,52 @@
+commit 3705db897484743849dd9ec417a7aa94f4e0f77b
+Author: Kefu Chai <k.chai@proxmox.com>
+Date:   Wed Jun 24 14:03:06 2026 +0800
+
+    mgr: route the root-logger fallback through a module-independent sink
+    
+    MgrRootHandler captures third-party logs from the Python root logger
+    and emits them through the _ceph_log method of whichever mgr module
+    last configured logging.  A handler on the root logger outlives any
+    single module, so once that module unloads the handler emits through
+    a stale pointer until another module reconfigures logging.
+    
+    Add a free mgr_log() function to the ceph_module binding, emitting
+    via dout() like PyModuleRunner::log but with no PyModule involved,
+    and rewrite MgrRootHandler to route through it.  The handler no
+    longer references a module instance, so it cannot go stale.
+    
+    Signed-off-by: Kefu Chai <k.chai@proxmox.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 40531f6db8f..8e152e248e4 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -299,9 +299,28 @@ PyObject* PyModule::init_ceph_logger()
+   return py_logger;
+ }
+ 
++// module-independent sink for the Python root-logger fallback; the Python
++// side filters and formats, this just emits like PyModuleRunner::log()
++static PyObject*
++ceph_mgr_log(PyObject *self, PyObject *args)
++{
++  char *record = nullptr;
++  if (!PyArg_ParseTuple(args, "s:mgr_log", &record)) {
++    return nullptr;
++  }
++#undef dout_prefix
++#define dout_prefix *_dout
++  dout(0) << record << dendl;
++#undef dout_prefix
++#define dout_prefix *_dout << "mgr[py] "
++  Py_RETURN_NONE;
++}
++
+ PyObject* PyModule::init_ceph_module()
+ {
+   static PyMethodDef module_methods[] = {
++    {"mgr_log", ceph_mgr_log, METH_VARARGS,
++     "log a preformatted record to the mgr daemon log"},
+     {nullptr, nullptr, 0, nullptr}
+   };
+   static PyModuleDef ceph_module_def = {

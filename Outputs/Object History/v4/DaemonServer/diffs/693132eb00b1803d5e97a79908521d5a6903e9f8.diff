@@ -1,0 +1,23 @@
+commit 693132eb00b1803d5e97a79908521d5a6903e9f8
+Author: Sage Weil <sweil@redhat.com>
+Date:   Sun Mar 5 21:59:45 2017 -0500
+
+    common: remove \n on clog messages
+    
+    Confirmed these aren't needed, and are inconsistently included.
+    Remove them where they do appear.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index ebbb6056059..c2243bfee09 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -327,7 +327,6 @@ bool DaemonServer::handle_command(MCommand *m)
+   rs = ss.str();
+   odata.append(ds);
+   dout(1) << "do_command r=" << r << " " << rs << dendl;
+-  //clog->info() << rs << "\n";
+   if (con) {
+     MCommandReply *reply = new MCommandReply(r, rs);
+     reply->set_tid(m->get_tid());

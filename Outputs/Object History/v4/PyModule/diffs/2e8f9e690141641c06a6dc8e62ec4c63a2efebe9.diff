@@ -1,0 +1,66 @@
+commit 2e8f9e690141641c06a6dc8e62ec4c63a2efebe9
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Dec 18 14:11:30 2018 -0600
+
+    mgr: return options as appropriate python type
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 1233e72d9fe..562c6d41838 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -609,6 +609,38 @@ bool PyModule::is_option(const std::string &option_name)
+   return options.count(option_name) > 0;
+ }
+ 
++PyObject *PyModule::get_typed_option_value(const std::string& name,
++					   const std::string& value)
++{
++  auto p = options.find(name);
++  if (p != options.end()) {
++    switch (p->second.type) {
++    case Option::TYPE_INT:
++    case Option::TYPE_UINT:
++    case Option::TYPE_SIZE:
++      return PyInt_FromString((char *)value.c_str(), nullptr, 0);
++    case Option::TYPE_SECS:
++    case Option::TYPE_FLOAT:
++      {
++	PyObject *s = PyString_FromString(value.c_str());
++	PyObject *f = PyFloat_FromString(s, nullptr);
++	Py_DECREF(s);
++	return f;
++      }
++    case Option::TYPE_BOOL:
++      if (value == "1" || value == "true" || value == "True" ||
++	  value == "on" || value == "yes") {
++	Py_INCREF(Py_True);
++	return Py_True;
++      } else {
++	Py_INCREF(Py_False);
++	return Py_False;
++      }
++    }
++  }
++  return PyString_FromString(value.c_str());
++}
++
+ int PyModule::load_subclass_of(const char* base_class, PyObject** py_class)
+ {
+   // load the base class
+diff --git a/src/mgr/PyModule.h b/src/mgr/PyModule.h
+index 05b8b0fc121..412fa38f088 100644
+--- a/src/mgr/PyModule.h
++++ b/src/mgr/PyModule.h
+@@ -103,6 +103,10 @@ public:
+     return options;
+   }
+ 
++  PyObject *get_typed_option_value(
++    const std::string& option,
++    const std::string& value);
++
+   int load(PyThreadState *pMainThreadState);
+ #if PY_MAJOR_VERSION >= 3
+   static PyObject* init_ceph_logger();

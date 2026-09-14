@@ -1,0 +1,21 @@
+commit 28debec0f366dd6ead8ae2e263a6683c71f86d4c
+Author: Sage Weil <sweil@redhat.com>
+Date:   Fri Sep 21 09:10:22 2018 -0500
+
+    mgr/DaemonServer: add missing return
+    
+    Fixes: http://tracker.ceph.com/issues/36110
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index bd351d69b24..3fbf791b69e 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -983,6 +983,7 @@ bool DaemonServer::_handle_command(
+       ss << "pg " << pgid << " primary osd." << acting_primary
+ 	 << " is not currently connected";
+       cmdctx->reply(-EAGAIN, ss);
++      return true;
+     }
+     for (auto& con : p->second) {
+       if (HAVE_FEATURE(con->get_features(), SERVER_MIMIC)) {

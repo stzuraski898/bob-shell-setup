@@ -1,0 +1,71 @@
+commit 90764b3117d338ede8c7254d80043015b2d8ead3
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Oct 24 16:55:51 2006 +0000
+
+    mds restructuring;
+    logstreamer -> journaler;
+    basic journaler recovery working;
+    mds and osd boot changes;
+    buffer bugfixes
+    
+    
+    
+    git-svn-id: https://ceph.svn.sf.net/svnroot/ceph@943 29311d96-e01e-0410-9327-a35deaab8ce9
+
+diff --git a/ceph/common/Clock.h b/ceph/common/Clock.h
+index 52cc1191afc..64cc3a4ccd4 100644
+--- a/ceph/common/Clock.h
++++ b/ceph/common/Clock.h
+@@ -23,6 +23,7 @@
+ #include <time.h>
+ #include <math.h>
+ 
++#include "Mutex.h"
+ 
+ 
+ // --------
+@@ -35,6 +36,7 @@ class utime_t {
+   struct timeval& timeval()  { return tv; }
+   friend class Clock;
+ 
++ 
+  public:
+   void normalize() {
+     if (tv.tv_usec > 1000*1000) {
+@@ -131,6 +133,8 @@ class Clock {
+   utime_t last;
+   utime_t zero;
+ 
++  Mutex lock;
++
+  public:
+   Clock() {
+     // set offset
+@@ -139,8 +143,9 @@ class Clock {
+ 
+   // real time.
+   utime_t real_now() {
+-    utime_t realnow;
+-    gettimeofday(&realnow.timeval(), NULL);
++    utime_t realnow = now();
++    realnow += zero;
++    //gettimeofday(&realnow.timeval(), NULL);
+     return realnow;
+   }
+ 
+@@ -149,6 +154,7 @@ class Clock {
+     gettimeofday(&zero.timeval(), NULL);
+   }
+   utime_t now() {
++    //lock.Lock();  
+     utime_t n;
+     gettimeofday(&n.timeval(), NULL);
+     n -= zero;
+@@ -157,6 +163,7 @@ class Clock {
+       n = last;    // clock jumped backwards!
+     } else
+       last = n;
++    //lock.Unlock();
+     return n;
+   }
+   utime_t recent_now() {

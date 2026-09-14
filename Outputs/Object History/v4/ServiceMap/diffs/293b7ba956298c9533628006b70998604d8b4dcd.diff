@@ -1,0 +1,21 @@
+commit 293b7ba956298c9533628006b70998604d8b4dcd
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Jul 20 16:35:35 2017 -0400
+
+    mgr/ServiceMap: fix typo in service status summary
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ServiceMap.h b/src/mgr/ServiceMap.h
+index cd12133b871..99165112731 100644
+--- a/src/mgr/ServiceMap.h
++++ b/src/mgr/ServiceMap.h
+@@ -47,7 +47,7 @@ struct ServiceMap {
+ 	return "no daemons active";
+       }
+       std::ostringstream ss;
+-      ss << daemons.size() << (daemons.size() > 1 ? "daemonss" : "daemon")
++      ss << daemons.size() << (daemons.size() > 1 ? " daemons" : " daemon")
+ 	 << " active";
+       return ss.str();
+     }

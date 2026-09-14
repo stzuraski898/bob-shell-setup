@@ -1,0 +1,24 @@
+commit f495b8cce9014d3459f41691ad5eb7ca1fc9d153
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Sun Sep 23 20:33:14 2018 +0300
+
+    osd: collect client perf stats when query is enabled
+    
+    Fixes: https://tracker.ceph.com/issues/36091
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 99ed41d7b0c..0abc48ac413 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -639,6 +639,10 @@ bool DaemonServer::handle_report(MMgrReport *m)
+     py_modules.notify_all("perf_schema_update", oss.str());
+   }
+ 
++  if (m->get_connection()->peer_is_osd()) {
++    osd_perf_metric_collector.process_reports(m->osd_perf_metric_reports);
++  }
++
+   m->put();
+   return true;
+ }

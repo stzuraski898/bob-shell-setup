@@ -1,0 +1,36 @@
+commit a54d0a90c06aed1ae26826d7d5317ba13e18c86e
+Author: Chunmei Liu <chunmei.liu@intel.com>
+Date:   Fri Jan 17 15:09:10 2020 -0800
+
+    crimson:common add TOPNSPC namespace for ceph and crimson
+    
+    some code coexist in crimson seastar environment and posix environment,
+    so add namespace to avoid same function conflict, for example add namespace
+    for CephContext, since the new namespace for classic ceph-osd,
+    need modify all files declare use CephContext by including "common_fwd.h"
+    which defined the namespace for each environment.
+    
+    Signed-off-by: Chunmei Liu <chunmei.liu@intel.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 2b54a5c2402..54c016dd346 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -190,7 +190,7 @@ public:
+     try {
+       r = cluster_state->asok_command(admin_command, cmdmap, f, outss);
+       out.append(outss);
+-    } catch (const bad_cmd_get& e) {
++    } catch (const TOPNSPC::common::bad_cmd_get& e) {
+       errss << e.what();
+       r = -EINVAL;
+     }
+@@ -226,7 +226,7 @@ bool ClusterState::asok_command(
+   if (admin_command == "dump_osd_network") {
+     int64_t value = 0;
+     // Default to health warning level if nothing specified
+-    if (!(cmd_getval(cmdmap, "value", value))) {
++    if (!(TOPNSPC::common::cmd_getval(cmdmap, "value", value))) {
+       // Convert milliseconds to microseconds
+       value = static_cast<int64_t>(g_ceph_context->_conf.get_val<double>("mon_warn_on_slow_ping_time")) * 1000;
+       if (value == 0) {

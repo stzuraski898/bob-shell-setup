@@ -1,0 +1,33 @@
+commit 119f9ad1980e938c5fe9d698bab8e143b9cec114
+Author: Max Kellermann <max.kellermann@ionos.com>
+Date:   Wed Nov 13 21:44:21 2024 +0100
+
+    mgr/MgrClient: un-inline destructor to reduce compile times
+    
+    Signed-off-by: Max Kellermann <max.kellermann@ionos.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 4c907b35082..8bcf1c12d76 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -55,6 +55,8 @@ MgrClient::MgrClient(CephContext *cct_, Messenger *msgr_, MonMap *monmap_)
+   ceph_assert(cct != nullptr);
+ }
+ 
++MgrClient::~MgrClient() = default;
++
+ void MgrClient::init()
+ {
+   std::lock_guard l(lock);
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 701fad20e45..ea4b049ad1e 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -109,6 +109,7 @@ protected:
+ 
+ public:
+   MgrClient(CephContext *cct_, Messenger *msgr_, MonMap *monmap);
++  ~MgrClient();
+ 
+   void set_messenger(Messenger *msgr_) { msgr = msgr_; }
+ 

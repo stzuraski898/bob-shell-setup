@@ -1,0 +1,41 @@
+commit c63ecb602e5916d5e0beed137787fdfc67707f15
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Aug 11 11:48:33 2021 +0800
+
+    mgr: build without "using namespace std"
+    
+    * add "std::" prefix in headers
+    * add "using" declarations in .cc files.
+    
+    so we don't rely on "using namespace std" in one or more included
+    headers.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 14d95ab5158..f3d1b38770a 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -36,6 +36,9 @@
+ #undef dout_prefix
+ #define dout_prefix *_dout << "mgr " << __func__ << " "
+ 
++using std::map;
++using std::string;
++using std::vector;
+ 
+ MgrStandby::MgrStandby(int argc, const char **argv) :
+   Dispatcher(g_ceph_context),
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index cac31a57640..0f06e3074a0 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -81,7 +81,7 @@ public:
+   int init();
+   void shutdown();
+   void respawn();
+-  int main(vector<const char *> args);
++  int main(std::vector<const char *> args);
+   void tick();
+ };
+ 

@@ -1,0 +1,38 @@
+commit 72afe87f82a4034b86c239ff585da71fe88d3935
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Wed Jan 9 07:48:30 2019 -0800
+
+    client: use message smart ptr instead of raw ptr
+    
+    Fixes: http://tracker.ceph.com/issues/37864
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 162854a2eca..5a9541d32aa 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -169,10 +169,10 @@ void MgrClient::reconnect()
+ 
+   // resend any pending commands
+   for (const auto &p : command_table.get_commands()) {
+-    MCommand *m = p.second.get_message({});
++    auto m = p.second.get_message({});
+     ceph_assert(session);
+     ceph_assert(session->con);
+-    session->con->send_message(m);
++    session->con->send_message2(std::move(m));
+   }
+ }
+ 
+@@ -433,8 +433,8 @@ int MgrClient::start_command(const vector<string>& cmd, const bufferlist& inbl,
+ 
+   if (session && session->con) {
+     // Leaving fsid argument null because it isn't used.
+-    MCommand *m = op.get_message({});
+-    session->con->send_message(m);
++    auto m = op.get_message({});
++    session->con->send_message2(std::move(m));
+   } else {
+     ldout(cct, 0) << "no mgr session (no running mgr daemon?), waiting" << dendl;
+   }

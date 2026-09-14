@@ -1,0 +1,73 @@
+commit b7c9561accefb81dec73bdd1635ec808a9d23a1f
+Author: John Spray <jspray@redhat.com>
+Date:   Fri Jul 1 00:12:13 2016 +0100
+
+    mgr: fix locking in DaemonMetadata
+    
+    Locks are great but it helps if you actually
+    bother acquiring them...
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/DaemonMetadata.cc b/src/mgr/DaemonMetadata.cc
+index dc3885c96d5..7ac0e3cb611 100644
+--- a/src/mgr/DaemonMetadata.cc
++++ b/src/mgr/DaemonMetadata.cc
+@@ -19,7 +19,9 @@
+ 
+ void DaemonMetadataIndex::insert(DaemonMetadataPtr dm)
+ {
+-  if (exists(dm->key)) {
++  Mutex::Locker l(lock);
++
++  if (all.count(dm->key)) {
+     _erase(dm->key);
+   }
+ 
+@@ -43,6 +45,8 @@ void DaemonMetadataIndex::_erase(DaemonKey dmk)
+ 
+ DaemonMetadataCollection DaemonMetadataIndex::get_by_type(uint8_t type) const
+ {
++  Mutex::Locker l(lock);
++
+   DaemonMetadataCollection result;
+ 
+   for (const auto &i : all) {
+@@ -56,6 +60,8 @@ DaemonMetadataCollection DaemonMetadataIndex::get_by_type(uint8_t type) const
+ 
+ DaemonMetadataCollection DaemonMetadataIndex::get_by_server(const std::string &hostname) const
+ {
++  Mutex::Locker l(lock);
++
+   if (by_server.count(hostname)) {
+     return by_server.at(hostname);
+   } else {
+@@ -65,11 +71,15 @@ DaemonMetadataCollection DaemonMetadataIndex::get_by_server(const std::string &h
+ 
+ bool DaemonMetadataIndex::exists(const DaemonKey &key) const
+ {
++  Mutex::Locker l(lock);
++
+   return all.count(key) > 0;
+ }
+ 
+ DaemonMetadataPtr DaemonMetadataIndex::get(const DaemonKey &key)
+ {
++  Mutex::Locker l(lock);
++
+   return all.at(key);
+ }
+ 
+diff --git a/src/mgr/DaemonMetadata.h b/src/mgr/DaemonMetadata.h
+index 4aa406c5212..b5c00a9ada1 100644
+--- a/src/mgr/DaemonMetadata.h
++++ b/src/mgr/DaemonMetadata.h
+@@ -108,7 +108,7 @@ class DaemonMetadataIndex
+ 
+   std::set<DaemonKey> updating;
+ 
+-  Mutex lock;
++  mutable Mutex lock;
+ 
+   public:
+ 

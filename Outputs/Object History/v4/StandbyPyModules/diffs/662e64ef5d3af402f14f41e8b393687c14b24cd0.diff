@@ -1,0 +1,25 @@
+commit 662e64ef5d3af402f14f41e8b393687c14b24cd0
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Nov 16 16:36:35 2020 +0800
+
+    mgr: do not include unused header files
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/StandbyPyModules.cc b/src/mgr/StandbyPyModules.cc
+index 5d71f46949a..b1344d0adb5 100644
+--- a/src/mgr/StandbyPyModules.cc
++++ b/src/mgr/StandbyPyModules.cc
+@@ -20,12 +20,6 @@
+ #include "mgr/MgrContext.h"
+ #include "mgr/Gil.h"
+ 
+-
+-#define BOOST_BIND_GLOBAL_PLACEHOLDERS
+-#include <boost/python.hpp>
+-#undef BOOST_BIND_GLOBAL_PLACEHOLDERS
+-#include "include/ceph_assert.h"  // boost clobbers this
+-
+ // For ::config_prefix
+ #include "PyModuleRegistry.h"
+ 

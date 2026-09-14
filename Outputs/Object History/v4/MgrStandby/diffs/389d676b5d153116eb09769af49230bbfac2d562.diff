@@ -1,0 +1,24 @@
+commit 389d676b5d153116eb09769af49230bbfac2d562
+Author: Ren Huanwen <ren.huanwen@zte.com.cn>
+Date:   Wed Aug 30 16:47:24 2017 +0800
+
+    mgr: add the ip addr of standbys
+    
+    we need to manage the ip addr of the "standbys" state,
+    because the hostname/gid is insufficient to locate the
+    Standby node. we add ip of the mgr standby to metadata.
+    
+    Signed-off-by: huanwen ren <ren.huanwen@zte.com.cn>
+
+diff --git a/src/mgr/MgrStandby.cc b/src/mgr/MgrStandby.cc
+index 99df69c909f..07157736137 100644
+--- a/src/mgr/MgrStandby.cc
++++ b/src/mgr/MgrStandby.cc
+@@ -162,6 +162,7 @@ void MgrStandby::send_beacon()
+ 	   << " modules " << modules << dendl;
+ 
+   map<string,string> metadata;
++  metadata["addr"] = monc.get_my_addr().ip_only_to_str();
+   collect_sys_info(&metadata, g_ceph_context);
+ 
+   MMgrBeacon *m = new MMgrBeacon(monc.get_fsid(),

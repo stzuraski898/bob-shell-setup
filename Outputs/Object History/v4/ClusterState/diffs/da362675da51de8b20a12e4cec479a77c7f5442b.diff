@@ -1,0 +1,57 @@
+commit da362675da51de8b20a12e4cec479a77c7f5442b
+Author: Radoslaw Zarzynski <rzarzynski@redhat.com>
+Date:   Fri Mar 27 14:55:36 2020 +0100
+
+    mgr: synchronize ClusterState's health and mon_status.
+    
+    Fixes: https://tracker.ceph.com/issues/24995
+    Signed-off-by: Radoslaw Zarzynski <rzarzyns@redhat.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 54c016dd346..fc7d42cb073 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -62,6 +62,7 @@ void ClusterState::set_service_map(ServiceMap const &new_service_map)
+ 
+ void ClusterState::load_digest(MMgrDigest *m)
+ {
++  std::lock_guard l(lock);
+   health_json = std::move(m->health_json);
+   mon_status_json = std::move(m->mon_status_json);
+ }
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index 3b06808de86..e0ac3f31761 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -59,9 +59,6 @@ public:
+ 
+   void update_delta_stats();
+ 
+-  const bufferlist &get_health() const {return health_json;}
+-  const bufferlist &get_mon_status() const {return mon_status_json;}
+-
+   ClusterState(MonClient *monc_, Objecter *objecter_, const MgrMap& mgrmap);
+ 
+   void set_objecter(Objecter *objecter_);
+@@ -139,6 +136,21 @@ public:
+       pg_map,
+       std::forward<Args>(args)...);
+   }
++
++  template<typename Callback, typename...Args>
++  void with_health(Callback&& cb, Args&&...args) const
++  {
++    std::lock_guard l(lock);
++    std::forward<Callback>(cb)(health_json, std::forward<Args>(args)...);
++  }
++
++  template<typename Callback, typename...Args>
++  void with_mon_status(Callback&& cb, Args&&...args) const
++  {
++    std::lock_guard l(lock);
++    std::forward<Callback>(cb)(mon_status_json, std::forward<Args>(args)...);
++  }
++
+   void final_init();
+   void shutdown();
+   bool asok_command(std::string_view admin_command,

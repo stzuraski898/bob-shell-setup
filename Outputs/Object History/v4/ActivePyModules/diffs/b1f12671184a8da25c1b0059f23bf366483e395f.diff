@@ -1,0 +1,40 @@
+commit b1f12671184a8da25c1b0059f23bf366483e395f
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Fri Nov 23 15:25:22 2018 +0200
+
+    mgr: add limit param to osd perf query
+    
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 595ac7d7e97..b5391b2566b 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -902,9 +902,10 @@ void ActivePyModules::set_uri(const std::string& module_name,
+ }
+ 
+ OSDPerfMetricQueryID ActivePyModules::add_osd_perf_query(
+-  const OSDPerfMetricQuery &query)
++    const OSDPerfMetricQuery &query,
++    const std::optional<OSDPerfMetricLimit> &limit)
+ {
+-  return server.add_osd_perf_query(query);
++  return server.add_osd_perf_query(query, limit);
+ }
+ 
+ void ActivePyModules::remove_osd_perf_query(OSDPerfMetricQueryID query_id)
+diff --git a/src/mgr/ActivePyModules.h b/src/mgr/ActivePyModules.h
+index 03f0ee2d5fd..b0d0eade8e1 100644
+--- a/src/mgr/ActivePyModules.h
++++ b/src/mgr/ActivePyModules.h
+@@ -92,7 +92,9 @@ public:
+       const std::string &svc_id,
+       const std::string &path) const;
+ 
+-  OSDPerfMetricQueryID add_osd_perf_query(const OSDPerfMetricQuery &query);
++  OSDPerfMetricQueryID add_osd_perf_query(
++      const OSDPerfMetricQuery &query,
++      const std::optional<OSDPerfMetricLimit> &limit);
+   void remove_osd_perf_query(OSDPerfMetricQueryID query_id);
+   PyObject *get_osd_perf_counters(OSDPerfMetricQueryID query_id);
+ 

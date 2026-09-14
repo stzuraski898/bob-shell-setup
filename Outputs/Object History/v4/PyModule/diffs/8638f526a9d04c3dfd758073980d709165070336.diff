@@ -1,0 +1,33 @@
+commit 8638f526a9d04c3dfd758073980d709165070336
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Wed Mar 31 02:32:38 2021 +0800
+
+    mgr/PyModule: put mgr_module_path before Py_GetPath()
+    
+    pip comes with _vendor/progress. so there is chance to import the vendored
+    version of "progress" module instead of the "progress" mgr module, and
+    fail to import the latter.
+    
+    in this change, the order of paths are rearranged so the configured
+    `mgr_module_path` is put before the return value of `Py_GetPath()`.
+    
+    Fixes: https://tracker.ceph.com/issues/50058
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 8756b77907e..28c76fe7edc 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -322,9 +322,9 @@ int PyModule::load(PyThreadState *pMainThreadState)
+       const wchar_t *argv[] = {L"ceph-mgr"};
+       PySys_SetArgv(1, (wchar_t**)argv);
+       // Configure sys.path to include mgr_module_path
+-      string paths = (":" + g_conf().get_val<std::string>("mgr_module_path") +
+-		      ":" + get_site_packages());
+-      wstring sys_path(Py_GetPath() + wstring(begin(paths), end(paths)));
++      string paths = (g_conf().get_val<std::string>("mgr_module_path") + ':' +
++                      get_site_packages() + ':');
++      wstring sys_path(wstring(begin(paths), end(paths)) + Py_GetPath());
+       PySys_SetPath(const_cast<wchar_t*>(sys_path.c_str()));
+       dout(10) << "Computed sys.path '"
+ 	       << string(begin(sys_path), end(sys_path)) << "'" << dendl;

@@ -1,0 +1,42 @@
+commit 4718b7cb2fac65b2ac7014f42ba1a10181350f0b
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Fri Jul 6 17:20:32 2018 +0800
+
+    common,rbd,rgw,osd: extract config values into ConfigValues
+    
+    this change introduce three classes: ConfigValues, ConfigProxy and
+    ConfigReader. in seastar port of OSD, each CPU shard will hold its own
+    reference of configuration, and upon changes of settings, each
+    shard will be updated with the new setting in async. so this forces us
+    to be able to keep two set of configuration at the same time. so we
+    need to extract the changeable part of md_config_t out. so we can
+    replace the old one with new one on demand, and let different shards
+    share the same unchanged part, amon the other things, the Options map
+    and the lookup tables. that's why we need ConfigValues. we will add
+    a policy template for this class, so we can specialize for Seastar
+    implementation to allow different ConfigProxy instances to point
+    md_config_impl<> to different ConfigValues.
+    
+    because the observer interface is still using md_config_t, to minimise
+    the impact of this change, handle_conf_change() and
+    handle_subsys_change() are not changed. but as it accepts a `const
+    md_config_t`, which cannot be used to create/reference the ConfigProxy
+    holding it, we need to introduce ConfigReader for reading the updated
+    setting from md_config_t in a simpler way, without exposing the
+    internal "values" member variable.
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModule.cc b/src/mgr/PyModule.cc
+index 65656d0a60a..e34752f3f0c 100644
+--- a/src/mgr/PyModule.cc
++++ b/src/mgr/PyModule.cc
+@@ -337,7 +337,7 @@ int PyModule::load(PyThreadState *pMainThreadState)
+ #endif
+       // Configure sys.path to include mgr_module_path
+       string paths = (":" + get_site_packages() +
+-		      ":" + g_conf->get_val<std::string>("mgr_module_path"));
++		      ":" + g_conf().get_val<std::string>("mgr_module_path"));
+ #if PY_MAJOR_VERSION >= 3
+       wstring sys_path(Py_GetPath() + wstring(begin(paths), end(paths)));
+       PySys_SetPath(const_cast<wchar_t*>(sys_path.c_str()));

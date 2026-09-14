@@ -1,0 +1,37 @@
+commit 20139d12423fc6154b57499c576d1e4bb3f1eade
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Fri Feb 7 22:01:30 2020 -0500
+
+    mgr: filter out normal ceph services when processing service map
+    
+    This is done is couple of places in ceph manager -- when culling
+    entries from service map and the other when dumping serice status.
+    
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 8bbac965151..08b895bc197 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -964,6 +964,10 @@ bool DaemonServer::_handle_command(
+     // only include state from services that are in the persisted service map
+     f->open_object_section("service_status");
+     for (auto& [type, service] : pending_service_map.services) {
++      if (ServiceMap::is_normal_ceph_entity(type)) {
++        continue;
++      }
++
+       f->open_object_section(type.c_str());
+       for (auto& q : service.daemons) {
+ 	f->open_object_section(q.first.c_str());
+@@ -2741,6 +2745,10 @@ void DaemonServer::got_service_map()
+   // cull missing daemons, populate new ones
+   std::set<std::string> types;
+   for (auto& [type, service] : pending_service_map.services) {
++    if (ServiceMap::is_normal_ceph_entity(type)) {
++      continue;
++    }
++
+     types.insert(type);
+ 
+     std::set<std::string> names;

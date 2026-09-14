@@ -1,0 +1,24 @@
+commit b0a4bff845bec0f9bdd07db1acbc78c59f2efca4
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Feb 16 18:26:01 2021 -0500
+
+    mgr: fix config option prefix
+    
+    This code is working with config option names, not config-key keys.
+    
+    Signed-off-by: Sage Weil <sage@newdream.net>
+
+diff --git a/src/mgr/StandbyPyModules.cc b/src/mgr/StandbyPyModules.cc
+index b1344d0adb5..3579ae68ace 100644
+--- a/src/mgr/StandbyPyModules.cc
++++ b/src/mgr/StandbyPyModules.cc
+@@ -125,8 +125,7 @@ int StandbyPyModule::load()
+ bool StandbyPyModule::get_config(const std::string &key,
+                                  std::string *value) const
+ {
+-  const std::string global_key = PyModule::config_prefix
+-    + get_name() + "/" + key;
++  const std::string global_key = "mgr/" + get_name() + "/" + key;
+ 
+   dout(4) << __func__ << " key: " << global_key << dendl;
+  

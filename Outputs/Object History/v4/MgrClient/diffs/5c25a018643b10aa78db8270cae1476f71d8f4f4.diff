@@ -1,0 +1,87 @@
+commit 5c25a018643b10aa78db8270cae1476f71d8f4f4
+Author: Venky Shankar <vshankar@redhat.com>
+Date:   Tue Jul 2 04:11:35 2019 -0400
+
+    mgr, mon: allow normal ceph services to register with manager
+    
+    Additionally, introduce `task status` field in manager report
+    messages to forward status of executing tasks in daemons (e.g.,
+    status of executing scrubs in ceph metadata servers).
+    
+    `task status` makes its way upto service map which is then used
+    to display the relevant information in ceph status.
+    
+    Signed-off-by: Venky Shankar <vshankar@redhat.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 603ca0e9d2f..428f511196c 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -349,6 +349,11 @@ void MgrClient::_send_report()
+     daemon_dirty_status = false;
+   }
+ 
++  if (task_dirty_status) {
++    report->task_status = task_status;
++    task_dirty_status = false;
++  }
++
+   report->daemon_health_metrics = std::move(daemon_health_metrics);
+ 
+   cct->_conf.get_config_bl(last_config_bl_version, &report->config_bl,
+@@ -478,14 +483,6 @@ int MgrClient::service_daemon_register(
+   const std::map<std::string,std::string>& metadata)
+ {
+   std::lock_guard l(lock);
+-  if (service == "osd" ||
+-      service == "mds" ||
+-      service == "client" ||
+-      service == "mon" ||
+-      service == "mgr") {
+-    // normal ceph entity types are not allowed!
+-    return -EINVAL;
+-  }
+   if (service_daemon) {
+     return -EEXIST;
+   }
+@@ -514,6 +511,15 @@ int MgrClient::service_daemon_update_status(
+   return 0;
+ }
+ 
++int MgrClient::service_daemon_update_task_status(
++  std::map<std::string,std::string> &&status) {
++  std::lock_guard l(lock);
++  ldout(cct,10) << status << dendl;
++  task_status = std::move(status);
++  task_dirty_status = true;
++  return 0;
++}
++
+ void MgrClient::update_daemon_health(std::vector<DaemonHealthMetric>&& metrics)
+ {
+   std::lock_guard l(lock);
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 6649148f094..f3bb74a4b17 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -88,9 +88,11 @@ protected:
+   // for service registration and beacon
+   bool service_daemon = false;
+   bool daemon_dirty_status = false;
++  bool task_dirty_status = false;
+   std::string service_name, daemon_name;
+   std::map<std::string,std::string> daemon_metadata;
+   std::map<std::string,std::string> daemon_status;
++  std::map<std::string,std::string> task_status;
+   std::vector<DaemonHealthMetric> daemon_health_metrics;
+ 
+   void reconnect();
+@@ -148,6 +150,8 @@ public:
+     const std::map<std::string,std::string>& metadata);
+   int service_daemon_update_status(
+     std::map<std::string,std::string>&& status);
++  int service_daemon_update_task_status(
++    std::map<std::string,std::string> &&task_status);
+   void update_daemon_health(std::vector<DaemonHealthMetric>&& metrics);
+ 
+ private:

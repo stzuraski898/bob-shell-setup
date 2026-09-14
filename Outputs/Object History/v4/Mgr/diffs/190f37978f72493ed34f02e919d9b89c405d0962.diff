@@ -1,0 +1,37 @@
+commit 190f37978f72493ed34f02e919d9b89c405d0962
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Thu Mar 7 13:37:15 2024 -0500
+
+    mgr: process map before notifying clients
+    
+    Oddly the maps are processed after notifying the modules. I'm not sure if this
+    actually can cause modules to read from the old maps (since finisher contexts
+    are queued) but it seemed odd.
+    
+    Fixes: https://tracker.ceph.com/issues/64799
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 5bd2ffb246c..b320ea484be 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -588,16 +588,16 @@ bool Mgr::ms_dispatch2(const ref_t<Message>& m)
+       handle_mgr_digest(ref_cast<MMgrDigest>(m));
+       break;
+     case CEPH_MSG_MON_MAP:
++      /* MonClient passthrough of MonMap to us */
++      handle_mon_map(); /* use monc's monmap */
+       py_module_registry->notify_all("mon_map", "");
+-      handle_mon_map();
+       break;
+     case CEPH_MSG_FS_MAP:
+-      py_module_registry->notify_all("fs_map", "");
+       handle_fs_map(ref_cast<MFSMap>(m));
++      py_module_registry->notify_all("fs_map", "");
+       return false; // I shall let this pass through for Client
+     case CEPH_MSG_OSD_MAP:
+       handle_osd_map();
+-
+       py_module_registry->notify_all("osd_map", "");
+ 
+       // Continuous subscribe, so that we can generate notifications

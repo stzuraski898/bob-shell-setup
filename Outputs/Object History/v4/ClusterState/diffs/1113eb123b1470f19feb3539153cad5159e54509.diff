@@ -1,0 +1,26 @@
+commit 1113eb123b1470f19feb3539153cad5159e54509
+Author: Sage Weil <sweil@redhat.com>
+Date:   Tue Apr 4 14:27:41 2017 -0400
+
+    mgr/Mgr: use cond (not context) for FSMap wait
+    
+    This is simpler.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/ClusterState.h b/src/mgr/ClusterState.h
+index 039da14e8dc..4fee3a0131b 100644
+--- a/src/mgr/ClusterState.h
++++ b/src/mgr/ClusterState.h
+@@ -71,6 +71,11 @@ public:
+ 
+   void notify_osdmap(const OSDMap &osd_map);
+ 
++  bool have_fsmap() {
++    Mutex::Locker l(lock);
++    return fsmap.get_epoch() > 0;
++  }
++
+   template<typename Callback, typename...Args>
+   void with_fsmap(Callback&& cb, Args&&...args)
+   {

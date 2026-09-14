@@ -1,0 +1,35 @@
+commit 145acbe976bdd6b9081f56f1dd1ead75c67d24ab
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu Apr 27 20:37:35 2017 +0800
+
+    mgr: do shutdown using finisher so we can do it in the right order
+    
+    otherwise we can shutdown a PyModules while it still being init'ed
+    
+    Fixes: http://tracker.ceph.com/issues/19743
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 6be7216b2e4..e2466b37f03 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -343,12 +343,13 @@ void Mgr::shutdown()
+   // give up the lock for us.
+   Mutex::Locker l(lock);
+ 
+-  // First stop the server so that we're not taking any more incoming requests
+-  server.shutdown();
+-
+-  // after the messenger is stopped, signal modules to shutdown via finisher
+-  py_modules.shutdown();
+-
++  finisher.queue(new FunctionContext([&](int) {
++    // First stop the server so that we're not taking any more incoming
++    // requests
++    server.shutdown();
++    // after the messenger is stopped, signal modules to shutdown via finisher
++    py_modules.shutdown();
++  }));
+   // Then stop the finisher to ensure its enqueued contexts aren't going
+   // to touch references to the things we're about to tear down
+   finisher.wait_for_empty();

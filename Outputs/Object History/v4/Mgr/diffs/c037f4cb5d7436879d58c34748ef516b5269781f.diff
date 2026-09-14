@@ -1,0 +1,51 @@
+commit c037f4cb5d7436879d58c34748ef516b5269781f
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Sat Jan 16 14:33:17 2021 +0800
+
+    mgr: update mon metadata when monmap is updated
+    
+    there is chance that some monitor(s) is updated / upgraded in a single
+    monmap update without being removed from cluster state's metata first,
+    so, without this change, we will not update the metadata associated with
+    that monitor, hence the mgr modules which consumes the metadata is not
+    updated accordingly and keep reporting the stale information.
+    
+    in this change, we always update the metadata associated with all monitor
+    included by the latest monmap. multiple "mon metadata" commands are sent
+    to monitor for retrieving their updated metadata, instead of sending a
+    single one, so that we can reuse "MetadataUpdate" to update the metadata
+    of a given daemon. as the number of monitors in a typical cluster is
+    relatively small, and the frequency of monmap update is low, so this
+    overhead should be fine.
+    
+    unlike other places where we ask mon for metadata in Mgr class, the code
+    sending the mon command for updated monitor metata is located outside of
+    `cluster_state.with_monmap()` block, the reason is that `with_monmap()`
+    is guraded by the monc_lock under the hood, while `start_mon_command()`
+    also need to acquire the monc_lock, which is not a recursive lock. so we
+    have to do this out of the `with_monmap()` block.
+    
+    Fixes: https://tracker.ceph.com/issues/48905
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 1e9675944f5..4af58dab8f7 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -521,6 +521,16 @@ void Mgr::handle_mon_map()
+       names_exist.insert(monmap.get_name(i));
+     }
+   });
++  for (const auto& name : names_exist) {
++    const auto k = DaemonKey{"osd", name};
++    if (daemon_state.is_updating(k)) {
++      continue;
++    }
++    auto c = new MetadataUpdate(daemon_state, k);
++    const char* cmd = R"(P{{"prefix": "mon metadata", "id": "{}"}})";
++    monc->start_mon_command({fmt::format(cmd, name)}, {},
++			    &c->outbl, &c->outs, c);
++  }
+   daemon_state.cull("mon", names_exist);
+ }
+ 

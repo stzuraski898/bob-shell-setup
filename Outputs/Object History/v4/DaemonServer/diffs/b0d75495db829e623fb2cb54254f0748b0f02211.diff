@@ -1,0 +1,47 @@
+commit b0d75495db829e623fb2cb54254f0748b0f02211
+Author: Yan Jun <yan.jun8@zte.com.cn>
+Date:   Sat Jun 24 11:07:21 2017 +0800
+
+    mgr: remove repeated function log
+    
+    In the front of this file, '__func__' has been added to dout_prefix as below:
+    
+    "  #define dout_prefix *_dout << "mgr.server " << __func__ << " "    "
+    
+    Signed-off-by: Yan Jun <yan.jun8@zte.com.cn>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index e8d8c8a2128..24556d82614 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -176,7 +176,7 @@ bool DaemonServer::ms_verify_authorizer(Connection *con,
+     if (peer_type == CEPH_ENTITY_TYPE_OSD) {
+       Mutex::Locker l(lock);
+       s->osd_id = atoi(s->entity_name.get_id().c_str());
+-      dout(10) << __func__ << " registering osd." << s->osd_id << " session "
++      dout(10) << "registering osd." << s->osd_id << " session "
+ 	       << s << " con " << con << dendl;
+       osd_cons[s->osd_id].insert(con);
+     }
+@@ -214,7 +214,7 @@ bool DaemonServer::ms_handle_reset(Connection *con)
+     }
+     session->put(); // SessionRef takes a ref
+     Mutex::Locker l(lock);
+-    dout(10) << __func__ << " unregistering osd." << session->osd_id
++    dout(10) << "unregistering osd." << session->osd_id
+ 	     << "  session " << session << " con " << con << dendl;
+     osd_cons[session->osd_id].erase(con);
+   }
+@@ -250,10 +250,10 @@ bool DaemonServer::ms_dispatch(Message *m)
+ 
+ void DaemonServer::shutdown()
+ {
+-  dout(10) << __func__ << dendl;
++  dout(10) << "begin" << dendl;
+   msgr->shutdown();
+   msgr->wait();
+-  dout(10) << __func__ << " done" << dendl;
++  dout(10) << "done" << dendl;
+ }
+ 
+ 

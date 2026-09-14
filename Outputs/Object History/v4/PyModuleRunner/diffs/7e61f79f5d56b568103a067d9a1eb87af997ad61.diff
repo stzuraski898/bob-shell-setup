@@ -1,0 +1,24 @@
+commit 7e61f79f5d56b568103a067d9a1eb87af997ad61
+Author: John Spray <jspray@redhat.com>
+Date:   Fri Oct 13 11:31:22 2017 -0400
+
+    mgr: refactor PyOSDMap etc implementation
+    
+    Implement real python classes from the C side,
+    rather than exposing only module methods.
+    
+    Signed-off-by: John Spray <john.spray@redhat.com>
+
+diff --git a/src/mgr/PyModuleRunner.cc b/src/mgr/PyModuleRunner.cc
+index c20199e9c66..59d86a8bede 100644
+--- a/src/mgr/PyModuleRunner.cc
++++ b/src/mgr/PyModuleRunner.cc
+@@ -28,7 +28,7 @@ std::string handle_pyerror();
+ 
+ PyModuleRunner::~PyModuleRunner()
+ {
+-  Gil gil(pMyThreadState);
++  Gil gil(pMyThreadState, true);
+ 
+   if (pClassInstance) {
+     Py_XDECREF(pClassInstance);

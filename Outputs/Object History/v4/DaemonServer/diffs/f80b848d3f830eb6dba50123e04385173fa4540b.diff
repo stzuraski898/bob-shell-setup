@@ -1,0 +1,84 @@
+commit f80b848d3f830eb6dba50123e04385173fa4540b
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu May 24 13:57:17 2018 -0500
+
+    auth/cephx: add authorizer challenge
+    
+    Allow the accepting side of a connection to reject an initial authorizer
+    with a random challenge.  The connecting side then has to respond with an
+    updated authorizer proving they are able to decrypt the service's challenge
+    and that the new authorizer was produced for this specific connection
+    instance.
+    
+    The accepting side requires this challenge and response unconditionally
+    if the client side advertises they have the feature bit.  Servers wishing
+    to require this improved level of authentication simply have to require
+    the appropriate feature.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 8337b34d90d..322e7d6e3a8 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -144,13 +144,15 @@ entity_addr_t DaemonServer::get_myaddr() const
+ }
+ 
+ 
+-bool DaemonServer::ms_verify_authorizer(Connection *con,
+-    int peer_type,
+-    int protocol,
+-    ceph::bufferlist& authorizer_data,
+-    ceph::bufferlist& authorizer_reply,
+-    bool& is_valid,
+-    CryptoKey& session_key)
++bool DaemonServer::ms_verify_authorizer(
++  Connection *con,
++  int peer_type,
++  int protocol,
++  ceph::bufferlist& authorizer_data,
++  ceph::bufferlist& authorizer_reply,
++  bool& is_valid,
++  CryptoKey& session_key,
++  std::unique_ptr<AuthAuthorizerChallenge> *challenge)
+ {
+   AuthAuthorizeHandler *handler = nullptr;
+   if (peer_type == CEPH_ENTITY_TYPE_OSD ||
+@@ -178,7 +180,9 @@ bool DaemonServer::ms_verify_authorizer(Connection *con,
+       authorizer_data,
+       authorizer_reply, s->entity_name,
+       s->global_id, caps_info,
+-      session_key);
++      session_key,
++      nullptr,
++      challenge);
+   } else {
+     dout(10) << __func__ << " no rotating_keys (yet), denied" << dendl;
+     is_valid = false;
+diff --git a/src/mgr/DaemonServer.h b/src/mgr/DaemonServer.h
+index 7972a1d8476..9fb4cca71d4 100644
+--- a/src/mgr/DaemonServer.h
++++ b/src/mgr/DaemonServer.h
+@@ -124,13 +124,15 @@ public:
+   bool ms_handle_refused(Connection *con) override;
+   bool ms_get_authorizer(int dest_type, AuthAuthorizer **authorizer,
+                          bool force_new) override;
+-  bool ms_verify_authorizer(Connection *con,
+-      int peer_type,
+-      int protocol,
+-      ceph::bufferlist& authorizer,
+-      ceph::bufferlist& authorizer_reply,
+-      bool& isvalid,
+-      CryptoKey& session_key) override;
++  bool ms_verify_authorizer(
++    Connection *con,
++    int peer_type,
++    int protocol,
++    ceph::bufferlist& authorizer,
++    ceph::bufferlist& authorizer_reply,
++    bool& isvalid,
++    CryptoKey& session_key,
++    std::unique_ptr<AuthAuthorizerChallenge> *challenge) override;
+ 
+   bool handle_open(MMgrOpen *m);
+   bool handle_close(MMgrClose *m);

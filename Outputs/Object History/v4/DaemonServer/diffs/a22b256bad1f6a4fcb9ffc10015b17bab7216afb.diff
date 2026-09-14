@@ -1,0 +1,33 @@
+commit a22b256bad1f6a4fcb9ffc10015b17bab7216afb
+Author: Sage Weil <sweil@redhat.com>
+Date:   Thu Jun 22 14:19:17 2017 -0400
+
+    mgr: index daemon state by string service type
+    
+    If we use a string we can allow for other service names like
+    'rgw' and 'rbd-mirror' and 'iscsigw' and so on.
+    
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index e6b3100f09d..b2e40b41659 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -262,7 +262,7 @@ void DaemonServer::shutdown()
+ bool DaemonServer::handle_open(MMgrOpen *m)
+ {
+   uint32_t type = m->get_connection()->get_peer_type();
+-  DaemonKey key(type, m->daemon_name);
++  DaemonKey key(ceph_entity_type_name(type), m->daemon_name);
+ 
+   dout(4) << "from " << m->get_connection() << " name "
+           << ceph_entity_type_name(type) << "." << m->daemon_name << dendl;
+@@ -288,7 +288,7 @@ bool DaemonServer::handle_open(MMgrOpen *m)
+ bool DaemonServer::handle_report(MMgrReport *m)
+ {
+   uint32_t type = m->get_connection()->get_peer_type();
+-  DaemonKey key(type, m->daemon_name);
++  DaemonKey key(ceph_entity_type_name(type), m->daemon_name);
+ 
+   dout(4) << "from " << m->get_connection() << " name "
+           << ceph_entity_type_name(type) << "." << m->daemon_name << dendl;

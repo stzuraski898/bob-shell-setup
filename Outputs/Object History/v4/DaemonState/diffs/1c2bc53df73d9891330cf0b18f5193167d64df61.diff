@@ -1,0 +1,25 @@
+commit 1c2bc53df73d9891330cf0b18f5193167d64df61
+Author: Sage Weil <sweil@redhat.com>
+Date:   Wed Oct 17 11:45:59 2018 -0500
+
+    mgr/DaemonState: fix get_config_defaults locking
+    
+    One of the callers didn't take the daemon->lock first; fix it.  Also
+    rename the method so it's more clear the caller does need to lock.
+    
+    Fixes: http://tracker.ceph.com/issues/36590
+    Signed-off-by: Sage Weil <sage@redhat.com>
+
+diff --git a/src/mgr/DaemonState.h b/src/mgr/DaemonState.h
+index 9f2456b4590..42b7ed9b283 100644
+--- a/src/mgr/DaemonState.h
++++ b/src/mgr/DaemonState.h
+@@ -182,7 +182,7 @@ class DaemonState
+     }
+   }
+ 
+-  const std::map<std::string,std::string>& get_config_defaults() {
++  const std::map<std::string,std::string>& _get_config_defaults() {
+     if (config_defaults.empty() &&
+ 	config_defaults_bl.length()) {
+       auto p = config_defaults_bl.cbegin();

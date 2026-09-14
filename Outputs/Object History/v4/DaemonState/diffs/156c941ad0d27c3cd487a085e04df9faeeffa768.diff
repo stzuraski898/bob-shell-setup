@@ -1,0 +1,29 @@
+commit 156c941ad0d27c3cd487a085e04df9faeeffa768
+Author: Adam C. Emerson <aemerson@redhat.com>
+Date:   Mon Dec 25 03:33:57 2017 -0500
+
+    mgr: Use unqualified encode/decode
+    
+    This is a portion of Part 1 of the namespace project: using ADL
+    properly in encode and decode so we can use namespaces easily in Ceph.
+    
+    Signed-off-by: Adam C. Emerson <aemerson@redhat.com>
+
+diff --git a/src/mgr/DaemonState.cc b/src/mgr/DaemonState.cc
+index a7b8f572e16..313ba807666 100644
+--- a/src/mgr/DaemonState.cc
++++ b/src/mgr/DaemonState.cc
+@@ -150,10 +150,10 @@ void DaemonPerfCounters::update(MMgrReport *report)
+     uint64_t avgcount = 0;
+     uint64_t avgcount2 = 0;
+ 
+-    ::decode(val, p);
++    decode(val, p);
+     if (t.type & PERFCOUNTER_LONGRUNAVG) {
+-      ::decode(avgcount, p);
+-      ::decode(avgcount2, p);
++      decode(avgcount, p);
++      decode(avgcount2, p);
+     }
+     // TODO: interface for insertion of avgs
+     instances[t_path].push(now, val);

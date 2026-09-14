@@ -1,0 +1,24 @@
+commit 324e4d2d19b3c2bb421ebaf2569bf16bee3b855d
+Author: Chang Liu <liuchang0812@gmail.com>
+Date:   Sat Jul 8 22:53:07 2017 +0800
+
+    mgr: remove useless headers in MgrStandby.h
+    
+    Signed-off-by: liuchang0812 <liuchang0812@gmail.com>
+
+diff --git a/src/mgr/MgrStandby.h b/src/mgr/MgrStandby.h
+index 79cdaa0c00d..2e2bc6b5f0a 100644
+--- a/src/mgr/MgrStandby.h
++++ b/src/mgr/MgrStandby.h
+@@ -24,11 +24,6 @@
+ #include "mon/MonClient.h"
+ #include "osdc/Objecter.h"
+ 
+-#include "DaemonServer.h"
+-#include "PyModules.h"
+-
+-#include "DaemonState.h"
+-#include "ClusterState.h"
+ 
+ class MMgrMap;
+ class Mgr;

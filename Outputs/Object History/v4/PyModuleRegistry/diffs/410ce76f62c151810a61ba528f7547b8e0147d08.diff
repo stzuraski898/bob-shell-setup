@@ -1,0 +1,28 @@
+commit 410ce76f62c151810a61ba528f7547b8e0147d08
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Thu Feb 8 19:01:19 2018 +0800
+
+    mgr: load ceph_{logger,module} globally
+    
+    no need to add them for each sub-interpreter. extensions are shared
+    among them.
+    
+    Fixes: http://tracker.ceph.com/issues/22880
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.cc b/src/mgr/PyModuleRegistry.cc
+index 867814bfa16..82060f483f7 100644
+--- a/src/mgr/PyModuleRegistry.cc
++++ b/src/mgr/PyModuleRegistry.cc
+@@ -57,6 +57,11 @@ int PyModuleRegistry::init(const MgrMap &map)
+ #else
+   Py_SetProgramName(const_cast<char*>(PYTHON_EXECUTABLE));
+ #endif
++  // Add more modules
++  if (g_conf->get_val<bool>("daemonize")) {
++    PyImport_AppendInittab("ceph_logger", PyModule::init_ceph_logger);
++  }
++  PyImport_AppendInittab("ceph_module", PyModule::init_ceph_module);
+   Py_InitializeEx(0);
+ 
+   // Let CPython know that we will be calling it back from other

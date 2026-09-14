@@ -1,0 +1,91 @@
+commit f495b8cce9014d3459f41691ad5eb7ca1fc9d153
+Author: Mykola Golub <mgolub@suse.com>
+Date:   Sun Sep 23 20:33:14 2018 +0300
+
+    osd: collect client perf stats when query is enabled
+    
+    Fixes: https://tracker.ceph.com/issues/36091
+    Signed-off-by: Mykola Golub <mgolub@suse.com>
+
+diff --git a/src/mgr/MgrClient.cc b/src/mgr/MgrClient.cc
+index 4bddbe2a19c..db5b586127b 100644
+--- a/src/mgr/MgrClient.cc
++++ b/src/mgr/MgrClient.cc
+@@ -351,7 +351,7 @@ void MgrClient::_send_report()
+ 			    &last_config_bl_version);
+ 
+   if (get_perf_report_cb) {
+-    //get_perf_report_cb(&report->perf_report)
++    get_perf_report_cb(&report->osd_perf_metric_reports);
+   }
+ 
+   session->con->send_message(report);
+@@ -389,16 +389,16 @@ bool MgrClient::handle_mgr_configure(MMgrConfigure *m)
+     stats_threshold = m->stats_threshold;
+   }
+ 
++  if (set_perf_queries_cb) {
++    set_perf_queries_cb(m->osd_perf_metric_queries);
++  }
++
+   bool starting = (stats_period == 0) && (m->stats_period != 0);
+   stats_period = m->stats_period;
+   if (starting) {
+     _send_stats();
+   }
+ 
+-  if (set_perf_queries_cb) {
+-    set_perf_queries_cb(m->osd_perf_metric_queries);
+-  }
+-
+   m->put();
+   return true;
+ }
+diff --git a/src/mgr/MgrClient.h b/src/mgr/MgrClient.h
+index 5b561d26170..72348ab23c5 100644
+--- a/src/mgr/MgrClient.h
++++ b/src/mgr/MgrClient.h
+@@ -20,14 +20,12 @@
+ #include "mgr/DaemonHealthMetric.h"
+ 
+ #include "messages/MMgrReport.h"
+-#include "mgr/OSDPerfMetricQuery.h"
++#include "mgr/OSDPerfMetricTypes.h"
+ 
+ #include "common/perf_counters.h"
+ #include "common/Timer.h"
+ #include "common/CommandTable.h"
+ 
+-typedef int OSDPerfMetricReport; //Temporary
+-
+ class MMgrMap;
+ class MMgrConfigure;
+ class MMgrClose;
+@@ -82,7 +80,8 @@ protected:
+   // our reports (hook for use by OSD)
+   std::function<MPGStats*()> pgstats_cb;
+   std::function<void(const std::list<OSDPerfMetricQuery> &)> set_perf_queries_cb;
+-  std::function<void(OSDPerfMetricReport *)> get_perf_report_cb;
++  std::function<void(std::map<OSDPerfMetricQuery,
++                              OSDPerfMetricReport> *)> get_perf_report_cb;
+ 
+   // for service registration and beacon
+   bool service_daemon = false;
+@@ -121,15 +120,14 @@ public:
+ 
+   void set_perf_metric_query_cb(
+           std::function<void(const std::list<OSDPerfMetricQuery> &)> cb_set,
+-          std::function<void(OSDPerfMetricReport *)> cb_get)
+-
++          std::function<void(std::map<OSDPerfMetricQuery,
++                                      OSDPerfMetricReport> *)> cb_get)
+   {
+       std::lock_guard l(lock);
+       set_perf_queries_cb = cb_set;
+       get_perf_report_cb = cb_get;
+   }
+ 
+-
+   void send_pgstats();
+   void set_pgstats_cb(std::function<MPGStats*()>&& cb_)
+   {

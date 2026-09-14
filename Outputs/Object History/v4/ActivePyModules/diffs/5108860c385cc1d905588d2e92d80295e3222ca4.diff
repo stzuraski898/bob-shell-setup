@@ -1,0 +1,23 @@
+commit 5108860c385cc1d905588d2e92d80295e3222ca4
+Author: Xie Xingguo <xie.xingguo@zte.com.cn>
+Date:   Sat Mar 30 11:26:19 2019 +0800
+
+    mgr/BaseMgrModule: drop GIL in ceph_store_set
+    
+    Signed-off-by: xie xingguo <xie.xingguo@zte.com.cn>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 0f3f508eb6f..745a34e301b 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -593,10 +593,7 @@ void ActivePyModules::set_store(const std::string &module_name,
+   
+   Command set_cmd;
+   {
+-    PyThreadState *tstate = PyEval_SaveThread();
+     std::lock_guard l(lock);
+-    PyEval_RestoreThread(tstate);
+-
+     if (val) {
+       store_cache[global_key] = *val;
+     } else {

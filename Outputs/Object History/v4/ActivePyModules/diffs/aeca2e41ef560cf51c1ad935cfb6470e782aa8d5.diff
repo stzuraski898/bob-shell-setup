@@ -1,0 +1,33 @@
+commit aeca2e41ef560cf51c1ad935cfb6470e782aa8d5
+Author: Prashant D <pdhange@redhat.com>
+Date:   Thu Mar 17 14:29:40 2022 +0000
+
+    mgr, mgr/prometheus: Fix regression with prometheus metrics
+    
+    The ceph dameons on host are inheriting ceph version from the host.
+    This introduces a wrong interpretation in prometheus metrics as well
+    as in dump_server. Each ceph daemon should represent it's own
+    ceph version based on the ceph binary is use for that daemon.
+    
+    Consider a situation where partial upgrade is done on host, some daemons
+    which are restarted should have ceph version tag as upgraded version
+    and rest should have older ceph version but presently all inherites
+    host version. In containerized environment, all daemons are
+    using ceph version of last daemon registered as a service on the host.
+    
+    Fixes: https://tracker.ceph.com/issues/54611
+    
+    Signed-off-by: Prashant D <pdhange@redhat.com>
+
+diff --git a/src/mgr/ActivePyModules.cc b/src/mgr/ActivePyModules.cc
+index 18b988ef3e0..58c3d9ee4d6 100644
+--- a/src/mgr/ActivePyModules.cc
++++ b/src/mgr/ActivePyModules.cc
+@@ -97,6 +97,7 @@ void ActivePyModules::dump_server(const std::string &hostname,
+     f->open_object_section("service");
+     f->dump_string("type", key.type);
+     f->dump_string("id", key.name);
++    f->dump_string("ceph_version", ceph_version);
+     if (!id.empty()) {
+       f->dump_string("name", id);
+     }

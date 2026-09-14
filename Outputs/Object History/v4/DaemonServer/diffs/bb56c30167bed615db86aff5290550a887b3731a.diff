@@ -1,0 +1,35 @@
+commit bb56c30167bed615db86aff5290550a887b3731a
+Author: Patrick Donnelly <pdonnell@ibm.com>
+Date:   Fri Mar 19 14:41:58 2021 -0700
+
+    mgr: add debug output for commands dispatched
+    
+    Signed-off-by: Patrick Donnelly <pdonnell@redhat.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 64edc8bdfb7..ea41ba05887 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -2396,11 +2396,13 @@ bool DaemonServer::_handle_command(
+     return true;
+   }
+ 
+-  dout(10) << "passing through " << cmdctx->cmdmap.size() << dendl;
++  dout(10) << "passing through command '" << prefix << "' size " << cmdctx->cmdmap.size() << dendl;
+   finisher.queue(new LambdaContext([this, cmdctx, session, py_command, prefix]
+                                    (int r_) mutable {
+     std::stringstream ss;
+ 
++    dout(10) << "dispatching command '" << prefix << "' size " << cmdctx->cmdmap.size() << dendl;
++
+     // Validate that the module is enabled
+     auto& py_handler_name = py_command.module_name;
+     PyModuleRef module = py_modules.get_module(py_handler_name);
+@@ -2456,6 +2458,7 @@ bool DaemonServer::_handle_command(
+ 
+     cmdctx->odata.append(ds);
+     cmdctx->reply(r, ss);
++    dout(10) << " command returned " << r << dendl;
+   }));
+   return true;
+ }

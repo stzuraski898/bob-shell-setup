@@ -1,0 +1,58 @@
+commit 5c9db7200eb0274e1d87c4ce0ab5ca32e090f1ea
+Author: Jan Fajerski <jfajerski@suse.com>
+Date:   Tue Mar 13 16:21:27 2018 +0100
+
+    mgr: add mgr daemon to DaemonStateIndex with metadata (hostname)
+    
+    This commit changes when (and how) the mgr daemons are added to the
+    DaemonStateIndex. A change in the mgr map now doesn't immediately
+    trigger the addition of a mgr daemon, but triggers a MetadataUpdate
+    operation so that the mgr daemon is added with metadata queried from the
+    mon (most notably the hostname).
+    Fixes: http://tracker.ceph.com/issues/23286
+    
+    Signed-off-by: Jan Fajerski <jfajerski@suse.com>
+
+diff --git a/src/mgr/DaemonServer.cc b/src/mgr/DaemonServer.cc
+index 5684ec66964..dfbd5915fa1 100644
+--- a/src/mgr/DaemonServer.cc
++++ b/src/mgr/DaemonServer.cc
+@@ -1810,24 +1810,27 @@ void DaemonServer::got_mgr_map()
+   Mutex::Locker l(lock);
+   set<std::string> have;
+   cluster_state.with_mgrmap([&](const MgrMap& mgrmap) {
++      auto md_update = [&] (DaemonKey key) {
++        std::ostringstream oss;
++        auto c = new MetadataUpdate(daemon_state, key);
++        oss << "{\"prefix\": \"mgr metadata\", \"who\": \""
++              << key.second << "\"}";
++        monc->start_mon_command({oss.str()}, {}, &c->outbl, &c->outs, c);
++      };
+       if (mgrmap.active_name.size()) {
+ 	DaemonKey key("mgr", mgrmap.active_name);
+ 	have.insert(mgrmap.active_name);
+-	if (!daemon_state.exists(key)) {
+-	  auto daemon = std::make_shared<DaemonState>(daemon_state.types);
+-	  daemon->key = key;
+-	  daemon_state.insert(daemon);
+-	  dout(10) << "added missing " << key << dendl;
++	if (!daemon_state.exists(key) && !daemon_state.is_updating(key)) {
++	  md_update(key);
++	  dout(10) << "triggered addition of " << key << " via metadata update" << dendl;
+ 	}
+       }
+       for (auto& i : mgrmap.standbys) {
+-	DaemonKey key("mgr", i.second.name);
++        DaemonKey key("mgr", i.second.name);
+ 	have.insert(i.second.name);
+-	if (!daemon_state.exists(key)) {
+-	  auto daemon = std::make_shared<DaemonState>(daemon_state.types);
+-	  daemon->key = key;
+-	  daemon_state.insert(daemon);
+-	  dout(10) << "added missing " << key << dendl;
++	if (!daemon_state.exists(key) && !daemon_state.is_updating(key)) {
++	  md_update(key);
++	  dout(10) << "triggered addition of " << key << " via metadata update" << dendl;
+ 	}
+       }
+     });

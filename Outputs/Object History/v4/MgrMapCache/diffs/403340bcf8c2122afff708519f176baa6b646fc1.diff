@@ -1,0 +1,507 @@
+commit 403340bcf8c2122afff708519f176baa6b646fc1
+Author: Nitzan Mordechai <nmordech@redhat.com>
+Date:   Thu Jul 17 06:17:00 2025 +0000
+
+    mgr: replace TTLCache with MgrMapCache and protect api with readonly
+    
+    This patch removes the old TTLCache implementation and introduces
+    a new generic MgrMapCache driven by a runtime toggle:
+    
+    - Add `mgr_map_cache_enabled` config option in global.yaml
+    - Swap out `ttl_cache` for `api_cache` (MgrMapCache) in ActivePyModules
+    - Update cacheable_get_python() and get_python() to use LFU‐based api_cache
+    - add new get_mutable parameter to the get api call to get a copy.
+    - Invalidate api_cache on notify_all events
+    - Remove all TTLCache headers, sources, and tests
+    - Include MgrMapCache.cc in CMakeLists and update BaseMgrModule bindings
+    - Improve logging around cache hits, misses, and state changes
+    
+    - ActivePyModules
+      * Remove unused update_cache_metrics()
+      * Log cache hits/misses inline and only insert into cache when
+        enabled+cacheable (with proper Py_INCREF)
+      * Switch get_python() to use PyFormatterRO for cacheable routes, PyFormatter otherwise
+    
+    - MgrMapCache/LFUCache
+      * Add can_read_cache()/can_write_cache() helpers and use const& for key parameters
+      * Guard perf counter increments and improve debug logging
+    
+    - PyFormatter
+      * Add PyFormatterRO subclass that freezes dicts/lists into read-only
+        proxies on the fly
+    
+    - Python mgr_module
+      * Simplify get() to return raw result
+    
+    This change ensures immutable JSON output on cache hits and tightens up cache logic.
+    
+    mgr/cli: add cache flush command with proper status reporting
+    
+    Allow operators to invalidate individual mgr Python caches at runtime
+    without restarting the manager. Introduces a new CLI command:
+    
+      $ ceph mgr cli cache flush <map-name>
+    
+    which returns success or a clear error if the named cache entry doesn’t
+    exist or isn’t cacheable. This makes it easy to drop stale cached maps
+    (e.g. osd_map, mon_map) on demand.
+    
+    Fixes: https://tracker.ceph.com/issues/72447
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+    
+    mgr: add new unit tests for MgrMapCache
+    
+    - Guard against null perf‐counter before calling inc(), preventing crashes
+    - Add “foo” to allowed_keys list (for test coverage)
+    - Rename and refocus the CMake test target from TTLCache to MgrMapCache
+    - Introduce test_mgrmapcache.cc with LFUCache tests.
+    - Remove the obsolete test_ttlcache.cc
+    
+    Fixes: https://tracker.ceph.com/issues/72447
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+    
+    mgr/test_cache: add new tests
+    
+    adding new unit-test for mgrcache
+    
+    Fixes: https://tracker.ceph.com/issues/72447
+    Signed-off-by: Nitzan Mordechai <nmordec@ibm.com>
+
+diff --git a/src/mgr/MgrMapCache.cc b/src/mgr/MgrMapCache.cc
+new file mode 100644
+index 00000000000..de5c5cadb82
+--- /dev/null
++++ b/src/mgr/MgrMapCache.cc
+@@ -0,0 +1,237 @@
++// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
++// vim: ts=8 sw=2 sts=2 expandtab
++
++/*
++ * Ceph - scalable distributed file system
++ *
++ * Copyright (C) 2026 IBM
++ *
++ * This is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License version 2.1, as published by the Free Software
++ * Foundation.  See file COPYING.
++ *
++ */
++
++#include "mgr/MgrMapCache.h"
++
++#include <algorithm>
++#include <optional>
++
++#include "common/config_proxy.h"
++#include "common/debug.h"
++#include "global/global_context.h"
++
++#define dout_context g_ceph_context
++#define dout_subsys ceph_subsys_mgr
++#undef dout_prefix
++#define dout_prefix *_dout << "api cache " << __func__ << " "
++
++static const std::unordered_set<std::string> mgr_cache_keys = {
++  "osd_map", "pg_dump", "pg_stats", "mon_status", "mgr_map",
++  "osd_metadata", "mds_metadata", "config"
++};
++
++template<class Value>
++MgrMapCache<Value>::~MgrMapCache() {
++  g_conf().remove_observer(this);
++}
++
++template<class Value>
++bool LFUCache<Value>::extract(std::string_view k, Value* out) noexcept {
++  std::unique_lock<std::shared_mutex> l(m);
++  auto it = cache_data.find(k);
++  if (it == cache_data.end()) return false;
++  *out = it->second.val;
++  cache_data.erase(it);
++  return true;
++}
++
++template<class Value>
++void LFUCache<Value>::drain(std::vector<Value>& out) noexcept {
++  std::unique_lock<std::shared_mutex> l(m);
++  out.reserve(cache_data.size());
++  for (auto& kv : cache_data) out.push_back(kv.second.val);
++  cache_data.clear();
++  hits.store(0);
++  misses.store(0);
++}
++
++template<class Value>
++Value LFUCache<Value>::get(std::string_view k) {
++  std::shared_lock l(m);
++  if (!is_enabled()) throw std::out_of_range("cache disabled");
++  auto it = cache_data.find(k);
++  if (it == cache_data.end()) {
++    throw std::out_of_range(std::string(k));
++  }
++  it->second.hits.fetch_add(1, std::memory_order_relaxed);
++  mark_hit();
++  return it->second.val;
++}
++
++template<class Value>
++bool LFUCache<Value>::try_get(std::string_view k, Value* out, bool count_hit) noexcept {
++  std::shared_lock l(m);
++  auto it = cache_data.find(k);
++  if (it == cache_data.end()) {
++    if (count_hit) {
++      mark_miss();
++    }
++    return false;
++  }
++  if (count_hit) {
++    it->second.hits.fetch_add(1, std::memory_order_relaxed);
++    mark_hit();
++  }
++  *out = it->second.val;
++  return true;
++}
++
++template<class Value>
++typename LFUCache<Value>::InsertRes
++LFUCache<Value>::insert(std::string_view key, Value value) {
++  if (!can_write_cache(key)) {
++    return InsertRes{false};
++  }
++
++  std::unique_lock<std::shared_mutex> l(m);
++  // Re-check enabled after acquiring lock: state may have flipped while waiting.
++  if (!enabled.load(std::memory_order_relaxed)) {
++    return InsertRes{false};
++  }
++
++  auto it = cache_data.find(key);
++  if (it != cache_data.end()) {
++    InsertRes res{true};
++    res.replaced = std::move(it->second.val);
++    it->second.val = std::move(value);
++    return res;
++  }
++
++  // New insert counts as a miss (cache didn't have it)
++  mark_miss();
++
++  InsertRes res{true};
++  if (cache_data.size() >= capacity && !cache_data.empty()) {
++    auto min_it = std::min_element(cache_data.begin(),
++      cache_data.end(),
++      [](const auto& a, const auto& b) {
++        return a.second.hits.load(std::memory_order_relaxed) <
++               b.second.hits.load(std::memory_order_relaxed);
++    });
++    res.evicted = std::move(min_it->second.val);
++    cache_data.erase(min_it);
++  }
++
++  // Allocate std::string only here, when we actually need to store a new key.
++  cache_data.emplace(std::string(key), Entry(std::move(value)));
++  return res;
++}
++
++template <class Value>
++MgrMapCache<Value>::MgrMapCache(uint16_t size)
++    : CacheImp(mgr_cache_keys, size, g_conf().get_val<bool>("mgr_map_cache_enabled")) {
++  dout(20) << ": creating cache with size " << size << dendl;
++  g_conf().add_observer(this);
++}
++
++template <class Value>
++void MgrMapCache<Value>::handle_conf_change(
++    const ConfigProxy& conf, const std::set<std::string>& changed) {
++  if (changed.count("mgr_map_cache_enabled")) {
++    this->set_enabled(conf.get_val<bool>("mgr_map_cache_enabled"));
++  }
++}
++
++MgrMapCache<PyObject*>::MgrMapCache(uint16_t size)
++    : CacheImp(mgr_cache_keys, size, g_conf().get_val<bool>("mgr_map_cache_enabled")) {
++  dout(20) << ": creating cache with size " << size << dendl;
++  g_conf().add_observer(this);
++}
++
++MgrMapCache<PyObject*>::~MgrMapCache() {
++  g_conf().remove_observer(this);
++  this->clear();
++}
++
++PyObject* MgrMapCache<PyObject*>::get(std::string_view k) {
++  if (!this->is_enabled() ||
++      !this->is_cacheable(k) ||
++      !PyGILState_Check())
++        return nullptr;
++  std::shared_lock l(this->m);
++  auto it = this->cache_data.find(k);
++  if (it == this->cache_data.end()) {
++    this->mark_miss();
++    return nullptr;
++  }
++  PyObject* o = it->second.val;
++  Py_INCREF(o);  // INCREF under lock: no window for erase() to drop refcount to zero
++  it->second.hits.fetch_add(1, std::memory_order_relaxed);
++  this->mark_hit();
++  return o;
++}
++
++void MgrMapCache<PyObject*>::insert(std::string_view key, PyObject* value) {
++  if (!this->can_write_cache(key) || !PyGILState_Check()) {
++    return;
++  }
++
++  Py_INCREF(value);
++  auto res = CacheImp::insert(key, value);
++
++  if (!res.inserted) {
++    // Cache was disabled between our check and lock acquisition; undo the INCREF.
++    Py_DECREF(value);
++    return;
++  }
++
++  auto schedule_decref = [](PyObject* obj) {
++    if (!obj) return;
++    if (Py_AddPendingCall(+[](void* p){ Py_DECREF((PyObject*)p); return 0; }, obj) != 0) {
++      PyGILState_STATE st = PyGILState_Ensure();
++      Py_DECREF(obj);
++      PyGILState_Release(st);
++    }
++  };
++  if (res.replaced.has_value()) schedule_decref(res.replaced.value());
++  if (res.evicted.has_value())  schedule_decref(res.evicted.value());
++
++  dout(20) << ": inserted key: " << key << " py count: "
++           << Py_REFCNT(value) << " hit/miss:"
++           << CacheImp::get_hits() << "/"
++           << CacheImp::get_misses() << dendl;
++}
++
++void MgrMapCache<PyObject*>::erase(std::string_view key) noexcept {
++  if (!this->is_cacheable(key)) return;
++  PyObject* o = nullptr;
++  if (!this->extract(key, &o)) return;
++
++  Py_AddPendingCall(+[](void* p){ Py_DECREF((PyObject*)p); return 0; }, o);
++  dout(20) << ": erased key: " << key
++           << " hit/miss:"
++           << CacheImp::get_hits() << "/"
++           << CacheImp::get_misses() << dendl;
++}
++
++void MgrMapCache<PyObject*>::clear() noexcept {
++  std::vector<PyObject*> to_drop;
++  this->drain(to_drop);
++  if (to_drop.empty()) return;
++  PyGILState_STATE st = PyGILState_Ensure();
++  for (auto* o : to_drop) Py_DECREF(o);
++  PyGILState_Release(st);
++  dout(20) << ": Cache cleared" << dendl;
++}
++
++void MgrMapCache<PyObject*>::handle_conf_change(
++    const ConfigProxy& conf, const std::set<std::string>& changed) {
++  if (changed.count("mgr_map_cache_enabled")) {
++    this->set_enabled(conf.get_val<bool>("mgr_map_cache_enabled"));
++  }
++}
++
++// Explicit instantiation for unit tests
++template class LFUCache<int>;
+diff --git a/src/mgr/MgrMapCache.h b/src/mgr/MgrMapCache.h
+new file mode 100644
+index 00000000000..04b167c396e
+--- /dev/null
++++ b/src/mgr/MgrMapCache.h
+@@ -0,0 +1,189 @@
++// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:nil -*-
++// vim: ts=8 sw=2 sts=2 expandtab
++
++/*
++ * Ceph - scalable distributed file system
++ *
++ * Copyright (C) 2026 IBM
++ *
++ * This is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License version 2.1, as published by the Free Software
++ * Foundation.  See file COPYING.
++ *
++ */
++#pragma once
++
++#include <atomic>
++#include <optional>
++#include <shared_mutex>
++#include <string>
++#include <string_view>
++#include <unordered_map>
++#include <unordered_set>
++
++#include "common/config_obs.h"
++#include "common/perf_counters.h"
++#include "mgr/mgr_perf_counters.h"
++#include "PyUtil.h"
++
++// Transparent hash so unordered containers accept std::string_view lookups
++// without constructing a std::string.
++struct StringViewHash {
++  using is_transparent = void;
++  size_t operator()(std::string_view sv) const noexcept {
++    return std::hash<std::string_view>{}(sv);
++  }
++};
++
++template<class Value>
++class LFUCache {
++  struct Entry {
++    Value val;
++    mutable std::atomic<size_t> hits{0};
++
++    Entry() = default;
++    Entry(Value v) : val(std::move(v)), hits(0) {}
++    Entry(const Entry& o) : val(o.val), hits(o.hits.load()) {}
++    Entry(Entry&& o) noexcept : val(std::move(o.val)), hits(o.hits.load()) {}
++  };
++  std::atomic<uint64_t> hits{0}, misses{0};
++  const std::unordered_set<std::string, StringViewHash, std::equal_to<>> allowed_keys;
++
++protected:
++  std::unordered_map<std::string, Entry, StringViewHash, std::equal_to<>> cache_data;
++  const size_t capacity;
++  std::atomic<bool> enabled{true};
++  mutable std::shared_mutex m;
++
++  void mark_miss() {
++    misses++;
++    if (perfcounter)
++      perfcounter->inc(l_mgr_cache_miss);
++  }
++
++  void mark_hit() {
++    hits++;
++    if (perfcounter)
++      perfcounter->inc(l_mgr_cache_hit);
++  }
++
++public:
++  explicit LFUCache(std::unordered_set<std::string> keys,
++                    size_t cap = UINT16_MAX,
++                    bool ena = true)
++      : allowed_keys(keys.begin(), keys.end()), capacity{cap}, enabled{ena} {}
++  virtual ~LFUCache() = default;
++
++  void set_enabled(bool e) {
++    enabled.store(e);
++    if (!e) {
++      clear();
++    }
++  }
++
++  bool is_enabled() const noexcept {
++    return enabled.load();
++  }
++
++  size_t size() const {
++    std::shared_lock l(m);
++    return cache_data.size();
++  }
++
++  bool is_cacheable(std::string_view key) const noexcept {
++    return allowed_keys.find(key) != allowed_keys.end();
++  }
++
++  bool can_read_cache(std::string_view key) const noexcept {
++    return is_enabled() && is_cacheable(key) && exists(key);
++  }
++
++  bool can_write_cache(std::string_view key) const noexcept {
++    return is_enabled() && is_cacheable(key);
++  }
++
++  struct InsertRes {
++    bool inserted{false};        // false means the cache rejected the write
++    std::optional<Value> replaced; // set if an existing key was overwritten
++    std::optional<Value> evicted;  // set if an entry was evicted to make room
++  };
++
++  bool try_get(std::string_view k, Value* out, bool count_hit = true) noexcept;
++  InsertRes insert(std::string_view key, Value value);
++
++  bool erase(std::string_view key) {
++    std::unique_lock l(m);
++    auto it = cache_data.find(key);
++    if (it == cache_data.end()) return false;
++    cache_data.erase(it);
++    return true;
++  }
++
++  bool extract(std::string_view k, Value* out) noexcept;
++  void drain(std::vector<Value>& out) noexcept;
++
++  virtual void clear() {
++    std::unique_lock l(m);
++    cache_data.clear();
++    hits.store(0);
++    misses.store(0);
++  }
++
++  bool exists(std::string_view key) const noexcept {
++    std::shared_lock l(m);
++    return cache_data.find(key) != cache_data.end();
++  }
++
++  uint64_t get_hits() const noexcept {
++    return hits.load();
++  }
++
++  uint64_t get_misses() const noexcept {
++    return misses.load();
++  }
++
++  Value get(std::string_view k);
++};
++
++
++// ---------- MgrMapCache generic ----------
++template <class Value>
++class MgrMapCache : public LFUCache<Value>,
++                   public md_config_obs_t {
++  using CacheImp = LFUCache<Value>;
++public:
++  explicit MgrMapCache(uint16_t sz = UINT16_MAX);
++  ~MgrMapCache();
++  bool try_get(std::string_view k, Value* out, bool count_hit = true) noexcept {
++    return CacheImp::try_get(k, out, count_hit);
++  }
++  void insert(std::string_view k, Value v) { CacheImp::insert(k, v); }
++  bool extract(std::string_view k, Value* out) noexcept { return CacheImp::extract(k, out); }
++  void erase(std::string_view k) noexcept { Value v{}; (void)CacheImp::extract(k, &v); }
++  void clear() noexcept { CacheImp::clear(); }
++private:
++  std::vector<std::string> get_tracked_keys() const noexcept override { return {"mgr_map_cache_enabled"}; }
++  void handle_conf_change(const ConfigProxy& conf, const std::set<std::string>& changed) override;
++};
++
++// ------- Full template specialization for PyObject*. with GIL rules ----------
++template <>
++class MgrMapCache<PyObject*> : public LFUCache<PyObject*>,
++                               public md_config_obs_t {
++  using CacheImp = LFUCache<PyObject*>;
++public:
++  MgrMapCache(uint16_t size = UINT16_MAX);
++  ~MgrMapCache();
++  bool try_get(std::string_view k, PyObject** out, bool count_hit = true) noexcept = delete;
++  PyObject* get(std::string_view key);
++  void erase(std::string_view key) noexcept;
++  void clear() noexcept override;
++  void insert(std::string_view key, PyObject* value);
++  void invalidate(std::string_view key) {
++    erase(key);
++  }
++private:
++  std::vector<std::string> get_tracked_keys() const noexcept override { return {"mgr_map_cache_enabled"}; }
++  void handle_conf_change(const ConfigProxy& conf, const std::set<std::string>& changed) override;
++};

@@ -1,0 +1,31 @@
+commit 8d803e0483d797fc87c0e58de28009ba296b7dfb
+Author: Greg Farnum <gfarnum@redhat.com>
+Date:   Tue Mar 7 15:30:55 2017 -0800
+
+    MonClient: support "passthrough" of MonMap messages so other Dispatchers can see them
+    
+    Use this in the Manager so it can notify of new monitor maps.
+    
+    Signed-off-by: Greg Farnum <gfarnum@redhat.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 9df32239bd0..b4892c3f8ef 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -466,16 +466,6 @@ bool Mgr::ms_dispatch(Message *m)
+       handle_mgr_digest(static_cast<MMgrDigest*>(m));
+       break;
+     case CEPH_MSG_MON_MAP:
+-      // FIXME: we probably never get called here because MonClient
+-      // has consumed the message.  For consuming OSDMap we need
+-      // to be the tail dispatcher, but to see MonMap we would
+-      // need to be at the head.
+-      // Result is that ClusterState has access to monmap (it reads
+-      // from monclient anyway), but we don't see notifications.  Hook
+-      // into MonClient to get notifications instead of messing
+-      // with message delivery to achieve it?
+-      ceph_abort();
+-
+       py_modules.notify_all("mon_map", "");
+       m->put();
+       break;

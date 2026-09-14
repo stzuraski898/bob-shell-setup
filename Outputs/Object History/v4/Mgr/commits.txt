@@ -1,0 +1,158 @@
+# Non-merge commits touching src/mgr/Mgr.cc and/or src/mgr/Mgr.h (rename-aware, newest first)
+# Format: SHA date author | subject
+# collected_at: 2026-09-14T18:08:19Z  head: 8681fa6ebac230f86eb445bf57095c63e7f1abcc
+#
+75b6149b294e16b9463c05d270adf0e9f51a4268 2026-05-21 Steven Zuraski | common/TrackedOp: make OpHistory::on_shutdown() idempotent
+fd4d4ce58b8616a8d87e244bb5f3c367dd20cf63 2026-05-21 Steven Zuraski | mgr/DaemonServer: add explicit DaemonServer shutdown handling
+403340bcf8c2122afff708519f176baa6b646fc1 2025-07-17 Nitzan Mordechai | mgr: replace TTLCache with MgrMapCache and protect api with readonly
+ec59888070246a8c4192e7c146bd7b3799bf9719 2026-05-29 senol.colak | mgr: preserve reported hostname when CRUSH host is unavailable
+dcd9c5bac5e2670efd726e1ae89bc264bd404671 2026-05-27 senol.colak | mgr: override OSD hostname with CRUSH physical host in all metadata paths
+e9abc5ce0bb784d2bdca887dfe8e7b003316eb38 2025-08-14 Max Kellermann | mgr/DaemonState: forward-declare class DaemonHealthMetric
+68221661b00f8a6bef0fbd7b5401aa49eb5118d0 2025-09-11 Laura Flores | mgr, qa: add `pending_modules` to asock command
+bf25a08cc58c8e872806e92dd36d9ff91e5523d9 2025-07-29 Laura Flores | mgr, common, qa, doc: issue health error after max expiration is exceeded
+cbd1726fde08692848b5c0e42c06e4f089ebcd5c 2025-04-25 Laura Flores | mgr: ensure that all modules have started before advertising active mgr
+4adaf64d7187778965f1a0f6e7d04efc809a2a7b 2025-10-02 Edwin Rodriguez | Add blank line after header block
+85d82faac250716549ebffeb9eb48f3b4f53711f 2025-10-01 Edwin Rodriguez | Update indent settings h
+c8c1019d1962166fa290d2f8cc8f2c40cd016168 2025-10-02 Edwin Rodriguez | Add missing blank line after comment block
+f1bac41828da8775acb7ea30ff5e3ce2bfe65bde 2025-10-01 Edwin Rodriguez | Update indent settings cc
+de566549310733b0eb6571402f51e464ae3e667a 2025-08-19 Max Kellermann | mon/MgrContext: move JSONCommand to separate header
+3db2b5767056762287dac6005f99338455f7361b 2025-09-07 Nitzan Mordechai | mgr: remove health msgs from the metrics if osd destroyed
+a17349b87afd4b4e66dfe50796e1594b47b13aba 2025-08-12 Max Kellermann | mgr: add missing includes
+56cb05775a937159ee0e6e26e30fe204accb5223 2025-02-18 Patrick Donnelly | mgr: indicate map message is acked instead of unhandled
+706b2be416246dd5923478d8a7ee015246f03e95 2025-01-30 Patrick Donnelly | mgr: use std namespace
+f20df2eb8545f2a4fc16acdde5edcb611868522e 2025-01-30 Patrick Donnelly | mgr: excise CephFS client from mgr C++ base
+ae5aadf538c57cfd20e42f21fb3b7e46b5fe3a58 2024-11-01 Max Kellermann | mgr/Mgr: add missing include
+282558cf40274366360bb3b1ec0fa102fbb592a6 2024-04-19 Cory Snyder | mgr/Mgr.cc: clear daemon health metrics instead of removing down/out osd from daemon state
+190f37978f72493ed34f02e919d9b89c405d0962 2024-03-07 Patrick Donnelly | mgr: process map before notifying clients
+dd9f9e268b5562bae8972bce03ec0970f353ae14 2023-11-02 Ramana Raja | mgr/Mgr: remove shutdown() and handle_signal()
+3072b113242e01ed54a2154157f734e671d13a1a 2023-10-13 shimin | mgr: remove out&down osd from daemons
+e72194b42ce1921e4b687fbed94e9d199923e77b 2023-02-27 Patrick Donnelly | mgr: rework register_client to take name and replace
+07ad8df2dd74f2fb4bbde6332a04cc5453bff435 2021-10-23 Sage Weil | common/admin_socket: pass inbl to sync call() method
+bbb1574eabf0945a626aeeb44ceb3dbb24d4391e 2022-02-14 Casey Bodley | mgr: use constexpr string_view as input to format()
+d3c8f171e9aaa9cbf970b6dadda5837ca9b030c7 2021-12-02 Sage Weil | mgr: stop issuing events that no modules consume
+5096685cd623de71a7c45a667e1dd776357fd997 2021-11-24 Sage Weil | mgr: fix locking for MetadataUpdate::finish
+c63ecb602e5916d5e0beed137787fdfc67707f15 2021-08-11 Kefu Chai | mgr: build without "using namespace std"
+b1e78c4177484725d00326b3bd90aca5b8eb7b7c 2021-04-13 Greg Farnum | mgr: do not require sqlite3.h if WITH_LIBCEPHSQLITE=OFF
+52446d00f647533f24e412dc8685a28d246bbdf2 2021-01-28 Patrick Donnelly | mgr: add ceph sqlite VFS
+3dbc1f0578d944217ad2bacb58ef561e678abb6c 2021-03-18 Sage Weil | mgr: tell monc when we get new servicemap, fsmap
+b356fd0a8c65b4f6dad9e51286df380e6974f842 2021-03-12 Sage Weil | mgr: wait for ~3 beacons on startup if mons are pre-pacific
+8fc290bfba4d71a60d30c2374ce4bcba37e649de 2021-03-09 Kefu Chai | mgr: add mon metada using type of "mon"
+3bafb5e571681dd71df35bf1863a95d69142d02d 2021-02-16 Sage Weil | mgr: rename config_prefix -> mgr_store_prefix
+edf1ea2f50927b97a4271c6754f855421dd4d4d0 2021-02-16 Sage Weil | mgr: use new kv subscription for mgr/, device/, config/
+c037f4cb5d7436879d58c34748ef516b5269781f 2021-01-16 Kefu Chai | mgr: update mon metadata when monmap is updated
+70e99e76b5f63265f6b2700f8af77ece4f1dd11b 2020-11-25 Kefu Chai | mgr: do not migrate conf from config-key store to new-style conf
+4e2d344eb34df86bbb290193c1d2a94ef077b4e3 2020-08-28 Kefu Chai | mgr: use range-based loop
+79785efbdb7559fcf78756cf2de2739dfeb7e75e 2020-08-28 Kefu Chai | mgr/Mgr: have smaller lexical scope of local var
+dfd01d765304ed8783cef613930e65980d9aee23 2020-06-15 Sage Weil | blacklist -> blocklist
+b2582ee8a440788b4aef4d26baa4cc2b67b1d579 2020-07-14 Liao Pingfang | mgr: Remove the superfluous break
+3e056ca5c6d2359ff585b3c4223506992b96e857 2020-03-10 Sage Weil | mgr: add 'mgr_status' tell command
+73078cf73c3a51f33ecb97eebbb97dbcd4089171 2020-03-05 Kefu Chai | mgr: update metadata if an osd just joins
+e3d3d0501e5095ce557e2e4ccaefc294a7d5c08c 2020-03-05 Kefu Chai | mgr: update "hostname" when we already have the daemon state from the same entity
+48c4bc445fcacd7980e84b4f135a3115b88b05f1 2019-12-18 Kefu Chai | mgr: drop the compatibility with python2
+3363a1001c7bb95763cdb7d8a9c2ebaff35a2cdd 2019-12-05 Sage Weil | mgr: simply exit on SIGINT or SIGTERM
+f2986a4400bb73d5ed3a80f626011609976c375a 2019-11-21 Patrick Donnelly | mon/MgrMonitor: blacklist previous instance
+ce6013cd321e92a245c575a9d9ef9a8b032760d6 2019-11-15 Sage Weil | mgr: _exit(0) from signal handler even if we are standby
+3d360b97ed7dead8e9a5f602cfaf61ab7b41e531 2019-10-14 Venky Shankar | mgr: invoke plugin shutdown on SIG{TERM,INT} signals.
+5aac7eba36be99861eb8726872e339ff55360f47 2019-09-29 Kefu Chai | mgr: use a struct for DaemonKey
+489b30844e86dab102f768796251783b6e4a5f8f 2019-08-14 Patrick Donnelly | include: convert FunctionContext usage to generic LambdaContext
+5d3c1856415f8b66e31361a0a7b9c75edc46e49e 2019-07-09 David Zafman | mgr: Add "dump_osd_network" mgr admin request to get a sorted report
+c93dc8849145c1630058e4c0e527f404929216ff 2019-07-07 Kefu Chai | mgr: s/Mutex/ceph::mutex/
+dffce107fb68e21cd85938d67115bdafe4e697eb 2019-07-22 Sebastian Wagner | mgr: cleanup idle debug log at level 4.
+a50a91d24349c8147c53f7aa109974160e8db120 2019-04-15 Kefu Chai | mgr/{Mgr,MgrStandby}: use ref_t<M>
+8665a892f6eb5ab7afd19888fe266e9f8bc395d9 2019-03-14 Xie Xingguo | mgr/Mgr: kill redundant sub_unwant call
+92b2fe9e653f69ea855fa759a091ed75033bd7e0 2019-01-30 Sage Weil | mgr/Mgr: print bad (non-object) json
+3c333f3599642f29dc7a080570ed6b1954e49dce 2019-01-15 Xinying Song | mgr: Apply sanity check for daemon metadata
+430ba5e231d6929a004a9758d31b426ecbe43951 2018-12-30 Xinying Song | mgr: request mon metadata when receiving a report msg from an unknown monitor
+03a761c980a1171fe6adf7a463f3ab80ec6d4052 2018-11-15 Sage Weil | mgr: lock pg_map too for osd_pool_stats and notify_osdmap
+8a2f4429b129a24a72fdbc374075bba954be5bd3 2018-10-18 Sage Weil | mgr: adjust DaemonState device index when daemon metadata is updated
+948635a8b2130b561fae08bd5b2405a2dc6d3e9f 2018-10-16 Sage Weil | mgr: Mutex::Locker -> std::lock_guard
+80cee1d98816f6d48dbe038412f1e9486c493556 2018-09-18 Sage Weil | mgr: parse mon metadata properly
+95746ecce9215c8428a02f1745d03e10536a4129 2018-09-24 Volker Theile | mgr: Add ability to trigger a cluster/audit log message from Python
+ef88206d1c2ef72b2a1073f0017ff823f4436b78 2018-08-31 Noah Watkins | mgr: remove dead code
+ab23c506964753990f9fe23e314b9f3e2547a773 2018-08-23 Adam C. Emerson | mgr: Use ceph_assert for asserts.
+3068c4290166076093119d1dc08a2c0fada8235f 2018-07-26 Noah Watkins | mgr: report health check changes immediately
+934443e2452f97184448210d11850285990b4384 2018-07-26 Noah Watkins | mgr: remove unused timer member
+ea1481d08d561cdf0229e440b70b88fe336d3f89 2018-06-12 Sage Weil | mds: addr -> addrvec
+f30843581d0809d7b11d6e6d91d85ea6fd7fe8d6 2018-06-12 Sage Weil | mgr: myaddr -> myaddrs
+721335d55bda84552dc343ca1e44578492333a09 2018-05-14 Danny Al-Gaaf | mgr: use static_cast instead of c-style casts
+45d4dfed1ded628abcbb9f1c62dfb90095414f0d 2018-06-05 Sage Weil | mgr: load persistent device metadata on mgr stat
+615a6562bc6ac78ca0f874c055cec4887363ba3e 2018-06-05 Sage Weil | mgr: tolerate racing config-key change during load_store()
+67b5d3e343c51c9015d55a7c03e6dcc32f4c89e2 2018-06-05 Sage Weil | mgr: parse out devids from daemon metadata
+c11183d4ee3397c906629e7d3e441d3eecaf02e5 2018-05-30 Sage Weil | mgr: avoid OSDMap::get_addr()
+7f787704cdcd55df18d204c5251cdd6a3cedd604 2018-05-29 Sage Weil | mgr: use entity_addrvec_t for MgrMap
+37484af0b86083c02a7a506a0c9be02b3fd67b28 2018-04-09 John Spray | mgr: rework kv store load path
+3193d40d0daf766d5e210e7b1117afbfebd71f31 2018-02-16 Rubab-Syed | mgr: centralized setting/getting of mgr configs
+3eaf1516ebbfc03bb8e5469fdf09249374bd9bb6 2018-03-20 Jan Fajerski | mgr/MetadataUpdate: add daemon_state.notify_update to contructor
+5c9db7200eb0274e1d87c4ce0ab5ca32e090f1ea 2018-03-13 Jan Fajerski | mgr: add mgr daemon to DaemonStateIndex with metadata (hostname)
+cf68ce511f31d3746ca1cb13a9d3b39c25bb06a8 2018-01-05 Sage Weil | mgr: have MgrStandby send mgr reports to active mgr (even self!)
+2dca5b436a21f50fd1ec404ac3197fa48a7b1b49 2018-02-26 John Spray | mgr: die on bind() failure
+46003075924bb16b41149e7c12f31e9a6b7a3f15 2018-01-24 Kefu Chai | mgr: be compatible with py3
+834bc27940507737f064bca7362b4c7f4cd54c98 2017-11-23 John Spray | mgr: load command definitions earlier
+4042bec19dbb477d032a9b964da949aa952cc6d1 2018-01-11 Patrick Donnelly | mon: revert mds metadata argument name change
+3b6d6031ca2cba13f8010c83a56cfc904c6d37c9 2017-10-24 Jos Collin | mon,mgr,doc,test: standardize argument as role
+a39813837ca84434e57afa47138973268ff366d3 2017-10-21 Chang Liu | mgr: request daemon's metadata when receiving a report message from an unknown server
+c1471c7501948004096581ee415ab4a1fa2d9379 2017-08-22 John Spray | mgr: standby modules come up and run now
+70d45a6b93c92baf8d6a3b15765110a5384c5e60 2017-08-15 John Spray | mgr: clean up python source file naming
+9718896c8b844db2f3c07df1d344636da4605e61 2017-08-14 John Spray | mgr: refactor python module management
+a0183a63fa791954d14c57632e184858cefe893d 2017-07-27 John Spray | mgr: enable python modules to advertise their service URI
+a38ad9714a3a31fdf756a3fc8592217bebad2580 2017-09-21 Jos Collin | mgr: silence warning from -Wsign-compare
+29080134339e5e64d50af1db9fe50df7ea55c1d0 2017-08-24 Chang Liu | mgr: kill MgrSession when MMgrReport come from daemon without metadata info
+cb26eead3f195dd51ae79ec9e41700cdde674648 2017-08-09 Yanhu Cao | mgr/Mgr: implement completion of osd MetadataUpdate
+f236b5e78338f85a0ac82440ae44cdf4db83a04f 2017-07-19 Sage Weil | mgr/DaemonState: add per DaemonState lock
+2ebb8e13f6f592efcc52bb4f4d7f2db38cc062f2 2017-07-19 Sage Weil | mon: 'config-key list' -> 'config-key ls'
+5c3846306b6bf7864327265bbac9607295f46cfc 2017-06-29 John Spray | mgr: transmit command descriptions to mgr in activating beacon
+c86c8b717e1850410c59f7c6c708b20619c60a6c 2017-07-18 Sage Weil | mgr: move mgr_commands to separate compilation unit
+110e60f4e31a23a67cf55f142e81c8963d0f1c24 2017-07-14 Sage Weil | mgr/Mgr: debug init a bit more
+62935db879219be8c39f16b19beac919adc29463 2017-06-21 John Spray | mgr: expose a MgrMap in PyModules
+617c96014bfb71a073a4ac37d33d5452fba629f1 2017-07-12 Dan Mick | Mgr: increase debug level for ticks 0 -> 10
+97cfc3cb694eb2723cae22d71057323773746cee 2017-06-26 Sage Weil | mgr: allow/track service registrations
+a22b256bad1f6a4fcb9ffc10015b17bab7216afb 2017-06-22 Sage Weil | mgr: index daemon state by string service type
+e0e87da6529d2c7c785aebd2aca88a517e150d0c 2017-06-29 John Spray | mgr: send beacon to mon as soon as done with Mgr::init
+f25763208ff67867d45bcaa56b3dff7e80f755db 2017-06-29 John Spray | mgr: wait for mon digest on startup
+16fcee1f71fce3a2365d17dfef0b1459f8da1948 2017-06-27 Sage Weil | mon,mgr: manage mgr module list in mgrmap
+6c10417f7ed365425019108c2cb9f6d1e091b975 2017-06-27 Sage Weil | mgr: include MgrMap in ClusterState
+67bd8c40ed3a71edef8baccdadfca979042c792c 2017-06-25 John Spray | mgr: cluster log message on plugin load error
+30ae537a552096e9d3197d75af6b69731035c6f0 2017-06-05 Sage Weil | mgr/Mgr: fix deadlock in load_config
+28c83737345e9b9547a87105ab4d32b6f636bd4b 2017-06-08 Kefu Chai | msg,common: do not include assert.h everywhere to clobber <assert.h>
+c93daaf92b643a06a822558973d377733dbd9d85 2017-05-24 Jesse Williamson | compile fixups for dout
+578cd59dd87d0c3f8c507a071b5a242e75cc25f9 2017-05-22 Sage Weil | mgr: drop useless __func__ prints
+74752505bfc30de11821fc5c7e6a6631a1cba2b6 2017-05-17 Kefu Chai | mgr: add a command "mgr report"
+ff1258e7ef39f1f1a69ef6475445712c1dc6e037 2017-03-10 Greg Farnum | mgr: introduce tick() calls through the system
+8d803e0483d797fc87c0e58de28009ba296b7dfb 2017-03-07 Greg Farnum | MonClient: support "passthrough" of MonMap messages so other Dispatchers can see them
+6f10373b7a23d83aaab1d68c9881c87d8e9123ad 2017-05-03 Spandan Kumar Sahu | mgr: remove non-existent MDS daemons from FSMap
+3746e209d88137206b5ad319dc049207bc4e2524 2017-03-30 John Spray | mgr: embed Client instance for mds_command
+562089d2a1c216fbe49654da81b64a0f808e3b56 2017-02-04 John Spray | mgr: expose Objecter to PyModules
+b1e5d492d684b5a28b0009301bf894531c53f3b9 2017-04-03 John Spray | mgr: fix deadlock in dispatch
+f79ae2504ad5355d20b137019afddb4d3f3cd204 2017-04-20 John Spray | mgr: fix message refcounting
+e7060410f720f792b97d3fd5392cec89ab67c249 2017-04-05 John Spray | mgr: get fresh maps on second load of Mgr
+9988a564d816f8fb3768a382dd547519d8112f94 2017-03-05 John Spray | mgr: improve handle_command
+145acbe976bdd6b9081f56f1dd1ead75c67d24ab 2017-04-27 Kefu Chai | mgr: do shutdown using finisher so we can do it in the right order
+8ce30bc4cd2325bfbc238fd76952729cf4f7e0a6 2017-03-27 John Spray | mgr: fix metadata handling from old MDS daemons
+abfb05733496d7c1c9f50558f47f4adaf87a1f7f 2017-04-06 Sage Weil | mgr/Mgr: unlock lock while blocking for metadata load
+f2a44f41607f0949a44b8399d56c6827a1a47fd5 2017-04-04 Sage Weil | mgr/Mgr: log something at end of handle_mgr_digest
+025934423f9f17cc1b7902011e181c4fb197dff1 2017-04-04 Sage Weil | mgr/Mgr: drop lock while fetching config-keys
+6d5e0132d97864f1058ba86584e2cc0e565977e7 2017-04-04 Sage Weil | mgr/Mgr: fix map waits in init
+1113eb123b1470f19feb3539153cad5159e54509 2017-04-04 Sage Weil | mgr/Mgr: use cond (not context) for FSMap wait
+3f857b9ae434274d0cf8b6288cefe9f703471870 2017-04-04 Wei Jin | mgr: rm nonused main function
+d3a10d35120445bbf994b0a062f21af891a33440 2017-03-21 Sage Weil | mgr/MgrStandby: add LogClient
+81834844f04b09d317872f0c850b8f0ceb9dfb1b 2017-03-10 Sage Weil | mgr/Mgr: less noisy about ms_dispatch
+a6fab0825f27c3cb0bb93a28abea9cd4d50c9150 2017-03-17 Sage Weil | mgr: do not crash if FSMap doesn't have 'addr' metadata
+523b7cafc4c84ef09dbae50cb8311d1694618d45 2017-03-22 Kefu Chai | mgr: shutdown py_modules in Mgr::shutdown()
+9ea37c223f92b8f228c57a4c17d4da02d99be756 2016-11-14 John Spray | mgr: pass through cluster log to plugins
+ac66b7542782f60ae93de25d3b2075a8d0a0ac54 2017-03-01 John Spray | mgr: update for start_mon_command int->void
+491d653632f8f06c69408a9a6d0f64d0a6ce2352 2017-02-15 Chang Liu | mgr: add override in mgr subsystem
+b9182564c716fdfcb39cc77314ba295990dd4312 2016-11-16 Adam C. Emerson | dout: Use dout_context
+61fca96c29104683da74c913cfbf4005ba95cf77 2016-11-21 Sage Weil | assert(0) -> ceph_abort()
+624bdbcf3afe304ad043baca43d46bfda2746e78 2016-11-09 John Spray | mgr: remove unnecessary C_StdFunction
+ce6b1909dd5579326dc331937c002078c3a1e55a 2016-10-09 Xie Xingguo | mgr: shutdown finisher in a graceful way
+b4a4a7a89b2178b04816f3532da7bb1fe5d26f6b 2016-10-11 Ren Huanwen | mgr: mgr::init() return when connection daemons failed
+1bb9edbaf27d026acbf3fcfb80bdbf7a34f00fce 2016-09-26 John Spray | mgr: fix OSDMap notifications
+fa147e3a591a4d74a7a8692b17add420ffc9bf98 2016-07-31 John Spray | mgr: handle PGStats with a PGMap
+9501bfdd711499c1314a3495549da24fbc02257e 2016-07-26 John Spray | mgr: store some counter history
+fd537bc696d65ce3baec88ecf5a825f7eaaaf484 2016-07-16 John Spray | mgr: enable active daemon to return to standby
+7845f8d757adf63390d6cb0ff56afbc088bc508b 2016-07-15 John Spray | mgr: flesh out standby/HA
+c81e542b32815effe9d107da378e6010e8a0b415 2016-07-04 John Spray | mgr: enable multiple python modules
+d9dfb436ea588a43be135a0808b28039d9ca2546 2016-07-03 John Spray | mgr: s/DaemonMetadata/DaemonState/g
+ac30e6cee2b2d3815438f1a392a951d511bddfd4 2016-06-30 John Spray | mgr: create ceph-mgr service
+f7e9ff174f8f84b0b3ccada87f6e4b18bdc4d130 2014-03-25 John Spray | tools: Create cephfs-journal-tool
+7a985df6339499052bb7bad2df214477e7e1580a 2014-02-12 John Spray | mds: Create MDSUtility as base for Dumper/Resetter

@@ -1,0 +1,48 @@
+commit 3eaf1516ebbfc03bb8e5469fdf09249374bd9bb6
+Author: Jan Fajerski <jfajerski@suse.com>
+Date:   Tue Mar 20 09:16:55 2018 +0100
+
+    mgr/MetadataUpdate: add daemon_state.notify_update to contructor
+    
+    Before updating metadata a call site should check if an update has
+    already been triggered. Adding the notify_update call to the constructor
+    makes sure the correct info for this check is present.
+    
+    Signed-off-by: Jan Fajerski <jfajerski@suse.com>
+
+diff --git a/src/mgr/Mgr.cc b/src/mgr/Mgr.cc
+index 0c901a6933e..be39b575342 100644
+--- a/src/mgr/Mgr.cc
++++ b/src/mgr/Mgr.cc
+@@ -427,7 +427,6 @@ void Mgr::handle_osd_map()
+       }
+ 
+       if (update_meta) {
+-        daemon_state.notify_updating(k);
+         auto c = new MetadataUpdate(daemon_state, k);
+         std::ostringstream cmd;
+         cmd << "{\"prefix\": \"osd metadata\", \"id\": "
+@@ -559,7 +558,6 @@ void Mgr::handle_fs_map(MFSMap* m)
+     }
+ 
+     if (update) {
+-      daemon_state.notify_updating(k);
+       auto c = new MetadataUpdate(daemon_state, k);
+ 
+       // Older MDS daemons don't have addr in the metadata, so
+diff --git a/src/mgr/Mgr.h b/src/mgr/Mgr.h
+index 173fe04a1d5..1d424cddddf 100644
+--- a/src/mgr/Mgr.h
++++ b/src/mgr/Mgr.h
+@@ -116,7 +116,10 @@ public:
+   std::string outs;
+ 
+   MetadataUpdate(DaemonStateIndex &daemon_state_, const DaemonKey &key_)
+-    : daemon_state(daemon_state_), key(key_) {}
++    : daemon_state(daemon_state_), key(key_)
++  {
++      daemon_state.notify_updating(key);
++  }
+ 
+   void set_default(const std::string &k, const std::string &v)
+   {

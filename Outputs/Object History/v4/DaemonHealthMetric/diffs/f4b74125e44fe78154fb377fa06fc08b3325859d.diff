@@ -1,0 +1,75 @@
+commit f4b74125e44fe78154fb377fa06fc08b3325859d
+Author: Kefu Chai <kchai@redhat.com>
+Date:   Mon Oct 23 12:29:31 2017 +0800
+
+    osd: send health-checks to mgr
+    
+    Signed-off-by: Kefu Chai <kchai@redhat.com>
+
+diff --git a/src/osd/OSDHealthMetric.h b/src/osd/OSDHealthMetric.h
+new file mode 100644
+index 00000000000..ec16cffe812
+--- /dev/null
++++ b/src/osd/OSDHealthMetric.h
+@@ -0,0 +1,61 @@
++// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
++// vim: ts=8 sw=2 smarttab
++
++#pragma once
++
++#include <cstdint>
++#include "include/denc.h"
++
++enum class osd_metric : uint8_t {
++  SLOW_OPS,
++  PENDING_CREATING_PGS,
++  NONE,
++};
++
++union osd_metric_t {
++  struct {
++    uint32_t n1;
++    uint32_t n2;
++  };
++  uint64_t n;
++  osd_metric_t(uint32_t x, uint32_t y)
++    : n1(x), n2(y)
++  {}
++  osd_metric_t(uint64_t x = 0)
++    : n(x)
++  {}
++};
++
++class OSDHealthMetric
++{
++public:
++  OSDHealthMetric() = default;
++  OSDHealthMetric(osd_metric type_, uint64_t n)
++    : type(type_), value(n)
++  {}
++  OSDHealthMetric(osd_metric type_, uint32_t n1, uint32_t n2)
++    : type(type_), value(n1, n2)
++  {}
++  osd_metric get_type() const {
++    return type;
++  }
++  uint64_t get_n() const {
++    return value.n;
++  }
++  uint32_t get_n1() const {
++    return value.n1;
++  }
++  uint32_t get_n2() const {
++    return value.n2;
++  }
++  DENC(OSDHealthMetric, v, p) {
++    DENC_START(1, 1, p);
++    denc(v.type, p);
++    denc(v.value.n, p);
++    DENC_FINISH(p);
++  }
++private:
++  osd_metric type = osd_metric::NONE;
++  osd_metric_t value;
++};
++WRITE_CLASS_DENC(OSDHealthMetric)

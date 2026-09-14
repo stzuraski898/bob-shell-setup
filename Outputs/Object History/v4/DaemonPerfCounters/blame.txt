@@ -1,0 +1,138 @@
+# git blame -w -M -C src/mgr/DaemonPerfCounters.cc
+#
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200  1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200  2) // vim: ts=8 sw=2 smarttab
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray      2016-06-30 14:05:02 +0100  3) /*
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray      2016-06-30 14:05:02 +0100  4)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray      2016-06-30 14:05:02 +0100  5)  *
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray      2016-06-30 14:05:02 +0100  6)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray      2016-06-30 14:05:02 +0100  7)  *
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray      2016-06-30 14:05:02 +0100  8)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray      2016-06-30 14:05:02 +0100  9)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray      2016-06-30 14:05:02 +0100 10)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray      2016-06-30 14:05:02 +0100 11)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray      2016-06-30 14:05:02 +0100 12)  */
+ac30e6cee2b2 src/mgr/DaemonMetadata.h      (John Spray      2016-06-30 14:05:02 +0100 13) 
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200 14) #include "DaemonPerfCounters.h"
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200 15) #include "PerfCounterInstance.h"
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200 16) #include "MgrSession.h"
+2d2982e74209 src/mgr/DaemonState.cc        (Max Kellermann  2024-10-26 21:21:58 +0200 17) #include "common/Clock.h" // for ceph_clock_now()
+2d2982e74209 src/mgr/DaemonState.cc        (Max Kellermann  2024-10-26 21:21:58 +0200 18) #include "common/debug.h"
+d2d4c7d3f865 src/mgr/DaemonState.cc        (Max Kellermann  2025-08-14 13:55:25 +0200 19) #include "messages/MMgrReport.h"
+dc415f1ae09a src/mgr/DaemonState.cc        (John Spray      2017-09-23 11:55:55 -0400 20) 
+b9182564c716 src/mgr/DaemonState.cc        (Adam C. Emerson 2016-11-16 12:38:08 -0500 21) #define dout_context g_ceph_context
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 22) #define dout_subsys ceph_subsys_mgr
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 23) #undef dout_prefix
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 24) #define dout_prefix *_dout << "mgr " << __func__ << " "
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 25) 
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200 26) DaemonPerfCounters::DaemonPerfCounters(PerfCounterTypes &types_)
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200 27)   : types(types_)
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200 28) {}
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200 29) 
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200 30) DaemonPerfCounters::~DaemonPerfCounters() noexcept = default;
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 31) 
+9b6aa95ff401 src/mgr/DaemonState.cc        (Kefu Chai       2019-04-15 14:02:33 +0800 32) void DaemonPerfCounters::update(const MMgrReport& report)
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 33) {
+9b6aa95ff401 src/mgr/DaemonState.cc        (Kefu Chai       2019-04-15 14:02:33 +0800 34)   dout(20) << "loading " << report.declare_types.size() << " new types, "
+9b6aa95ff401 src/mgr/DaemonState.cc        (Kefu Chai       2019-04-15 14:02:33 +0800 35) 	   << report.undeclare_types.size() << " old types, had "
+a46690c6230b src/mgr/DaemonState.cc        (Sage Weil       2017-03-10 17:14:24 -0500 36) 	   << types.size() << " types, got "
+9b6aa95ff401 src/mgr/DaemonState.cc        (Kefu Chai       2019-04-15 14:02:33 +0800 37)            << report.packed.length() << " bytes of data" << dendl;
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 38) 
+dc415f1ae09a src/mgr/DaemonState.cc        (John Spray      2017-09-23 11:55:55 -0400 39)   // Retrieve session state
+9b6aa95ff401 src/mgr/DaemonState.cc        (Kefu Chai       2019-04-15 14:02:33 +0800 40)   auto priv = report.get_connection()->get_priv();
+72883956c26f src/mgr/DaemonState.cc        (Kefu Chai       2018-05-29 15:51:07 +0800 41)   auto session = static_cast<MgrSession*>(priv.get());
+dc415f1ae09a src/mgr/DaemonState.cc        (John Spray      2017-09-23 11:55:55 -0400 42) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 43)   // Load any newly declared types
+9b6aa95ff401 src/mgr/DaemonState.cc        (Kefu Chai       2019-04-15 14:02:33 +0800 44)   for (const auto &t : report.declare_types) {
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 45)     types.insert(std::make_pair(t.path, t));
+dc415f1ae09a src/mgr/DaemonState.cc        (John Spray      2017-09-23 11:55:55 -0400 46)     session->declared_types.insert(t.path);
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 47)   }
+a46690c6230b src/mgr/DaemonState.cc        (Sage Weil       2017-03-10 17:14:24 -0500 48)   // Remove any old types
+9b6aa95ff401 src/mgr/DaemonState.cc        (Kefu Chai       2019-04-15 14:02:33 +0800 49)   for (const auto &t : report.undeclare_types) {
+dc415f1ae09a src/mgr/DaemonState.cc        (John Spray      2017-09-23 11:55:55 -0400 50)     session->declared_types.erase(t);
+a46690c6230b src/mgr/DaemonState.cc        (Sage Weil       2017-03-10 17:14:24 -0500 51)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 52) 
+750ad8340c82 src/mgr/DaemonState.cc        (Adam C. Emerson 2016-11-14 19:33:56 -0500 53)   const auto now = ceph_clock_now();
+9501bfdd7114 src/mgr/DaemonState.cc        (John Spray      2016-07-26 11:14:00 +0100 54) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 55)   // Parse packed data according to declared set of types
+9b6aa95ff401 src/mgr/DaemonState.cc        (Kefu Chai       2019-04-15 14:02:33 +0800 56)   auto p = report.packed.cbegin();
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 57)   DECODE_START(1, p);
+dc415f1ae09a src/mgr/DaemonState.cc        (John Spray      2017-09-23 11:55:55 -0400 58)   for (const auto &t_path : session->declared_types) {
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 59)     const auto &t = types.at(t_path);
+5b6037aeb43a src/mgr/DaemonState.cc        (Mykola Golub    2018-12-13 13:12:14 +0200 60)     auto instances_it = instances.find(t_path);
+5b6037aeb43a src/mgr/DaemonState.cc        (Mykola Golub    2018-12-13 13:12:14 +0200 61)     // Always check the instance exists, as we don't prevent yet
+5b6037aeb43a src/mgr/DaemonState.cc        (Mykola Golub    2018-12-13 13:12:14 +0200 62)     // multiple sessions from daemons with the same name, and one
+5b6037aeb43a src/mgr/DaemonState.cc        (Mykola Golub    2018-12-13 13:12:14 +0200 63)     // session clearing stats created by another on open.
+5b6037aeb43a src/mgr/DaemonState.cc        (Mykola Golub    2018-12-13 13:12:14 +0200 64)     if (instances_it == instances.end()) {
+5b6037aeb43a src/mgr/DaemonState.cc        (Mykola Golub    2018-12-13 13:12:14 +0200 65)       instances_it = instances.insert({t_path, t.type}).first;
+5b6037aeb43a src/mgr/DaemonState.cc        (Mykola Golub    2018-12-13 13:12:14 +0200 66)     }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 67)     uint64_t val = 0;
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 68)     uint64_t avgcount = 0;
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 69)     uint64_t avgcount2 = 0;
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 70) 
+156c941ad0d2 src/mgr/DaemonState.cc        (Adam C. Emerson 2017-12-25 03:33:57 -0500 71)     decode(val, p);
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 72)     if (t.type & PERFCOUNTER_LONGRUNAVG) {
+156c941ad0d2 src/mgr/DaemonState.cc        (Adam C. Emerson 2017-12-25 03:33:57 -0500 73)       decode(avgcount, p);
+156c941ad0d2 src/mgr/DaemonState.cc        (Adam C. Emerson 2017-12-25 03:33:57 -0500 74)       decode(avgcount2, p);
+5b6037aeb43a src/mgr/DaemonState.cc        (Mykola Golub    2018-12-13 13:12:14 +0200 75)       instances_it->second.push_avg(now, val, avgcount);
+1164ef2f32d8 src/mgr/DaemonState.cc        (Boris Ranto     2018-05-15 10:27:53 +0200 76)     } else {
+5b6037aeb43a src/mgr/DaemonState.cc        (Mykola Golub    2018-12-13 13:12:14 +0200 77)       instances_it->second.push(now, val);
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 78)     }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 79)   }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 80)   DECODE_FINISH(p);
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 81) }
+ac30e6cee2b2 src/mgr/DaemonMetadata.cc     (John Spray      2016-06-30 14:05:02 +0100 82) 
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200 83) void DaemonPerfCounters::clear()
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200 84) {
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200 85)   instances.clear();
+35f6dd06dd0b src/mgr/DaemonPerfCounters.cc (Max Kellermann  2025-08-14 18:41:01 +0200 86) }
+
+# git blame -w -M -C src/mgr/DaemonPerfCounters.h
+#
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200  1) // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200  2) // vim: ts=8 sw=2 smarttab
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100  3) /*
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100  4)  * Ceph - scalable distributed file system
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100  5)  *
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100  6)  * Copyright (C) 2016 John Spray <john.spray@redhat.com>
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100  7)  *
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100  8)  * This is free software; you can redistribute it and/or
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100  9)  * modify it under the terms of the GNU Lesser General Public
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 10)  * License version 2.1, as published by the Free Software
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 11)  * Foundation.  See file COPYING.
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 12)  */
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 13) 
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 14) #ifndef DAEMON_PERF_COUNTERS_H_
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 15) #define DAEMON_PERF_COUNTERS_H_
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 16) 
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 17) #include <map>
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 18) #include <string>
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 19) 
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 20) namespace ceph {
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 21)   class Formatter;
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 22) }
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 23) 
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 24) class MMgrReport;
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 25) class PerfCounterType;
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 26) class PerfCounterInstance;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 27) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 28) typedef std::map<std::string, PerfCounterType> PerfCounterTypes;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 29) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 30) // Performance counters for one daemon
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 31) class DaemonPerfCounters
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 32) {
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 33)   public:
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 34)   // The record of perf stat types, shared between daemons
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 35)   PerfCounterTypes &types;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 36) 
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 37)   explicit DaemonPerfCounters(PerfCounterTypes &types_);
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 38)   ~DaemonPerfCounters() noexcept;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 39) 
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 40)   std::map<std::string, PerfCounterInstance> instances;
+ac30e6cee2b2 src/mgr/DaemonMetadata.h     (John Spray     2016-06-30 14:05:02 +0100 41) 
+9b6aa95ff401 src/mgr/DaemonState.h        (Kefu Chai      2019-04-15 14:02:33 +0800 42)   void update(const MMgrReport& report);
+9501bfdd7114 src/mgr/DaemonState.h        (John Spray     2016-07-26 11:14:00 +0100 43) 
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 44)   void clear();
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 45) };
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 46) 
+35f6dd06dd0b src/mgr/DaemonPerfCounters.h (Max Kellermann 2025-08-14 18:41:01 +0200 47) #endif

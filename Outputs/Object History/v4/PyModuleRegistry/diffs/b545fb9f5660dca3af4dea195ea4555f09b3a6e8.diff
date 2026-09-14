@@ -1,0 +1,50 @@
+commit b545fb9f5660dca3af4dea195ea4555f09b3a6e8
+Author: Ramana Raja <rraja@redhat.com>
+Date:   Mon Jan 30 02:21:54 2023 -0500
+
+    mgr: store names of modules that register RADOS clients in the MgrMap
+    
+    The MgrMap stores a list of RADOS clients' addresses registered by the
+    mgr modules. During failover of ceph-mgr, the list is used to blocklist
+    clients belonging to the failed ceph-mgr.
+    
+    Store the names of the mgr modules that registered the RADOS clients
+    along with the clients' addresses in the MgrMap. During debugging, this
+    allows easy identification of the mgr module that registered a
+    particular RADOS client by just dumping the MgrMap (`ceph mgr dump`).
+    
+    Following is the MgrMap output with a module's client name displayed
+    along with its client addrvec,
+    $ ceph mgr dump | jq '.active_clients[0]'
+    {
+      "name": "devicehealth",
+      "addrvec": [
+        {
+          "type": "v2",
+          "addr": "10.0.0.148:0",
+          "nonce": 612376578
+        }
+      ]
+    }
+    
+    Fixes: https://tracker.ceph.com/issues/58691
+    Signed-off-by: Ramana Raja <rraja@redhat.com>
+
+diff --git a/src/mgr/PyModuleRegistry.h b/src/mgr/PyModuleRegistry.h
+index 4cd98e8827e..3231d7c6679 100644
+--- a/src/mgr/PyModuleRegistry.h
++++ b/src/mgr/PyModuleRegistry.h
+@@ -219,12 +219,7 @@ public:
+ 
+   auto get_clients() const
+   {
+-    std::scoped_lock l(lock);
+-    std::vector<entity_addrvec_t> v;
+-    for (const auto& p : clients) {
+-      v.push_back(p.second);
+-    }
+-    return v;
++    return clients;
+   }
+ 
+   // <<< (end of ActivePyModules cheeky call-throughs)

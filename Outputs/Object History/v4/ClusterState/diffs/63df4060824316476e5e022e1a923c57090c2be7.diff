@@ -1,0 +1,44 @@
+commit 63df4060824316476e5e022e1a923c57090c2be7
+Author: Igor Fedotov <ifedotov@suse.com>
+Date:   Mon Dec 11 22:12:50 2017 +0300
+
+    osd,mon: start using per-pool statistics reported from OSD.
+    
+    Notable changes:
+    * pool statistics collection has been changed to track actual allocated
+      store space instead of previous object logical sizes summation.
+    * 'ceph/rados df' report total space(over all replicas) allocated for a pool under "USED" column.
+    * "RAW USED" column removed from 'ceph df detail' report
+    
+    Signed-off-by: Igor Fedotov <ifedotov@suse.com>
+
+diff --git a/src/mgr/ClusterState.cc b/src/mgr/ClusterState.cc
+index 41afe079b3f..7e073a58bcc 100644
+--- a/src/mgr/ClusterState.cc
++++ b/src/mgr/ClusterState.cc
+@@ -69,7 +69,6 @@ void ClusterState::ingest_pgstats(MPGStats *stats)
+   std::lock_guard l(lock);
+ 
+   const int from = stats->get_orig_source().num();
+-
+   pending_inc.update_stat(from, std::move(stats->osd_stat));
+ 
+   for (auto p : stats->pg_stat) {
+@@ -110,6 +109,9 @@ void ClusterState::ingest_pgstats(MPGStats *stats)
+ 
+     pending_inc.pg_stat_updates[pgid] = pg_stats;
+   }
++  for (auto p : stats->pool_stat) {
++    pending_inc.pool_statfs_updates[std::make_pair(p.first, from)] = p.second;
++  }
+ }
+ 
+ void ClusterState::update_delta_stats()
+@@ -128,7 +130,6 @@ void ClusterState::update_delta_stats()
+   jf.dump_object("pending_inc", pending_inc);
+   jf.flush(*_dout);
+   *_dout << dendl;
+-
+   pg_map.apply_incremental(g_ceph_context, pending_inc);
+   pending_inc = PGMap::Incremental();
+ }

@@ -1,0 +1,20 @@
+# Function list for DaemonHealthMetricCollector (via ctags)
+# Format: qualified_name | file:line
+#
+_get_check | src/mgr/DaemonHealthMetricCollector.cc:21
+_get_check | src/mgr/DaemonHealthMetricCollector.cc:67
+_is_relevant | src/mgr/DaemonHealthMetricCollector.cc:18
+_is_relevant | src/mgr/DaemonHealthMetricCollector.cc:64
+_summarize | src/mgr/DaemonHealthMetricCollector.cc:37
+_summarize | src/mgr/DaemonHealthMetricCollector.cc:80
+_update | src/mgr/DaemonHealthMetricCollector.cc:24
+_update | src/mgr/DaemonHealthMetricCollector.cc:70
+create | src/mgr/DaemonHealthMetricCollector.cc:99
+_get_check | src/mgr/DaemonHealthMetricCollector.h:26
+_is_relevant | src/mgr/DaemonHealthMetricCollector.h:25
+_summarize | src/mgr/DaemonHealthMetricCollector.h:28
+_update | src/mgr/DaemonHealthMetricCollector.h:27
+create | src/mgr/DaemonHealthMetricCollector.h:12
+summarize | src/mgr/DaemonHealthMetricCollector.h:18
+update | src/mgr/DaemonHealthMetricCollector.h:13
+~DaemonHealthMetricCollector | src/mgr/DaemonHealthMetricCollector.h:23
