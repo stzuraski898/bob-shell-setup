@@ -29,8 +29,8 @@ jobs:
 
       - name: Prepare site directory
         run: |
-          mkdir -p _site
-          cp Outputs/ceph-mgr-intents-assessment.html _site/index.html
+          mkdir -p _site/ceph-mgr-intent-findings
+          cp Outputs/ceph-mgr-intents-assessment.html _site/ceph-mgr-intent-findings/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
