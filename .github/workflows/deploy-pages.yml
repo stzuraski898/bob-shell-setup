@@ -5,7 +5,8 @@ on:
     branches:
       - main
     paths:
-      - 'Outputs/ceph-mgr-intents-assessment.html'
+      - 'Outputs/**'
+      - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -29,8 +30,30 @@ jobs:
 
       - name: Prepare site directory
         run: |
-          mkdir -p _site/ceph-mgr-intent-findings
-          cp Outputs/ceph-mgr-intents-assessment.html _site/ceph-mgr-intent-findings/index.html
+          mkdir -p _site
+
+          # 1. Whiteboard Defense Hub as root site
+          if [ -d "Outputs/WhiteboardDefense" ]; then
+            cp -r Outputs/WhiteboardDefense/* _site/
+          fi
+
+          # 2. Manager Objects Whiteboard Defense Hub
+          if [ -d "Outputs/CephMgrObjects/WhiteboardDefense" ]; then
+            mkdir -p _site/mgr-objects
+            cp -r Outputs/CephMgrObjects/WhiteboardDefense/* _site/mgr-objects/
+          fi
+
+          # 3. Intent Assessment Explorer
+          if [ -f "Outputs/ceph-mgr-intents-assessment.html" ]; then
+            mkdir -p _site/ceph-mgr-intent-findings
+            cp Outputs/ceph-mgr-intents-assessment.html _site/ceph-mgr-intent-findings/index.html
+          fi
+
+          # 4. Tracker Search reports if available
+          if [ -d "Outputs/TrackerSearch" ]; then
+            mkdir -p _site/tracker-search
+            cp -r Outputs/TrackerSearch/* _site/tracker-search/
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
