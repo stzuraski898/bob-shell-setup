@@ -1,0 +1,53 @@
+name: Build Executables
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: bob-agents-gui-linux-x86_64
+            dist_path: dist/bob-agents-gui
+          - os: macos-latest
+            artifact_name: BobAgentLauncher-macos
+            dist_path: dist/BobAgentLauncher.app
+          - os: windows-latest
+            artifact_name: bob-agents-gui-windows.exe
+            dist_path: dist/bob-agents-gui.exe
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller pillow
+
+      - name: Build executable with PyInstaller
+        run: |
+          cd gui
+          pyinstaller --clean --noconfirm --distpath ../dist --workpath ../build bob-agents-gui.spec
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.dist_path }}

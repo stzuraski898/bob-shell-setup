@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Bob Agent Launcher
+Comment=Launcher and orchestrator for Bob & Claude coding agents
+Exec=bob-agents-gui
+Icon=bob-agents-gui
+Terminal=false
+Type=Application
+Categories=Development;Utility;
+StartupWMClass=bob-agents-gui
