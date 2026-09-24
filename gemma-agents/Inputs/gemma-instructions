@@ -1,0 +1,33 @@
+# gemma-instructions
+# ------------------
+# Source → output pairs for launch-gemma-agents.sh.
+# Each entry is two lines: source file path, then output test file path.
+# Separate entries with a blank line.  Lines starting with # are ignored by
+# the instruction parser (they are skipped as blank-equivalent by the shell).
+#
+# Prompt files: for each entry, place a matching
+#   gemma-agents/Inputs/prompts/<ClassName>.md
+# to supply class contracts and intent artefacts as the model's system prompt.
+# The launcher resolves these automatically by source file basename.
+#
+# Branch naming (for reference when reviewing output):
+#   wip-sz-80518-gemma-daemonhealthmetric
+#   wip-sz-80176-gemma-daemonserver
+#   wip-sz-77535-gemma-mgrclient
+#   wip-sz-80174-gemma-servicemap
+#   wip-sz-80175-gemma-daemonkey
+
+/home/steven/Projects/ceph/src/mgr/DaemonHealthMetric.cc
+/home/steven/Projects/ceph/src/test/mgr/test_daemonhealthmetric_gemma.cc
+
+/home/steven/Projects/ceph/src/mgr/DaemonKey.cc
+/home/steven/Projects/ceph/src/test/mgr/test_daemonkey_gemma.cc
+
+/home/steven/Projects/ceph/src/mgr/ServiceMap.cc
+/home/steven/Projects/ceph/src/test/mgr/test_servicemap_gemma.cc
+
+/home/steven/Projects/ceph/src/mgr/MgrClient.cc
+/home/steven/Projects/ceph/src/test/mgr/test_mgrclient_gemma.cc
+
+/home/steven/Projects/ceph/src/mgr/DaemonServer.cc
+/home/steven/Projects/ceph/src/test/mgr/test_daemonserver_gemma.cc
