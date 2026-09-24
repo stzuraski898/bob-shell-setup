@@ -10,23 +10,44 @@ The goal of this repo is to make parallel, AI-assisted development on a large op
 
 ```
 .
-├── ceph-tracker-issues.sh          # Fetch & render your open Ceph tracker issues to HTML
-├── launch-bob-agents.sh            # Launch N parallel Bob Shell agents in Tilix tabs
-├── collect-object-history-v4.sh    # Rename-aware git history corpus collector (v4)
-├── sync-object-history.sh          # Sync corpus/intent artefacts from remote via rsync
-├── get-object-history.sh           # CLI tool to inspect collected history & signals
+├── tracker/                        # Ceph tracker issue reporting tools
+│   └── ceph-tracker-issues.sh      # Fetch & render open Ceph tracker issues to HTML
+├── gui/                            # GUI frontend & agent orchestrator
+│   ├── bob-agents-gui.py           # Tkinter GUI launcher
+│   ├── launch-bob-agents.sh        # Launch N parallel Bob/Claude agents in Tilix tabs
+│   ├── bob-agents-gui.spec         # PyInstaller build spec
+│   ├── logo.png                    # App icon
+│   └── logo.gif                    # App icon fallback
+├── object-history/                 # Git history extraction & curation tools
+│   ├── collect-object-history-v4.sh # Rename-aware git history corpus collector (v4)
+│   ├── sync-object-history.sh      # Sync corpus/intent artefacts from remote via rsync
+│   ├── get-object-history.sh       # CLI tool to inspect collected history & signals
+│   └── collect-object-history-v4-whiteboard-defense.md
+├── assessment/                     # Intent dataset ETL & HTML explorer generation
+│   ├── build_dataset.py            # Aggregates parsed intents & source code into dataset.json
+│   ├── generate_html.py            # Compiles dataset.json into interactive standalone HTML
+│   ├── parse_data.py               # Markdown parser & status extractor
+│   ├── dataset.json                # Structured function assessment dataset
+│   └── parsed_intents.json         # Extracted intent records
+├── scripts/                        # Build scripts & helper utilities
+│   ├── build-executable.sh         # PyInstaller build script for standalone GUI binaries
+│   ├── query_ceph_tracker.py       # Ceph tracker query helper
+│   └── query_ceph_tracker.sh       # Ceph tracker bash wrapper
 ├── Inputs/
 │   ├── bob-instructions            # Per-agent task instructions (default prompt file)
 │   ├── bob-cli-reference.md        # Quick reference for the Bob Shell CLI
+│   ├── claude-cli-reference.md     # Reference for Claude Code CLI
 │   ├── history-assessment-guide.md # Guide for AI agents assessing git history into intent artefacts
 │   ├── git-history-curator-guide.md# Guide for curator-style history extraction
 │   ├── mgr-objects.md              # Inventory of all ceph-mgr C++ classes & tracker status
 │   ├── unit-test-prompt-guide.md   # Prompt guide for AI test-writing agents
-│   └── Object History/             # Example intent artefacts (ClusterState, DaemonServer, etc.)
+│   └── Prompts/                    # Per-task prompt suites (history, whiteboard defense, etc.)
 ├── Outputs/
+│   ├── WhiteboardDefense/          # Standalone Whiteboard Defense documents & index.html navigation hub
+│   │   └── index.html              # Top-level visual navigation hub for all script defenses
 │   ├── Intents/                    # Generated intent artefacts (*-intent.md) for 27 ceph-mgr classes
 │   ├── assessment-prompts.txt      # Ready-to-run assessment prompts for all 27 mgr classes
-│   └── history-assessment-prompts.md # Earlier prompt set reference
+│   └── ceph-mgr-intents-assessment.html # Standalone interactive assessment explorer
 ├── git-worktree-agents/
 │   └── SKILL.md                    # Bob skill: multi-agent git worktree coordination rules
 └── ceph-tracker/                   # Output directory for ceph-tracker-issues.sh (git-ignored)
@@ -74,10 +95,10 @@ export CEPH_TRACKER_PASSWORD="your-password"
 
 ```bash
 # Generate the HTML report
-./ceph-tracker-issues.sh
+./tracker/ceph-tracker-issues.sh
 
 # Generate report AND open all PRs in Chrome
-./ceph-tracker-issues.sh --open-prs
+./tracker/ceph-tracker-issues.sh --open-prs
 ```
 
 Output is written to `./ceph-tracker/<your-username>-Open-Issues.html`.
@@ -142,13 +163,24 @@ Agents are assigned in order: entry 1 → agent-1, entry 2 → agent-2, etc.
 #### Usage
 
 ```bash
-chmod +x launch-bob-agents.sh
+chmod +x gui/launch-bob-agents.sh
 
-# Launch with default prompt file (Inputs/bob-instructions)
-./launch-bob-agents.sh
+# Launch with default prompt file (Inputs/bob-instructions) on remote host
+./gui/launch-bob-agents.sh
+
+# Launch locally on your workstation without SSH
+./gui/launch-bob-agents.sh --local
+
+# Launch in single workspace mode without git worktrees (e.g. for Whiteboard Defense analysis)
+./gui/launch-bob-agents.sh --local --no-worktrees --instructions Outputs/Prompts/whiteboard-defense-prompts.md
+
+# Preview agent plan without starting any processes or writing files
+./gui/launch-bob-agents.sh --dry-run
+./gui/launch-bob-agents.sh --local --no-worktrees --dry-run --instructions Outputs/Prompts/whiteboard-defense-prompts.md
 
 # Launch with custom instructions / prompt file
-./launch-bob-agents.sh --instructions Outputs/assessment-prompts.txt
+./gui/launch-bob-agents.sh --instructions Outputs/assessment-prompts.txt
+./gui/launch-bob-agents.sh --local --instructions Outputs/assessment-prompts.txt
 ```
 
 This uploads wrapper scripts to `/tmp/bob-agent-<N>.sh` on the remote host for each agent (avoiding SSH quoting issues), then opens Tilix tabs that SSH in and execute those scripts.
@@ -164,7 +196,7 @@ Rename-aware corpus collector. Resolves the full path history of `.cc` and `.h` 
 
 ```bash
 # Run inside a ceph worktree on remote host
-bash collect-object-history-v4.sh [output_dir]
+bash object-history/collect-object-history-v4.sh [output_dir]
 ```
 
 #### `sync-object-history.sh`
@@ -172,19 +204,19 @@ Pulls the collected object-history corpus (or generated intent artefacts) from t
 
 ```bash
 # Sync v3 raw corpus
-bash sync-object-history.sh
+bash object-history/sync-object-history.sh
 
 # Also sync intent artefacts (*-intent.md)
-bash sync-object-history.sh --intent
+bash object-history/sync-object-history.sh --intent
 ```
 
 #### `get-object-history.sh`
 Helper CLI to inspect pre-collected git history for a specific class or method locally or remotely over SSH.
 
 ```bash
-bash get-object-history.sh ActivePyModules dispatch_remote
-bash get-object-history.sh DaemonServer --signals
-bash get-object-history.sh --list
+bash object-history/get-object-history.sh ActivePyModules dispatch_remote
+bash object-history/get-object-history.sh DaemonServer --signals
+bash object-history/get-object-history.sh --list
 ```
 
 ---

@@ -29,7 +29,8 @@ done
 # ── Config ────────────────────────────────────────────────────────────────────
 BASE_URL="https://tracker.ceph.com"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUTPUT_DIR="${CEPH_TRACKER_OUTPUT_DIR:-${SCRIPT_DIR}/ceph-tracker}"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+OUTPUT_DIR="${CEPH_TRACKER_OUTPUT_DIR:-${REPO_ROOT}/ceph-tracker}"
 TIMESTAMP_FMT="%B %-d %I:%M %p %Z"
 TIMESTAMP_FILE="$OUTPUT_DIR/.last_run_ts"
 
