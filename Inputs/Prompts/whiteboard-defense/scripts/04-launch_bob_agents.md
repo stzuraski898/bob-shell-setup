@@ -1,0 +1,34 @@
+---
+tracker: none
+---
+You are tasked with generating a comprehensive Whiteboard Defense document for: `launch-bob-agents.sh` (`launch-bob-agents.sh`).
+
+### Standard & Context
+The Whiteboard Defense standard:
+"I should be able to pull you aside at any moment and ask you to explain any customer-facing system you've shipped. You should be able to clearly explain how it works and defend the decisions you made.
+I don't expect line-level familiarity with the code. I don't care if you remember the exact function name or implementation detail.
+But if I ask:
+1. 'Why did you do X instead of Y?'
+2. 'What happens if this actor behaves maliciously or unexpectedly?'
+3. 'What data structure did you use here and why?'
+4. 'Where does this fail or bottleneck?'
+You must be able to answer confidently and defensively."
+
+### Instructions:
+1. Read `launch-bob-agents.sh` and examine its Tilix multi-tab orchestration, local vs SSH remote modes, worktree management (`--no-worktrees`), dry-run introspection, credential injection (`BOBSHELL_API_KEY`), per-agent .md directory loading, and frontmatter parsing.
+2. Analyze the system architecture, design decisions, failure boundaries, and security considerations.
+3. Write a concise, scannable, to-the-point Whiteboard Defense HTML document to:
+   `Outputs/WhiteboardDefense/launch_bob_agents/whiteboard-defense-agent-worktree-orchestrator.html`
+4. Strict Tone & Formatting Directives:
+   - **Self-Contained HTML Document:** Single HTML document with clean inline CSS, high-contrast tables, clear typography, and optional ASCII or Mermaid JS/SVG diagrams.
+   - **Concise & Punchy:** Avoid fluff, walls of narrative text, or generic essay prose. Use bullet points and tight phrasing.
+   - **Technical Precision:** Explicitly state data structures (parallel bash arrays), process orchestration primitives (DBus/Tilix), invariants, and design choices.
+   - **Human-Readable:** Format tables and lists for quick whiteboard recall and fast technical triage.
+5. Follow the standard Whiteboard Defense Schema:
+   - High-Level Architecture & Mental Model (with flow diagram)
+   - Architectural Decisions & Trade-offs ("Why X instead of Y?" table)
+   - Data Structures, Algorithms & Invariants
+   - Threat Model & Adversarial Handling ("What if an actor behaves maliciously?" table)
+   - Failure Modes, Edge Cases & Blast Radius ("Where does this fail?")
+   - Observability & Triage Playbook
+6. Do not invent details — ground your defense entirely in the actual codebase, invariants, and architectural constraints.
