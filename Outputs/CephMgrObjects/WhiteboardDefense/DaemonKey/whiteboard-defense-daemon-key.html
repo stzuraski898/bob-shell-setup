@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — DaemonKey</title>
+<style>
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --border:    #30363d;
+    --accent:    #58a6ff;
+    --accent2:   #3fb950;
+    --warn:      #d29922;
+    --danger:    #f85149;
+    --text:      #e6edf3;
+    --muted:     #8b949e;
+    --code-bg:   #1f2937;
+    --tag-blue:  #1a3a5c;
+    --tag-green: #0d2d1a;
+    --tag-warn:  #2d1f00;
+    --tag-red:   #2d0f0f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.8rem; color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: .5rem; margin-bottom: .4rem; }
+  h2 { font-size: 1.2rem; color: var(--accent); margin: 2rem 0 .75rem; padding-left: .5rem; border-left: 3px solid var(--accent); }
+  h3 { font-size: 1rem; color: var(--accent2); margin: 1.2rem 0 .4rem; }
+  p  { margin-bottom: .6rem; color: var(--text); }
+  ul { padding-left: 1.4rem; margin-bottom: .6rem; }
+  li { margin-bottom: .25rem; }
+  a  { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .subtitle { color: var(--muted); font-size: .85rem; margin-bottom: 1.5rem; }
+  .meta-row  { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .meta-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .2rem .7rem;
+    font-size: .8rem;
+    color: var(--muted);
+  }
+  .meta-chip span { color: var(--text); font-weight: 600; }
+
+  /* Section cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: .6rem 0 1rem; font-size: .85rem; }
+  th { background: #1c2333; color: var(--accent); text-align: left; padding: .45rem .7rem; border: 1px solid var(--border); font-weight: 700; text-transform: uppercase; font-size: .75rem; letter-spacing: .05em; }
+  td { padding: .4rem .7rem; border: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: #12171e; }
+
+  /* Code */
+  code  { background: var(--code-bg); color: #79c0ff; padding: .1rem .35rem; border-radius: 3px; font-family: "SFMono-Regular", Consolas, monospace; font-size: .82rem; }
+  pre   { background: var(--code-bg); color: #cdd9e5; padding: 1rem 1.2rem; border-radius: 5px; overflow-x: auto; font-size: .82rem; line-height: 1.55; border: 1px solid var(--border); margin: .6rem 0 1rem; }
+  pre code { background: none; padding: 0; color: inherit; }
+
+  /* Tags / badges */
+  .tag { display: inline-block; padding: .1rem .45rem; border-radius: 3px; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  .tag-blue  { background: var(--tag-blue);  color: var(--accent); }
+  .tag-green { background: var(--tag-green); color: var(--accent2); }
+  .tag-warn  { background: var(--tag-warn);  color: var(--warn); }
+  .tag-red   { background: var(--tag-red);   color: var(--danger); }
+
+  /* SHA pills */
+  .sha { font-family: monospace; font-size: .75rem; background: #21262d; color: #8b949e; border: 1px solid var(--border); border-radius: 3px; padding: .05rem .35rem; }
+
+  /* Invariant list */
+  .inv { font-size: .82rem; }
+  .inv li { margin-bottom: .35rem; }
+  .inv .id { color: var(--warn); font-weight: 700; margin-right: .4rem; }
+
+  /* ASCII / SVG diagram wrapper */
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1rem 1.4rem;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: .8rem;
+    line-height: 1.6;
+    color: #cdd9e5;
+    margin: .6rem 0 1rem;
+    overflow-x: auto;
+  }
+  .diagram .hl  { color: var(--accent); }
+  .diagram .hl2 { color: var(--accent2); }
+  .diagram .hl3 { color: var(--warn); }
+
+  /* Two-column layout helper */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Alert boxes */
+  .alert { padding: .6rem 1rem; border-radius: 4px; margin: .5rem 0; border-left: 3px solid; font-size: .85rem; }
+  .alert-warn  { background: #1f1a00; border-color: var(--warn);   color: #e3c97a; }
+  .alert-ok    { background: #0d2318; border-color: var(--accent2); color: #7ee2a8; }
+  .alert-info  { background: #0d1a2d; border-color: var(--accent);  color: #90c8f8; }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+  .toc { list-style: none; padding: 0; columns: 2; }
+  .toc li { padding: .15rem 0; }
+  .toc a  { color: var(--muted); font-size: .85rem; }
+  .toc a:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════  HEADER  ═══════════════════════════ -->
+<h1>Whiteboard Defense — <code>DaemonKey</code></h1>
+<p class="subtitle"><code>src/mgr/DaemonKey.cc</code> &nbsp;·&nbsp; <code>src/mgr/DaemonKey.h</code> &nbsp;·&nbsp; HEAD <span class="sha">8681fa6e</span></p>
+
+<div class="meta-row">
+  <div class="meta-chip">Commits <span>3</span></div>
+  <div class="meta-chip">Date range <span>2019-09-29 → 2025-10-01</span></div>
+  <div class="meta-chip">Founding commit <span class="sha">5aac7eba</span> Kefu Chai</div>
+  <div class="meta-chip">Tracker <span>#42079</span></div>
+  <div class="meta-chip">No renames</div>
+  <div class="meta-chip">No DIVERGED findings</div>
+  <div class="meta-chip">UNGROUNDED <span>U-1, U-2</span></div>
+</div>
+
+<div class="card" style="padding:.6rem 1rem;">
+  <strong style="color:var(--muted);font-size:.8rem;text-transform:uppercase;">Sections</strong>
+  <ul class="toc" style="margin-top:.4rem;">
+    <li><a href="#arch">1. Architecture &amp; Mental Model</a></li>
+    <li><a href="#decisions">2. Architectural Decisions &amp; Trade-offs</a></li>
+    <li><a href="#data">3. Data Structures, Algorithms &amp; Invariants</a></li>
+    <li><a href="#threat">4. Threat Model &amp; Adversarial Handling</a></li>
+    <li><a href="#failures">5. Failure Modes, Edge Cases &amp; Blast Radius</a></li>
+    <li><a href="#obs">6. Observability &amp; Triage Playbook</a></li>
+  </ul>
+</div>
+
+
+<!-- ═══════════════════════════  §1  ═══════════════════════════════ -->
+<h2 id="arch">1 · Architecture &amp; Mental Model</h2>
+
+<div class="card">
+  <p>
+    <code>DaemonKey</code> is a <strong>named, typed pair</strong> that uniquely identifies one daemon instance
+    within a Ceph cluster. It replaced raw <code>std::pair&lt;std::string,std::string&gt;</code> everywhere
+    in the manager (<span class="sha">5aac7eba</span>). It carries no state beyond its two string fields and
+    has no heap overhead beyond those strings.
+  </p>
+
+  <h3>Struct layout</h3>
+  <pre><code>struct DaemonKey {
+    std::string type;   // "osd", "mon", "mds", "client", …
+    std::string name;   // "1", "a", "admin", …
+    static std::pair&lt;DaemonKey, bool&gt; parse(const std::string&amp; s);
+};</code></pre>
+
+  <h3>Canonical string form — the dot invariant</h3>
+  <div class="diagram">
+┌───────────────────────────────────────────────────────────────────┐
+│                     Wire format: <span class="hl">"type.name"</span>                       │
+│                                                                   │
+│  <span class="hl">parse("osd.1")</span>  ──▶  DaemonKey{ type="osd", name="1" }          │
+│                                                                   │
+│  <span class="hl2">operator&lt;&lt;(os, key)</span>  ──▶  os &lt;&lt; type &lt;&lt; '.' &lt;&lt; name              │
+│                                                                   │
+│  <span class="hl2">ceph::to_string(key)</span> ──▶  type + '.' + name                      │
+│                                                                   │
+│  All three functions agree on <span class="hl3">'.'</span> as the sole separator.           │
+│  No divergence exists in current HEAD or commit history.          │
+└───────────────────────────────────────────────────────────────────┘</div>
+
+  <h3>Role in the manager subsystem</h3>
+  <div class="diagram">
+Ceph manager (src/mgr/)
+│
+├─ DaemonStateIndex  — keyed by std::map&lt;<span class="hl">DaemonKey</span>, …&gt;
+│     uses operator&lt; for ordering
+│
+├─ MgrClient / Mgr  — logs, error messages, debug output
+│     uses operator&lt;&lt; to print <span class="hl2">"osd.1"</span> (never <span class="hl3">"osd,1"</span>)
+│
+└─ command parsing / CLI
+      uses parse() to reconstruct a DaemonKey from a string arg</div>
+
+  <h3>Commit timeline</h3>
+  <table>
+    <thead><tr><th>SHA</th><th>Date</th><th>Author</th><th>Change</th><th>Function bodies changed?</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="sha">5aac7eba</span></td>
+        <td>2019-09-29</td>
+        <td>Kefu Chai</td>
+        <td>Created both files. All logic written here.</td>
+        <td><span class="tag tag-green">Yes — all 4 functions</span></td>
+      </tr>
+      <tr>
+        <td><span class="sha">85d82faa</span></td>
+        <td>2025-10-01</td>
+        <td>Edwin Rodriguez</td>
+        <td>Updated vim/emacs modeline in <code>.h</code> (tracker #72587)</td>
+        <td><span class="tag tag-blue">No</span></td>
+      </tr>
+      <tr>
+        <td><span class="sha">aec62d9e</span></td>
+        <td>2025-08-14</td>
+        <td>Max Kellermann</td>
+        <td>Moved <code>#include &lt;ostream&gt;</code> from <code>.h</code> → <code>.cc</code>; added <code>#include &lt;iosfwd&gt;</code> to <code>.h</code></td>
+        <td><span class="tag tag-blue">No</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="alert alert-ok">
+    Every function body is attributed entirely to <span class="sha">5aac7eba</span> (confirmed by blame).
+    The class has had <strong>zero logic changes</strong> in 6+ years.
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════  §2  ═══════════════════════════════ -->
+<h2 id="decisions">2 · Architectural Decisions &amp; Trade-offs</h2>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Decision</th><th>Why this?</th><th>Why not Y?</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Named struct instead of <code>std::pair</code></strong></td>
+        <td><code>type</code> / <code>name</code> are readable; single <code>operator&lt;&lt;</code> found by ADL everywhere</td>
+        <td><code>pair</code>'s generic <code>operator&lt;&lt;</code> produced <code>"osd,1"</code> (comma-separated) — wrong format, ambiguous ADL resolution</td>
+        <td><span class="sha">5aac7eba</span> commit message §2; tracker #42079</td>
+      </tr>
+      <tr>
+        <td><strong>Dot <code>'.'</code> as separator</strong></td>
+        <td>Matches Ceph's pre-existing convention for daemon addresses (e.g. <code>osd.0</code>, <code>client.admin</code>)</td>
+        <td>Comma was what <code>pair::operator&lt;&lt;</code> emitted — explicitly fixed by this commit</td>
+        <td><span class="sha">5aac7eba</span>: "kill the printed form of <code>osd,1</code> once and for all"</td>
+      </tr>
+      <tr>
+        <td><strong><code>parse</code> uses <code>find('.')</code> — first dot only</strong></td>
+        <td><code>name</code> may itself contain dots (e.g. <code>client.admin</code> → <code>type="client"</code>, <code>name="admin"</code>); splitting on first dot captures all of <code>name</code></td>
+        <td>Splitting on last dot or all dots would mis-parse <code>"client.admin"</code></td>
+        <td><span class="sha">5aac7eba</span> <code>.cc:7</code>; intent file §4.1 I-3/I-4</td>
+      </tr>
+      <tr>
+        <td><strong><code>parse</code> returns <code>pair&lt;DaemonKey, bool&gt;</code> — no exception</strong></td>
+        <td>Caller can handle missing dot without a try/catch; consistent with Ceph's general no-exception-for-control-flow style</td>
+        <td><code>std::optional&lt;DaemonKey&gt;</code> would be marginally cleaner but wasn't available project-wide in 2019 or was a style choice deferred</td>
+        <td><span class="sha">5aac7eba</span> <code>.cc:8–9</code>; intent file §4.1 I-2</td>
+      </tr>
+      <tr>
+        <td><strong><code>operator&lt;&lt;</code> is a free function, not a member</strong></td>
+        <td>Required for ADL to resolve <em>this</em> overload instead of the generic <code>pair</code> one; commit message explicitly calls this out</td>
+        <td>A member function would not be found by ADL in the same way for streaming</td>
+        <td><span class="sha">5aac7eba</span> commit message §2; intent file §4.3 I-10</td>
+      </tr>
+      <tr>
+        <td><strong><code>ceph::to_string</code> in <code>namespace ceph</code></strong></td>
+        <td>Controls ADL: Ceph-internal <code>ceph::to_string(key)</code> resolves unambiguously without pulling in a global overload</td>
+        <td>A global <code>to_string</code> would conflict with <code>std::to_string</code> or other ADL candidates</td>
+        <td><span class="sha">5aac7eba</span>; intent file §4.4 I-13</td>
+      </tr>
+      <tr>
+        <td><strong><code>#include &lt;iosfwd&gt;</code> in <code>.h</code>, <code>&lt;ostream&gt;</code> in <code>.cc</code></strong></td>
+        <td>Header only needs the declaration of <code>operator&lt;&lt;</code> (incomplete <code>std::ostream</code> type is sufficient); full definition only needed in <code>.cc</code>. Reduces transitive include bloat.</td>
+        <td>Original <code>5aac7eba</code> put <code>&lt;ostream&gt;</code> in <code>.h</code> — heavier, pulled full I/O machinery into every includer</td>
+        <td><span class="sha">aec62d9e</span> (Max Kellermann, 2025-08-14); intent file §4.3</td>
+      </tr>
+      <tr>
+        <td><strong><code>operator&lt;</code> uses three-branch <code>compare</code></strong></td>
+        <td>Correctness: if <code>cmp &gt; 0</code>, must return <code>false</code> immediately — falling through to <code>lhs.name &lt; rhs.name</code> would give a wrong result when types differ</td>
+        <td>A two-branch form would be incorrect for the <code>cmp &gt; 0</code> case</td>
+        <td><span class="sha">5aac7eba</span> <code>.cc:15–24</code>; intent file §4.2 analysis</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ═══════════════════════════  §3  ═══════════════════════════════ -->
+<h2 id="data">3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<div class="card">
+  <div class="two-col">
+    <div>
+      <h3>Key composition</h3>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Meaning</th><th>Examples</th></tr></thead>
+        <tbody>
+          <tr><td><code>type</code></td><td><code>std::string</code></td><td>Service type — primary sort key</td><td><code>"osd"</code>, <code>"mon"</code>, <code>"mds"</code>, <code>"client"</code></td></tr>
+          <tr><td><code>name</code></td><td><code>std::string</code></td><td>Service instance ID — secondary sort key</td><td><code>"1"</code>, <code>"a"</code>, <code>"admin"</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>Ordering algorithm (<code>operator&lt;</code>)</h3>
+      <pre><code>1. compare(lhs.type, rhs.type) → cmp
+2. if cmp &lt; 0: return true   (type less)
+3. if cmp &gt; 0: return false  (type greater)
+4. else:       return lhs.name &lt; rhs.name</code></pre>
+      <p style="font-size:.8rem;color:var(--muted);">Strict weak order ✓ — irreflexive, asymmetric, transitive. Suitable for <code>std::map</code> / <code>std::set</code> keys.</p>
+    </div>
+  </div>
+
+  <h3>Parse algorithm</h3>
+  <pre><code>p = s.find('.')         // index of FIRST dot
+if p == npos → return { {}, false }
+type = s.substr(0, p)   // everything before first dot
+name = s.substr(p+1)    // everything after first dot (may contain more dots)
+return { DaemonKey{type, name}, true }</code></pre>
+
+  <h3>Serialization / round-trip</h3>
+  <table>
+    <thead><tr><th>Function</th><th>Output for DaemonKey{"osd","1"}</th><th>Separator</th><th>Namespace</th></tr></thead>
+    <tbody>
+      <tr><td><code>operator&lt;&lt;</code></td><td><code>osd.1</code></td><td><code>'.'</code></td><td>global</td></tr>
+      <tr><td><code>ceph::to_string</code></td><td><code>"osd.1"</code></td><td><code>'.'</code></td><td><code>ceph::</code></td></tr>
+      <tr><td><code>parse("osd.1")</code></td><td><code>DaemonKey{"osd","1"}, true</code></td><td><code>'.'</code> (find)</td><td>static member</td></tr>
+    </tbody>
+  </table>
+
+  <div class="alert alert-ok">
+    Round-trip property: <code>parse(to_string(k)) == {k, true}</code> for any key where both <code>type</code> and <code>name</code> are non-empty and <code>type</code> contains no dot. Established implicitly by shared dot invariant (<span class="sha">5aac7eba</span>).
+  </div>
+
+  <h3>Full invariant registry</h3>
+  <ul class="inv">
+    <li><span class="id">I-1</span> A dot must be present for <code>parse</code> to succeed (no dot → <code>false</code>)</li>
+    <li><span class="id">I-2</span> <code>parse</code> failure returns <code>{{}, false}</code> — never throws</li>
+    <li><span class="id">I-3</span> <code>type = s.substr(0, first_dot)</code></li>
+    <li><span class="id">I-4</span> <code>name = s.substr(first_dot + 1)</code> — captures everything including any further dots</li>
+    <li><span class="id">I-5</span> <code>type</code> is primary sort key</li>
+    <li><span class="id">I-6</span> <code>name</code> is secondary sort key (tiebreaker only when types are equal)</li>
+    <li><span class="id">I-7</span> <code>operator&lt;</code> satisfies strict weak ordering</li>
+    <li><span class="id">I-8</span> <code>operator&lt;&lt;</code> emits exactly <code>type &lt;&lt; '.' &lt;&lt; name</code> — no spaces, no extra chars</li>
+    <li><span class="id">I-9</span> <code>operator&lt;&lt;</code> output == <code>ceph::to_string</code> output (must never diverge)</li>
+    <li><span class="id">I-10</span> <code>operator&lt;&lt;</code> is a free function — ADL correctness requirement</li>
+    <li><span class="id">I-11</span> <code>to_string</code> returns exactly <code>type + '.' + name</code></li>
+    <li><span class="id">I-12</span> <code>to_string</code> output == <code>operator&lt;&lt;</code> output</li>
+    <li><span class="id">I-13</span> <code>to_string</code> is in <code>namespace ceph</code> — ADL correctness requirement</li>
+    <li><span class="id">I-14</span> Round-trip: <code>parse(to_string(k)).first == k</code> and <code>.second == true</code> for non-empty fields</li>
+  </ul>
+  <p style="font-size:.78rem;color:var(--muted);">All invariants established by <span class="sha">5aac7eba</span>. No invariant has been modified or reverted since.</p>
+</div>
+
+
+<!-- ═══════════════════════════  §4  ═══════════════════════════════ -->
+<h2 id="threat">4 · Threat Model &amp; Adversarial Handling</h2>
+
+<div class="card">
+  <div class="alert alert-info">
+    <strong>Scope:</strong> <code>DaemonKey</code> is an internal data-structure type used within the Ceph manager process. It does not directly receive network input, authenticate callers, or hold credentials. The relevant adversarial surface is <strong>malformed / unexpected input strings</strong> fed through <code>parse()</code> from CLI commands, mon maps, or mgr state messages.
+  </div>
+
+  <table>
+    <thead><tr><th>Scenario</th><th>Input / Actor</th><th>Behaviour</th><th>Risk</th><th>Mitigation</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>No dot in input</strong></td>
+        <td><code>"osd1"</code>, <code>""</code></td>
+        <td><code>parse</code> returns <code>{{}, false}</code>; no panic, no throw</td>
+        <td><span class="tag tag-green">Low</span></td>
+        <td>Caller must check the <code>bool</code>; if ignored, a zero-value key enters the map silently. Caller responsibility.</td>
+      </tr>
+      <tr>
+        <td><strong>Empty type (<code>".foo"</code>)</strong> — UNGROUNDED U-1</td>
+        <td>String starting with dot</td>
+        <td><code>parse</code> returns <code>{DaemonKey{"","foo"}, true}</code> — success, with empty <code>type</code></td>
+        <td><span class="tag tag-warn">Medium</span></td>
+        <td>No guard in <code>DaemonKey</code>. Callers that key off <code>type</code> would map this to an unnamed service type. <strong>Not established as valid</strong> by any commit. Callers should validate before inserting into state maps.</td>
+      </tr>
+      <tr>
+        <td><strong>Empty name (<code>"osd."</code>)</strong> — UNGROUNDED U-1</td>
+        <td>String ending with dot</td>
+        <td><code>parse</code> returns <code>{DaemonKey{"osd",""}, true}</code> — success, with empty <code>name</code></td>
+        <td><span class="tag tag-warn">Medium</span></td>
+        <td>Same as above. Collisions possible if multiple daemons parse to the same empty-name key.</td>
+      </tr>
+      <tr>
+        <td><strong>Bare dot (<code>"."</code>)</strong> — UNGROUNDED U-1/U-2</td>
+        <td><code>"."</code></td>
+        <td><code>parse</code> returns <code>{DaemonKey{"",""}, true}</code>. Round-trip holds mechanically: <code>to_string</code> → <code>"."</code>.</td>
+        <td><span class="tag tag-warn">Medium</span></td>
+        <td>Silently produces a zero-value key that <em>looks</em> valid. If inserted into <code>DaemonStateIndex</code>, it occupies a slot for <code>""/""\</code>. No crash, but logically wrong.</td>
+      </tr>
+      <tr>
+        <td><strong>Extra dots in name (<code>"osd.1.extra"</code>)</strong></td>
+        <td>Name with embedded dots</td>
+        <td><code>parse</code> → <code>{DaemonKey{"osd","1.extra"}, true}</code> — intentional; name captures everything after first dot</td>
+        <td><span class="tag tag-green">Low</span></td>
+        <td>Designed behaviour (I-4). Name dots are safe. <code>to_string</code> / <code>operator&lt;&lt;</code> reproduce them faithfully.</td>
+      </tr>
+      <tr>
+        <td><strong>Arbitrarily large strings</strong></td>
+        <td>Attacker-controlled long input</td>
+        <td><code>std::string::find</code> + <code>substr</code> — O(n) scan, then two heap allocations proportional to input length</td>
+        <td><span class="tag tag-warn">Medium</span></td>
+        <td>No length cap inside <code>DaemonKey</code>. Rate-limiting and size checks must be enforced by message parsing layers upstream (mon/mgr protocol handlers), not here.</td>
+      </tr>
+      <tr>
+        <td><strong>Map key collision / type confusion</strong></td>
+        <td>Two keys that differ by separator convention</td>
+        <td><code>operator&lt;</code> is purely lexicographic — no normalisation. <code>"OSD.1" ≠ "osd.1"</code> (case-sensitive).</td>
+        <td><span class="tag tag-green">Low</span></td>
+        <td>Ceph daemon types are lower-case by convention. Case normalisation is the responsibility of callers / service registrations, not <code>DaemonKey</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>Ignored parse failure <code>bool</code></strong></td>
+        <td>Caller neglects <code>.second</code> check</td>
+        <td>Returns zero-value <code>DaemonKey{"",""}</code> with <code>false</code>. If caller uses <code>.first</code> unconditionally, a blank key enters the data store.</td>
+        <td><span class="tag tag-warn">Medium</span></td>
+        <td><code>DaemonKey</code> has no way to encode "invalid" beyond the bool. This is a caller-contract issue, not a <code>DaemonKey</code> bug. Migrating to <code>std::optional&lt;DaemonKey&gt;</code> would make misuse harder.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ═══════════════════════════  §5  ═══════════════════════════════ -->
+<h2 id="failures">5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Failure</th><th>Trigger</th><th>Blast radius</th><th>Detectable?</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Dot invariant violation</strong></td>
+        <td>A future commit changes <code>operator&lt;&lt;</code> to use <code>','</code> or <code>'/'</code> but does not update <code>to_string</code> or <code>parse</code></td>
+        <td><span class="tag tag-red">High</span> — log output, CLI, and round-trip parsing all diverge. State lookups silently miss. tracker #42079 re-opens.</td>
+        <td>Caught by any test that parses a key printed by the logger. No dedicated unit test exists in this file.</td>
+      </tr>
+      <tr>
+        <td><strong>Empty-field key inserted into DaemonStateIndex</strong></td>
+        <td><code>parse(".foo")</code> or <code>parse("osd.")</code> result not validated by caller (U-1)</td>
+        <td><span class="tag tag-warn">Medium</span> — one spurious entry in the daemon map; potential collision if two callers produce the same empty-field key. Map remains consistent; no crash.</td>
+        <td>Only via map introspection or log output printing <code>".foo"</code> / <code>"osd."</code> — visually obvious but not asserted.</td>
+      </tr>
+      <tr>
+        <td><strong>Map ordering anomaly under non-ASCII input</strong></td>
+        <td><code>std::string::compare</code> is byte-order on the narrow char sequence. Non-UTF-8 / multi-byte sequences may sort differently than expected.</td>
+        <td><span class="tag tag-blue">Negligible</span> — daemon type/name fields are ASCII identifiers in practice. Ordering is still consistent; no UB.</td>
+        <td>Would only surface if non-ASCII daemon names were ever introduced.</td>
+      </tr>
+      <tr>
+        <td><strong>OOM on very long key strings</strong></td>
+        <td><code>std::string</code> copy / <code>substr</code> allocations on megabyte-scale inputs</td>
+        <td><span class="tag tag-warn">Medium</span> — std::bad_alloc thrown by string allocator. Ceph's mgr would crash / restart. Must be prevented upstream.</td>
+        <td>Not detectable inside <code>DaemonKey</code>; upstream message-size limits are the control.</td>
+      </tr>
+      <tr>
+        <td><strong>Strict weak ordering broken</strong></td>
+        <td>Cannot happen with current implementation (analysis in §3 shows three-branch form is correct). Would require a code change.</td>
+        <td><span class="tag tag-red">Critical</span> — <code>std::map</code>/<code>std::set</code> UB on the daemon state index (undefined behaviour per C++ standard).</td>
+        <td>Caught at compile time by <code>-fsanitize=address,undefined</code> or a simple ordering unit test.</td>
+      </tr>
+      <tr>
+        <td><strong>ADL picks wrong <code>operator&lt;&lt;</code></strong></td>
+        <td>Cannot happen in current code (<span class="sha">aec62d9e</span> header cleanup ensures <code>&lt;iosfwd&gt;</code> only); would surface if <code>&lt;utility&gt;</code> ever introduced a competing <code>operator&lt;&lt;</code> for pairs.</td>
+        <td><span class="tag tag-warn">Medium</span> — logs would again show <code>"osd,1"</code> form. Regression of #42079.</td>
+        <td>Visible in any log line that prints a daemon key.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Ungrounded code paths — open questions</h3>
+  <table>
+    <thead><tr><th>ID</th><th>Location</th><th>Description</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>U-1</code></td>
+        <td><code>DaemonKey.cc:11</code> — <code>parse</code></td>
+        <td>Inputs <code>".foo"</code>, <code>"osd."</code>, <code>"."</code> return <code>{key, true}</code> with empty <code>type</code> or <code>name</code>. No commit has ever declared empty fields valid or invalid.</td>
+        <td><span class="tag tag-warn">Ungrounded</span></td>
+      </tr>
+      <tr>
+        <td><code>U-2</code></td>
+        <td><code>DaemonKey.cc:34</code> — <code>to_string</code></td>
+        <td><code>to_string(DaemonKey{"",""})</code> returns <code>"."</code>. Round-trip holds mechanically but intent for empty-field keys is never stated.</td>
+        <td><span class="tag tag-warn">Ungrounded</span> (consequence of U-1)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ═══════════════════════════  §6  ═══════════════════════════════ -->
+<h2 id="obs">6 · Observability &amp; Triage Playbook</h2>
+
+<div class="card">
+  <h3>Signals that something is wrong</h3>
+  <table>
+    <thead><tr><th>Symptom</th><th>Root cause</th><th>Where to look</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Log lines show <code>osd,1</code> (comma, not dot)</td>
+        <td>ADL resolved to <code>pair::operator&lt;&lt;</code> instead of <code>DaemonKey::operator&lt;&lt;</code></td>
+        <td>Check includes in the logging call site; confirm <code>DaemonKey.h</code> is included before <code>&lt;utility&gt;</code> is pulled in. Verify <span class="sha">aec62d9e</span> include split is intact.</td>
+      </tr>
+      <tr>
+        <td>Daemon state lookups miss / return empty unexpectedly</td>
+        <td>Key constructed by direct member init differs from key constructed via <code>parse</code>; or a caller ignored <code>parse</code>'s <code>bool</code></td>
+        <td>Add a log line: <code>dout(1) &lt;&lt; "key=" &lt;&lt; key &lt;&lt; dendl</code>. Confirm printed form matches expected <code>type.name</code>. Check caller ignores <code>.second</code>.</td>
+      </tr>
+      <tr>
+        <td>Map / set iteration order inconsistent or crashes with ASan</td>
+        <td><code>operator&lt;</code> not satisfying strict weak order (very unlikely with current code)</td>
+        <td>Run with <code>-fsanitize=undefined</code>; check <code>DaemonKey.cc:15–24</code> matches exactly the three-branch form from <span class="sha">5aac7eba</span>.</td>
+      </tr>
+      <tr>
+        <td><code>ceph::to_string</code> result differs from logged output</td>
+        <td>Dot invariant violated — one of the three serialisation paths diverged</td>
+        <td>Compare <code>DaemonKey.cc:28</code> (<code>operator&lt;&lt;</code>) and <code>DaemonKey.cc:34</code> (<code>to_string</code>). Both must emit <code>type + '.' + name</code>.</td>
+      </tr>
+      <tr>
+        <td>CLI command can't find daemon by name</td>
+        <td><code>parse()</code> fails silently or produces empty-field key (U-1)</td>
+        <td>Log the raw string before <code>parse</code>; check <code>.second</code> return value; confirm string contains exactly one leading dot between type and name.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Quick reference — one-liners for triage</h3>
+  <pre><code># Confirm dot-separated form in mgr logs
+grep -E 'osd[,.]|mon[,.]|mds[,.]' ceph-mgr.log | head -20
+
+# Find all parse() call sites to audit bool-check discipline
+grep -rn 'DaemonKey::parse' src/mgr/ src/mon/ src/client/
+
+# Confirm operator&lt;&lt; is the DaemonKey one, not pair's
+# (look for any #include &lt;utility&gt; before DaemonKey.h in suspect TUs)
+grep -rn '#include' src/mgr/ | grep -E 'utility|DaemonKey'</code></pre>
+
+  <h3>Suggested hardening (not yet in any commit)</h3>
+  <ul>
+    <li>Return <code>std::optional&lt;DaemonKey&gt;</code> from <code>parse</code> — makes ignoring parse failure a compile-time error.</li>
+    <li>Add an assertion or explicit check for empty <code>type</code> / <code>name</code> in callers that insert into <code>DaemonStateIndex</code> — resolves U-1/U-2.</li>
+    <li>Add a unit test asserting: round-trip, empty-input rejection, multi-dot name preservation, and operator ordering.</li>
+  </ul>
+
+  <hr>
+  <p style="font-size:.78rem;color:var(--muted);">
+    Document generated from intent artefact <code>DaemonKey-intent.md</code> and corpus at <code>BobOutput/Object History/v4/DaemonKey/</code>.
+    HEAD <span class="sha">8681fa6e</span> · corpus collected 2026-09-11.
+    All claims grounded in commit history; no invented details.
+  </p>
+</div>
+
+</body>
+</html>

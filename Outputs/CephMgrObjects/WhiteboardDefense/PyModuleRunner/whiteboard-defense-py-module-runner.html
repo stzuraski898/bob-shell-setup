@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense: PyModuleRunner</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1f2328;
+    background: #ffffff;
+    padding: 32px 16px 48px;
+  }
+  .page { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { color: #57606a; font-size: 13px; margin-bottom: 32px; }
+  h2 {
+    font-size: 15px; font-weight: 700;
+    border-left: 3px solid #3b82d4;
+    padding-left: 10px;
+    margin: 32px 0 12px;
+    color: #1f2328;
+  }
+  h3 { font-size: 13px; font-weight: 700; margin: 18px 0 6px; color: #57606a; text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin-bottom: 10px; }
+  ul { padding-left: 18px; margin-bottom: 10px; }
+  li { margin-bottom: 3px; }
+  code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 12px;
+    background: #f7f8fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  pre {
+    background: #f7f8fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 12px 14px;
+    font-size: 12px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    overflow-x: auto;
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+  th {
+    background: #f7f8fa;
+    border: 1px solid #e5e7eb;
+    padding: 7px 10px;
+    text-align: left;
+    font-weight: 700;
+    color: #1f2328;
+  }
+  td {
+    border: 1px solid #e5e7eb;
+    padding: 7px 10px;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #fafbfc; }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-right: 4px;
+  }
+  .tag-red    { background:#fde8e8; color:#9b1c1c; }
+  .tag-yellow { background:#fef3c7; color:#78350f; }
+  .tag-green  { background:#d1fae5; color:#065f46; }
+  .tag-blue   { background:#dbeafe; color:#1e40af; }
+  .tag-purple { background:#ede9fe; color:#5b21b6; }
+  .sha { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; color: #57606a; }
+  .divider { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
+  .callout {
+    background: #f7f8fa;
+    border-left: 3px solid #3b82d4;
+    padding: 10px 14px;
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 14px;
+    font-size: 13px;
+  }
+  .callout.warn { border-left-color: #f59e0b; }
+  .callout.danger { border-left-color: #ef4444; }
+  footer {
+    margin-top: 48px;
+    padding-top: 14px;
+    border-top: 1px solid #e5e7eb;
+    text-align: center;
+    font-size: 12px;
+    color: #57606a;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Whiteboard Defense: <code>PyModuleRunner</code></h1>
+  <div class="subtitle">
+    <code>src/mgr/PyModuleRunner.{cc,h}</code> &nbsp;·&nbsp;
+    Author: John Spray (RedHat, 2017) &nbsp;·&nbsp; Last significant change: Nitzan Mordechai, Dec 2024
+  </div>
+
+  <!-- ===== 1. ARCHITECTURE & MENTAL MODEL ===== -->
+  <h2>1. High-Level Architecture &amp; Mental Model</h2>
+
+  <p>
+    <code>PyModuleRunner</code> is the <strong>C++ harness</strong> that bridges a native OS thread to a Python
+    interpreter thread state so that a <code>MgrModule</code> subclass can call its long-running
+    <code>serve()</code> loop. It is a base class — never instantiated directly. Two concrete subclasses
+    exist: <code>ActivePyModule</code> (active mgr) and what was formerly <code>StandbyPyModule</code>.
+  </p>
+
+  <h3>Object Relationships</h3>
+<pre>
+  MgrModule (Python)
+       │  inherits
+       ▼
+  pClassInstance  ◄──── PyModuleRunner (C++ base, abstract)
+       │                      │
+       │                      ├── py_module (PyModuleRef / shared_ptr&lt;PyModule&gt;)
+       │                      │       └── pMyThreadState (SafeThreadState)
+       │                      │
+       │                      ├── PyModuleRunnerThread  (extends Thread)
+       │                      │       └── calls serve() on entry
+       │                      │
+       │                      └── ThreadMonitor* (optional, perf/CPU)
+       │
+  ActivePyModule (concrete)
+       └── finisher (per-module Finisher for command dispatch)
+</pre>
+
+  <h3>Lifecycle / State Machine</h3>
+<pre>
+  CONSTRUCTED
+      │
+      │  thread.create()  (caller's responsibility — not done inside this class)
+      ▼
+  THREAD ENTRY  ── PyModuleRunnerThread::entry()
+      │               stores runner_tid (atomic release)
+      │               calls serve()
+      ▼
+  SERVING  ── GIL acquired (new_thread=true)
+      │         perfcounter "alive" → 1
+      │         PyObject_CallMethod(pClassInstance, "serve")
+      │
+      ├── [normal return] → perfcounter "alive" → 0 → return 0
+      │
+      └── [exception / NULL return]
+              peek_pyerror()  → clog->error()
+              handle_pyerror(crash_dump=true)  → derr
+              py_module->fail(exc_msg)
+              return -EINVAL
+
+  SHUTDOWN  ── shutdown() called from different thread
+      │         GIL acquired (new_thread=true)
+      │         PyObject_CallMethod(pClassInstance, "shutdown")
+      │         perfcounter "alive" → 0
+      └──       dead = true
+
+  DESTROYED  ── ~PyModuleRunner()
+                  GIL acquired (new_thread=true)
+                  Py_XDECREF(pClassInstance)
+</pre>
+
+  <h3>GIL Acquire Points</h3>
+  <table>
+    <tr><th>Site</th><th>new_thread=</th><th>Why</th></tr>
+    <tr>
+      <td><code>serve()</code></td><td><code>true</code></td>
+      <td>Called from native OS thread (PyModuleRunnerThread) not created by Python — must allocate a fresh <code>PyThreadState</code> via <code>PyThreadState_New(interp)</code></td>
+    </tr>
+    <tr>
+      <td><code>shutdown()</code></td><td><code>true</code></td>
+      <td>Same reason — mgr C++ thread, not a Python-born thread. Fixed in <span class="sha">29193a47e6c</span> (SafeThreadState update).</td>
+    </tr>
+    <tr>
+      <td><code>~PyModuleRunner()</code></td><td><code>true</code></td>
+      <td>Destructor runs in C++ caller's thread — must create a new PyThreadState to safely call <code>Py_XDECREF</code>.</td>
+    </tr>
+  </table>
+
+  <div class="callout">
+    <strong>Key invariant:</strong> <code>new_thread=true</code> causes <code>Gil</code> to call
+    <code>PyThreadState_New(interp)</code> + <code>PyEval_RestoreThread()</code>, and its destructor
+    calls <code>PyThreadState_Clear()</code> + <code>PyEval_SaveThread()</code> +
+    <code>PyThreadState_Delete()</code>. The thread state is fully scoped to each call site —
+    no state leaks across invocations.
+  </div>
+
+  <hr class="divider">
+
+  <!-- ===== 2. ARCHITECTURAL DECISIONS ===== -->
+  <h2>2. Architectural Decisions &amp; Trade-offs</h2>
+
+  <table>
+    <tr><th>Decision</th><th>Why this, not Y?</th><th>Commit</th></tr>
+    <tr>
+      <td><strong>Base class, not standalone object</strong><br>
+        <code>ActivePyModule : public PyModuleRunner</code>
+      </td>
+      <td>
+        Active and standby modules both need the same serve/shutdown/GIL pattern.
+        Before <span class="sha">df8797320be</span>, <code>ActivePyModule</code> and
+        <code>StandbyPyModule</code> duplicated this logic. Extraction into
+        a base class eliminates duplication.
+      </td>
+      <td><span class="sha">df8797320be</span> (2017-10-06)</td>
+    </tr>
+    <tr>
+      <td><strong><code>SafeThreadState</code> instead of raw <code>PyThreadState*</code></strong></td>
+      <td>
+        A raw pointer cannot assert that GIL restore happens from the correct
+        POSIX thread. <code>SafeThreadState</code> stores <code>pthread_t</code>
+        and checks it in <code>Gil(new_thread=false)</code> to prevent silent
+        cross-thread GIL corruption.
+      </td>
+      <td><span class="sha">625e1b5cfb9</span> (2017-10-03)</td>
+    </tr>
+    <tr>
+      <td><strong><code>new_thread=true</code> for all call sites here</strong></td>
+      <td>
+        All three call sites (<code>serve</code>, <code>shutdown</code>, destructor) run
+        on native OS threads. Using <code>false</code> would cause <code>Gil</code>
+        to assert <code>pthread_self() == pThreadState.thread</code> and abort.
+        The comment in <code>serve()</code> explicitly documents this.
+      </td>
+      <td><span class="sha">29193a47e6c</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>thread_name = py_module-&gt;get_name().substr(0, 15)</code></strong></td>
+      <td>
+        Linux <code>pthread_setname_np</code> caps thread names at 15 characters
+        (+1 NUL). Silently truncating is the correct approach since the OS will
+        reject longer names with ERANGE.
+      </td>
+      <td><span class="sha">13bcddea23f</span></td>
+    </tr>
+    <tr>
+      <td><strong>Two-phase error reporting: <code>peek_pyerror()</code> then <code>handle_pyerror()</code></strong></td>
+      <td>
+        Cluster log (<code>clog</code>) needs a short, human-readable message
+        without a full traceback (noise in a distributed log).
+        The local daemon log (<code>derr</code>) gets the full backtrace.
+        <code>peek_pyerror</code> reads the error without consuming it;
+        <code>handle_pyerror</code> drains and formats it. Added in
+        <span class="sha">f4763c32fa8</span>, refined in <span class="sha">719d5e1836c</span>.
+      </td>
+      <td><span class="sha">f4763c32fa8</span>, <span class="sha">719d5e1836c</span></td>
+    </tr>
+    <tr>
+      <td><strong>Crash dump generation for <code>serve()</code> exceptions</strong></td>
+      <td>
+        An exception escaping <code>serve()</code> indicates an unhandled fault in
+        a system-level daemon component. Generating a crash dump (with
+        <code>handle_pyerror(true, ...)</code>) makes these visible in cluster health
+        and correlates module exceptions with daemon crash records. Traceback
+        intentionally omits the exception <em>value</em> to avoid leaking identifying
+        information.
+      </td>
+      <td><span class="sha">719d5e1836c</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>dead</code> flag set only after shutdown completes</strong></td>
+      <td>
+        Tracker #42744: before this fix, a finisher callback could invoke
+        <code>notify()</code> on a module whose destructor had already run.
+        The <code>dead</code> flag (checked by <code>is_dead()</code>) lets callers
+        gate on completion before dispatching further.
+      </td>
+      <td><span class="sha">40c4b9ac9d8</span></td>
+    </tr>
+    <tr>
+      <td><strong>Per-module perf counters (<code>l_pym_alive</code>, CPU, RSS)</strong></td>
+      <td>
+        Previous observability required manual instrumentation inside each Python
+        module. Counters at the C++ harness layer are module-agnostic: every
+        module gets them for free without modifying Python code.
+        "Alive" counter uses <code>set(0/1)</code> rather than increment/decrement
+        to be idempotent.
+      </td>
+      <td><span class="sha">95a90f7da8a</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>runner_tid</code> stored atomically with <code>memory_order_release</code></strong></td>
+      <td>
+        TID is written at thread entry (before any work), read later by
+        <code>ThreadMonitor</code>. Release semantics ensure the write is visible
+        before any subsequent reads in other threads. A non-atomic store
+        could be observed as zero by a racing reader.
+      </td>
+      <td><span class="sha">95a90f7da8a</span></td>
+    </tr>
+  </table>
+
+  <hr class="divider">
+
+  <!-- ===== 3. DATA STRUCTURES & INVARIANTS ===== -->
+  <h2>3. Data Structures, Algorithms &amp; Invariants</h2>
+
+  <h3>Key Fields</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Invariant</th></tr>
+    <tr>
+      <td><code>py_module</code></td>
+      <td><code>PyModuleRef</code> (shared_ptr)</td>
+      <td>Never null after construction. Owns <code>pMyThreadState</code> and perf counters. Outlives the runner.</td>
+    </tr>
+    <tr>
+      <td><code>pClassInstance</code></td>
+      <td><code>PyObject*</code></td>
+      <td>Set by subclass before calling <code>serve()</code>. Protected by <code>ceph_assert(pClassInstance != nullptr)</code> at every call site.</td>
+    </tr>
+    <tr>
+      <td><code>dead</code></td>
+      <td><code>bool</code> (private)</td>
+      <td>Set to <code>true</code> only in <code>shutdown()</code>, after the Python call completes. Read via <code>is_dead()</code>.</td>
+    </tr>
+    <tr>
+      <td><code>thread</code> (<code>PyModuleRunnerThread</code>)</td>
+      <td>extends <code>Thread</code> (pthread wrapper)</td>
+      <td>Created in constructor, must be explicitly <code>create()</code>-d and <code>join()</code>-ed by the owning <code>ActivePyModule</code>. Not self-managing.</td>
+    </tr>
+    <tr>
+      <td><code>runner_tid</code></td>
+      <td><code>std::atomic&lt;pid_t&gt;</code></td>
+      <td>Zero until <code>PyModuleRunnerThread::entry()</code> stores the native TID. ThreadMonitor reads this after thread start.</td>
+    </tr>
+    <tr>
+      <td><code>thread_name</code></td>
+      <td><code>std::string</code> (≤ 15 chars)</td>
+      <td>Truncated at construction. Used by <code>ActivePyModule</code>'s finisher thread name too.</td>
+    </tr>
+    <tr>
+      <td><code>pMyThreadState</code> (on <code>PyModule</code>)</td>
+      <td><code>SafeThreadState</code></td>
+      <td>Carries <code>PyThreadState*</code> + the POSIX thread that owns it. Validated on every non-new-thread GIL acquisition.</td>
+    </tr>
+  </table>
+
+  <h3>No Non-Trivial Algorithms</h3>
+  <p>The class contains no sorting, searching, or complex state machines. Its value is entirely in the
+  correct sequencing of Python C API calls around a thread boundary. The only algorithmic subtlety is the
+  GIL acquire/release protocol in <code>Gil</code>.</p>
+
+  <hr class="divider">
+
+  <!-- ===== 4. THREAT MODEL ===== -->
+  <h2>4. Threat Model &amp; Adversarial Handling</h2>
+
+  <table>
+    <tr><th>Scenario</th><th>Impact</th><th>Mitigation</th></tr>
+    <tr>
+      <td><span class="tag tag-red">HIGH</span> Python module raises unhandled exception from <code>serve()</code></td>
+      <td>Module stops running; cluster feature (e.g., orchestrator, balancer) goes dark.</td>
+      <td>
+        Caught by NULL-return check. Emits to cluster log (<code>clog-&gt;error</code>). Generates a
+        crash dump with exception type + traceback. Calls <code>py_module-&gt;fail()</code> to mark the
+        module failed in MgrMap. No mgr process crash. Returns <code>-EINVAL</code>.
+      </td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-red">HIGH</span> Module <code>serve()</code> never returns (infinite loop / deadlock)</td>
+      <td>Thread blocked forever; module resources (GIL slot, memory) leaked.</td>
+      <td>
+        <code>ThreadMonitor</code> tracks CPU usage per <code>runner_tid</code>. No hard kill is
+        implemented — detection is observational only. Operator intervention required.
+      </td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-yellow">MED</span> Module <code>shutdown()</code> raises exception</td>
+      <td>Shutdown sequence stalls or leaves Python state dirty.</td>
+      <td>
+        Error is logged to <code>derr</code> with full traceback. <code>dead = true</code> is set
+        unconditionally regardless — shutdown always completes from C++ perspective.
+      </td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-yellow">MED</span> Notify/finisher callback races module destruction (tracker #42744)</td>
+      <td>Use-after-free / call on destructed object.</td>
+      <td>
+        <code>dead</code> flag checked before dispatch. Fix: <span class="sha">40c4b9ac9d8</span>.
+      </td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-yellow">MED</span> GIL acquired on wrong thread (<code>new_thread=false</code> from foreign thread)</td>
+      <td>Python interpreter corruption, silent data races.</td>
+      <td>
+        <code>SafeThreadState</code> stores <code>pthread_t</code> and <code>Gil</code> asserts
+        <code>pthread_self() == pThreadState.thread</code>. Aborts on mismatch.
+      </td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-yellow">MED</span> Nested <code>Gil</code> acquisition (deadlock)</td>
+      <td>Thread hangs in <code>PyEval_RestoreThread</code>.</td>
+      <td>
+        Header comment explicitly forbids nesting: <em>"Do not nest these, as a second GIL acquire will deadlock."</em>
+        No enforcement — relies on caller discipline.
+      </td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">LOW</span> Module leaks exception value containing sensitive data in crash dump</td>
+      <td>PII/secrets visible in crash report.</td>
+      <td>
+        <span class="sha">719d5e1836c</span> explicitly omits exception <em>value</em> from the crash dump.
+        Only exception <em>type</em> and call path are included.
+      </td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">LOW</span> Module name &gt; 15 chars corrupts thread name</td>
+      <td>ERANGE from OS, thread unnamed.</td>
+      <td>Silently truncated with <code>.substr(0, 15)</code> at construction.</td>
+    </tr>
+  </table>
+
+  <div class="callout warn">
+    <strong>Known gap:</strong> There is no timeout or kill mechanism for a module whose
+    <code>serve()</code> hangs. <code>ThreadMonitor</code> can observe high CPU but cannot
+    forcibly terminate the module. This is a deliberate architectural gap — a cooperative
+    shutdown model is assumed.
+  </div>
+
+  <hr class="divider">
+
+  <!-- ===== 5. FAILURE MODES ===== -->
+  <h2>5. Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+  <table>
+    <tr><th>Failure</th><th>Blast Radius</th><th>Observable Signal</th></tr>
+    <tr>
+      <td><code>serve()</code> throws → module fails</td>
+      <td>
+        Single module dark. Other modules, the mgr process, and all non-Python mgr
+        functions continue unaffected.
+      </td>
+      <td>
+        Cluster log error message. <code>ceph status</code> health warning. Crash dump.
+        <code>l_pym_alive</code> perf counter = 0.
+      </td>
+    </tr>
+    <tr>
+      <td>Module stuck in <code>serve()</code> (no return)</td>
+      <td>
+        Thread and GIL slot permanently occupied. Module-specific finisher
+        queue grows unbounded if commands continue arriving.
+      </td>
+      <td>
+        <code>ThreadMonitor</code> CPU counter elevated. No cluster log. No health
+        check triggers automatically — requires operator polling perf dump.
+      </td>
+    </tr>
+    <tr>
+      <td><code>shutdown()</code> blocked (module ignoring event)</td>
+      <td>
+        mgr shutdown hangs until OS kills the process. Python GC of other modules
+        may be deferred.
+      </td>
+      <td>mgr process does not exit gracefully. No automated watchdog.</td>
+    </tr>
+    <tr>
+      <td>Python GC releases GIL mid-operation</td>
+      <td>
+        If C++ caller holds a non-GIL lock and Python calls back into C++,
+        lock-order inversion is possible. Policy documented in
+        <code>Gil.h</code>: never acquire locks while holding GIL.
+      </td>
+      <td>Deadlock; no crash. Difficult to diagnose.</td>
+    </tr>
+    <tr>
+      <td>Perf counter null (module built without counters)</td>
+      <td>No crash — both <code>serve()</code> and <code>shutdown()</code> guard with
+        <code>if (py_module-&gt;perfcounter)</code>.</td>
+      <td>No alive counter visible in perf dump for that module.</td>
+    </tr>
+    <tr>
+      <td><code>pClassInstance</code> is null at call time</td>
+      <td>
+        Immediate <code>ceph_assert</code> abort — this is a programming error, not a
+        runtime condition. Subclass is required to populate it before invoking
+        any of the three public methods.
+      </td>
+      <td>mgr daemon crash with assert backtrace.</td>
+    </tr>
+  </table>
+
+  <hr class="divider">
+
+  <!-- ===== 6. OBSERVABILITY & TRIAGE ===== -->
+  <h2>6. Observability &amp; Triage Playbook</h2>
+
+  <h3>Perf Counters (since <span class="sha">95a90f7da8a</span>)</h3>
+  <table>
+    <tr><th>Counter</th><th>What it tells you</th></tr>
+    <tr>
+      <td><code>mgr_module_&lt;name&gt;.alive</code></td>
+      <td>1 = serve() is running; 0 = exited (normally or via exception). Set atomically in C++ harness.</td>
+    </tr>
+    <tr>
+      <td><code>mgr_module_&lt;name&gt;.notify_avg_usec</code></td>
+      <td>Latency of notify dispatches. High value = slow Python event handler.</td>
+    </tr>
+    <tr>
+      <td><code>mgr_module_&lt;name&gt;.cmd_avg_usec</code></td>
+      <td>Latency of CLI command handler. High value = slow Python command handler.</td>
+    </tr>
+    <tr>
+      <td><code>mgr_module_&lt;name&gt;.cpu_usage</code></td>
+      <td>CPU % from <code>ThreadMonitor</code> via /proc/&lt;pid&gt;/task/&lt;tid&gt;/stat.</td>
+    </tr>
+    <tr>
+      <td><code>mgr_module_&lt;name&gt;.mem_rss_current</code></td>
+      <td>RSS in bytes for the mgr process (all modules share one process).</td>
+    </tr>
+  </table>
+
+  <h3>Log Signals</h3>
+  <ul>
+    <li><strong>Cluster log (clog)</strong>: <em>"Unhandled exception from module '&lt;name&gt;' while running on mgr.&lt;id&gt;: &lt;exc_type&gt;"</em> → module <code>serve()</code> crashed.</li>
+    <li><strong>Local daemon log (derr)</strong>: Full Python traceback with exception type and call path. No exception value (privacy).</li>
+    <li><strong>Crash dump</strong>: Fields <code>mgr_module</code>, <code>mgr_module_caller</code>, <code>mgr_python_exception</code>, <code>backtrace[]</code>. Triggers cluster health warning about daemon crash.</li>
+    <li><strong>Thread startup</strong>: <code>dout(4) "Entering thread for &lt;name&gt;"</code> at module thread entry.</li>
+  </ul>
+
+  <h3>Quick Triage Commands</h3>
+<pre>
+# Is the module alive?
+ceph daemon mgr.&lt;id&gt; perf dump | python3 -c \
+  "import json,sys; d=json.load(sys.stdin); \
+   print({k:v['alive'] for k,v in d.items() if 'alive' in v})"
+
+# Check for module failure in MgrMap
+ceph mgr module ls
+
+# Full perf dump for one module
+ceph daemon mgr.&lt;id&gt; perf dump mgr_module_&lt;name&gt;
+
+# Check daemon log for Python traceback
+grep "PyModuleRunner::serve\|handle_pyerror\|Unhandled exception" /var/log/ceph/ceph-mgr.*.log
+</pre>
+
+  <h3>Debugging GIL / Thread Issues</h3>
+  <ul>
+    <li>GIL acquire/release logged at dout level 20–25 (verbose): <code>ceph config set mgr debug_mgr 20/25</code>.</li>
+    <li>Wrong-thread GIL use: asserts immediately with <code>pthread_self() == pThreadState.thread</code> failure in <code>Gil::Gil</code>.</li>
+    <li>Nested GIL: deadlocks in <code>PyEval_RestoreThread</code> — look for a thread stack with two <code>Gil::Gil</code> frames.</li>
+  </ul>
+
+  <hr class="divider">
+
+  <h2>Commit Genealogy (Key SHAs)</h2>
+  <table>
+    <tr><th>SHA</th><th>Date</th><th>What Changed</th></tr>
+    <tr><td><span class="sha">df8797320be</span></td><td>2017-10-06</td><td>Class created — extracted from ActivePyModule/StandbyPyModule duplication</td></tr>
+    <tr><td><span class="sha">625e1b5cfb9</span></td><td>2017-10-03</td><td>SafeThreadState added; pthread_t assertion on non-new_thread GIL acquire</td></tr>
+    <tr><td><span class="sha">29193a47e6c</span></td><td>2017-10-16</td><td>shutdown() fixed to use new_thread=true; SafeThreadState propagated</td></tr>
+    <tr><td><span class="sha">f4763c32fa8</span></td><td>2017-11-01</td><td>Cluster log error on serve() exception (tracker #21999)</td></tr>
+    <tr><td><span class="sha">40c4b9ac9d8</span></td><td>2019-11-13</td><td>dead flag + is_dead(); fixes use-after-free race (tracker #42744)</td></tr>
+    <tr><td><span class="sha">13bcddea23f</span></td><td>2018-05-15</td><td>thread_name truncated to 15 chars</td></tr>
+    <tr><td><span class="sha">719d5e1836c</span></td><td>2021-06-18</td><td>Crash dump generation; exception value deliberately omitted</td></tr>
+    <tr><td><span class="sha">95a90f7da8a</span></td><td>2024-12-08</td><td>Per-module perf counters; runner_tid stored atomically; ThreadMonitor wired in</td></tr>
+  </table>
+
+  <footer>Made with IBM Bob</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Whiteboard Defense — MDSPerfMetricCollector</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3250;
+    --accent: #4f8ef7;
+    --accent2: #a78bfa;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --ok: #22c55e;
+    --muted: #8892b0;
+    --text: #cdd6f4;
+    --heading: #e2e8f0;
+    --mono: 'JetBrains Mono', 'Fira Mono', 'Cascadia Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif;
+         font-size: 14px; line-height: 1.6; }
+  .page { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  /* ── Header ── */
+  .doc-header { border-bottom: 2px solid var(--accent); padding-bottom: 1.2rem; margin-bottom: 2rem; }
+  .doc-header h1 { font-size: 1.75rem; color: var(--heading); letter-spacing: .02em; }
+  .doc-header .sub { color: var(--muted); font-size: .85rem; margin-top: .3rem; font-family: var(--mono); }
+  .meta-row { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin-top: .75rem; }
+  .badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px;
+           padding: .15rem .55rem; font-size: .78rem; color: var(--muted); font-family: var(--mono); }
+  .badge span { color: var(--text); }
+
+  /* ── Section ── */
+  section { margin-bottom: 2.5rem; }
+  h2 { font-size: 1.05rem; color: var(--accent); text-transform: uppercase;
+       letter-spacing: .08em; border-left: 3px solid var(--accent);
+       padding-left: .65rem; margin-bottom: 1rem; }
+  h3 { font-size: .92rem; color: var(--accent2); margin: 1.1rem 0 .4rem; }
+
+  /* ── Tables ── */
+  .t-wrap { overflow-x: auto; margin-bottom: .75rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  th { background: var(--surface2); color: var(--heading); font-weight: 600;
+       text-align: left; padding: .5rem .75rem; border: 1px solid var(--border); }
+  td { background: var(--surface); padding: .45rem .75rem; border: 1px solid var(--border);
+       vertical-align: top; }
+  tr:nth-child(even) td { background: #1e2130; }
+  td code, th code { font-family: var(--mono); font-size: .8rem; color: #93c5fd; background: transparent; }
+
+  /* ── Callout boxes ── */
+  .callout { border-radius: 6px; padding: .75rem 1rem; margin: .6rem 0; font-size: .82rem; }
+  .callout.warn  { border-left: 4px solid var(--warn);   background: #1f1a0a; }
+  .callout.danger{ border-left: 4px solid var(--danger); background: #1f0d0d; }
+  .callout.ok    { border-left: 4px solid var(--ok);     background: #0d1f12; }
+  .callout .label{ font-weight: 700; margin-right: .35rem; }
+  .callout.warn  .label { color: var(--warn); }
+  .callout.danger .label { color: var(--danger); }
+  .callout.ok    .label { color: var(--ok); }
+
+  /* ── Code blocks ── */
+  pre { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+        padding: .85rem 1rem; overflow-x: auto; font-family: var(--mono);
+        font-size: .78rem; color: #a6e3a1; line-height: 1.5; margin: .5rem 0; }
+  .sha { font-family: var(--mono); font-size: .78rem; color: var(--accent2);
+         background: var(--surface2); border: 1px solid var(--border);
+         border-radius: 3px; padding: .05rem .35rem; white-space: nowrap; }
+
+  /* ── Lists ── */
+  ul, ol { padding-left: 1.4rem; }
+  li { margin-bottom: .3rem; }
+  li::marker { color: var(--muted); }
+
+  /* ── SVG diagram ── */
+  .diagram-wrap { background: var(--surface); border: 1px solid var(--border);
+                  border-radius: 6px; padding: 1rem; overflow-x: auto; }
+  svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
+
+  /* ── Status pills ── */
+  .pill { display: inline-block; border-radius: 3px; padding: .05rem .45rem;
+          font-size: .72rem; font-weight: 700; letter-spacing: .03em; }
+  .pill.ok     { background: #14532d; color: #86efac; }
+  .pill.warn   { background: #451a03; color: #fcd34d; }
+  .pill.danger { background: #450a0a; color: #fca5a5; }
+  .pill.info   { background: #1e3a5f; color: #93c5fd; }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ═══════════════════════════════ HEADER ═══════════════════════════════ -->
+<header class="doc-header">
+  <h1>Whiteboard Defense — <code style="font-size:1.4rem;color:#93c5fd">MDSPerfMetricCollector</code></h1>
+  <div class="sub">src/mgr/MDSPerfMetricCollector.cc · src/mgr/MDSPerfMetricCollector.h</div>
+  <div class="meta-row">
+    <div class="badge">HEAD <span>8681fa6e</span></div>
+    <div class="badge">Commits <span>6 (non-merge)</span></div>
+    <div class="badge">Date range <span>2019-09-10 → 2025-10-01</span></div>
+    <div class="badge">Authors <span>Venky Shankar · Jos Collin · Kefu Chai · Edwin Rodriguez</span></div>
+    <div class="badge">Renames <span>none</span></div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════ §1 ARCHITECTURE ═══════════════════════════ -->
+<section id="arch">
+  <h2>§1 High-Level Architecture &amp; Mental Model</h2>
+
+  <h3>What it is</h3>
+  <p>
+    <code>MDSPerfMetricCollector</code> is the MDS-specific concrete implementation of the
+    <code>MetricCollector&lt;Q,L,K,M&gt;</code> CRTP-like template.
+    It sits inside <strong>ceph-mgr</strong> and bridges the MDS daemon world (raw
+    <code>MDSMetricPayload</code> messages) to the Python plugin world (<code>ceph fs perf stats</code>).
+    Two things are MDS-specific that the base does not handle:
+    (a) <strong>delayed-rank tracking</strong> — which MDS ranks are lagging their metric delivery; and
+    (b) <strong>last-update timestamp</strong> — monotonic clock snapshot used by
+    <code>ceph fs perf stats</code> to detect rank-0 failover (<span class="sha">c2470f27</span>
+    / tracker #50033).
+  </p>
+
+  <h3>Data flow diagram</h3>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 900 320" width="100%" xmlns="http://www.w3.org/2000/svg">
+      <!-- boxes -->
+      <!-- MDS Daemon -->
+      <rect x="10"  y="120" width="130" height="50" rx="6" fill="#1e3a5f" stroke="#4f8ef7" stroke-width="1.5"/>
+      <text x="75"  y="140" text-anchor="middle" fill="#93c5fd" font-size="12" font-weight="600">MDS Daemon</text>
+      <text x="75"  y="158" text-anchor="middle" fill="#8892b0" font-size="10">MMgrReport msg</text>
+
+      <!-- MetricAggregator -->
+      <rect x="190" y="95"  width="155" height="100" rx="6" fill="#1a1d27" stroke="#2e3250" stroke-width="1.5"/>
+      <text x="267" y="118" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">MetricAggregator</text>
+      <text x="267" y="136" text-anchor="middle" fill="#8892b0" font-size="10">dispatch on type</text>
+      <text x="267" y="153" text-anchor="middle" fill="#8892b0" font-size="10">MetricPayload (variant)</text>
+      <text x="267" y="170" text-anchor="middle" fill="#fcd34d" font-size="10">↓ routes MDSMetricPayload</text>
+
+      <!-- MDSPerfMetricCollector -->
+      <rect x="400" y="60"  width="215" height="185" rx="6" fill="#1a1d27" stroke="#a78bfa" stroke-width="2"/>
+      <text x="507" y="88"  text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="700">MDSPerfMetricCollector</text>
+      <!-- internals -->
+      <rect x="415" y="98"  width="185" height="30" rx="3" fill="#22263a" stroke="#2e3250"/>
+      <text x="507" y="118" text-anchor="middle" fill="#93c5fd" font-size="10">process_reports( payload )</text>
+      <rect x="415" y="135" width="185" height="30" rx="3" fill="#22263a" stroke="#2e3250"/>
+      <text x="507" y="150" text-anchor="middle" fill="#f8f8f2" font-size="10">delayed_ranks (set&lt;mds_rank_t&gt;)</text>
+      <text x="507" y="163" text-anchor="middle" fill="#f8f8f2" font-size="10">last_updated_mono (timespec)</text>
+      <rect x="415" y="172" width="185" height="30" rx="3" fill="#22263a" stroke="#2e3250"/>
+      <text x="507" y="192" text-anchor="middle" fill="#93c5fd" font-size="10">get_counters( PerfCollector* )</text>
+      <!-- base note -->
+      <text x="507" y="235" text-anchor="middle" fill="#8892b0" font-size="9">inherits: MetricCollector&lt;Q,L,K,M&gt;</text>
+
+      <!-- Python plugin -->
+      <rect x="680" y="120" width="145" height="50" rx="6" fill="#14532d" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="752" y="140" text-anchor="middle" fill="#86efac" font-size="12" font-weight="600">Python Plugin</text>
+      <text x="752" y="158" text-anchor="middle" fill="#8892b0" font-size="10">ceph fs perf stats</text>
+
+      <!-- arrows -->
+      <line x1="140" y1="145" x2="188" y2="145" stroke="#4f8ef7" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="345" y1="145" x2="398" y2="145" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="615" y1="145" x2="678" y2="145" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- lock annotation -->
+      <text x="460" y="50" text-anchor="middle" fill="#f59e0b" font-size="10">🔒 lock guards all state mutations &amp; reads</text>
+
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#8892b0"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+  <h3>Execution summary</h3>
+  <div class="t-wrap">
+    <table>
+      <tr><th>Phase</th><th>Entry point</th><th>Key action</th><th>Est. SHA</th></tr>
+      <tr>
+        <td>Ingest</td>
+        <td><code>process_reports(payload)</code></td>
+        <td>
+          1. <code>std::get&lt;MDSMetricPayload&gt;(payload)</code> — throws if wrong type.<br/>
+          2. Acquire <code>lock</code>.<br/>
+          3. <code>process_reports_generic()</code> with <strong>replace</strong> lambda (<code>counter→{first,second} = update</code>).<br/>
+          4. Overwrite <code>delayed_ranks</code> from report.<br/>
+          5. <code>clock_gettime(CLOCK_MONOTONIC_COARSE, &amp;last_updated_mono)</code>.
+        </td>
+        <td><span class="sha">f6ba1eea</span> + <span class="sha">c2470f27</span></td>
+      </tr>
+      <tr>
+        <td>Query</td>
+        <td><code>get_counters(PerfCollector*)</code></td>
+        <td>
+          1. <code>static_cast&lt;MDSPerfCollector*&gt;</code>.<br/>
+          2. Acquire <code>lock</code>.<br/>
+          3. <code>get_counters_generic(query_id, &amp;counters)</code>; early-return on error.<br/>
+          4. Copy <code>delayed_ranks</code> → <code>c→delayed_ranks</code>.<br/>
+          5. Copy <code>last_updated_mono</code> → <code>c→last_updated_mono</code>.
+        </td>
+        <td><span class="sha">7523aef6</span> + <span class="sha">c2470f27</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <h3>Template instantiation</h3>
+  <pre>MetricCollector&lt;
+  MDSPerfMetricQuery,   // query type
+  MDSPerfMetricLimit,   // rate/count limit descriptor
+  MDSPerfMetricKey,     // per-path-expression key
+  MDSPerfMetrics        // per-key counter map
+&gt;</pre>
+</section>
+
+<!-- ═══════════════════════════════ §2 DECISIONS ═══════════════════════════════ -->
+<section id="decisions">
+  <h2>§2 Architectural Decisions &amp; Trade-offs</h2>
+  <div class="t-wrap">
+    <table>
+      <tr>
+        <th style="width:22%">Decision</th>
+        <th style="width:28%">Choice made</th>
+        <th style="width:28%">Rejected alternative</th>
+        <th style="width:22%">Rationale / SHA</th>
+      </tr>
+      <tr>
+        <td><strong>Counter update semantics</strong></td>
+        <td><strong>Absolute replacement</strong> — <code>counter→first = update.first</code></td>
+        <td>Delta accumulation (OSD-style)</td>
+        <td>
+          MDS counters represent current state at snapshot time, not incremental deltas.
+          Replacement ensures stale data is immediately displaced.
+          <span class="sha">f6ba1eea</span>
+          <span class="pill warn">UG-1: no comment</span>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Variant access</strong></td>
+        <td><code>std::get&lt;MDSMetricPayload&gt;()</code> — throws on wrong type</td>
+        <td><code>std::get_if&lt;&gt;</code> (null on wrong type) or <code>std::visit</code></td>
+        <td>
+          Caller contract: only MDS payloads reach this instance.
+          An exception = routing bug, not a runtime edge case.
+          Migrated from <code>boost::get&lt;&gt;</code> to reduce third-party deps.
+          <span class="sha">d8141f43</span>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Clock choice</strong></td>
+        <td><code>CLOCK_MONOTONIC_COARSE</code> (~10 ms resolution)</td>
+        <td><code>CLOCK_MONOTONIC</code> (nanosecond resolution)</td>
+        <td>
+          Staleness detection for failover doesn't require sub-second precision;
+          coarse is cheaper (no syscall on some kernels). Low resolution is acceptable
+          given the MDS heartbeat / report period is orders of magnitude longer.
+          <span class="sha">c2470f27</span>
+          <span class="pill warn">UG-3: not documented</span>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Variant extraction lock position</strong></td>
+        <td>Extract payload reference <em>before</em> acquiring <code>lock</code></td>
+        <td>Extract inside lock</td>
+        <td>
+          Payload is a const reference owned by the call stack — no concurrent mutation
+          possible. Avoids holding lock during deserialization overhead.
+          <span class="sha">f6ba1eea</span>
+          <span class="pill warn">UG-2: not asserted</span>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Delayed-rank read path</strong></td>
+        <td>Private helper <code>get_delayed_ranks()</code>, asserts lock held</td>
+        <td>Inline copy inside <code>get_counters()</code></td>
+        <td>
+          Callee-asserts pattern enforces the invariant at the point of access,
+          not at the call site — prevents future callers from forgetting to hold lock.
+          <span class="sha">7523aef6</span>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Failover detection mechanism</strong></td>
+        <td>Monotonic timestamp in every <code>process_reports()</code> call</td>
+        <td>Poll MDS state directly from plugin</td>
+        <td>
+          Python plugins can't reliably distinguish "no updates" from "MDS offline";
+          timestamping within the collector lets the plugin compare elapsed time
+          against a threshold without additional MGR state queries.
+          Fixes tracker #50033. <span class="sha">c2470f27</span>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Delayed-rank update frequency</strong></td>
+        <td>Updated on <em>every</em> <code>process_reports()</code> call, even empty</td>
+        <td>Update only when non-empty</td>
+        <td>
+          Ensures delayed_ranks reflects the MDS's current view after each report,
+          including a report that clears a previously delayed rank.
+          <span class="sha">f6ba1eea</span>
+        </td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ §3 DATA STRUCTURES ═══════════════════════════ -->
+<section id="data">
+  <h2>§3 Data Structures, Algorithms &amp; Invariants</h2>
+
+  <h3>Class members</h3>
+  <div class="t-wrap">
+    <table>
+      <tr>
+        <th>Member</th><th>Type</th><th>Scope</th><th>Guard</th><th>Init?</th><th>Source SHA</th>
+      </tr>
+      <tr>
+        <td><code>delayed_ranks</code></td>
+        <td><code>std::set&lt;mds_rank_t&gt;</code></td>
+        <td>private</td>
+        <td><code>lock</code> (inherited)</td>
+        <td><span class="pill ok">yes — default-ctor</span></td>
+        <td><span class="sha">f6ba1eea</span></td>
+      </tr>
+      <tr>
+        <td><code>last_updated_mono</code></td>
+        <td><code>struct timespec</code></td>
+        <td>private</td>
+        <td><code>lock</code> (inherited)</td>
+        <td><span class="pill danger">NO — uninitialized POD</span></td>
+        <td><span class="sha">c2470f27</span></td>
+      </tr>
+      <tr>
+        <td><em>inherited</em> <code>lock</code></td>
+        <td><code>ceph::mutex</code></td>
+        <td>protected</td>
+        <td>—</td>
+        <td><span class="pill ok">base ctor</span></td>
+        <td><span class="sha">f6ba1eea</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <h3>Key types (template parameters)</h3>
+  <div class="t-wrap">
+    <table>
+      <tr><th>Role</th><th>Concrete type</th><th>Purpose</th></tr>
+      <tr><td>Query</td><td><code>MDSPerfMetricQuery</code></td><td>Describes which path expressions / counters to collect</td></tr>
+      <tr><td>Limit</td><td><code>MDSPerfMetricLimit</code></td><td>Rate / count limit enforcement</td></tr>
+      <tr><td>Key</td><td><code>MDSPerfMetricKey</code></td><td>Per-matched-path key in the per-query counter map</td></tr>
+      <tr><td>Metrics</td><td><code>MDSPerfMetrics</code></td><td>Map of <code>MDSPerfMetricKey → vector&lt;PerformanceCounter&gt;</code></td></tr>
+    </table>
+  </div>
+
+  <h3>Invariants table</h3>
+  <div class="t-wrap">
+    <table>
+      <tr><th>ID</th><th>Invariant</th><th>Enforced by</th><th>SHA</th></tr>
+      <tr>
+        <td>INV-CTOR-1</td>
+        <td>Constructor must forward <code>MetricListener&amp;</code> to base unchanged</td>
+        <td>Code structure</td>
+        <td><span class="sha">f6ba1eea</span></td>
+      </tr>
+      <tr>
+        <td>INV-CTOR-2</td>
+        <td><code>last_updated_mono</code> is <em>not initialized</em> in constructor — POD in indeterminate state</td>
+        <td><span class="pill danger">nothing (DIV-1)</span></td>
+        <td><span class="sha">c2470f27</span></td>
+      </tr>
+      <tr>
+        <td>INV-PR-1</td>
+        <td>Payload must be <code>MDSMetricPayload</code>; wrong type throws <code>std::bad_variant_access</code></td>
+        <td><code>std::get&lt;&gt;</code></td>
+        <td><span class="sha">f6ba1eea</span>+<span class="sha">d8141f43</span></td>
+      </tr>
+      <tr>
+        <td>INV-PR-2</td>
+        <td><code>lock</code> acquired before <code>process_reports_generic()</code> and before <code>delayed_ranks</code> write</td>
+        <td><code>std::lock_guard</code></td>
+        <td><span class="sha">f6ba1eea</span></td>
+      </tr>
+      <tr>
+        <td>INV-PR-3</td>
+        <td><code>delayed_ranks</code> overwritten every call, even on empty report</td>
+        <td>unconditional assignment</td>
+        <td><span class="sha">f6ba1eea</span></td>
+      </tr>
+      <tr>
+        <td>INV-PR-4</td>
+        <td><code>last_updated_mono</code> stamped <em>after</em> all data mutations</td>
+        <td>code order</td>
+        <td><span class="sha">c2470f27</span></td>
+      </tr>
+      <tr>
+        <td>INV-LAMBDA-1</td>
+        <td>Counter update is <strong>absolute replacement</strong>, not accumulation</td>
+        <td>lambda body</td>
+        <td><span class="sha">f6ba1eea</span></td>
+      </tr>
+      <tr>
+        <td>INV-LAMBDA-2</td>
+        <td>Lambda is stateless (no captures); locking delegated to <code>process_reports_generic</code></td>
+        <td>code structure</td>
+        <td><span class="sha">f6ba1eea</span></td>
+      </tr>
+      <tr>
+        <td>INV-GC-1</td>
+        <td><code>collector</code> must be <code>MDSPerfCollector*</code>; cast is unchecked</td>
+        <td><span class="pill warn">caller contract only</span></td>
+        <td><span class="sha">7523aef6</span></td>
+      </tr>
+      <tr>
+        <td>INV-GC-2</td>
+        <td><code>get_delayed_ranks</code> + <code>get_last_updated</code> called only when <code>get_counters_generic()</code> returns 0</td>
+        <td>early-return guard</td>
+        <td><span class="sha">7523aef6</span></td>
+      </tr>
+      <tr>
+        <td>INV-GC-4</td>
+        <td>Entire <code>get_counters()</code> (counters + delayed_ranks + timestamp) is one atomic snapshot under lock</td>
+        <td><code>std::lock_guard</code></td>
+        <td><span class="sha">7523aef6</span></td>
+      </tr>
+      <tr>
+        <td>INV-GDR-1</td>
+        <td>Caller must hold lock; enforced at callee with <code>ceph_assert(ceph_mutex_is_locked(lock))</code></td>
+        <td>runtime assert</td>
+        <td><span class="sha">7523aef6</span></td>
+      </tr>
+      <tr>
+        <td>INV-GDR-2</td>
+        <td>Output is full copy of <code>delayed_ranks</code>; caller may modify freely</td>
+        <td>by-value copy</td>
+        <td><span class="sha">7523aef6</span></td>
+      </tr>
+      <tr>
+        <td>INV-GLU-1/2</td>
+        <td>Caller holds lock; output is <code>utime_t</code> converted from <code>timespec</code></td>
+        <td>runtime assert + conversion</td>
+        <td><span class="sha">c2470f27</span></td>
+      </tr>
+      <tr>
+        <td>INV-GLU-3</td>
+        <td><code>last_updated_mono</code> only valid after first <code>process_reports()</code></td>
+        <td><span class="pill danger">nothing (DIV-2)</span></td>
+        <td><span class="sha">c2470f27</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <h3>Counter replacement algorithm (lambda)</h3>
+  <pre>// stateless, called per (query, key, counter-index) triple by process_reports_generic
+[](PerformanceCounter *counter, const PerformanceCounter &amp;update) {
+    counter->first  = update.first;   // absolute value (e.g. avg latency numerator)
+    counter->second = update.second;  // absolute count / denominator
+}</pre>
+  <p style="color:var(--muted);font-size:.82rem">
+    <strong>Why not deltas?</strong> MDS sends its current internal counter snapshot; the mgr stores
+    the most recent values so queries always return the latest sample. OSD-style delta accumulation
+    would require subtraction state and is not the MDS reporting contract.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════ §4 THREAT MODEL ═══════════════════════════════ -->
+<section id="threat">
+  <h2>§4 Threat Model &amp; Adversarial Handling</h2>
+  <div class="t-wrap">
+    <table>
+      <tr>
+        <th style="width:26%">Actor / scenario</th>
+        <th style="width:30%">What happens</th>
+        <th style="width:22%">Mitigation</th>
+        <th style="width:22%">Residual risk</th>
+      </tr>
+      <tr>
+        <td><strong>Wrong payload type routed here</strong><br/>(e.g. OSD payload mis-dispatched)</td>
+        <td><code>std::get&lt;MDSMetricPayload&gt;</code> throws <code>std::bad_variant_access</code></td>
+        <td>Caller (MetricAggregator) owns dispatch; exception propagates up</td>
+        <td>No try/catch — uncaught exception crashes or logs mgr, depending on caller's handler</td>
+      </tr>
+      <tr>
+        <td><strong>Malicious / malformed MDS report</strong><br/>(crafted counters or huge key sets)</td>
+        <td>Counters are blindly overwritten; <code>delayed_ranks</code> is overwritten from <code>rank_metrics_delayed</code></td>
+        <td>Lock ensures no torn reads; data is self-limiting (key count bounded by query structure)</td>
+        <td>No bounds check on counter values or delayed_ranks size; OOM possible with crafted large sets</td>
+      </tr>
+      <tr>
+        <td><strong>Non-<code>MDSPerfCollector</code> pointer passed to <code>get_counters()</code></strong></td>
+        <td><code>static_cast</code> succeeds (C++ UB), corrupting memory</td>
+        <td>Caller (stats module) owns type contract; no runtime check</td>
+        <td><span class="pill danger">Silent UB / corruption</span> — mitigated only by caller discipline (UG-4)</td>
+      </tr>
+      <tr>
+        <td><strong>Query ID unknown / removed</strong><br/>(race between remove_query and get_counters)</td>
+        <td><code>get_counters_generic()</code> returns non-zero; <code>get_counters()</code> early-returns</td>
+        <td>Lock prevents torn state; caller gets error code</td>
+        <td>
+          <code>c→delayed_ranks</code> and <code>c→last_updated_mono</code> left in pre-call state
+          (potentially uninitialized on first call). Caller must treat error path as fully invalid. (UG-5)
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Read before first <code>process_reports()</code></strong><br/>(early consumer poll)</td>
+        <td><code>get_last_updated()</code> reads uninitialized <code>last_updated_mono</code></td>
+        <td>None — <span class="pill danger">DIV-2</span></td>
+        <td>Returns garbage/epoch time; Python plugin may mis-detect stale state on startup</td>
+      </tr>
+      <tr>
+        <td><strong>Concurrent payload mutation</strong><br/>(theoretical: payload modified while being read)</td>
+        <td>Data race on <code>metric_report</code> reference between line 24 and line 26</td>
+        <td>Call-stack ownership in practice; payload passed by const ref</td>
+        <td>Not asserted; safe only by convention (UG-2)</td>
+      </tr>
+      <tr>
+        <td><strong>Clock rollback / monotonic violation</strong></td>
+        <td>N/A — <code>CLOCK_MONOTONIC_COARSE</code> is strictly non-decreasing</td>
+        <td>Monotonic clock choice prevents backward jumps</td>
+        <td>None</td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ §5 FAILURE MODES ═══════════════════════════════ -->
+<section id="failures">
+  <h2>§5 Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+  <div class="callout danger">
+    <span class="label">DIV-1/DIV-2 — Uninitialized <code>last_updated_mono</code></span>
+    Before the first <code>process_reports()</code> call, any path that calls <code>get_last_updated()</code>
+    reads uninitialized POD memory. Blast radius: Python <code>ceph fs perf stats</code> receives a garbage
+    <code>utime_t</code> and may erroneously flag MDS as offline or stale immediately after mgr startup.
+    <strong>Fix:</strong> add <code>last_updated_mono{}</code> to the constructor MIL.
+  </div>
+
+  <div class="callout warn">
+    <span class="label">UG-5 — Error path leaves collector partially initialized</span>
+    On <code>get_counters()</code> failure (<code>r≠0</code>), <code>c→delayed_ranks</code>
+    and <code>c→last_updated_mono</code> are not cleared or documented. A caller that
+    doesn't check the return value will use stale or garbage data silently.
+  </div>
+
+  <div class="callout warn">
+    <span class="label">UG-4 — Unchecked static_cast</span>
+    If a wrong <code>PerfCollector</code> subtype is passed to <code>get_counters()</code>,
+    the static_cast silently produces an invalid pointer. Downstream writes corrupt memory.
+    No assert or null-check exists.
+  </div>
+
+  <h3>Failure mode table</h3>
+  <div class="t-wrap">
+    <table>
+      <tr>
+        <th style="width:28%">Failure</th>
+        <th style="width:22%">Trigger</th>
+        <th style="width:20%">Observable symptom</th>
+        <th style="width:15%">Blast radius</th>
+        <th style="width:15%">Grounding</th>
+      </tr>
+      <tr>
+        <td>Uninitialized timestamp read</td>
+        <td><code>get_counters()</code> called before any MDS report received</td>
+        <td>Garbage <code>utime_t</code> → plugin incorrectly reports MDS as offline/stale</td>
+        <td>Python plugin logic only</td>
+        <td><span class="sha">c2470f27</span> DIV-2</td>
+      </tr>
+      <tr>
+        <td>Variant exception</td>
+        <td>Wrong payload type dispatched to this collector</td>
+        <td><code>std::bad_variant_access</code> propagates up; mgr may log or abort</td>
+        <td>mgr daemon, all active queries</td>
+        <td><span class="sha">d8141f43</span> INV-PR-1</td>
+      </tr>
+      <tr>
+        <td>Memory corruption from bad cast</td>
+        <td>Caller passes non-<code>MDSPerfCollector</code> to <code>get_counters()</code></td>
+        <td>Silent UB; potential crash or data corruption</td>
+        <td>mgr daemon</td>
+        <td><span class="sha">7523aef6</span> UG-4</td>
+      </tr>
+      <tr>
+        <td>Early-return leaves caller with stale data</td>
+        <td>Unknown query ID in <code>get_counters_generic()</code></td>
+        <td>Caller uses previous-cycle or zero-initialized counters if it ignores return code</td>
+        <td>Single query result</td>
+        <td><span class="sha">7523aef6</span> UG-5</td>
+      </tr>
+      <tr>
+        <td>Lock contention</td>
+        <td>High-frequency MDS reports + concurrent plugin polling</td>
+        <td>Increased p99 latency on <code>ceph fs perf stats</code> calls</td>
+        <td>Performance degradation only; no correctness issue</td>
+        <td>Architecture — single global lock</td>
+      </tr>
+      <tr>
+        <td>OOM on large delayed_ranks or metrics</td>
+        <td>Malformed / crafted MDS report with huge key or rank sets</td>
+        <td>mgr OOM if unbounded allocation succeeds</td>
+        <td>mgr daemon</td>
+        <td>No bounds check in codebase</td>
+      </tr>
+    </table>
+  </div>
+
+  <h3>Bottleneck</h3>
+  <ul>
+    <li><strong>Single mutex for all operations.</strong> Both <code>process_reports()</code> (writer) and
+        <code>get_counters()</code> (reader) serialize on the same inherited <code>lock</code>.
+        With many active queries or high MDS report rates, this becomes a contention point.
+        No reader-writer lock upgrade has ever been attempted.</li>
+    <li><strong>Full <code>delayed_ranks</code> copy on every <code>get_counters()</code>.</strong>
+        The set is copied by value. For filesystems with many MDS ranks, this copy runs under lock.</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════ §6 OBSERVABILITY ═══════════════════════════════ -->
+<section id="observability">
+  <h2>§6 Observability &amp; Triage Playbook</h2>
+
+  <h3>Built-in logging</h3>
+  <div class="t-wrap">
+    <table>
+      <tr><th>Location</th><th>Level</th><th>What it logs</th></tr>
+      <tr>
+        <td><code>.cc:35</code></td>
+        <td><code>dout(20)</code></td>
+        <td><code>": delayed ranks=[&lt;set&gt;]"</code> — printed every <code>process_reports()</code> call</td>
+      </tr>
+      <tr>
+        <td>dout prefix</td>
+        <td>all levels</td>
+        <td><code>"mgr.mds_perf_metric_collector &lt;__func__&gt; "</code> — scoped to ceph_subsys_mgr</td>
+      </tr>
+    </table>
+  </div>
+
+  <h3>Triage scenarios</h3>
+  <div class="t-wrap">
+    <table>
+      <tr><th style="width:30%">Symptom</th><th>Likely cause</th><th>Triage step</th></tr>
+      <tr>
+        <td><code>ceph fs perf stats</code> returns empty or shows MDS offline immediately after mgr start</td>
+        <td>DIV-2: <code>last_updated_mono</code> uninitialized; plugin treats epoch/garbage timestamp as stale</td>
+        <td>
+          1. Check if any MDS report has arrived: <code>ceph daemon mgr.* log 20</code>, grep for <code>mds_perf_metric_collector process_reports</code>.<br/>
+          2. If no reports logged, MDS hasn't pushed yet — wait or check MDS status.<br/>
+          3. If reports exist and symptom persists, suspect plugin-side threshold logic.
+        </td>
+      </tr>
+      <tr>
+        <td>mgr crash / <code>std::bad_variant_access</code> in stack trace</td>
+        <td>INV-PR-1: wrong payload type dispatched to this collector</td>
+        <td>
+          Check MetricAggregator dispatch logic; ensure only <code>MDSMetricPayload</code> routed here.
+          Stack will show <code>process_reports</code> + <code>std::get</code>.
+        </td>
+      </tr>
+      <tr>
+        <td>Delayed ranks not clearing after MDS recovery</td>
+        <td>INV-PR-3: <code>delayed_ranks</code> is overwritten every report — MDS must send empty set after recovery</td>
+        <td>
+          Check MDS side: is <code>rank_metrics_delayed</code> in the report payload actually clearing?
+          Enable <code>dout(20)</code> on mgr to watch delayed_ranks evolve.
+        </td>
+      </tr>
+      <tr>
+        <td>Stale counters returned to plugin after query re-registration</td>
+        <td>UG-5: <code>get_counters_generic()</code> may return non-zero briefly; caller ignores return code</td>
+        <td>
+          Check plugin code: confirm it checks return value of <code>get_counters()</code>.
+          If return is non-zero, plugin should treat entire result as invalid.
+        </td>
+      </tr>
+      <tr>
+        <td>High <code>ceph fs perf stats</code> latency</td>
+        <td>Lock contention between MDS report ingestion and plugin polling</td>
+        <td>
+          Check mgr thread pool utilization; reduce MDS metric report frequency
+          (<code>mds_metric_update_interval</code>) or reduce active query count.
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <h3>Known bugs &amp; unresolved findings</h3>
+  <div class="t-wrap">
+    <table>
+      <tr>
+        <th>ID</th><th>Severity</th><th>Description</th><th>Recommended fix</th>
+      </tr>
+      <tr>
+        <td>DIV-1</td>
+        <td><span class="pill danger">BUG</span></td>
+        <td><code>last_updated_mono</code> uninitialized in constructor (<span class="sha">c2470f27</span> added member, forgot MIL)</td>
+        <td>Add <code>last_updated_mono{}</code> to constructor MIL</td>
+      </tr>
+      <tr>
+        <td>DIV-2</td>
+        <td><span class="pill danger">BUG</span></td>
+        <td><code>get_last_updated()</code> reads uninitialized state before first <code>process_reports()</code></td>
+        <td>Add sentinel check (<code>tv_sec==0 &amp;&amp; tv_nsec==0</code>) or zero-initialize via MIL fix above</td>
+      </tr>
+      <tr>
+        <td>UG-1</td>
+        <td><span class="pill warn">DOC</span></td>
+        <td>No comment explaining absolute vs. delta replacement semantics in lambda</td>
+        <td>Add inline comment in <code>process_reports()</code></td>
+      </tr>
+      <tr>
+        <td>UG-2</td>
+        <td><span class="pill warn">DOC</span></td>
+        <td>Variant extraction outside lock — safe but not asserted</td>
+        <td>Add comment asserting payload is call-stack-owned and immutable</td>
+      </tr>
+      <tr>
+        <td>UG-3</td>
+        <td><span class="pill warn">DOC</span></td>
+        <td><code>CLOCK_MONOTONIC_COARSE</code> rationale not documented</td>
+        <td>Add comment citing acceptable resolution for failover detection</td>
+      </tr>
+      <tr>
+        <td>UG-4</td>
+        <td><span class="pill warn">RISK</span></td>
+        <td>Unchecked <code>static_cast</code> in <code>get_counters()</code></td>
+        <td>Add <code>ceph_assert(collector != nullptr)</code>; consider <code>dynamic_cast</code> in debug builds</td>
+      </tr>
+      <tr>
+        <td>UG-5</td>
+        <td><span class="pill warn">RISK</span></td>
+        <td>Error path leaves <code>c→delayed_ranks</code> / <code>c→last_updated_mono</code> undocumented</td>
+        <td>Document error-path semantics; consider clearing output fields on error</td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ COMMIT TIMELINE ═══════════════════════════════ -->
+<section id="timeline">
+  <h2>Commit Timeline (authoritative reference)</h2>
+  <div class="t-wrap">
+    <table>
+      <tr><th>SHA</th><th>Date</th><th>Author</th><th>What it did to this file</th></tr>
+      <tr>
+        <td><span class="sha">f6ba1eea</span></td>
+        <td>2019-09-10</td>
+        <td>Venky Shankar</td>
+        <td>Created both files. Established <code>process_reports()</code> with boost::get, replacement lambda, delayed_ranks. Tracker #36253.</td>
+      </tr>
+      <tr>
+        <td><span class="sha">7523aef6</span></td>
+        <td>2019-08-26*</td>
+        <td>Venky Shankar</td>
+        <td>Added <code>get_counters()</code> and <code>get_delayed_ranks()</code>. Established query read-path and ceph_assert locking pattern.</td>
+      </tr>
+      <tr>
+        <td><span class="sha">c2470f27</span></td>
+        <td>2021-06-29</td>
+        <td>Jos Collin</td>
+        <td>Added <code>last_updated_mono</code> (uninitialized) + <code>get_last_updated()</code> + <code>clock_gettime</code> call. Failover detection for rank0 offline. Tracker #50033.</td>
+      </tr>
+      <tr>
+        <td><span class="sha">d8141f43</span></td>
+        <td>2025-04-25</td>
+        <td>Kefu Chai</td>
+        <td><code>boost::get→std::get</code>. Pure mechanical modernization, no semantic change.</td>
+      </tr>
+      <tr>
+        <td><span class="sha">f1bac418</span></td>
+        <td>2025-10-01</td>
+        <td>Edwin Rodriguez</td>
+        <td>Indent/vim modeline update on .cc only.</td>
+      </tr>
+      <tr>
+        <td><span class="sha">85d82faa</span></td>
+        <td>2025-10-01</td>
+        <td>Edwin Rodriguez</td>
+        <td>Indent/vim modeline update on .h only.</td>
+      </tr>
+    </table>
+  </div>
+  <p style="color:var(--muted);font-size:.8rem">
+    * <code>7523aef6</code> calendar date precedes <code>f6ba1eea</code> but was applied after it in the merge order —
+    consistent with branch reordering before merge. File creation commit is <code>f6ba1eea</code>.
+  </p>
+</section>
+
+<hr/>
+<footer style="color:var(--muted);font-size:.75rem;text-align:center;padding-top:.5rem">
+  Generated from intent artefact + git corpus · HEAD <code>8681fa6e</code> · corpus collected 2026-09-11
+</footer>
+
+</div><!-- .page -->
+</body>
+</html>

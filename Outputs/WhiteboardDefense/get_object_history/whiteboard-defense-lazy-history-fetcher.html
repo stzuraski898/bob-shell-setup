@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense: get-object-history.sh — Lazy History Fetcher</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-main: #f7f8fa;
+    --bg-card: #ffffff;
+    --border: #e5e7eb;
+    --border-accent: #3b82d4;
+    --text-main: #1f2328;
+    --text-muted: #57606a;
+    --code-bg: #f0f1f3;
+    --accent: #3b82d4;
+    --warn-bg: #fffbeb;
+    --warn-border: #f59e0b;
+    --ok-bg: #f0fdf4;
+    --ok-border: #22c55e;
+    --err-bg: #fef2f2;
+    --err-border: #ef4444;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    background: var(--bg-main);
+    color: var(--text-main);
+  }
+  .container { max-width: 980px; margin: 0 auto; padding: 32px 20px 64px; }
+  header {
+    border-bottom: 2px solid var(--border-accent);
+    padding-bottom: 16px;
+    margin-bottom: 28px;
+  }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .meta-bar {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    font-size: 12px; color: var(--text-muted);
+    margin-top: 8px;
+  }
+  .meta-bar strong { color: var(--text-main); }
+  h2 {
+    font-size: 16px; font-weight: 700;
+    margin: 32px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 { font-size: 13.5px; font-weight: 600; margin: 16px 0 8px; color: #2d3748; }
+  p, ul, ol { margin-bottom: 12px; }
+  ul, ol { padding-left: 20px; }
+  li { margin-bottom: 5px; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12.5px;
+  }
+  pre {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border-accent);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  .diagram {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #f1f3f5; font-weight: 600; color: var(--text-main); }
+  tr:hover td { background: #f9fafb; }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+  }
+  .card h3 { margin-top: 0; }
+  .warn  { background: var(--warn-bg);  border-left: 4px solid var(--warn-border);  border-radius: 4px; padding: 10px 14px; margin-bottom: 10px; }
+  .ok    { background: var(--ok-bg);    border-left: 4px solid var(--ok-border);    border-radius: 4px; padding: 10px 14px; margin-bottom: 10px; }
+  .error { background: var(--err-bg);   border-left: 4px solid var(--err-border);   border-radius: 4px; padding: 10px 14px; margin-bottom: 10px; }
+  .badge {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+  .badge-red    { background: #fde8e8; color: #b91c1c; }
+  .badge-yellow { background: #fef9c3; color: #92400e; }
+  .badge-green  { background: #d1fae5; color: #065f46; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+  .invariant {
+    background: #f8f4ff;
+    border: 1px solid #c4b5fd;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    font-size: 12.5px;
+  }
+  .note {
+    background: #fffbeb;
+    border: 1px solid #f59e0b;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: 8px 0 12px;
+    font-size: 12.5px;
+  }
+  footer {
+    margin-top: 40px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ═══════════════════════════════════════════════════════════ HEADER -->
+  <header>
+    <h1>Whiteboard Defense — <code>get-object-history.sh</code></h1>
+    <div class="meta-bar">
+      <span><strong>Role:</strong> On-demand lazy consumer of pre-collected git history corpus</span>
+      <span><strong>Transport:</strong> SSH/SCP (remote) or filesystem passthrough (local)</span>
+      <span><strong>Shell:</strong> Bash · <code>set -euo pipefail</code></span>
+      <span><strong>Dependencies:</strong> <code>bash</code>, <code>scp</code>, <code>awk</code>, <code>ssh</code> · optionally <code>rsync</code> for <code>--all</code></span>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════ §1 -->
+  <h2>1. High-Level Architecture &amp; Mental Model</h2>
+
+  <div class="card">
+    <p><strong>One-sentence purpose:</strong> Given a class name (and optionally a method name or flag), locate pre-collected git history flat files — from a remote SSH host or a local directory — and render structured commit metadata to stdout.</p>
+    <p><strong>Critical framing:</strong> This script is a <em>consumer only</em>. It never runs <code>git</code>. All data was produced upstream by <code>collect-object-history-v4.sh</code> and stored as a flat-file corpus under a well-known directory tree. This script is purely a fetcher + formatter.</p>
+  </div>
+
+  <div class="diagram">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        get-object-history.sh                                │
+│                                                                             │
+│  ① TRANSPORT DECISION  (startup, before any arg parsing)                   │
+│  ─────────────────────────────────────────────────────                      │
+│   HISTORY_RAW_DIR is a local dir?                                           │
+│     YES ──► WORK_DIR = HISTORY_RAW_DIR        (no SSH, no trap)             │
+│     NO  ──► TMPDIR_CREATED=$(mktemp -d)                                     │
+│             trap 'rm -rf TMPDIR_CREATED' EXIT                               │
+│             WORK_DIR = TMPDIR_CREATED                                       │
+│                                                                             │
+│  ② ARGUMENT DISPATCH                                                        │
+│  ──────────────────                                                         │
+│   --list   ─► fetch_file("INDEX.txt") ──► cat                              │
+│   --all    ─► rsync (or scp -r) entire tree ──► exit (no WORK_DIR writes)  │
+│   CLASS    ─► fetch_class(CLASS) [scp -r, guarded by 00-HEADER.txt]        │
+│                │                                                            │
+│                ├─ (no 2nd arg)  ─► list methods + SHAs from 09-…           │
+│                ├─ --signals     ─► filter signal:yes across all SHAs       │
+│                └─ &lt;method&gt;      ─► per-SHA detail from 10-… or 02-…        │
+│                                                                             │
+│  ③ CLEANUP                                                                  │
+│   EXIT trap ─► rm -rf TMPDIR_CREATED   (no-op in local mode)               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Remote corpus layout (mirrored into WORK_DIR on demand):
+──────────────────────────────────────────────────────
+HISTORY_RAW_DIR/
+  INDEX.txt                     ← class list; only --list ever fetches this
+  &lt;ClassName&gt;/
+    00-HEADER.txt               ← head_sha, collected_at, source_cc  [SENTINEL]
+    09-function-commits.txt     ← per-method SHA lists  (### sections)
+    10-commits-detail.txt       ← per-SHA full detail  (=== sections, signal: field)
+    02-messages.txt             ← fallback if 10 is absent; fewer fields
+  </div>
+
+  <h3>Core Invariants</h3>
+  <div class="invariant"><strong>I-1: Transport is opaque to all modes.</strong> All code after the startup branch reads <code>WORK_DIR</code>. Whether that path is <code>/tmp/tmp.XYZ</code> or a live local directory is invisible to the fetching and rendering logic.</div>
+  <div class="invariant"><strong>I-2: Lazy fetch — fetch only what the current query needs.</strong> <code>fetch_file</code> and <code>fetch_class</code> are both no-ops if the target already exists locally. No unnecessary network round-trips.</div>
+  <div class="invariant"><strong>I-3: Sentinel-guarded class fetch.</strong> <code>fetch_class</code> uses <code>00-HEADER.txt</code> (not directory existence) as the "fully fetched" signal — <code>mkdir -p</code> creates the empty directory before SCP runs, so a bare <code>-d</code> check would be insufficient.</div>
+  <div class="invariant"><strong>I-4: Single cleanup path.</strong> <code>trap … EXIT</code> fires on normal exit, <code>exit N</code>, and unhandled signals. No exit point needs its own cleanup call. (Exception: SIGKILL is untrappable — see §5.)</div>
+
+  <!-- ═══════════════════════════════════════════════════════════ §2 -->
+  <h2>2. Architectural Decisions &amp; Trade-offs</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:26%">Decision (X)</th>
+        <th style="width:22%">Rejected Alternative (Y)</th>
+        <th>Justification &amp; Trade-off</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Transport decided at startup, before arg parsing</strong></td>
+        <td>Decide inside each mode handler</td>
+        <td>Centralises the local/remote fork into one place; all modes share a single <code>WORK_DIR</code> abstraction. <em>Trade-off:</em> a <code>--list</code> call allocates a temp dir even though it only needs one file. Acceptable: one <code>INDEX.txt</code> fetch is cheap.</td>
+      </tr>
+      <tr>
+        <td><strong>Lazy <code>fetch_file</code> / <code>fetch_class</code> with idempotency guards</strong></td>
+        <td>Eager download of all remote files at startup</td>
+        <td>Only files needed for the current query are transferred. A single-method query fetches one class directory (KB-range); <code>--all</code> is the explicit bulk path. <em>Trade-off:</em> each new class opens a fresh SCP connection — no SSH multiplexing or connection reuse across separate invocations.</td>
+      </tr>
+      <tr>
+        <td><strong><code>fetch_class</code> sentinel = <code>00-HEADER.txt</code></strong></td>
+        <td>Directory existence (<code>-d</code>) or a synthetic <code>.fetched</code> marker</td>
+        <td><code>mkdir -p</code> creates the directory <em>before</em> SCP runs (so SCP can write into it). A plain <code>-d</code> check would see the empty placeholder and skip the fetch. <code>00-HEADER.txt</code> only exists after a successful transfer. <em>Trade-off:</em> A partial fetch that happens to include <code>00-HEADER.txt</code> before other files would pass the guard; full integrity is not verified.</td>
+      </tr>
+      <tr>
+        <td><strong><code>scp -r</code> per class; <code>rsync</code> only for <code>--all</code></strong></td>
+        <td>rsync per class; or always rsync</td>
+        <td>SCP has zero additional runtime dependency. rsync gives delta/compression benefits for bulk sync (<code>--all</code>) and has a graceful fallback to <code>scp -r</code> if absent. Per-class SCP avoids mirroring the entire tree for a single query. <em>Trade-off:</em> No delta on subsequent fetches; re-fetching a class re-transfers everything unless the sentinel is present.</td>
+      </tr>
+      <tr>
+        <td><strong><code>trap … EXIT</code> for temp dir cleanup</strong></td>
+        <td>Explicit <code>rm -rf</code> at each exit point</td>
+        <td>Bash <code>EXIT</code> fires on normal exit, <code>exit N</code>, and uncaught signals — one registration covers every code path. No risk of a future code branch forgetting cleanup. <em>Trade-off:</em> SIGKILL bypasses all traps (see §5).</td>
+      </tr>
+      <tr>
+        <td><strong><code>--signals</code> filters inline from <code>10-commits-detail.txt</code></strong></td>
+        <td>Pre-built signal index as a separate corpus file</td>
+        <td>No extra file format to maintain in the corpus. The <code>signal:</code> field already lives in each <code>=== sha</code> block. <em>Trade-off:</em> O(SHAs × detail_file_lines) scanning per invocation. Acceptable at current corpus scale (~27 classes, &lt;500 SHAs each); would not scale to millions of commits.</td>
+      </tr>
+      <tr>
+        <td><strong>Method name stripped of <code>ClassName::</code> prefix at call-site</strong></td>
+        <td>Require bare method names only from callers</td>
+        <td><code>SEARCH_NAME="${METHOD##*::}"</code> bridges C++ convention (<code>Class::method</code>) and the index's bare-name storage. Ergonomic for the primary audience. <em>Trade-off:</em> Two different methods with identical base names across classes would both match — but this is a single-class query so the index file is already scoped to one class.</td>
+      </tr>
+      <tr>
+        <td><strong><code>print_sha_detail</code> falls back from file 10 → file 02</strong></td>
+        <td>Hard fail if <code>10-commits-detail.txt</code> is absent</td>
+        <td>Graceful degradation for older corpus snapshots. A reduced view from <code>02-messages.txt</code> is more useful than crashing. <em>Trade-off:</em> Caller may not realise they're seeing the reduced format; <code>signal:</code> and diff fields will be absent without warning.</td>
+      </tr>
+      <tr>
+        <td><strong><code>set -euo pipefail</code> as the global failure strategy</strong></td>
+        <td>Manual <code>|| true</code> everywhere</td>
+        <td>Fail-fast is correct for a query tool — partial output is worse than no output. The only deliberate softenings are <code>scp … 2&gt;/dev/null || { echo ERROR; return 1 }</code> (user-readable message before aborting) and <code>grep -c "." || true</code> (handles the zero-match case for <code>SHA_COUNT</code> without aborting).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ═══════════════════════════════════════════════════════════ §3 -->
+  <h2>3. Data Structures, Algorithms &amp; Invariants</h2>
+
+  <h3>Corpus File Schema</h3>
+  <table>
+    <thead>
+      <tr><th>File</th><th>Format / Delimiters</th><th>Role in this script</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>INDEX.txt</code></td>
+        <td>Plain text, one class name per line</td>
+        <td><code>--list</code> only; fetched as a single file via <code>fetch_file</code></td>
+      </tr>
+      <tr>
+        <td><code>00-HEADER.txt</code></td>
+        <td>YAML-like <code>key: value</code> pairs (<code>head_sha:</code>, <code>collected_at:</code>, <code>source_cc:</code>)</td>
+        <td><strong>Fetch sentinel</strong>; fields extracted with <code>grep | head -1</code> and printed as the output header</td>
+      </tr>
+      <tr>
+        <td><code>09-function-commits.txt</code></td>
+        <td>Sections delimited by <code>### &lt;method&gt;</code>; SHAs indented (40-char hex, one per line); <code># none</code> if no commits</td>
+        <td>Source of truth for "which commits touched this method"; drives all non-<code>--list</code> modes; parsed by <code>get_shas_for_method</code></td>
+      </tr>
+      <tr>
+        <td><code>10-commits-detail.txt</code></td>
+        <td>Blocks delimited by <code>=== &lt;sha&gt; …</code>; fields within blocks include <code>signal: yes/no</code></td>
+        <td>Full detail source for <code>print_sha_detail</code>; mandatory for <code>--signals</code> mode</td>
+      </tr>
+      <tr>
+        <td><code>02-messages.txt</code></td>
+        <td>Same <code>=== &lt;sha&gt;</code> block structure; fewer fields; no <code>signal:</code> key</td>
+        <td>Fallback when <code>10-commits-detail.txt</code> is absent; output capped at 80 lines/block vs 120</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3><code>get_shas_for_method</code> — section-scoped SHA extraction</h3>
+  <pre>awk -v method="${method}" '
+  /^### / { in_section = ($0 ~ method) }
+  in_section &amp;&amp; /^[[:space:]]+[0-9a-f]{40}/ {
+    gsub(/^[[:space:]]+/, "")
+    gsub(/[[:space:]].*$/, "")
+    print
+  }
+' "${file}"</pre>
+  <ul>
+    <li><code>in_section</code> is set to <code>1</code> only on the matching <code>### method</code> header; reset to <code>0</code> on any other <code>### </code> line. SHA lines are only emitted while <code>in_section=1</code>.</li>
+    <li>SHA regex: <code>/^[[:space:]]+[0-9a-f]{40}/</code> — indentation + exactly 40 lowercase hex chars. Defensive: any annotation after the SHA (spaces, comments) is stripped by the second <code>gsub</code>.</li>
+    <li>Uses regex match (<code>$0 ~ method</code>) not equality — a method search string is a substring match against the section header. Works for both bare names and partial names.</li>
+    <li><strong>Invariant:</strong> Returns only SHAs from within the matching section; other methods' SHAs are never emitted.</li>
+  </ul>
+
+  <h3><code>print_sha_detail</code> — block extraction from <code>=== sha</code> delimiters</h3>
+  <pre>awk -v sha="${sha}" '
+  /^=== / { in_block = ($0 ~ sha) }
+  in_block { print }
+  /^=== / &amp;&amp; !($0 ~ sha) &amp;&amp; in_block { exit }
+' "${detail}" | head -120</pre>
+  <ul>
+    <li>Rule order matters: awk evaluates all three rules on each line. On a non-matching <code>=== </code> line, rule 1 sets <code>in_block=0</code> first; by the time rule 3 evaluates, <code>in_block</code> is already 0 — so the <code>exit</code> in rule 3 is <strong>never reached</strong>.</li>
+    <li>In practice this means the block boundary is enforced by rule 1 (sets <code>in_block=0</code> stopping rule 2 from printing) rather than the <code>exit</code>. The script still works correctly — rule 1 stops output at the block boundary — but the <code>exit</code> optimisation is dead code.</li>
+    <li>The real upper-bound terminator is <code>head -120</code> (or <code>head -80</code> for the fallback file). This prevents terminal flooding from a pathologically large diff block.</li>
+    <li><strong>No dynamic path construction:</strong> The <code>sha</code> variable is passed to awk as a literal value pattern, not interpolated into a shell command — no injection risk.</li>
+  </ul>
+
+  <h3><code>--signals</code> mode — deduplication + cross-reference algorithm</h3>
+  <pre>ALL_SHAS=$(awk '/^[[:space:]]+[0-9a-f]{40}/ { gsub(…); print }' "${INDEX}" | sort -u)
+
+while IFS= read -r sha; do
+  sig=$(awk -v sha="${sha}" '/^=== / {in_block=($0~sha)} in_block &amp;&amp; /^signal:/ {print $2; exit}' "${DETAIL}")
+  if [[ "${sig}" == "yes" ]]; then
+    # back-reference: scan INDEX again for all methods containing this SHA
+    methods_list=$(awk -v sha="${sha}" '/^### / {cur=substr($0,5)} $0~sha {print "  " cur}' "${INDEX}" | sort -u)
+    print_sha_detail …
+  fi
+done &lt;&lt;&lt; "${ALL_SHAS}"</pre>
+  <ul>
+    <li><code>sort -u</code> deduplicates SHAs that appear under multiple method sections — each signal commit is printed exactly once.</li>
+    <li>Cross-reference (which methods reference this SHA) re-scans <code>09-function-commits.txt</code> for lines containing the SHA, collecting the preceding <code>### </code> section names.</li>
+    <li><strong>Complexity:</strong> O(unique_SHAs × detail_file_lines) for signal extraction. Linear scans; no indexing. Bounded by corpus size.</li>
+    <li><code>SHA_COUNT=$(echo "${SHAS}" | grep -c "." || true)</code> — the <code>|| true</code> handles the case where <code>SHAS</code> is empty (grep exits non-zero with zero matches); without it, <code>set -e</code> would abort.</li>
+  </ul>
+
+  <!-- ═══════════════════════════════════════════════════════════ §4 -->
+  <h2>4. Threat Model &amp; Adversarial Handling</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:26%">Threat / Actor</th>
+        <th style="width:20%">Attack Vector</th>
+        <th>Handling &amp; Residual Risk</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-yellow">MED</span><strong>Unsanitised <code>CLASS</code> argument</strong></td>
+        <td>Pass <code>CLASS="../../../etc/passwd"</code> (path traversal)</td>
+        <td><code>CLASS</code> is directly interpolated into <code>"${WORK_DIR}/${CLASS}"</code> and <code>"${HISTORY_RAW_DIR}/${class}"</code> without sanitisation. A crafted class name could request arbitrary remote paths via SCP and write outside <code>WORK_DIR</code>. In practice, <code>WORK_DIR</code> is a <code>mktemp -d</code> path, limiting host-local damage. <strong>No input validation exists on class name.</strong></td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-yellow">MED</span><strong>Malicious remote corpus content</strong></td>
+        <td>Attacker controls <code>HISTORY_HOST</code>; returns crafted file contents with shell metacharacters</td>
+        <td>File contents are only passed to <code>awk</code>, <code>cat</code>, <code>grep</code>, and printed to stdout. Contents are never <code>eval</code>'d or interpolated into a shell command. <strong>No code execution path from file content.</strong> Risk is data integrity (misleading output), not code execution.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-yellow">MED</span><strong>SSH host key change / MITM</strong></td>
+        <td>Intercept the SCP connection; return forged corpus data</td>
+        <td>SCP inherits SSH host-key verification. A changed key causes SCP to fail with non-zero exit → <code>set -e</code> aborts with an error message. Forged content that passes key checks is rendered to stdout but never executed. Risk is data integrity.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-green">LOW</span><strong>Spaces in <code>HISTORY_RAW_DIR</code></strong></td>
+        <td>Default path is <code>/home/…/Object History/raw</code> — contains a space</td>
+        <td>All <code>scp</code> remote-path arguments are double-quoted: <code>"${HISTORY_HOST}:${HISTORY_RAW_DIR}/…"</code>. Bash passes the full string (including the space) as one argument to <code>scp</code>. The script comment explicitly confirms this was tested. <strong>Correctly handled.</strong></td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-green">LOW</span><strong>Race condition on temp dir</strong></td>
+        <td>Symlink placed at <code>mktemp -d</code> path between creation and first write</td>
+        <td><code>mktemp -d</code> creates the directory atomically on Linux. No symlink race is possible post-creation. The <code>rm -rf</code> in the trap will follow symlinks inside the temp dir but not a symlink replacing the dir itself.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-green">LOW</span><strong>Temp dir leak on SIGKILL</strong></td>
+        <td>Process killed with <code>kill -9</code> during remote fetch</td>
+        <td>SIGKILL bypasses all traps. Temp dir (<code>/tmp/tmp.XXXXXXXX</code>) is left on the local filesystem. It contains only corpus text files — no credentials, no sensitive data. Cleaned on next OS reboot or manual <code>/tmp</code> sweep.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-green">LOW</span><strong>Large commit block floods terminal</strong></td>
+        <td>Malformed or unusually large diff in <code>10-commits-detail.txt</code></td>
+        <td><code>head -120</code> (detail file) / <code>head -80</code> (messages fallback) caps output per SHA block. Terminal flood is unconditionally bounded.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ═══════════════════════════════════════════════════════════ §5 -->
+  <h2>5. Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:26%">Failure</th>
+        <th style="width:16%">Trigger</th>
+        <th style="width:16%">Blast Radius</th>
+        <th>Behaviour &amp; Recovery</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>SSH/SCP unreachable</strong></td>
+        <td>Network down; <code>sockeni07</code> offline; SSH key expired</td>
+        <td>Script aborts; no output; temp dir cleaned</td>
+        <td><code>fetch_file</code>/<code>fetch_class</code> emit <code>ERROR: could not fetch …</code> to stderr, return non-zero → <code>set -e</code> aborts. EXIT trap fires. <strong>Recovery:</strong> set <code>HISTORY_RAW_DIR</code> to a local cache, or run <code>--all</code> once when the host is available.</td>
+      </tr>
+      <tr>
+        <td><strong>Class does not exist on remote</strong></td>
+        <td>Typo in class name; class not yet collected</td>
+        <td>Script exits 1 with hint</td>
+        <td>SCP fails; <code>fetch_class</code> prints "could not fetch class … — Use --list to see available classes." then calls <code>exit 1</code>. Temp dir cleaned by trap.</td>
+      </tr>
+      <tr>
+        <td><strong><code>00-HEADER.txt</code> missing post-fetch</strong></td>
+        <td>Partial SCP; corpus writer mid-run when fetch occurred</td>
+        <td>Script aborts; no partial output</td>
+        <td><code>die "Missing 00-HEADER.txt for ${CLASS}"</code>. Hard abort before any rendering begins. Re-run after corpus collection completes.</td>
+      </tr>
+      <tr>
+        <td><strong><code>09-function-commits.txt</code> missing</strong></td>
+        <td>Older corpus format; collection incomplete</td>
+        <td>Script aborts with remediation hint</td>
+        <td><code>die "Missing 09-function-commits.txt … — re-run collect-object-history.sh"</code>. Clear actionable message.</td>
+      </tr>
+      <tr>
+        <td><strong><code>10-commits-detail.txt</code> missing in <code>--signals</code> mode</strong></td>
+        <td>Corpus built without detail pass</td>
+        <td>Script aborts; no partial output</td>
+        <td><code>die "10-commits-detail.txt not found — re-run collect-object-history.sh"</code>. Only <code>--signals</code> hard-requires this file; the method query falls back to <code>02-messages.txt</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>Method not found in index</strong></td>
+        <td>Typo; wrong class; wrong <code>::</code> stripping</td>
+        <td>Exit 1; helpful list output</td>
+        <td>Prints "not found in 09-function-commits.txt" + lists all <code>### </code> entries. Caller gets actionable guidance without a silent failure.</td>
+      </tr>
+      <tr>
+        <td><strong>No signal commits found</strong></td>
+        <td>Class has no <code>signal: yes</code> entries</td>
+        <td>Clean exit 0</td>
+        <td>Prints "no signal commits found for ${CLASS}" and exits 0. Not an error condition.</td>
+      </tr>
+      <tr>
+        <td><strong><code>rsync</code> not installed (<code>--all</code> mode)</strong></td>
+        <td>Minimal system image</td>
+        <td>Graceful fallback; no abort</td>
+        <td>Detected via <code>command -v rsync</code>; falls back to <code>scp -r</code> of entire tree with a printed warning. No failure.</td>
+      </tr>
+      <tr>
+        <td><strong>Partial fetch: <code>00-HEADER.txt</code> present but other files missing</strong></td>
+        <td>SCP of class dir completes partially (e.g., network cut mid-transfer)</td>
+        <td>Script may abort or produce incomplete output</td>
+        <td>The sentinel guard passes, but subsequent <code>[[ -f … ]]</code> checks on <code>09-function-commits.txt</code> will <code>die</code>. Delete the partial class dir from the temp/local cache to force a re-fetch.</td>
+      </tr>
+      <tr>
+        <td><strong>SIGKILL during remote fetch</strong></td>
+        <td><code>kill -9</code> on the process</td>
+        <td>Temp dir left on disk; no data loss</td>
+        <td>Trap bypassed. Orphaned <code>/tmp/tmp.XXXXXXXX</code> directory. Contents are corpus text only — no credentials. Safe to delete manually.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ═══════════════════════════════════════════════════════════ §6 -->
+  <h2>6. Observability &amp; Triage Playbook</h2>
+
+  <h3>Runtime Modes — Decision Matrix</h3>
+  <table>
+    <thead>
+      <tr><th>Invocation</th><th>Files Fetched (remote mode)</th><th>Files Read</th><th>Output</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>--list</code></td>
+        <td><code>INDEX.txt</code></td>
+        <td><code>INDEX.txt</code></td>
+        <td>List of all collected class names</td>
+      </tr>
+      <tr>
+        <td><code>--all [dir]</code></td>
+        <td>Entire tree (rsync or scp -r) — bypasses <code>WORK_DIR</code></td>
+        <td>none</td>
+        <td>Synced local corpus + usage instructions</td>
+      </tr>
+      <tr>
+        <td><code>ClassName</code></td>
+        <td>Entire class dir (one scp -r)</td>
+        <td><code>00-HEADER.txt</code>, <code>09-function-commits.txt</code></td>
+        <td>All methods + SHA lists</td>
+      </tr>
+      <tr>
+        <td><code>ClassName method</code></td>
+        <td>Entire class dir</td>
+        <td><code>00-HEADER.txt</code>, <code>09-function-commits.txt</code>, <code>10-commits-detail.txt</code> (or <code>02-messages.txt</code>)</td>
+        <td>Full detail for each SHA that touched the method; capped at 120 lines/block</td>
+      </tr>
+      <tr>
+        <td><code>ClassName --signals</code></td>
+        <td>Entire class dir</td>
+        <td><code>00-HEADER.txt</code>, <code>09-function-commits.txt</code>, <code>10-commits-detail.txt</code> (mandatory)</td>
+        <td>All <code>signal: yes</code> commits with method cross-reference</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Environment Variables</h3>
+  <table>
+    <thead>
+      <tr><th>Variable</th><th>Default</th><th>Effect</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>HISTORY_HOST</code></td>
+        <td><code>szuraski@sockeni07</code></td>
+        <td>SSH target for all <code>scp</code> calls. Override to redirect to a mirror or local SSH server.</td>
+      </tr>
+      <tr>
+        <td><code>HISTORY_RAW_DIR</code></td>
+        <td><code>/home/szuraski/BobOutput/Object History/raw</code></td>
+        <td>Remote corpus root <strong>or</strong> a local directory. If set to a local directory that exists: SSH is skipped entirely, no temp dir, no trap registered.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Diagnostic Q&amp;A</h3>
+
+  <div class="card">
+    <h3>Q: "Exited immediately / printed nothing."</h3>
+    <ul>
+      <li>Check exit code: <code>echo $?</code> — non-zero means <code>set -e</code> triggered.</li>
+      <li>Trace execution: <code>bash -x get-object-history.sh …</code> shows exactly which command failed.</li>
+      <li>Most likely cause: SCP failed silently (<code>2&gt;/dev/null</code>). Verify manually: <code>scp -v "${HISTORY_HOST}:${HISTORY_RAW_DIR}/INDEX.txt" /tmp/probe</code></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Q: "Method query returns 'not found'."</h3>
+    <ul>
+      <li>List all methods: <code>bash get-object-history.sh ClassName</code> (no second arg).</li>
+      <li>Verify prefix stripping: <code>echo "${method##*::}"</code> — does it match what's in the index?</li>
+      <li>Inspect index directly: <code>grep "^### " "${WORK_DIR}/ClassName/09-function-commits.txt"</code></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Q: "--signals shows nothing even though commits exist."</h3>
+    <ul>
+      <li>Check signal distribution: <code>grep "^signal:" "${WORK_DIR}/ClassName/10-commits-detail.txt" | sort | uniq -c</code></li>
+      <li>If all read <code>signal: no</code>: corpus was collected without signal classification — re-run <code>collect-object-history-v4.sh</code>.</li>
+      <li>If <code>10-commits-detail.txt</code> is absent entirely: the script will <code>die</code> with a clear message.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Q: "Output is truncated at 120 lines."</h3>
+    <ul>
+      <li>By design: <code>head -120</code> cap in <code>print_sha_detail</code>.</li>
+      <li>To see the full block without the cap:<br>
+        <code>awk -v sha="&lt;SHA&gt;" '/^=== /{in_block=($0~sha)} in_block{print}' "${WORK_DIR}/ClassName/10-commits-detail.txt"</code>
+      </li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Q: "I want to work offline / avoid SSH every call."</h3>
+    <ul>
+      <li>Bulk download once: <code>bash get-object-history.sh --all ./local-corpus</code></li>
+      <li>Then use locally: <code>HISTORY_RAW_DIR="./local-corpus" bash get-object-history.sh ClassName method</code></li>
+      <li>The <code>if [[ -d "${HISTORY_RAW_DIR}" ]]</code> startup check fires — no SSH, no <code>mktemp</code>, no trap registered.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Q: "A class was partially fetched and now the sentinel check passes but files are missing."</h3>
+    <ul>
+      <li>Identify the stale cache: <code>ls -la "${WORK_DIR}/ClassName/"</code> — look for missing <code>09-</code> or <code>10-</code> files.</li>
+      <li>Fix: delete the partial directory: <code>rm -rf "${WORK_DIR}/ClassName"</code> and re-run. The sentinel guard will re-fetch.</li>
+    </ul>
+  </div>
+
+  <footer>
+    Whiteboard Defense &mdash; <code>get-object-history.sh</code> &mdash; Lazy History Fetcher
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense: ActivePyModules</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13.5px;
+    line-height: 1.55;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 24px 16px;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    background: #1e293b;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    padding: 32px;
+    border: 1px solid #334155;
+  }
+  header {
+    border-bottom: 2px solid #3b82f6;
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #f8fafc;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .badge-hdr {
+    background: #2563eb;
+    color: #fff;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .meta-card {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 8px 12px;
+  }
+  .meta-card .lbl { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600; }
+  .meta-card .val { font-size: 14px; color: #38bdf8; font-weight: 600; margin-top: 2px; }
+
+  h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin: 28px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #334155;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h2 .sec-num {
+    background: #3b82f6;
+    color: #fff;
+    font-size: 11px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  p, ul { margin-bottom: 12px; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 4px; }
+
+  code {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    background: #0f172a;
+    color: #38bdf8;
+    padding: 2px 5px;
+    border-radius: 4px;
+    border: 1px solid #334155;
+  }
+
+  /* Table styling */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px;
+    font-size: 12.5px;
+  }
+  th {
+    background: #0f172a;
+    color: #cbd5e1;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #334155;
+    font-weight: 600;
+  }
+  td {
+    padding: 7px 10px;
+    border: 1px solid #334155;
+    vertical-align: top;
+    background: #1e293b;
+  }
+  tr:nth-child(even) td { background: #182234; }
+  tr:hover td { background: #1e2e4a; }
+
+  .badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: ui-monospace, monospace;
+  }
+  .badge-sha { background: #334155; color: #93c5fd; }
+  .badge-warn { background: #78350f; color: #fde047; }
+  .badge-err { background: #7f1d1d; color: #fca5a5; }
+  .badge-ok { background: #064e3b; color: #6ee7b7; }
+
+  /* Diagram Box */
+  .diagram-box {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 16px;
+    margin: 14px 0 20px;
+    font-family: ui-monospace, monospace;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: #94a3b8;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .callout {
+    background: #172554;
+    border-left: 4px solid #3b82f6;
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin: 12px 0;
+    font-size: 12.5px;
+  }
+  .callout-warn {
+    background: #451a03;
+    border-left-color: #f59e0b;
+    color: #fef3c7;
+  }
+  .callout-err {
+    background: #450a0a;
+    border-left-color: #ef4444;
+    color: #fee2e2;
+  }
+
+  footer {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid #334155;
+    font-size: 11px;
+    color: #64748b;
+    display: flex;
+    justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>ActivePyModules <span class="badge-hdr">Whiteboard Defense</span></h1>
+    <div class="subtitle">Architectural Defense, Threat Model & Triage Playbook &middot; <code>src/mgr/ActivePyModules.cc</code> / <code>.h</code></div>
+    <div class="meta-grid">
+      <div class="meta-card"><div class="lbl">Role</div><div class="val">C++/Python Mgr Hub</div></div>
+      <div class="meta-card"><div class="lbl">Primary Mutex</div><div class="val"><code>mutable ceph::mutex lock</code></div></div>
+      <div class="meta-card"><div class="lbl">Threading</div><div class="val">Per-Module Finishers + GIL</div></div>
+      <div class="meta-card"><div class="lbl">Cache</div><div class="val"><code>MgrMapCache&lt;PyObject*&gt;</code> (LFU)</div></div>
+    </div>
+  </header>
+
+  <!-- SECTION 1 -->
+  <h2><span class="sec-num">1</span> High-Level Architecture & Mental Model</h2>
+  <p>
+    <code>ActivePyModules</code> is the active runtime bridge inside <code>ceph-mgr</code> that connects Ceph C++ daemon infrastructure (monitors, daemons, OSD maps, perf counters, KV stores) to dynamic Python subinterpreters (e.g. <code>dashboard</code>, <code>restful</code>, <code>orchestrator</code>, <code>progress</code>).
+  </p>
+
+  <div class="diagram-box">
++---------------------------------------------------------------------------------------------------------+
+|                                              DAEMON SUBSYSTEM                                           |
+|   [ ClusterState / DaemonStateIndex ]           [ MonClient / Objecter ]            [ DaemonServer ]    |
++------------------------------------+-----------------------+-------------------------------+------------+
+                                     |                       |                               |
+                                     v                       v                               v
++------------------------------------+-----------------------+-------------------------------+------------+
+|                                             ActivePyModules                                             |
+|                                                                                                         |
+|  Mutex: `ceph::mutex lock`            Config: `module_config.lock`        Store: `store_cache` (KV)     |
+|  Cache: `MgrMapCache<PyObject*>`      Async Dispatch: `cmd_finisher`      Read-Only: `PyFormatterRO`    |
+|                                                                                                         |
+|  +---------------------------------------------------------------------------------------------------+  |
+|  | Modules Map: std::map<string, shared_ptr<ActivePyModule>> modules                                 |  |
+|  +---------------------------------------------------------------------------------------------------+  |
++-----------------------------------+----------------------------------------------------+----------------+
+                                    |                                                    |
+          Per-Module Finisher Task  |                          Remote Dispatch (Pickle)  |
+          (Cluster/Log/Config Notify)                          (Inter-module call)       |
+                                    v                                                    v
++-----------------------------------+------------+      +--------------------------------+------------+
+|        ActivePyModule ("dashboard")            |      |         ActivePyModule ("orchestrator")     |
+|   GIL Release: `without_gil_t`                 |      |   Subinterpreter isolation                  |
+|   Finisher: `modules[name]->finisher`          |      |   Finisher: `modules[name]->finisher`       |
+|   Serve Thread: `pthread_t` + `ThreadMonitor`  |      |   Serve Thread: `pthread_t` + `ThreadMonitor`|
++------------------------------------------------+      +---------------------------------------------+
+  </div>
+
+  <p><strong>Core Responsibilities:</strong></p>
+  <ul>
+    <li><strong>Cluster State Query Dispatch:</strong> Handles <code>get_python()</code> and <code>cacheable_get_python()</code> for maps, health checks, daemon metadata, and rocksdb stats.</li>
+    <li><strong>Configuration & KV Bridge:</strong> Coordinates cluster <code>ConfigMap</code>, module-specific options, and <code>store_cache</code> persistence to monitors.</li>
+    <li><strong>Per-Module Concurrency & Isolation:</strong> Manages lifecycle (<code>start_one()</code>), individual finisher queues, thread monitoring, and pickled inter-module calls (<code>dispatch_remote()</code>).</li>
+    <li><strong>Notification Routing:</strong> Delivers cluster state updates, cluster logs, and config mutations to modules registered via <code>should_notify</code> filters.</li>
+  </ul>
+
+  <!-- SECTION 2 -->
+  <h2><span class="sec-num">2</span> Architectural Decisions & Trade-offs ("Why X instead of Y?")</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Decision (X vs Y)</th>
+        <th style="width: 35%;">Defensive Rationale (Why X)</th>
+        <th style="width: 25%;">Trade-offs / Alternatives Rejected</th>
+        <th style="width: 15%;">Key Commit</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Per-Module Finishers</strong><br>vs. Single Global Finisher</td>
+        <td>Prevents one slow, blocked, or misbehaving Python module (e.g. hung HTTP handler in dashboard) from stalling notification dispatch across the entire cluster.</td>
+        <td>Higher thread footprint (~1 thread per loaded module), but bounds the blast radius of any single module.</td>
+        <td><span class="badge badge-sha">46de6431</span></td>
+      </tr>
+      <tr>
+        <td><strong>Strict GIL-Release Locking Contract</strong><br>vs. Direct C++ Lock Acquisition</td>
+        <td>Enforces <code>without_gil_t</code> before taking any C++ mutex (<code>lock</code>, <code>module_config.lock</code>, <code>DaemonState::lock</code>). Python GC can relinquish and re-acquire GIL at any point; holding GIL while awaiting C++ locks guarantees AB-BA deadlocks.</td>
+        <td>Requires explicit RAII wrappers and careful scoping; formatting must re-acquire GIL before generating Python dicts/lists.</td>
+        <td><span class="badge badge-sha">0601b31a</span><br><span class="badge badge-sha">9c652fb3</span></td>
+      </tr>
+      <tr>
+        <td><strong>MgrMapCache (LFU) + PyFormatterRO</strong><br>vs. TTLCache / Mutable Returns</td>
+        <td>Provides memory-bounded LFU caching of expensive maps while returning frozen read-only proxies (<code>PyFormatterRO</code>). Avoids race conditions where a Python module mutates shared cached data.</td>
+        <td>Python modules requesting mutable state must explicitly pass <code>get_mutable=true</code> to receive a deep copy.</td>
+        <td><span class="badge badge-sha">403340bcf8</span></td>
+      </tr>
+      <tr>
+        <td><strong>Pickled Argument Serialization</strong><br>vs. Direct <code>PyObject*</code> Sharing</td>
+        <td>Safely passes arguments across Python subinterpreters in <code>dispatch_remote()</code> without violating subinterpreter memory bounds or leaking reference counts.</td>
+        <td>Serialization CPU overhead (<code>pickle.dumps/loads</code>), but guarantees process stability across interpreters.</td>
+        <td><span class="badge badge-sha">f69069e1</span></td>
+      </tr>
+      <tr>
+        <td><strong>Filter-Gated Notifications</strong><br>vs. Broadcast-to-All Dispatch</td>
+        <td>Checks <code>py_module_registry.should_notify()</code> before enqueuing to per-module finishers. Eliminates needless context switches and GIL contention for disinterested modules.</td>
+        <td>Modules must declare required notify hooks at registration time.</td>
+        <td><span class="badge badge-sha">ee4e3ecd</span></td>
+      </tr>
+      <tr>
+        <td><strong>Startup Completion Deferred Beacon</strong><br>vs. Immediate Active Beacon</td>
+        <td>Holds the active beacon via <code>recheck_modules_start</code> context until <code>pending_modules</code> is empty. Prevents standby mgr takeovers and partial-service discovery while modules boot.</td>
+        <td>Slightly increases startup latency; requires test hooks (<code>cbd1726f</code>) for verification.</td>
+        <td><span class="badge badge-sha">cbd1726f</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 3 -->
+  <h2><span class="sec-num">3</span> Data Structures, Algorithms & Invariants</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Field / Data Structure</th>
+        <th style="width: 20%;">Type</th>
+        <th style="width: 55%;">Invariants & Concurrency Guards</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>modules</code></td>
+        <td><code>std::map&lt;string, shared_ptr&lt;ActivePyModule&gt;&gt;</code></td>
+        <td>Contains fully-initialized, running modules. Protected by <code>lock</code>. Insertions during <code>start_one()</code> assert unique emplace (<code>40c4b9ac</code>). Lookups in <code>dispatch_remote()</code> assert existence.</td>
+      </tr>
+      <tr>
+        <td><code>pending_modules</code></td>
+        <td><code>std::set&lt;string, std::less&lt;&gt;&gt;</code></td>
+        <td>Tracks modules in the process of starting up. Inserted before queuing load lambda; erased upon completion under <code>lock</code>.</td>
+      </tr>
+      <tr>
+        <td><code>api_cache</code></td>
+        <td><code>MgrMapCache&lt;PyObject*&gt;</code></td>
+        <td>LFU-eviction cache for structured map queries. Invalidated on <code>notify_all()</code> and <code>config_notify()</code> before queuing finisher notifications. Hits return borrowed refs (no <code>Py_INCREF</code>).</td>
+      </tr>
+      <tr>
+        <td><code>store_cache</code></td>
+        <td><code>std::map&lt;string, string&gt;</code></td>
+        <td>Optimistic in-memory mirror of KV config-keys. Protected by <code>lock</code>. Updated locally before firing async <code>set_cmd</code> to mon, ensuring immediate read-your-writes consistency.</td>
+      </tr>
+      <tr>
+        <td><code>config_map</code></td>
+        <td><code>mon::ConfigMap</code></td>
+        <td>Derived from <code>store_cache</code> keys starting with <code>"config/"</code> (excluding <code>"config/mgr/"</code>). Populated only if <code>have_local_config_map == true</code>.</td>
+      </tr>
+      <tr>
+        <td><code>cmd_finisher</code></td>
+        <td><code>Finisher</code></td>
+        <td>Dedicated finisher thread for asynchronous monitor commands (<code>set_store</code>, <code>set_device_wear_level</code>, foreign config). Started at construction, stopped at destruction.</td>
+      </tr>
+      <tr>
+        <td><code>progress_events</code></td>
+        <td><code>std::map&lt;string, ProgressEvent&gt;</code></td>
+        <td>Tracks in-flight background operations (e.g. pg balancing, osd recovery). Guarded by <code>lock</code>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>Global Locking Invariant:</strong> Never hold the Python GIL while attempting to acquire <code>lock</code>, <code>module_config.lock</code>, or any <code>DaemonState::lock</code>. Use <code>without_gil_t</code> / <code>without_gil()</code> prior to C++ lock acquisition, then re-acquire GIL via <code>no_gil.acquire_gil()</code> or <code>with_gil</code> before touching any <code>PyFormatter</code> or returning <code>PyObject*</code>.
+  </div>
+
+  <!-- SECTION 4 -->
+  <h2><span class="sec-num">4</span> Threat Model & Adversarial Handling</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Threat / Adversarial Scenario</th>
+        <th style="width: 40%;">Impact & Blast Radius</th>
+        <th style="width: 35%;">System Defense & Mitigation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Malicious / Crashing Python Module in <code>dispatch_remote</code></strong></td>
+        <td>Target module throws unhandled exceptions or <code>NotImplementedError</code> when remote procedures are invoked.</td>
+        <td>Pickled transport prevents corrupting caller memory. <code>42c4dfb4</code> suppresses noise for <code>NotImplementedError</code>, allowing graceful degradation without spamming error logs.</td>
+      </tr>
+      <tr>
+        <td><strong>Non-Printable / Binary Characters in KV Store Keys</strong></td>
+        <td>Malformed UTF-8 string encoding could cause Python C API string construction to segfault the manager daemon.</td>
+        <td><code>7c68a00c</code> replaces unchecked <code>f.dump_string</code> with <code>PyUnicode_FromStringAndSize</code>, detecting encoding failure, clearing error via <code>PyErr_Clear()</code>, and skipping bad keys safely.</td>
+      </tr>
+      <tr>
+        <td><strong>Slow / Blocking Module Event Handlers</strong></td>
+        <td>A single module blocking inside its <code>notify()</code> hook could starve other modules of OSDMap/cluster updates.</td>
+        <td>Isolated per-module <code>Finisher</code> threads (<code>46de6431</code>). A stalled module blocks only its own queue without slowing any other module.</td>
+      </tr>
+      <tr>
+        <td><strong>Unauthorized / Mutation of Shared Cached Maps</strong></td>
+        <td>A Python module modifying an in-memory dictionary returned by <code>get_python()</code> could corrupt data for other modules.</td>
+        <td><code>403340bcf8</code> uses <code>PyFormatterRO</code> to generate immutable proxy objects for cached queries, preventing modification unless explicit mutable copy requested.</td>
+      </tr>
+      <tr>
+        <td><strong>Leaked / Rogue Thread Execution</strong></td>
+        <td>Unruly Python module threads spawning or hanging without daemon supervision.</td>
+        <td><code>ThreadMonitor</code> integration (<code>95a90f7d</code>) tracks module threads by native TID; stopped cleanly during <code>ActivePyModules::~ActivePyModules()</code>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 5 -->
+  <h2><span class="sec-num">5</span> Failure Modes, Edge Cases & Blast Radius ("Where does this fail?")</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 22%;">Failure Scenario</th>
+        <th style="width: 18%;">Severity & Category</th>
+        <th style="width: 42%;">Mechanics & Root Cause</th>
+        <th style="width: 18%;">Blast Radius</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Deadlock in <code>get_config</code></strong></td>
+        <td><span class="badge badge-err">DIVERGED</span> Concurrency</td>
+        <td><code>get_config</code> acquires <code>module_config.lock</code> directly without releasing GIL (violates <code>0601b31a</code>). When called directly from Python, lock is acquired with GIL held.</td>
+        <td>Mgr hang if another thread holds <code>module_config.lock</code> while waiting on GIL.</td>
+      </tr>
+      <tr>
+        <td><strong>Unchecked Return in <code>get_foreign_config</code></strong></td>
+        <td><span class="badge badge-err">DIVERGED</span> Logic Error</td>
+        <td>When <code>!have_local_config_map</code>, mon command return code <code>cmd.r != 0</code> is not checked. Error strings in <code>cmd.outbl</code> are parsed as typed values.</td>
+        <td>Incorrect config values fed into module logic; silent misconfiguration.</td>
+      </tr>
+      <tr>
+        <td><strong>Stale Declaration: <code>update_cache_metrics</code></strong></td>
+        <td><span class="badge badge-err">DIVERGED</span> Linker Hazard</td>
+        <td><code>.h:272</code> retains declaration after <code>403340bcf8</code> excised the <code>.cc</code> implementation.</td>
+        <td>Linker failure if invoked by external translation unit.</td>
+      </tr>
+      <tr>
+        <td><strong>Use-After-Check Race in <code>dispatch_remote</code></strong></td>
+        <td><span class="badge badge-warn">UNGROUNDED</span> Race / Abort</td>
+        <td><code>modules.find(other_module)</code> asserts existence (<code>ceph_assert</code>). If a module stops concurrently after <code>module_exists()</code> check, daemon aborts.</td>
+        <td>Manager daemon crash (fatal assertion).</td>
+      </tr>
+      <tr>
+        <td><strong>Silent Mon Write Failure in <code>set_store</code></strong></td>
+        <td><span class="badge badge-warn">UNGROUNDED</span> Error Handling</td>
+        <td>If <code>set_cmd.r != 0</code>, error is logged but not propagated back to Python caller. In-memory <code>store_cache</code> remains out of sync with mon KV store.</td>
+        <td>State desynchronization between mgr cache and persistent monitor store.</td>
+      </tr>
+      <tr>
+        <td><strong>Unchecked <code>modules.at()</code> in <code>set_uri</code> & <code>get_module_finisher</code></strong></td>
+        <td><span class="badge badge-warn">UNGROUNDED</span> Exception</td>
+        <td><code>modules.at(name)</code> throws uncaught <code>std::out_of_range</code> if the target module was terminated.</td>
+        <td>Unhandled C++ exception crashes the mgr process.</td>
+      </tr>
+      <tr>
+        <td><strong>Double-Call Context Leak in <code>check_all_modules_started</code></strong></td>
+        <td><span class="badge badge-warn">UNGROUNDED</span> Leak</td>
+        <td>Does not verify <code>recheck_modules_start == nullptr</code> prior to assignment. Concurrent init calls leak previous context.</td>
+        <td>Minor heap memory leak during initialization.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 6 -->
+  <h2><span class="sec-num">6</span> Observability & Triage Playbook</h2>
+
+  <p><strong>Primary CLI Commands for Triage:</strong></p>
+  <ul>
+    <li><code>ceph mgr module ls</code> — List enabled, active, and available Python modules.</li>
+    <li><code>ceph mgr dump</code> — Inspect active mgr metadata, services, and URI advertisements.</li>
+    <li><code>ceph mgr cli cache flush &lt;map-name&gt;</code> — Invalidate a stale LFU cache entry (e.g. <code>osd_map</code>, <code>mon_map</code>) without daemon restart.</li>
+    <li><code>ceph tell mgr.&lt;id&gt; pending_modules</code> — Check modules currently blocked in startup phase (<code>68221661</code>).</li>
+    <li><code>ceph health detail</code> — Inspect aggregated module health checks emitted via <code>set_health_checks()</code>.</li>
+  </ul>
+
+  <p><strong>Key Log Patterns (<code>dout / derr</code>):</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 30%;">Log Signature</th>
+        <th style="width: 20%;">Subsystem / Level</th>
+        <th style="width: 50%;">Diagnosis & Immediate Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>mgr get_python Unknown key [&lt;what&gt;]</code></td>
+        <td><code>dout(0) / derr</code></td>
+        <td>Module requested an unhandled state key. Check for version mismatch between Python module and Ceph mgr daemon.</td>
+      </tr>
+      <tr>
+        <td><code>Failed to run module in ActivePyModules::start_one</code></td>
+        <td><code>dout(0) / derr</code></td>
+        <td>Module failed to load or throw an exception during startup. Check Python dependency imports or syntax errors.</td>
+      </tr>
+      <tr>
+        <td><code>api_cache hit: [&lt;what&gt;]</code> / <code>miss: [&lt;what&gt;]</code></td>
+        <td><code>dout(20)</code></td>
+        <td>Cache hit/miss diagnostics. Low hit ratio indicates frequent map invalidation or cache thrashing.</td>
+      </tr>
+      <tr>
+        <td><code>send_report: DaemonServer::lock → PyModuleRegistry::lock</code></td>
+        <td>Locking Audit</td>
+        <td>Health check update deadlock. Ensure <code>ActivePyModules::lock</code> is released before <code>server.schedule_tick(0)</code>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <footer>
+    <div>Author: Core Engineering &middot; Whiteboard Defense Standard</div>
+    <div>Ceph Manager Subsystem &middot; <code>ActivePyModules</code></div>
+  </footer>
+
+</div>
+</body>
+</html>

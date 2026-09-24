@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — StandbyPyModules</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --orange: #db6d28;
+    --purple: #bc8cff;
+    --teal: #39d353;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 26px; color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-bottom: 6px; }
+  h2 { font-size: 18px; color: var(--accent); margin: 32px 0 12px; padding-left: 10px; border-left: 3px solid var(--accent); }
+  h3 { font-size: 14px; color: var(--purple); margin: 18px 0 8px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+  .subtitle code { background: var(--bg3); padding: 2px 6px; border-radius: 3px; font-family: monospace; color: var(--teal); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 20px; font-size: 13px; }
+  th { background: var(--bg3); color: var(--muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; padding: 8px 12px; text-align: left; border-bottom: 2px solid var(--border); }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: var(--bg2); }
+
+  /* Pill badges */
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase; white-space: nowrap;
+  }
+  .pill-green  { background: #1a4a1e; color: var(--green); }
+  .pill-yellow { background: #3d2c00; color: var(--yellow); }
+  .pill-red    { background: #3d0a0a; color: var(--red); }
+  .pill-blue   { background: #0d2a4a; color: var(--accent); }
+  .pill-orange { background: #3d1e00; color: var(--orange); }
+  .pill-purple { background: #2a1a4a; color: var(--purple); }
+
+  /* Code */
+  code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+  pre  { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+         padding: 14px 16px; overflow-x: auto; font-size: 12px; margin: 10px 0; }
+  .sha { font-family: monospace; font-size: 11px; color: var(--orange); }
+
+  /* Lists */
+  ul { padding-left: 20px; margin: 6px 0; }
+  li { margin: 3px 0; }
+
+  /* Diagram box */
+  .diagram { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+             padding: 20px; margin: 14px 0; font-family: monospace; font-size: 12px;
+             white-space: pre; line-height: 1.5; color: #c9d1d9; overflow-x: auto; }
+
+  /* Section card */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+          padding: 18px 20px; margin: 14px 0; }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--purple); margin-bottom: 10px; }
+
+  /* Finding type colors */
+  .finding-diverged   { color: var(--red);    font-weight: 600; }
+  .finding-ungrounded { color: var(--yellow); font-weight: 600; }
+  .finding-overcautious { color: var(--muted); font-weight: 600; }
+
+  /* Inline note */
+  .note { background: #1a2a3a; border-left: 3px solid var(--accent); padding: 8px 12px;
+          margin: 10px 0; font-size: 12px; border-radius: 0 4px 4px 0; }
+
+  /* Separator */
+  hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense — StandbyPyModules</h1>
+<p class="subtitle">
+  Files: <code>src/mgr/StandbyPyModules.cc</code> &nbsp;·&nbsp; <code>src/mgr/StandbyPyModules.h</code> &nbsp;·&nbsp;
+  Corpus HEAD: <span class="sha">8681fa6</span> &nbsp;·&nbsp;
+  32 commits (2017-08-22 → 2025-10-02) &nbsp;·&nbsp;
+  No renames — stable since <span class="sha">c1471c75</span>
+</p>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+
+<div class="card">
+  <div class="card-title">Role in ceph-mgr</div>
+  <p>When <code>ceph-mgr</code> is in <strong>standby mode</strong> (not the elected active manager), it still loads Python modules. These modules run a reduced standby persona — they can read config, fetch kv-store values, and report back the active module's URI — but they cannot drive the cluster. <code>StandbyPyModules</code> is the sole lifecycle manager for this standby Python layer.</p>
+</div>
+
+<div class="diagram">
+  ceph-mgr (standby daemon)
+  │
+  ├─ PyModuleRegistry  (module catalogue + PyModuleConfig owner)
+  │       │  shared ref ──────────────────────────────────────────┐
+  │       │                                                        │
+  └─ StandbyPyModules  ─── StandbyPyModuleState ──────────────────┤
+          │                  ├─ MgrMap  (guarded by state::lock)   │
+          │                  ├─ PyModuleConfig &  ─────────────────┘ (lifetime: registry)
+          │                  └─ MonClient &        (self-locking, handed out freely)
+          │
+          ├─ [map] modules: name → StandbyPyModule*
+          │       │
+          │       └─ StandbyPyModule  (extends PyModuleRunner)
+          │               ├─ load()         – constructs Python standby class instance
+          │               ├─ serve() thread – runs Python serve() loop
+          │               ├─ get_config()   – reads in-memory PyModuleConfig (fast)
+          │               ├─ get_store()    – synchronous mon "config-key get" command
+          │               └─ get_active_uri() – reads MgrMap::services under lock
+          │
+          └─ Finisher &   – module loads dispatched here (avoids lock cycles)
+</div>
+
+<h3>Start-up Flow</h3>
+<div class="diagram">
+Caller (MgrStandby)
+  │
+  ├─ construct StandbyPyModules(mgr_map, module_config, clog, monc, finisher)
+  │       └─ state.set_mgr_map(mgr_map)          ← MUST happen before any start_one
+  │
+  └─ for each module: start_one(py_module)
+          │
+          ├─ [under lock]  allocate raw StandbyPyModule*   (NOT yet in map)
+          │
+          └─ finisher.queue(lambda)
+                  │
+                  ├─ standby_module->load()        ← GIL acquired with new-thread-state
+                  │       ├─ success: [under lock] modules.emplace(name, ptr)
+                  │       │                        thread.create("mgr.&lt;name&gt;")
+                  │       └─ failure: delete ptr   (logged to derr + crash dump)
+                  └─
+</div>
+
+<h3>Shutdown / Promotion Teardown Ordering</h3>
+<div class="diagram">
+[caller stops Finisher first — undocumented but required precondition]
+  │
+StandbyPyModules::shutdown()
+  ├─ [acquire lock]
+  ├─ for each module:
+  │     unlock → module->shutdown()  ← Python shutdown() call (blocks)
+  │     lock
+  ├─ for each module:
+  │     unlock → module->thread.join()
+  │     lock
+  └─ modules.clear()   ← under lock, last
+</div>
+
+<div class="note">⚠ The Finisher must be stopped <em>before</em> <code>shutdown()</code> is called. If it isn't, the lambda in flight can insert into <code>modules</code> while the shutdown loop iterates with <code>lock</code> dropped, invalidating the iterator. This precondition is implicit — no assert, no comment establishes it in code.</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>2 · Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <thead>
+    <tr><th>Decision (Why X?)</th><th>Alternative (Why Not Y?)</th><th>Rationale &amp; Commit</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>No local config cache</strong> — standby reads shared <code>PyModuleConfig&amp;</code> owned by the registry</td>
+      <td>Original design (<span class="sha">c1471c75</span>) had a <code>LoadConfigThread</code> that populated a local <code>config_cache</code>; <code>with_config</code> blocked on a <code>Cond</code> until loaded</td>
+      <td><span class="sha">3193d40d</span> eliminated the thread and local copy. Config is now a shared reference. Eliminates a whole threading surface (the <code>Cond</code> wait, the race on shutdown) at the cost of: <em>if config isn't ready yet, get_config silently returns false</em> rather than blocking.</td>
+    </tr>
+    <tr>
+      <td><strong>Module loads dispatched to a Finisher</strong> — <code>start_one</code> queues a lambda and returns immediately</td>
+      <td>Previous design called <code>module->load()</code> synchronously while holding <code>lock</code></td>
+      <td><span class="sha">f22347db</span> (tracker#37997): synchronous load + lock held = potential lock cycle with Python GIL acquisition. Finisher breaks the cycle.</td>
+    </tr>
+    <tr>
+      <td><strong>Module NOT registered in map until after successful load</strong></td>
+      <td><span class="sha">f22347db</span> registered the module <em>before</em> queuing to the Finisher</td>
+      <td><span class="sha">56e34f58</span> (tracker#41736): a notify arriving between pre-registration and actual load would call into an uninitialized Python object. Fix: raw-allocate outside, emplace only on success.</td>
+    </tr>
+    <tr>
+      <td><strong><code>get_store</code> is synchronous (blocking mon command)</strong></td>
+      <td>Active modules maintain an in-memory write-through cache of kv-store values</td>
+      <td><span class="sha">6185bd66</span> inline comment: <em>"acceptable cost because standby modules should not be doing a lot."</em> Caching would require invalidation signals that standbys don't receive.</td>
+    </tr>
+    <tr>
+      <td><strong><code>MonClient&amp;</code> handed out directly</strong> — no lock wrapper around <code>get_monc()</code></td>
+      <td>Could gate access through <code>StandbyPyModuleState::lock</code></td>
+      <td><span class="sha">6185bd66</span> comment: <em>"MonClient does all its own locking so we're happy to hand out references."</em></td>
+    </tr>
+    <tr>
+      <td><strong>GIL acquired with <code>true</code> (new-thread-state) in <code>load()</code></strong></td>
+      <td>Original <span class="sha">c1471c75</span> used <code>Gil(pMyThreadState)</code> without <code>true</code></td>
+      <td><span class="sha">29193a47</span>: <code>load()</code> is called from the Finisher OS thread, not a Python-created thread. <code>true</code> tells the GIL wrapper to create a new Python thread state for this OS thread.</td>
+    </tr>
+    <tr>
+      <td><strong>Config key prefix is literal <code>"mgr/"</code></strong></td>
+      <td>Earlier versions used <code>PyModuleRegistry::config_prefix</code>, then <code>PyModule::config_prefix</code></td>
+      <td><span class="sha">b0a4bff8</span>: those symbols are for kv-store key names; this code reads <em>config option</em> names. The namespace is different. Bug fix, not a preference.</td>
+    </tr>
+    <tr>
+      <td><strong>KV store key prefix uses <code>PyModule::mgr_store_prefix</code></strong></td>
+      <td>Originally used <code>PyModule::config_prefix</code></td>
+      <td><span class="sha">3bafb5e5</span>: rename to clarify the distinction. Config options ≠ kv-store keys.</td>
+    </tr>
+    <tr>
+      <td><strong><code>shutdown</code> unlocks around each <code>module-&gt;shutdown()</code> call</strong></td>
+      <td>Hold lock throughout shutdown</td>
+      <td><span class="sha">c1471c75</span>: Python <code>shutdown()</code> may call back into <code>get_config</code>/<code>get_active_uri</code>, which acquire <code>StandbyPyModuleState::lock</code>. Holding the outer lock during Python calls = deadlock.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<table>
+  <thead>
+    <tr><th>Item</th><th>Type / Location</th><th>Invariants</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>modules</code></td>
+      <td><code>std::map&lt;string, unique_ptr&lt;StandbyPyModule&gt;&gt;</code><br><code>StandbyPyModules</code> private</td>
+      <td>
+        <ul>
+          <li>A name appears in the map <strong>only after successful <code>load()</code></strong> — established <span class="sha">56e34f58</span></li>
+          <li>All access guarded by <code>StandbyPyModules::lock</code></li>
+          <li><code>ceph_assert(em.second)</code> guards against duplicate insertion (fires in Finisher lambda)</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td><code>StandbyPyModuleState::mgr_map</code></td>
+      <td><code>MgrMap</code> value copy</td>
+      <td>
+        <ul>
+          <li>Assigned at construction (before any <code>start_one</code>) and on every <code>handle_mgr_map</code> call</li>
+          <li>All reads via <code>with_mgr_map</code> which holds <code>state::lock</code></li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td><code>StandbyPyModuleState::module_config</code></td>
+      <td><code>PyModuleConfig&amp;</code> reference</td>
+      <td>
+        <ul>
+          <li>Lifetime of pointed-to object must exceed <code>StandbyPyModuleState</code></li>
+          <li>All reads via <code>with_config</code> which holds <code>state::lock</code></li>
+          <li>No blocking wait — if config not yet populated, <code>get_config</code> silently returns <code>false</code></li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td><code>StandbyPyModuleState::lock</code></td>
+      <td><code>ceph::mutex</code> mutable</td>
+      <td>Protects <code>mgr_map</code>; provides read-lock for <code>module_config</code> ref. Callbacks passed to <code>with_config</code> / <code>with_mgr_map</code> <strong>must not</strong> re-acquire this lock (no re-entrancy).</td>
+    </tr>
+    <tr>
+      <td><code>StandbyPyModules::lock</code></td>
+      <td><code>ceph::mutex</code> mutable</td>
+      <td>Protects <code>modules</code> map. Must not be held across blocking calls (Python GIL, mon commands).</td>
+    </tr>
+    <tr>
+      <td><code>pClassInstance</code></td>
+      <td><code>PyObject*</code> in <code>StandbyPyModule</code></td>
+      <td>
+        <ul>
+          <li><code>nullptr</code> until <code>load()</code> succeeds</li>
+          <li>Python standby class constructor receives <code>(pThisPtr, pModuleName)</code> as args</li>
+          <li><code>Py_XDECREF</code>'d in destructor under GIL</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td><code>Finisher&amp;</code></td>
+      <td>Reference, lifetime: caller</td>
+      <td>
+        <ul>
+          <li>Must be running before <code>start_one</code> is called — <span class="sha">f22347db</span></li>
+          <li>Must be stopped before <code>shutdown()</code> is called — undocumented precondition</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Key Prefixes — Two Distinct Namespaces</h3>
+<table>
+  <thead>
+    <tr><th>API</th><th>Key Format</th><th>Backend</th><th>Establishing Commit</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>get_config(key)</code></td>
+      <td><code>"mgr/" + module_name + "/" + key</code></td>
+      <td>In-memory <code>PyModuleConfig</code> (config option map)</td>
+      <td><span class="sha">b0a4bff8</span> (final fix)</td>
+    </tr>
+    <tr>
+      <td><code>get_store(key)</code></td>
+      <td><code>PyModule::mgr_store_prefix + module_name + "/" + key</code></td>
+      <td>Mon kv-store via <code>config-key get</code> command</td>
+      <td><span class="sha">6185bd66</span>, renamed <span class="sha">3bafb5e5</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note">These two namespaces have been confused historically. <span class="sha">b0a4bff8</span> corrected <code>get_config</code> from using <code>PyModule::config_prefix</code> (kv-store path) to the literal <code>"mgr/"</code> (config option path). <span class="sha">3bafb5e5</span> renamed the kv prefix constant to clarify the distinction.</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>4 · Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <thead>
+    <tr><th>Actor / Scenario</th><th>Attack Surface</th><th>Actual Behaviour</th><th>Severity</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Malicious Python module raises exception in <code>serve()</code></strong></td>
+      <td><code>PyModuleRunner::serve()</code></td>
+      <td>Exception caught, logged to cluster log (<span class="sha">f4763c32</span>). Crash dump generated with module name + caller (<span class="sha">719d5e18</span>). Thread exits cleanly; other modules unaffected.</td>
+      <td><span class="pill pill-yellow">Contained</span></td>
+    </tr>
+    <tr>
+      <td><strong>Malicious Python module raises exception in <code>load()</code></strong></td>
+      <td><code>StandbyPyModule::load()</code> — <code>PyObject_CallObject</code></td>
+      <td><code>pClassInstance</code> stays <code>nullptr</code>. <code>handle_pyerror(true, name, "StandbyPyModule::load")</code> generates crash dump. Module deleted, never inserted into map. Other modules proceed.</td>
+      <td><span class="pill pill-yellow">Contained</span></td>
+    </tr>
+    <tr>
+      <td><strong>Malicious Python module calls <code>get_store</code> with a key containing <code>"</code> or <code>\</code></strong></td>
+      <td><code>get_store()</code> — JSON built by <code>ostringstream</code> string concatenation</td>
+      <td>JSON sent to mon is malformed. Mon likely rejects it; <code>r != 0</code> logged + returns <code>false</code>. No crash. But the key content is operator-controlled (module names come from the module registry), so exploitation requires operator-level access in practice.</td>
+      <td><span class="pill pill-orange">Latent/Low</span></td>
+    </tr>
+    <tr>
+      <td><strong>Duplicate <code>start_one</code> call for same module name</strong></td>
+      <td><code>start_one()</code> — Finisher lambda</td>
+      <td><span class="sha">f22347db</span> outer-scope <code>ceph_assert(count==0)</code> was removed by <span class="sha">56e34f58</span>. Only guard is <code>ceph_assert(em.second)</code> inside the lambda. A duplicate fires this assert → daemon aborts. Requires caller to send duplicate names, which no caller currently does.</td>
+      <td><span class="pill pill-red">Abort</span></td>
+    </tr>
+    <tr>
+      <td><strong>Notify/callback delivered during module load window</strong></td>
+      <td>Race between Finisher lambda and incoming notify</td>
+      <td>Fixed by <span class="sha">56e34f58</span>: module not in map until post-load emplace. A notify cannot reach a half-initialized module.</td>
+      <td><span class="pill pill-green">Fixed</span></td>
+    </tr>
+    <tr>
+      <td><strong>Finisher stopped/destroyed while load lambdas are in-flight</strong></td>
+      <td><code>start_one()</code> raw pointer + <code>this</code> capture</td>
+      <td>The <code>StandbyPyModule*</code> leaks; the <code>this</code> capture becomes a use-after-free if <code>StandbyPyModules</code> is destroyed first. No RAII wrapper, no ownership transfer. In practice the caller controls Finisher + object lifetimes and ensures correct ordering, but this is undocumented.</td>
+      <td><span class="pill pill-red">UAF/Leak if misused</span></td>
+    </tr>
+    <tr>
+      <td><strong>Mon unavailable or disconnected during <code>get_store</code></strong></td>
+      <td><code>C_SaferCond::wait()</code> in <code>get_store</code></td>
+      <td>No timeout. Blocks indefinitely. If this happens during daemon shutdown, the shutdown thread hangs. The inline comment acknowledges the synchronous cost but not the shutdown-interruptibility gap.</td>
+      <td><span class="pill pill-red">Hang</span></td>
+    </tr>
+    <tr>
+      <td><strong>Python module calls <code>get_config</code> before registry populates <code>PyModuleConfig</code></strong></td>
+      <td><code>with_config</code> — no blocking wait since <span class="sha">3193d40d</span></td>
+      <td>Original design (<span class="sha">c1471c75</span>) blocked on a <code>Cond</code>. After <span class="sha">3193d40d</span>, returns empty config silently (<code>false</code>). Module sees no config — not a crash, but a silent miss that may cause incorrect behaviour.</td>
+      <td><span class="pill pill-yellow">Silent Miss</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<table>
+  <thead>
+    <tr><th>Failure</th><th>Trigger</th><th>Blast Radius</th><th>Recovery</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Module <code>load()</code> fails</strong></td>
+      <td>Python exception in module class constructor</td>
+      <td>Single module silently absent from <code>modules</code> map. Logged to <code>derr</code> + crash dump. Other modules unaffected.</td>
+      <td>Module excluded from map. No retry. Restarting the mgr daemon reloads it.</td>
+    </tr>
+    <tr>
+      <td><strong><code>shutdown()</code> hangs on <code>module-&gt;shutdown()</code></strong></td>
+      <td>Python <code>shutdown()</code> hangs (infinite loop, deadlock, blocking I/O)</td>
+      <td>Entire standby daemon stuck at shutdown. No timeout, no kill signal. Noted as known limitation since <span class="sha">c1471c75</span> (FIXME: "completely identical to ActivePyModules").</td>
+      <td>External SIGKILL only.</td>
+    </tr>
+    <tr>
+      <td><strong><code>get_store</code> hangs during shutdown</strong></td>
+      <td>Mon unreachable while Python module's <code>serve()</code> calls <code>get_store()</code></td>
+      <td><code>C_SaferCond::wait()</code> never returns. Thread that called <code>serve()</code> blocks indefinitely.</td>
+      <td>External SIGKILL only. No timeout path exists.</td>
+    </tr>
+    <tr>
+      <td><strong>Finisher not stopped before <code>shutdown()</code></strong></td>
+      <td>Caller ordering error</td>
+      <td>Finisher lambda inserts into <code>modules</code> during <code>shutdown</code>'s unlock gaps → iterator invalidation → UB / crash.</td>
+      <td>Implicit caller contract. No in-code guard.</td>
+    </tr>
+    <tr>
+      <td><strong><code>PyModuleConfig</code> or <code>MonClient</code> object outlived by <code>StandbyPyModules</code></strong></td>
+      <td>Caller destroys registry/monc before standby modules</td>
+      <td>Dangling reference dereference. All config/store reads become UB.</td>
+      <td>Lifetime invariant entirely on the caller — no assertion in code.</td>
+    </tr>
+    <tr>
+      <td><strong>Thread naming bug (original)</strong></td>
+      <td>Thread name built from local <code>ostringstream</code> whose lifetime ended</td>
+      <td>Thread name garbage / crash in thread-naming code</td>
+      <td>Fixed <span class="sha">bb4e71ed</span>: now passes <code>module-&gt;get_name().c_str()</code> (valid for module lifetime).</td>
+    </tr>
+    <tr>
+      <td><strong>Config prefix wrong (historical)</strong></td>
+      <td><code>get_config</code> used <code>PyModule::config_prefix</code> (kv-store namespace)</td>
+      <td>All standby config reads returned <code>false</code> (wrong key namespace)</td>
+      <td>Fixed <span class="sha">b0a4bff8</span>: literal <code>"mgr/"</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Notify to half-initialized module (historical)</strong></td>
+      <td>Module inserted pre-load in <span class="sha">f22347db</span></td>
+      <td>Notify dispatched to <code>pClassInstance == nullptr</code> → crash</td>
+      <td>Fixed <span class="sha">56e34f58</span>: map insert deferred until post-load success.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<h3>Log Signals</h3>
+<table>
+  <thead>
+    <tr><th>Signal</th><th>What it means</th><th>Source</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>derr: "Failed to run module in standby mode ('&lt;name&gt;')"</code></td>
+      <td><code>load()</code> returned non-zero — Python class constructor threw or returned null</td>
+      <td>Finisher lambda, <code>start_one</code></td>
+    </tr>
+    <tr>
+      <td><code>derr: "Failed to construct class in '&lt;name&gt;'"</code> + crash dump</td>
+      <td><code>PyObject_CallObject</code> returned null in <code>load()</code></td>
+      <td><code>StandbyPyModule::load</code> via <span class="sha">719d5e18</span></td>
+    </tr>
+    <tr>
+      <td><code>derr: "&lt;func&gt; error fetching store key '&lt;key&gt;': &lt;err&gt;"</code></td>
+      <td>Mon command for kv-store returned non-zero and non-ENOENT</td>
+      <td><code>get_store()</code></td>
+    </tr>
+    <tr>
+      <td><code>dout(10): "waiting for module &lt;name&gt; to shutdown"</code></td>
+      <td>Normal — standby shutdown in progress. If this is the last log line, Python <code>shutdown()</code> is hanging.</td>
+      <td><code>shutdown()</code></td>
+    </tr>
+    <tr>
+      <td><code>dout(4): "Starting thread for &lt;name&gt;"</code></td>
+      <td>Load succeeded; serve() thread starting</td>
+      <td>Finisher lambda, <code>start_one</code></td>
+    </tr>
+    <tr>
+      <td>No log, <code>get_config</code> returns <code>false</code></td>
+      <td>Key absent <em>or</em> config not yet populated (silent miss — see DIVERGED finding)</td>
+      <td><code>get_config()</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Triage Quick-Reference</h3>
+<table>
+  <thead>
+    <tr><th>Symptom</th><th>Likely Cause</th><th>Where to Look</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Module not active on standby</td>
+      <td>Load failed or load lambda not yet executed</td>
+      <td><code>dout(4)</code> "Starting thread" — if absent, check <code>derr</code> for "Failed to run module"</td>
+    </tr>
+    <tr>
+      <td>Standby module reads wrong config values / sees nothing</td>
+      <td>Key prefix mismatch or config not yet populated</td>
+      <td>Verify key format: should be <code>mgr/&lt;module&gt;/&lt;key&gt;</code>. Check if <code>PyModuleConfig</code> was populated before <code>start_one</code> was called.</td>
+    </tr>
+    <tr>
+      <td>Standby mgr hangs on shutdown</td>
+      <td>Python <code>shutdown()</code> hanging, or <code>get_store</code> blocking (mon unavailable)</td>
+      <td>Thread stack trace. If stuck in <code>shutdown()</code> loop: Python deadlock. If stuck in <code>C_SaferCond::wait</code>: mon connection issue.</td>
+    </tr>
+    <tr>
+      <td>Daemon abort with <code>ceph_assert(em.second)</code></td>
+      <td>Duplicate module name passed to <code>start_one</code></td>
+      <td>Caller (MgrStandby) passed the same <code>PyModuleRef</code> name twice. Stack trace points to Finisher thread.</td>
+    </tr>
+    <tr>
+      <td>Wrong store value / ENOENT on store read</td>
+      <td>Wrong key prefix (<code>mgr_store_prefix</code> vs <code>"mgr/"</code>), or key genuinely absent</td>
+      <td><code>dout(4)</code> logs the resolved <code>global_key</code> in <code>get_store()</code>. Compare against mon kv-store contents.</td>
+    </tr>
+    <tr>
+      <td>Module serve() crash with Python traceback</td>
+      <td>Unhandled Python exception in module's <code>serve()</code></td>
+      <td>Cluster log for the module name; crash dump generated since <span class="sha">719d5e18</span>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<hr>
+<h2>Appendix — Full Findings Index</h2>
+<table>
+  <thead>
+    <tr><th>Type</th><th>Function</th><th>Finding</th><th>Established</th><th>Contradicting</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="pill pill-red finding-diverged">DIVERGED</span></td>
+      <td><code>with_config</code></td>
+      <td>No longer blocks for config readiness — silently returns empty if config unpopulated</td>
+      <td><span class="sha">c1471c75</span> (blocked); removed by <span class="sha">3193d40d</span></td>
+      <td><code>h:69–74</code> — no readiness check</td>
+    </tr>
+    <tr>
+      <td><span class="pill pill-red finding-diverged">DIVERGED</span></td>
+      <td><code>start_one</code></td>
+      <td>Pre-queue duplicate-name assert removed from outer lock scope; only <code>em.second</code> assert in lambda</td>
+      <td><span class="sha">f22347db</span> (assert in outer); removed by <span class="sha">56e34f58</span></td>
+      <td><code>cc:75–98</code></td>
+    </tr>
+    <tr>
+      <td><span class="pill pill-yellow finding-ungrounded">UNGROUNDED</span></td>
+      <td><code>shutdown</code></td>
+      <td>Iterates <code>modules</code> with lock dropped; Finisher lambda could insert during gap</td>
+      <td>—</td>
+      <td><code>cc:64–70</code></td>
+    </tr>
+    <tr>
+      <td><span class="pill pill-yellow finding-ungrounded">UNGROUNDED</span></td>
+      <td><code>start_one</code></td>
+      <td>Raw pointer leaks if Finisher stops before lambda runs</td>
+      <td>—</td>
+      <td><code>cc:79, 83</code></td>
+    </tr>
+    <tr>
+      <td><span class="pill pill-yellow finding-ungrounded">UNGROUNDED</span></td>
+      <td><code>start_one</code></td>
+      <td><code>this</code> captured in lambda → use-after-free if <code>StandbyPyModules</code> destroyed while in-flight</td>
+      <td>—</td>
+      <td><code>cc:83</code></td>
+    </tr>
+    <tr>
+      <td><span class="pill pill-yellow finding-ungrounded">UNGROUNDED</span></td>
+      <td><code>get_store</code></td>
+      <td>JSON built by string concat — key content not sanitised; <code>"</code>/<code>\</code> in key corrupts JSON</td>
+      <td>—</td>
+      <td><code>cc:161–162</code></td>
+    </tr>
+    <tr>
+      <td><span class="pill pill-yellow finding-ungrounded">UNGROUNDED</span></td>
+      <td><code>get_store</code></td>
+      <td><code>C_SaferCond::wait()</code> has no timeout and no shutdown interruptibility</td>
+      <td>—</td>
+      <td><code>cc:174</code></td>
+    </tr>
+    <tr>
+      <td><span class="pill pill-purple finding-overcautious">OVERCAUTIOUS</span></td>
+      <td><code>shutdown</code></td>
+      <td>Stale FIXME comment "completely identical to ActivePyModules" — code has diverged significantly</td>
+      <td><span class="sha">c1471c75</span></td>
+      <td><code>cc:48</code></td>
+    </tr>
+    <tr>
+      <td><span class="pill pill-purple finding-overcautious">OVERCAUTIOUS</span></td>
+      <td><code>with_mgr_map</code></td>
+      <td>Variadic <code>Args&amp;&amp;...args</code> pattern — extra args never used in any call site in this file</td>
+      <td><span class="sha">c1471c75</span></td>
+      <td><code>h:62</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+<p style="color: var(--muted); font-size: 12px; margin-top: 16px;">
+  Generated from intent artefact (HEAD <span class="sha">8681fa6</span>) + raw git corpus.
+  32 commits · 2017-08-22 → 2025-10-02 · No file renames.
+</p>
+</body>
+</html>

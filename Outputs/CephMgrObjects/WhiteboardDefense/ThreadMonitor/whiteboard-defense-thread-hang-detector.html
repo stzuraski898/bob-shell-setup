@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — ThreadMonitor</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3348;
+    --accent: #4f8ef7;
+    --accent2: #a78bfa;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --ok: #22c55e;
+    --text: #e2e8f0;
+    --muted: #8892a4;
+    --code: #fbbf24;
+    --mono: 'Fira Mono', 'Cascadia Code', 'Consolas', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.8rem; color: var(--accent); margin-bottom: .25rem; }
+  h2 { font-size: 1.15rem; color: var(--accent2); margin: 2.2rem 0 .75rem; border-bottom: 1px solid var(--border); padding-bottom: .4rem; text-transform: uppercase; letter-spacing: .06em; }
+  h3 { font-size: 1rem; color: var(--warn); margin: 1.2rem 0 .4rem; }
+  p { margin-bottom: .6rem; color: var(--text); }
+  a { color: var(--accent); text-decoration: none; }
+  code, .mono { font-family: var(--mono); color: var(--code); background: rgba(251,191,36,.08); padding: .1em .35em; border-radius: 3px; font-size: .88em; }
+  .sha { font-family: var(--mono); color: var(--muted); font-size: .8em; background: var(--surface2); padding: .1em .4em; border-radius: 3px; }
+
+  /* Layout */
+  .meta-strip { display:flex; gap:1.5rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+  .badge { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:.3rem .7rem; font-size:.8rem; color:var(--muted); }
+  .badge span { color:var(--text); font-weight:600; }
+
+  /* Tables */
+  table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:.88rem; }
+  thead th { background:var(--surface2); color:var(--accent2); text-align:left; padding:.55rem .75rem; border-bottom:2px solid var(--border); font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+  tbody tr:nth-child(odd) { background:var(--surface); }
+  tbody tr:nth-child(even) { background: var(--bg); }
+  td, th { padding:.45rem .75rem; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  .tag { display:inline-block; padding:.1em .5em; border-radius:4px; font-size:.75em; font-weight:700; letter-spacing:.04em; }
+  .tag-ok  { background:#052e16; color:var(--ok); }
+  .tag-warn{ background:#451a03; color:var(--warn); }
+  .tag-bad { background:#450a0a; color:var(--danger); }
+  .tag-info{ background:#0c1a3a; color:var(--accent); }
+
+  /* Callout boxes */
+  .callout { border-left:3px solid; padding:.6rem 1rem; margin:.75rem 0; border-radius:0 6px 6px 0; }
+  .callout-danger { border-color:var(--danger); background:#1a0808; }
+  .callout-warn   { border-color:var(--warn);   background:#1a1000; }
+  .callout-info   { border-color:var(--accent);  background:#080f1a; }
+  .callout-title  { font-weight:700; margin-bottom:.3rem; }
+  .callout-danger .callout-title { color:var(--danger); }
+  .callout-warn .callout-title   { color:var(--warn); }
+  .callout-info .callout-title   { color:var(--accent); }
+
+  /* Diagram */
+  .diagram { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1.25rem 1.5rem; font-family:var(--mono); font-size:.82rem; line-height:1.7; color:var(--text); overflow-x:auto; white-space:pre; margin:1rem 0; }
+  .diagram .dim   { color:var(--muted); }
+  .diagram .hi    { color:var(--accent); }
+  .diagram .hi2   { color:var(--accent2); }
+  .diagram .warn  { color:var(--warn); }
+  .diagram .ok    { color:var(--ok); }
+  .diagram .bad   { color:var(--danger); }
+
+  ul { padding-left:1.4rem; margin:.4rem 0; }
+  li { margin-bottom:.25rem; }
+
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  @media(max-width:800px) { .grid2 { grid-template-columns:1fr; } }
+
+  .fn { font-family:var(--mono); color:var(--accent); font-size:.85em; }
+  .commit-ref { font-size:.75em; color:var(--muted); font-family:var(--mono); }
+
+  hr { border:none; border-top:1px solid var(--border); margin:2rem 0; }
+
+  .section-num { color:var(--muted); font-size:.8rem; margin-right:.5rem; }
+  .toc { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1rem 1.5rem; margin-bottom:2rem; font-size:.88rem; }
+  .toc a { color:var(--muted); }
+  .toc a:hover { color:var(--accent); }
+  .toc li { margin-bottom:.2rem; }
+</style>
+</head>
+<body>
+
+<h1>ThreadMonitor — Whiteboard Defense</h1>
+<div class="meta-strip">
+  <div class="badge">Files <span>src/mgr/ThreadMonitor.cc / .h</span></div>
+  <div class="badge">Commits analysed <span>2</span></div>
+  <div class="badge">First commit <span><code class="sha">95a90f7d</code> 2024-12-08</span></div>
+  <div class="badge">Last fix <span><code class="sha">28647966</code> 2026-05-27 · Fixes #76938</span></div>
+  <div class="badge">HEAD <span><code class="sha">8681fa6e</code></span></div>
+  <div class="badge">Author <span>Nitzan Mordechai (IBM)</span></div>
+</div>
+
+<nav class="toc">
+  <strong style="color:var(--text)">Contents</strong>
+  <ol style="margin:.5rem 0 0 1.2rem;">
+    <li><a href="#s1">High-Level Architecture &amp; Mental Model</a></li>
+    <li><a href="#s2">Architectural Decisions &amp; Trade-offs</a></li>
+    <li><a href="#s3">Data Structures, Algorithms &amp; Invariants</a></li>
+    <li><a href="#s4">Threat Model &amp; Adversarial Handling</a></li>
+    <li><a href="#s5">Failure Modes, Edge Cases &amp; Blast Radius</a></li>
+    <li><a href="#s6">Observability &amp; Triage Playbook</a></li>
+  </ol>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="s1"><span class="section-num">§1</span> High-Level Architecture &amp; Mental Model</h2>
+
+<p><strong>Purpose:</strong> A background polling thread that reads per-thread CPU ticks from <code>/proc/self/task/&lt;tid&gt;/stat</code> and process-wide RSS from <code>/proc/self/statm</code>, then writes the computed values into each registered <code>PyModule</code>'s <code>PerfCounters</code>. It exposes per-module CPU % and memory RSS via <code>ceph daemon mgr.&lt;id&gt; perf dump</code> without modifying the modules themselves. (<code class="sha">95a90f7d</code>)</p>
+
+<div class="diagram"><span class="dim">                       ┌─────────────────────────────────────────────────────────────┐</span>
+<span class="dim">                       │                   ThreadMonitor lifetime                     │</span>
+<span class="dim">                       └──────────────────────────────┬──────────────────────────────┘</span>
+                                                      │
+    <span class="hi">construct</span>                                         │
+    ├─ cache sysconf(_SC_CLK_TCK)  →  m_clock_ticks_per_sec (long)
+    ├─ cache sysconf(_SC_PAGESIZE) →  m_page_size (long)
+    ├─ read mgr_module_monitor_interval → monitoring_interval (chrono::seconds)
+    └─ add_observer(this)    <span class="dim">← wired into Ceph conf-change framework</span>
+
+    <span class="hi">start_monitoring()</span>  [atomic test-and-set on running]
+    └─ spawns std::thread → monitoring_loop()
+
+                         <span class="hi2">monitoring_loop() — runs until running==false</span>
+    <span class="ok">┌─────────────────────────────────────────────────────────────┐</span>
+    <span class="ok">│  GUARD: sysconf values ≤ 0 → running=false, return          │</span>
+    <span class="ok">│                                                             │</span>
+    <span class="ok">│  ┌── PHASE 1 (under mutex) ──────────────────────────────┐  │</span>
+    <span class="ok">│  │  read /proc/self/statm  →  rss_pages                  │  │</span>
+    <span class="ok">│  │  for each thread:                                      │  │</span>
+    <span class="ok">│  │    push rss_bytes, rss_change → perfcounter            │  │</span>
+    <span class="ok">│  │    copy (tid, snapshot, py_module) → ThreadEntry vec   │  │</span>
+    <span class="ok">│  └───────────────────────────────────────────────────────┘  │</span>
+    <span class="ok">│                                                             │</span>
+    <span class="ok">│  ┌── PHASE 2 (no mutex) ─────────────────────────────────┐  │</span>
+    <span class="ok">│  │  for each ThreadEntry:                                  │  │</span>
+    <span class="ok">│  │    read /proc/self/task/&lt;tid&gt;/stat                     │  │</span>
+    <span class="ok">│  │    compute cpu_pct = Δjiffies / (CLK_TCK × Δwall_sec) │  │</span>
+    <span class="ok">│  │    pack → ThreadResult vec                             │  │</span>
+    <span class="ok">│  └───────────────────────────────────────────────────────┘  │</span>
+    <span class="ok">│                                                             │</span>
+    <span class="ok">│  ┌── PHASE 3 (under mutex) ──────────────────────────────┐  │</span>
+    <span class="ok">│  │  for each ThreadResult:                                 │  │</span>
+    <span class="ok">│  │    if TID gone (deregistered P1→P3): skip              │  │</span>
+    <span class="ok">│  │    if main_ok==false: erase thread (dead)              │  │</span>
+    <span class="ok">│  │    else: update snapshot + push cpu_usage → perf       │  │</span>
+    <span class="ok">│  │    if serve_ok==false: clear serve_thread_id           │  │</span>
+    <span class="ok">│  └───────────────────────────────────────────────────────┘  │</span>
+    <span class="ok">│                                                             │</span>
+    <span class="ok">│  sleep_for(monitoring_interval)                             │</span>
+    <span class="ok">└─────────────────────────────────────────────────────────────┘</span>
+
+    <span class="hi">stop_monitoring()</span>  [atomic exchange(false) → join]
+    <span class="hi">~ThreadMonitor()</span>   remove_observer → stop_monitoring
+</div>
+
+<h3>Perf counters written</h3>
+<table>
+  <thead><tr><th>Counter key</th><th>Source</th><th>Phase written</th><th>Units</th></tr></thead>
+  <tbody>
+    <tr><td><code>mem_rss_current</code></td><td><code>/proc/self/statm</code> field 2 × page_size</td><td>Phase 1 (under lock)</td><td>bytes</td></tr>
+    <tr><td><code>mem_rss_change</code></td><td>current − last_snapshot.rss_pages × page_size</td><td>Phase 1 (under lock)</td><td>bytes delta</td></tr>
+    <tr><td><code>cpu_usage</code></td><td>Δ(utime+stime)/CLK_TCK / Δwall × 100</td><td>Phase 3 (under lock)</td><td>% (integer)</td></tr>
+    <tr><td><code>serve_cpu_usage</code></td><td>same formula for serve TID</td><td>Phase 3 (under lock)</td><td>% (integer)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout callout-warn">
+  <div class="callout-title">⚠ RSS and CPU are not atomically consistent</div>
+  RSS is written in Phase 1 and CPU in Phase 3. They are from different wall-clock moments within the same iteration. A <code>perf dump</code> snapshot may show an RSS from T+0 paired with a CPU from T+0.5 ms. No commit establishes this as intentional.
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="s2"><span class="section-num">§2</span> Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <thead><tr><th>Decision</th><th>Why this, not that</th><th>Trade-off / risk</th><th>Commit</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Three-phase lock split</strong><br>lock → copy → unlock → I/O → lock → write</td>
+      <td>Avoid holding <code>monitored_threads_mutex</code> during <code>/proc</code> file I/O (unbounded latency). Lets <code>register_thread</code> and the loop coexist without long lock contention.</td>
+      <td>RSS and CPU values in a single iteration come from different points in time. A thread that deregisters between phases is silently skipped in Phase 3 (correct, but stale data in the result vector).</td>
+      <td><code class="sha">95a90f7d</code></td>
+    </tr>
+    <tr>
+      <td><strong>Single polling thread, no thread pool</strong></td>
+      <td>mgr modules are O(10), not O(1000). A single background thread with sequential <code>/proc</code> reads is sufficient; no scheduling complexity.</td>
+      <td>If many modules are registered, Phase 2 becomes O(N × file I/O). No per-thread parallelism. Latency of one full iteration can exceed <code>monitoring_interval</code> under contention.</td>
+      <td><code class="sha">95a90f7d</code></td>
+    </tr>
+    <tr>
+      <td><strong><code>md_config_obs_t</code> observer for hot reload</strong></td>
+      <td>Allows <code>mgr_module_monitor_interval</code> changes at runtime via <code>ceph config set mgr</code> without a restart. Zero interval stops monitoring entirely.</td>
+      <td><code>monitoring_interval</code> is written in <code>handle_conf_change</code> and read in <code>monitoring_loop</code> without a lock. On 64-bit Linux this 64-bit value is likely hardware-atomic, but no formal <code>std::atomic</code> or memory order is established.</td>
+      <td><code class="sha">95a90f7d</code></td>
+    </tr>
+    <tr>
+      <td><strong>Process-wide RSS (not per-thread)</strong></td>
+      <td>Linux does not expose per-thread RSS. <code>/proc/self/statm</code> gives the only available resident-set count. Same value is broadcast to every registered module's counter.</td>
+      <td>All modules see the same RSS — there is no per-module memory isolation in the counter. The counter is process-wide posing as per-module.</td>
+      <td><code class="sha">95a90f7d</code></td>
+    </tr>
+    <tr>
+      <td><strong>Separate serve-thread tracking</strong></td>
+      <td>Ceph mgr Python modules run a main thread and an optional <em>serve</em> thread. Each is tracked independently under the same <code>MonitoredThreadInfo</code>. Serve thread death clears <code>serve_thread_id = 0</code> but keeps the main entry.</td>
+      <td>If the serve TID is recycled by a new unrelated thread between loop iterations, the reused TID will be read and produce a garbage CPU spike (negative delta possible, no TID-reuse guard).</td>
+      <td><code class="sha">95a90f7d</code></td>
+    </tr>
+    <tr>
+      <td><strong>Dead-thread detection via <code>/proc</code> open failure</strong></td>
+      <td>A thread that has exited causes <code>/proc/self/task/&lt;tid&gt;/stat</code> to disappear. <code>read_thread_stat</code> returning <code>false</code> is treated as thread death → entry erased.</td>
+      <td>File-open failure ≠ thread death; it can also mean temporary kernel pressure or a permissions change. Entry is permanently removed on the first failure. No retry. Erased entries are logged at <code>dout(0)</code>.</td>
+      <td><code class="sha">95a90f7d</code></td>
+    </tr>
+    <tr>
+      <td><strong>Sysconf values cached at construction</strong></td>
+      <td><code>sysconf(_SC_CLK_TCK)</code> and <code>sysconf(_SC_PAGESIZE)</code> are system-wide constants that never change during a process lifetime. Caching avoids syscall overhead on every loop iteration.</td>
+      <td>If <code>sysconf</code> returns <code>-1</code> (error), the values are stored as <code>-1</code>. The constructor does not propagate this failure. The loop guard at <code>cc:79</code> catches it but has the <code>std::terminate()</code> bug (§5).</td>
+      <td><code class="sha">95a90f7d</code></td>
+    </tr>
+    <tr>
+      <td><strong>Interval bug fix: raw <code>int64_t</code> → <code>chrono::seconds</code></strong></td>
+      <td>Original code assigned raw <code>int64_t</code> seconds directly to a <code>ceph::mono_clock::duration</code> (nanosecond resolution). A config value of <code>2</code> produced a 2 ns interval → effectively a busy-spin. Fixed by wrapping with <code>std::chrono::seconds()</code>.</td>
+      <td>Fix applied only to the constructor initialiser. <code>handle_conf_change</code> already wrapped with <code>std::chrono::seconds()</code> from day one, so runtime changes were always correct.</td>
+      <td><code class="sha">28647966</code> (Fixes: #76938)</td>
+    </tr>
+    <tr>
+      <td><strong>Sleep added on <code>read_process_statm</code> failure</strong></td>
+      <td>Original code had a bare <code>continue</code> after the <code>statm</code> read failure — no sleep → tight CPU spin. Fix adds <code>sleep_for(monitoring_interval)</code> before <code>continue</code>.</td>
+      <td>Same commit as interval fix. The retry loop still does not check <code>running</code> before sleeping; shutdown latency can be up to <code>monitoring_interval</code> on this path too.</td>
+      <td><code class="sha">28647966</code> (Fixes: #76938)</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="s3"><span class="section-num">§3</span> Data Structures, Algorithms &amp; Invariants</h2>
+
+<div class="grid2">
+  <div>
+    <h3>Core map: <code>monitored_threads</code></h3>
+    <p><strong>Type:</strong> <code>std::map&lt;pid_t, MonitoredThreadInfo&gt;</code><br>
+    <strong>Lock:</strong> <code>std::mutex monitored_threads_mutex</code><br>
+    <strong>Access pattern:</strong> read+write in Phase 1 &amp; 3 (loop), write in <code>register_thread</code></p>
+    <ul>
+      <li>Key = Linux TID (<code>pid_t</code>)</li>
+      <li>Ordered map — insertion order irrelevant; O(log N) lookup in Phase 3</li>
+      <li>No deregister API — entries removed only when <code>read_thread_stat</code> fails (thread exit)</li>
+      <li>Duplicate registration silently rejected (<code>count(thread_id)</code> guard)</li>
+    </ul>
+  </div>
+  <div>
+    <h3><code>ThreadSnapshot</code> struct</h3>
+    <p>Stored per-thread (main + serve) as <code>last_snapshot</code> / <code>last_serve_snapshot</code>.</p>
+    <table style="font-size:.82rem;">
+      <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>utime</code></td><td><code>long long</code></td><td>0</td><td>User-mode ticks at last sample</td></tr>
+        <tr><td><code>stime</code></td><td><code>long long</code></td><td>0</td><td>Kernel-mode ticks at last sample</td></tr>
+        <tr><td><code>rss_pages</code></td><td><code>long long</code></td><td>0</td><td>Process RSS pages at last sample</td></tr>
+        <tr><td><code>timestamp</code></td><td><code>mono_clock::time_point</code></td><td><code>now()</code> on register</td><td>Wall-clock of last sample</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:.5rem;font-size:.82rem;color:var(--warn)">⚠ <code>utime/stime</code> default to <code>0</code> at registration. First CPU sample = Δ from thread birth, not registration. Inflated first reading. (<code class="sha">95a90f7d</code>, ungrounded)</p>
+  </div>
+</div>
+
+<h3>CPU Percentage Formula</h3>
+<div class="diagram">cpu_pct = (Δutime + Δstime) / (m_clock_ticks_per_sec × Δwall_seconds) × 100.0
+
+  where:
+    Δutime  = new_utime  - last_snapshot.utime     <span class="dim">← jiffies (user mode)</span>
+    Δstime  = new_stime  - last_snapshot.stime     <span class="dim">← jiffies (kernel mode)</span>
+    Δwall   = chrono::duration&lt;double&gt;(new_ts - last_snapshot.timestamp)
+    CLK_TCK = sysconf(_SC_CLK_TCK)                 <span class="dim">← typically 100 Hz on Linux</span>
+
+  Guards:
+    elapsed_seconds ≤ 0  → return 0.0             <span class="dim">← division-by-zero guard</span>
+    <span class="warn">Δjiffies &lt; 0          → negative result (no clamp) ← TID reuse hazard</span>
+    <span class="warn">result &gt; 100%         → possible on multi-core    ← no cap</span>
+    <span class="warn">cpu_pct cast to uint64_t before perfcounter.set()  ← truncates fraction, wraps on negative</span>
+</div>
+
+<h3>/proc parsing: <code>read_thread_stat</code></h3>
+<div class="diagram">/proc/self/task/&lt;tid&gt;/stat format (proc(5)):
+  pid (comm) state ppid pgrp session tty_nr tpgid flags minflt cminflt majflt cmajflt utime stime ...
+       └──┘
+   parenthesised, may contain spaces and '('/')' — skip by finding last ')'
+
+Strategy:
+  1. rfind(')')  →  end
+  2. substr(end + 2)  →  remainder   <span class="dim">(skips ") "</span>)
+  3. skip 11 fields: state ppid pgrp session tty_nr tpgid flags minflt cminflt majflt cmajflt
+  4. ss &gt;&gt; utime &gt;&gt; stime
+  <span class="warn">⚠ Step 4 has no success check — if stream fails, utime/stime hold garbage, returns true</span>
+</div>
+
+<h3>Key Invariants (established by <code class="sha">95a90f7d</code>)</h3>
+<table>
+  <thead><tr><th>Invariant</th><th>Enforced by</th></tr></thead>
+  <tbody>
+    <tr><td><code>running == false</code> on construction; explicit <code>start_monitoring()</code> required</td><td>Atomic initialiser in ctor</td></tr>
+    <tr><td><code>remove_observer</code> before <code>stop_monitoring()</code> in destructor (prevents race)</td><td>Destructor body order — intentional</td></tr>
+    <tr><td><code>start_monitoring</code> and <code>stop_monitoring</code> are idempotent</td><td><code>running.exchange()</code> atomic test-and-set / test-and-clear</td></tr>
+    <tr><td>All <code>monitored_threads</code> mutations under <code>monitored_threads_mutex</code></td><td>All callsites use <code>lock_guard</code></td></tr>
+    <tr><td>Phase 2 (<code>/proc</code> I/O) executes outside the mutex</td><td>Brace-scoped <code>lock_guard</code> released before Phase 2</td></tr>
+    <tr><td><code>monitoring_interval</code> always in <code>chrono::seconds</code> units</td><td>Fixed by <code class="sha">28647966</code>; <code>handle_conf_change</code> correct from day one</td></tr>
+    <tr><td>Both <code>last_snapshot.timestamp</code> and <code>last_serve_snapshot.timestamp</code> initialised to <code>now()</code> at registration</td><td><code>register_thread</code> cc:56-57</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="s4"><span class="section-num">§4</span> Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <thead><tr><th>Actor / Scenario</th><th>What happens</th><th>Impact</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Rogue module calls <code>register_thread</code> with a foreign TID</strong><br>(e.g., TID of a system thread it doesn't own)</td>
+      <td>No ownership check. The TID is accepted and polled. If the file exists, CPU data for that foreign thread is written to this module's perf counter. No authentication on TID ownership.</td>
+      <td><span class="tag tag-warn">Medium</span> CPU stats misattributed; no privilege escalation. All actors run inside the mgr process with the same UID.</td>
+      <td>None in code. Mitigated by the fact that only trusted mgr-internal code calls <code>register_thread</code> (not Python-level API).</td>
+    </tr>
+    <tr>
+      <td><strong>Module passes a recycled TID</strong><br>(old thread exited, OS reused TID for an unrelated thread)</td>
+      <td>New thread's CPU ticks are read. Since the snapshot has the old thread's tick baseline, Δjiffies may be huge (positive spike) or negative (new thread has lower ticks). <code>calculate_cpu_percentage</code> produces inflated or negative values. Negative result is cast to <code>uint64_t</code> → wrap-around to very large integer written to perfcounter.</td>
+      <td><span class="tag tag-warn">Medium</span> Bogus perf counter value; no crash, no privilege issue. Misleading observability data.</td>
+      <td>None. No TID reuse detection exists. No clamp or sign check in <code>calculate_cpu_percentage</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Module registers same TID twice</strong></td>
+      <td>Duplicate guard in <code>register_thread</code>: <code>monitored_threads.count(thread_id)</code> → early return with <code>dout(20)</code>. Second registration is silently rejected.</td>
+      <td><span class="tag tag-ok">None</span> Idempotent. No overwrite, no crash.</td>
+      <td>Guard at cc:47–50. (<code class="sha">95a90f7d</code>)</td>
+    </tr>
+    <tr>
+      <td><strong>Module deregisters / exits while loop is in Phase 2</strong></td>
+      <td>No deregister API exists. If a module exits, its <code>PyModuleRef</code> may be released. Phase 3 checks <code>py_module &amp;&amp; py_module->perfcounter</code> before writing. However, the <code>PyModuleRef</code> (shared_ptr) in the map still holds a reference, so the object is not destroyed while the entry exists.</td>
+      <td><span class="tag tag-ok">Low</span> shared_ptr ownership prevents use-after-free during loop. Entry persists until <code>/proc</code> stat read fails (thread exit).</td>
+      <td>Copy-by-value into <code>ThreadEntry</code> in Phase 1 retains the shared_ptr. Entry erase in Phase 3 only after <code>main_ok == false</code>.</td>
+    </tr>
+    <tr>
+      <td><strong><code>/proc/self/statm</code> returns a truncated / corrupt line</strong></td>
+      <td><code>statm_file &gt;&gt; vsize_pages &gt;&gt; rss_pages</code> — no success check. If extraction fails, <code>rss_pages</code> retains its pre-call value (<code>0</code> on the first call, or the previous iteration's value if declared differently). Function returns <code>true</code>. Caller writes <code>rss_bytes = 0</code> to all module perf counters silently.</td>
+      <td><span class="tag tag-warn">Medium</span> Silent false RSS readings. No error log on this path.</td>
+      <td>None currently. Should check <code>statm_file.fail()</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Config change fires <code>mgr_module_monitor_interval = 0</code></strong></td>
+      <td><code>handle_conf_change</code> calls <code>stop_monitoring()</code>. Atomic exchange sets <code>running=false</code>. Loop exits after current <code>sleep_for</code> completes (up to full interval latency). Monitoring halts cleanly.</td>
+      <td><span class="tag tag-ok">Intended</span></td>
+      <td>By design. (<code class="sha">95a90f7d</code>)</td>
+    </tr>
+    <tr>
+      <td><strong>Config change fires while loop is sleeping</strong><br>(interval changed to shorter value)</td>
+      <td>New <code>monitoring_interval</code> value written (no lock). Loop is already sleeping for the old interval. New interval only takes effect after the current sleep expires. No wake-up mechanism.</td>
+      <td><span class="tag tag-info">Cosmetic</span> Delayed propagation of up to one old interval. Expected, but undocumented.</td>
+      <td>No condition_variable wakeup. Acknowledged latency.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="s5"><span class="section-num">§5</span> Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<div class="callout callout-danger">
+  <div class="callout-title">🔴 CRITICAL — std::terminate() on sysconf failure (DIVERGED, <code class="sha">95a90f7d</code>)</div>
+  <p>If <code>sysconf(_SC_CLK_TCK)</code> or <code>sysconf(_SC_PAGESIZE)</code> returns <code>-1</code> (error), <code>monitoring_loop</code> at <code>cc:82</code> sets <code>running = false</code> internally and returns. This causes <code>stop_monitoring()</code> (called by <code>~ThreadMonitor</code>) to short-circuit via <code>if (!running.exchange(false)) { return; }</code> — it never reaches the <code>join()</code>. The <code>unique_ptr&lt;std::thread&gt;</code> destructor then calls <code>std::thread::~thread()</code> on a still-joinable thread → <strong><code>std::terminate()</code> → process crash</strong>.</p>
+  <p>The <code>joinable()</code> guard in <code>stop_monitoring()</code> at <code>cc:35</code> is unreachable on this code path and gives false safety. Sysconf failure is extremely unlikely on Linux but this is a correctness defect.</p>
+  <p><strong>Fix:</strong> <code>monitoring_loop</code> should not set <code>running=false</code>; instead exit silently and let <code>stop_monitoring</code>'s join handle cleanup. Or: have the loop set a separate error flag without touching <code>running</code>.</p>
+</div>
+
+<div class="callout callout-danger">
+  <div class="callout-title">🔴 DIVERGED — <code>read_thread_stat</code> returns <code>true</code> with garbage <code>utime/stime</code> (<code class="sha">95a90f7d</code>)</div>
+  <p><code>ss &gt;&gt; utime &gt;&gt; stime</code> at <code>cc:226</code> has no stream failure check. If the stream is in a fail state (truncated line, bad offset), the function returns <code>true</code> with uninitialised <code>long long</code> values. <code>process_thread_stats</code> calls <code>calculate_cpu_percentage</code> with those values → <strong>undefined behaviour</strong> (reading uninitialised <code>long long</code>).</p>
+</div>
+
+<div class="callout callout-warn">
+  <div class="callout-title">🟡 DIVERGED — <code>read_process_statm</code> silently reports RSS = 0 on parse failure (<code class="sha">95a90f7d</code>)</div>
+  <p><code>statm_file &gt;&gt; vsize_pages &gt;&gt; rss_pages</code> at <code>cc:240</code> has no success check. Parse failure leaves <code>rss_pages = 0</code> (caller-initialised). Function returns <code>true</code>. All modules get <code>mem_rss_current = 0</code> silently.</p>
+</div>
+
+<table>
+  <thead><tr><th>Failure mode</th><th>Trigger</th><th>Observed effect</th><th>Blast radius</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Interval nanosecond bug</td>
+      <td>Startup with any configured interval (original <code class="sha">95a90f7d</code>)</td>
+      <td>Loop spins every ~2 ns. MGR thread fully saturated CPU.</td>
+      <td><span class="tag tag-bad">Process-wide</span> MGR unresponsive. Fixed by <code class="sha">28647966</code>.</td>
+    </tr>
+    <tr>
+      <td>statm read failure with no sleep</td>
+      <td><code>/proc/self/statm</code> transiently unreadable (original <code class="sha">95a90f7d</code>)</td>
+      <td>Tight <code>continue</code> loop: 100% CPU on monitor thread.</td>
+      <td><span class="tag tag-bad">Monitoring thread</span> Fixed by <code class="sha">28647966</code>.</td>
+    </tr>
+    <tr>
+      <td>Shutdown delay</td>
+      <td>Normal <code>stop_monitoring()</code> while sleeping</td>
+      <td>Caller blocks up to <code>monitoring_interval</code> seconds in <code>join()</code>.</td>
+      <td><span class="tag tag-warn">Startup/shutdown latency</span> No condition_variable wakeup.</td>
+    </tr>
+    <tr>
+      <td>First CPU sample inflated</td>
+      <td>First loop iteration after <code>register_thread</code></td>
+      <td><code>utime/stime</code> base is 0; delta = all CPU since thread creation → spike in <code>cpu_usage</code> counter.</td>
+      <td><span class="tag tag-info">Single sample</span> Cosmetic. Subsequent samples are correct.</td>
+    </tr>
+    <tr>
+      <td>Negative cpu_pct → uint64_t wrap</td>
+      <td>TID recycled between iterations; new thread has fewer ticks than previous</td>
+      <td><code>static_cast&lt;uint64_t&gt;(negative double)</code> — implementation-defined; likely wraps to huge value written to perfcounter.</td>
+      <td><span class="tag tag-warn">Counter corruption</span> No crash; misleading data.</td>
+    </tr>
+    <tr>
+      <td>Stale <code>= std::chrono::seconds(2)</code> member default</td>
+      <td>Never reached — constructor overrides it — but misleads code readers</td>
+      <td>None at runtime.</td>
+      <td><span class="tag tag-info">Dead code</span></td>
+    </tr>
+    <tr>
+      <td><code>get_clock_ticks_per_sec</code> / <code>get_page_size</code> declared but undefined</td>
+      <td>Any caller tries to use them</td>
+      <td>Linker error.</td>
+      <td><span class="tag tag-bad">Link-time</span> Dead declarations; no caller exists in corpus.</td>
+    </tr>
+    <tr>
+      <td>RSS is process-wide, not per-module</td>
+      <td>Always</td>
+      <td>All modules show identical RSS. <code>mem_rss_change</code> reflects aggregate process memory movement.</td>
+      <td><span class="tag tag-warn">Observability limitation</span> By Linux design; not a bug.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 id="s6"><span class="section-num">§6</span> Observability &amp; Triage Playbook</h2>
+
+<h3>How to read ThreadMonitor output</h3>
+<div class="diagram"><span class="hi">ceph daemon mgr.&lt;id&gt; perf dump</span>
+<span class="dim">
+{
+  "mgr_module_&lt;name&gt;": {</span>
+    <span class="ok">"cpu_usage"</span>: &lt;integer %&gt;,        <span class="dim">← main thread; updated each monitoring_interval</span>
+    <span class="ok">"serve_cpu_usage"</span>: &lt;integer %&gt;,  <span class="dim">← serve thread (if registered)</span>
+    <span class="ok">"mem_rss_current"</span>: &lt;bytes&gt;,      <span class="dim">← process-wide RSS; same for all modules</span>
+    <span class="ok">"mem_rss_change"</span>: &lt;bytes delta&gt;,  <span class="dim">← Δ from previous sample</span>
+    <span class="dim">"alive": &lt;0|1&gt;,                   ← set by PyModule, not ThreadMonitor</span>
+    <span class="dim">"notify_avg_usec": { ... },</span>
+    <span class="dim">"cmd_avg_usec": { ... },</span>
+    <span class="dim">"serve_avg_usec": { ... }</span>
+  <span class="dim">}</span>
+<span class="dim">}</span>
+</div>
+
+<h3>Log signals</h3>
+<table>
+  <thead><tr><th>Log message</th><th>Level</th><th>Meaning</th><th>Action</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>Registered thread: '&lt;name&gt;' (TID: &lt;n&gt;)</code></td>
+      <td><code>dout(0)</code> — always visible</td>
+      <td>Module thread registered. First cpu sample will be inflated.</td>
+      <td>Normal startup. Discard first cpu_usage reading.</td>
+    </tr>
+    <tr>
+      <td><code>Removing dead thread '&lt;name&gt;' (TID: &lt;n&gt;)</code></td>
+      <td><code>dout(0)</code> — always visible</td>
+      <td>Thread's <code>/proc</code> stat file is gone — thread has exited. Entry removed.</td>
+      <td>Expected on module shutdown. If unexpected: check module crash logs.</td>
+    </tr>
+    <tr>
+      <td><code>Failed to read process memory info from /proc/self/statm</code></td>
+      <td><code>derr</code></td>
+      <td>statm read failed. Monitor sleeps <code>monitoring_interval</code> then retries.</td>
+      <td>Transient: check <code>/proc</code> availability. Persistent: OS or container issue.</td>
+    </tr>
+    <tr>
+      <td><code>Failed to retrieve system configuration (clock ticks per second or page size)</code></td>
+      <td><code>derr</code></td>
+      <td>sysconf failure. Loop sets <code>running=false</code> and exits. <strong>If destructor runs after: std::terminate().</strong></td>
+      <td>Critical. Should never occur on standard Linux. Indicates OS misconfiguration.</td>
+    </tr>
+    <tr>
+      <td><code>Starting monitoring thread</code></td>
+      <td><code>dout(20)</code> — debug level</td>
+      <td>Monitor thread spawned.</td>
+      <td>Normal. Enable with <code>ceph config set mgr debug_mgr 20/5</code>.</td>
+    </tr>
+    <tr>
+      <td><code>Monitoring thread stopped</code></td>
+      <td><code>dout(20)</code></td>
+      <td>join() returned. Thread exited cleanly.</td>
+      <td>Normal on shutdown or when interval set to 0.</td>
+    </tr>
+    <tr>
+      <td><code>read_thread_statCould not open ...</code><br>(missing space — cosmetic bug)</td>
+      <td><code>dout(20)</code></td>
+      <td><code>/proc/self/task/&lt;tid&gt;/stat</code> not accessible. Thread likely exited.</td>
+      <td>Normal. See "Removing dead thread" log shortly after.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Triage: high cpu_usage counter on a module</h3>
+<ol style="padding-left:1.4rem;">
+  <li>Check if reading is on the very first sample (first iteration after registration) — inflated by design. Wait one more interval.</li>
+  <li>Check <code>ceph config get mgr mgr_module_monitor_interval</code> — ensure it's a reasonable integer (e.g., 5). If it was recently changed from 0, the first sample after restart may be inflated.</li>
+  <li>Correlate with actual system CPU (<code>top -H -p &lt;mgr-pid&gt;</code>). If system CPU is low but counter is high: likely TID reuse producing negative→wrap or a first-sample spike.</li>
+  <li>Check for <code>dout(0)</code> "Registered thread" or "Removing dead thread" messages in mgr log around the same time.</li>
+</ol>
+
+<h3>Triage: all modules show RSS = 0</h3>
+<ol style="padding-left:1.4rem;">
+  <li>Check for <code>derr "Failed to read process memory info"</code> in mgr log.</li>
+  <li>Verify <code>/proc/self/statm</code> is readable from inside the mgr process container/namespace.</li>
+  <li>If no derr but RSS still 0: likely silent parse failure in <code>read_process_statm</code> (stream extraction succeeded but returned 0 — check actual file contents with <code>cat /proc/&lt;mgr-pid&gt;/statm</code>).</li>
+</ol>
+
+<h3>Triage: MGR process crashing with <code>std::terminate()</code> at shutdown</h3>
+<ol style="padding-left:1.4rem;">
+  <li>Check for <code>derr "Failed to retrieve system configuration"</code> — this would be the sysconf failure path.</li>
+  <li>The <code>std::terminate()</code> will produce a core dump. Backtrace will show <code>std::thread::~thread()</code> called on a joinable thread from <code>ThreadMonitor::~ThreadMonitor()</code>.</li>
+  <li>Workaround: set <code>mgr_module_monitor_interval = 0</code> before shutdown to stop the monitor thread via <code>handle_conf_change</code> before the destructor runs.</li>
+</ol>
+
+<h3>Runtime control</h3>
+<table>
+  <thead><tr><th>Command</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>ceph config set mgr mgr_module_monitor_interval 0</code></td><td>Stop monitoring entirely (via <code>handle_conf_change</code> → <code>stop_monitoring</code>)</td></tr>
+    <tr><td><code>ceph config set mgr mgr_module_monitor_interval 5</code></td><td>Restart monitoring at 5-second interval. Takes effect after current sleep expires.</td></tr>
+    <tr><td><code>ceph daemon mgr.&lt;id&gt; perf dump</code></td><td>Read current counter snapshot</td></tr>
+    <tr><td><code>ceph daemon mgr.&lt;id&gt; config set debug_mgr 20/5</code></td><td>Enable verbose ThreadMonitor logs (<code>dout(20)</code> paths)</td></tr>
+  </tbody>
+</table>
+
+<hr>
+<p style="color:var(--muted);font-size:.8rem;text-align:center;">
+  Ground truth: <code class="sha">95a90f7da8a3</code> (2024-12-08, establishing commit) · <code class="sha">28647966e2e0</code> (2026-05-27, bug fix #76938) · HEAD <code class="sha">8681fa6ebac2</code> · Generated 2026-09-14
+</p>
+
+</body>
+</html>

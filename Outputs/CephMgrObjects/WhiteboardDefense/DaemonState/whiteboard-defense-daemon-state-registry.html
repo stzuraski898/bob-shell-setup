@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — DaemonState Registry</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+    --muted: #8b949e;
+    --text: #e6edf3;
+    --code-bg: #1f2937;
+    --tag-ok: #1a3a1a;
+    --tag-ok-t: #3fb950;
+    --tag-warn: #3a2800;
+    --tag-warn-t: #d29922;
+    --tag-danger: #3a0d0d;
+    --tag-danger-t: #f85149;
+    --tag-info: #0c2040;
+    --tag-info-t: #58a6ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 26px; color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: 12px; margin-bottom: 8px; }
+  h2 { font-size: 18px; color: var(--accent); margin: 32px 0 12px; border-left: 3px solid var(--accent); padding-left: 10px; }
+  h3 { font-size: 14px; color: var(--accent2); margin: 20px 0 8px; }
+  .meta { color: var(--muted); font-size: 12px; margin-bottom: 24px; }
+  .meta span { margin-right: 20px; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 6px 0 6px 20px; }
+  li { margin: 3px 0; }
+  code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 12px;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #d2a8ff;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-size: 12px;
+    overflow-x: auto;
+    line-height: 1.5;
+    color: var(--text);
+    margin: 10px 0;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  th {
+    background: var(--surface);
+    color: var(--accent);
+    padding: 8px 12px;
+    text-align: left;
+    border: 1px solid var(--border);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  td {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #0f1419; }
+  tr:nth-child(odd) td { background: var(--bg); }
+  .tag {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .ok { background: var(--tag-ok); color: var(--tag-ok-t); }
+  .warn { background: var(--tag-warn); color: var(--tag-warn-t); }
+  .danger { background: var(--tag-danger); color: var(--tag-danger-t); }
+  .info { background: var(--tag-info); color: var(--tag-info-t); }
+  .sha {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    margin: 12px 0;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-x: auto;
+  }
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 24px 0;
+  }
+  .callout {
+    border-left: 3px solid var(--warn);
+    background: var(--tag-warn);
+    padding: 8px 14px;
+    border-radius: 0 4px 4px 0;
+    margin: 8px 0;
+    font-size: 13px;
+  }
+  .callout.danger { border-left-color: var(--danger); background: var(--tag-danger); }
+  .callout.info { border-left-color: var(--accent); background: var(--tag-info); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+  hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+  .toc { columns: 2; font-size: 13px; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense: DaemonState Registry</h1>
+<div class="meta">
+  <span>📁 <code>src/mgr/DaemonState.cc</code> · <code>src/mgr/DaemonState.h</code></span>
+  <span>📝 85 commits · 2016-06-30 → 2025-10-02</span>
+  <span>🔖 HEAD <span class="sha">8681fa6ebac2</span></span>
+  <span>📐 387 / 295 lines at HEAD</span>
+</div>
+
+<div class="section">
+  <h3>Table of Contents</h3>
+  <ol class="toc">
+    <li><a href="#arch">High-Level Architecture &amp; Mental Model</a></li>
+    <li><a href="#decisions">Architectural Decisions &amp; Trade-offs</a></li>
+    <li><a href="#ds">Data Structures, Algorithms &amp; Invariants</a></li>
+    <li><a href="#threat">Threat Model &amp; Adversarial Handling</a></li>
+    <li><a href="#failures">Failure Modes, Edge Cases &amp; Blast Radius</a></li>
+    <li><a href="#obs">Observability &amp; Triage Playbook</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 1 — ARCHITECTURE
+═══════════════════════════════════════════════════════════ -->
+<div class="section" id="arch">
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+
+<p><strong>What it is:</strong> <code>DaemonStateIndex</code> is the ceph-mgr's in-process registry of all cluster daemon instances. It maps every live daemon (OSD, MDS, MON, RGW, plus third-party services) to a <code>DaemonState</code> object containing its metadata, config, perf counters, and device attachments. A parallel <code>devices</code> index inverts that relationship: physical storage devices → which daemons reference them.</p>
+
+<div class="diagram">
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        ceph-mgr process                                  │
+│                                                                          │
+│   Daemon A ──MMgrReport──▶ ┌────────────────────────────────────────┐  │
+│   Daemon B ──MMgrReport──▶ │         DaemonStateIndex               │  │
+│   Daemon C ──MMgrReport──▶ │                                        │  │
+│                            │  all: map&lt;DaemonKey, DaemonStatePtr&gt;  │  │
+│                            │  ├─ {osd, "0"}  ──▶ DaemonState ─┐    │  │
+│                            │  ├─ {osd, "1"}  ──▶ DaemonState  │    │  │
+│                            │  ├─ {mds, "a"}  ──▶ DaemonState  │    │  │
+│                            │  └─ {rgw, "x"}  ──▶ DaemonState  │    │  │
+│                            │                                   │    │  │
+│                            │  by_server: map&lt;host, map&lt;...&gt;&gt;  │    │  │
+│                            │                                   │    │  │
+│                            │  devices: map&lt;devid, DeviceRef&gt;  │    │  │
+│                            │  └─ "wwn-xyz" ──▶ DeviceState ◀──┘    │  │
+│                            │       daemons: {osd/0, osd/1}         │  │
+│                            │       attachments: {(host,dev,path)}   │  │
+│                            └────────────────────────────────────────┘  │
+│                                        │                                 │
+│                        Python modules ─┘  (ActivePyModules)             │
+│                        Dashboard / REST API / CLI                        │
+└─────────────────────────────────────────────────────────────────────────┘
+</div>
+
+<h3>Object Identity</h3>
+<table>
+<tr><th>Class</th><th>Key</th><th>Lifecycle</th></tr>
+<tr><td><code>DaemonState</code></td><td><code>DaemonKey {type:string, name:string}</code></td><td>Created on first MMgrReport; removed on <code>cull()</code> or <code>rm()</code></td></tr>
+<tr><td><code>DeviceState</code></td><td><code>string devid</code> (WWN/serial)</td><td>Created on first daemon referencing it; pruned when <code>empty()</code></td></tr>
+<tr><td><code>DaemonStateIndex</code></td><td>Singleton in ceph-mgr</td><td>Lasts for mgr process lifetime</td></tr>
+</table>
+
+<h3>DaemonKey Evolution</h3>
+<table>
+<tr><th>Era</th><th>SHA</th><th>Representation</th></tr>
+<tr><td>2016</td><td><span class="sha">ac30e6ce</span></td><td><code>pair&lt;entity_type_t, string&gt;</code></td></tr>
+<tr><td>2017</td><td><span class="sha">a22b256b</span></td><td><code>pair&lt;string, string&gt;</code> — service name became string</td></tr>
+<tr><td>2019</td><td><span class="sha">5aac7eba</span></td><td><code>struct DaemonKey { string type; string name; }</code> — named fields, comparable</td></tr>
+</table>
+
+<h3>Lock Architecture — Two-Level Model</h3>
+<div class="diagram">
+  DaemonStateIndex::lock  (ceph::shared_mutex)
+  ├── Protects: all, by_server, devices index maps
+  ├── Writers: insert, rm, _insert, _erase, _rm, update_metadata, cull, cull_services
+  └── Readers: exists, get, get_by_service, get_by_server, with_* family, is_updating
+
+      ↓  acquired AFTER index lock (never before — lock ordering)
+
+  DaemonState::lock  (ceph::mutex)
+  ├── Protects: metadata, config_defaults, devices (per-daemon), hostname, perf_counters
+  └── Writers: update_metadata (via set_metadata), _get_config_defaults callers
+</div>
+
+<h3>Key Data Flows</h3>
+<table>
+<tr><th>Trigger</th><th>Path</th><th>Notes</th></tr>
+<tr><td>Daemon connects / sends MMgrReport</td><td><code>insert()</code> → <code>_insert()</code></td><td>Takes exclusive lock; updates all 3 indexes</td></tr>
+<tr><td>Metadata update (e.g. OSD metadata msg)</td><td><code>update_metadata()</code></td><td>Atomic: <code>_rm → set_metadata → _insert</code> under exclusive lock; no window where daemon is absent</td></tr>
+<tr><td>Cluster map refresh</td><td><code>cull(svc, names_exist)</code></td><td>Removes stale first-party daemons; uses <code>lower_bound</code> prefix scan</td></tr>
+<tr><td>Last service-daemon instance stops</td><td><code>cull_services(types_exist)</code></td><td>Removes service daemons not in active set; full scan under exclusive lock</td></tr>
+<tr><td>Python module reads <code>by_server</code></td><td><code>with_daemons_by_server(cb)</code></td><td>Copies map under shared lock, invokes <code>cb</code> after lock release (GIL fix <span class="sha">b4304d52</span>)</td></tr>
+<tr><td>Device life-expectancy set</td><td><code>with_device_write(id, cb)</code></td><td>Exclusive lock; prunes device if <code>empty()</code> after callback</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 2 — DECISIONS
+═══════════════════════════════════════════════════════════ -->
+<div class="section" id="decisions">
+<h2>2 · Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+<tr>
+  <th>Decision</th>
+  <th>What was chosen</th>
+  <th>Why not the alternative?</th>
+  <th>Ground truth</th>
+</tr>
+<tr>
+  <td><strong>Two-level locking</strong><br>index-wide + per-entry mutex</td>
+  <td>Global <code>shared_mutex</code> guards structure; per-<code>DaemonState ceph::mutex</code> guards fields</td>
+  <td>Single global lock would serialize all perf-counter updates from all daemons — too coarse. Per-entry-only lock can't protect the index maps themselves during insert/erase.</td>
+  <td><span class="sha">f236b5e7</span> (2017-07-19) — added per-DaemonState lock; <span class="sha">806f10847c</span> (2017-08-24) — upgraded index to RWLock</td>
+</tr>
+<tr>
+  <td><strong>Return by value, not reference</strong><br><code>get_by_service</code>, <code>get_by_server</code>, <code>with_daemons_by_server</code></td>
+  <td>Callers receive a copy; no obligation to hold the index lock during use</td>
+  <td>Returning a reference forces callers to hold the lock for an indefinite duration (incl. Python callbacks) causing priority inversion and GIL deadlocks</td>
+  <td><span class="sha">806f10847c</span> comment: "returns by value to avoid callers holding lock"; GIL deadlock fix <span class="sha">b4304d521f</span> (tracker#72337)</td>
+</tr>
+<tr>
+  <td><strong>Atomic remove-update-reinsert in <code>update_metadata</code></strong></td>
+  <td><code>_rm → set_metadata → _insert</code> under single exclusive lock acquisition</td>
+  <td>Separate lock acquisitions would create a window where the daemon disappears from all indexes — Python modules polling between those windows would see phantom absences</td>
+  <td><span class="sha">8a2f4429b1</span>: "Do the whole thing under the DaemonState lock so there isn't a window where the osd metadata isn't present at all"</td>
+</tr>
+<tr>
+  <td><strong>Lazy decode of <code>config_defaults_bl</code></strong></td>
+  <td>Bufferlist stored encoded; decoded into <code>config_defaults</code> map on first access (<code>_get_config_defaults</code>)</td>
+  <td>Eager decode on every session open would pay ~50 kB decode cost unconditionally; most sessions never query config defaults</td>
+  <td><span class="sha">86cf85e0a2</span> (2018-01-05) — deferred decode; <span class="sha">1c2bc53df7</span> (2018-10-17) — renamed to <code>_get_config_defaults</code> to signal lock requirement (tracker#36590)</td>
+</tr>
+<tr>
+  <td><strong><code>DeviceState::empty()</code> as prune sentinel</strong></td>
+  <td>Device pruned from index only when both <code>daemons.empty()</code> AND <code>metadata.empty()</code></td>
+  <td>Pruning on <code>daemons.empty()</code> alone would discard persistent device metadata (life expectancy, wear level) loaded from config-key store even when no daemons currently reference the device</td>
+  <td><span class="sha">45d4dfed1d</span> (2018-06-05)</td>
+</tr>
+<tr>
+  <td><strong>Private constructor + <code>FRIEND_MAKE_REF</code> on <code>DeviceState</code></strong></td>
+  <td>Only <code>ceph::make_ref&lt;DeviceState&gt;()</code> can construct; constructor private</td>
+  <td>Public constructor allowed incorrect initial refcount, causing premature deallocation crashes</td>
+  <td><span class="sha">0b14f926ec</span> (2018-11-08) — initial refcount bug; <span class="sha">517bdca529</span> (2019-02-06) — private constructor enforcement</td>
+</tr>
+<tr>
+  <td><strong><code>DaemonKey</code> as named struct</strong></td>
+  <td><code>struct DaemonKey { string type; string name; }</code></td>
+  <td><code>pair&lt;string,string&gt;</code> required <code>.first</code>/<code>.second</code> at all use sites — opaque and error-prone; struct provides named fields, natural ordering, and a stream operator</td>
+  <td><span class="sha">5aac7eba36</span> (2019-09-29)</td>
+</tr>
+<tr>
+  <td><strong><code>with_daemons_by_server</code> copies map before callback</strong></td>
+  <td>Snapshot under shared lock; callback runs on snapshot without lock</td>
+  <td>Earlier: callback ran under lock — if callback entered Python interpreter, held the index lock while the GIL was needed, producing deadlock under high mgr load</td>
+  <td><span class="sha">b4304d521f</span> (2025-07-31, tracker#72337)</td>
+</tr>
+<tr>
+  <td><strong><code>devices</code> and <code>devices_bypath</code> cleared at top of <code>set_metadata</code></strong></td>
+  <td>Both maps cleared before re-parsing every metadata update</td>
+  <td>Without the clear, stale device entries would persist when a daemon's disk set changes (e.g., disk replacement); callers would see phantom devices</td>
+  <td><span class="sha">c52fc7b5d3</span> (2018-10-18)</td>
+</tr>
+<tr>
+  <td><strong>Life-expectancy stored in both typed fields and <code>metadata</code> map</strong></td>
+  <td>Both <code>life_expectancy</code> pair (in-memory fast path) and <code>metadata["life_expectancy_min/max/stamp"]</code> (persistence path) updated atomically in <code>set_life_expectancy</code></td>
+  <td>Earlier, only typed fields were updated — predictions were forgotten on mgr restart because the config-key store read back empty strings</td>
+  <td><span class="sha">78b72b0be7</span> (2021-02-08, tracker#49215)</td>
+</tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 3 — DATA STRUCTURES
+═══════════════════════════════════════════════════════════ -->
+<div class="section" id="ds">
+<h2>3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>DaemonStateIndex — Primary Maps</h3>
+<table>
+<tr><th>Field</th><th>Type</th><th>Purpose</th><th>Ordering / Access</th></tr>
+<tr>
+  <td><code>all</code></td>
+  <td><code>map&lt;DaemonKey, DaemonStatePtr&gt;</code></td>
+  <td>Primary index — all known daemons</td>
+  <td>Sorted by <code>DaemonKey {type, name}</code>; sorted order enables <code>lower_bound</code> prefix scan in <code>cull()</code></td>
+</tr>
+<tr>
+  <td><code>by_server</code></td>
+  <td><code>map&lt;string, map&lt;DaemonKey, DaemonStatePtr&gt;&gt;</code></td>
+  <td>Reverse index — host → daemons on that host</td>
+  <td>Used by <code>get_by_server()</code>, <code>with_daemons_by_server()</code>; bucket erased when empty</td>
+</tr>
+<tr>
+  <td><code>devices</code></td>
+  <td><code>map&lt;string, ceph::ref_t&lt;DeviceState&gt;&gt;</code></td>
+  <td>Device index — devid (WWN) → device state</td>
+  <td>Updated by <code>_insert</code> / <code>_erase</code>; pruned when <code>DeviceState::empty()</code></td>
+</tr>
+<tr>
+  <td><code>updating</code></td>
+  <td><code>set&lt;DaemonKey&gt;</code></td>
+  <td>Tracks daemons currently undergoing metadata update</td>
+  <td>Protected by same <code>lock</code>; polled by <code>is_updating()</code></td>
+</tr>
+<tr>
+  <td><code>types</code></td>
+  <td><code>PerfCounterTypes</code> (shared)</td>
+  <td>Schema registry for perf counters; shared across all <code>DaemonState</code> instances</td>
+  <td>Passed by reference into each <code>DaemonPerfCounters</code>; <strong>DaemonState must not outlive DaemonStateIndex</strong></td>
+</tr>
+</table>
+
+<h3>DaemonState — Per-Daemon Fields</h3>
+<table>
+<tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+<tr><td><code>key</code></td><td><code>DaemonKey</code></td><td>Identity; must not change after insertion</td></tr>
+<tr><td><code>hostname</code></td><td><code>string</code></td><td>Extracted from <code>metadata["hostname"]</code> by <code>set_metadata()</code>; blank if metadata never arrived — causes silent <code>by_server[""]</code> contamination</td></tr>
+<tr><td><code>metadata</code></td><td><code>map&lt;string,string&gt;</code></td><td>Raw key-value from daemon; authoritative source</td></tr>
+<tr><td><code>devices</code></td><td><code>map&lt;string,string&gt;</code> (devid→devname)</td><td>Cleared and re-parsed on every <code>set_metadata()</code> call (<span class="sha">c52fc7b5d3</span>)</td></tr>
+<tr><td><code>devices_bypath</code></td><td><code>map&lt;string,string&gt;</code> (devid→path)</td><td>Optional; path may be absent (stored as <code>""</code>)</td></tr>
+<tr><td><code>config_defaults_bl</code></td><td><code>bufferlist</code></td><td>Encoded; decoded lazily into <code>config_defaults</code> on first access</td></tr>
+<tr><td><code>config_defaults</code></td><td><code>map&lt;string,string&gt;</code></td><td>Cache; populated by <code>_get_config_defaults()</code></td></tr>
+<tr><td><code>service_daemon</code></td><td><code>bool</code></td><td>True for third-party services; used by <code>cull_services()</code></td></tr>
+<tr><td><code>perf_counters</code></td><td><code>DaemonPerfCounters</code></td><td>Moved to <code>DaemonPerfCounters.{cc,h}</code> by <span class="sha">35f6dd06dd</span> (2025-08-14)</td></tr>
+<tr><td><code>lock</code></td><td><code>ceph::mutex</code></td><td>Per-entry lock; established <span class="sha">f236b5e783</span>; always acquired after index lock</td></tr>
+</table>
+
+<h3>DeviceState — Per-Device Fields</h3>
+<table>
+<tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+<tr><td><code>devid</code></td><td><code>string</code></td><td>Immutable WWN / serial ID</td></tr>
+<tr><td><code>attachments</code></td><td><code>set&lt;tuple&lt;string,string,string&gt;&gt;</code></td><td>(host, devname, path); 3-tuple since <span class="sha">2c0fd7d868</span></td></tr>
+<tr><td><code>daemons</code></td><td><code>set&lt;DaemonKey&gt;</code></td><td>Which daemons reference this device</td></tr>
+<tr><td><code>metadata</code></td><td><code>map&lt;string,string&gt;</code></td><td>Persistent; loaded from config-key store</td></tr>
+<tr><td><code>life_expectancy</code></td><td><code>pair&lt;utime_t,utime_t&gt;</code></td><td>In-memory typed copy; also mirrored in <code>metadata</code> for persistence</td></tr>
+<tr><td><code>wear_level</code></td><td><code>float</code> (sentinel <code>-1</code>)</td><td>SSD wear; <code>-1</code> = unknown; also mirrored in <code>metadata</code></td></tr>
+</table>
+
+<h3>Critical Invariants</h3>
+<table>
+<tr><th>#</th><th>Invariant</th><th>Established</th></tr>
+<tr>
+  <td>I-1</td>
+  <td><strong>Lock ordering:</strong> always <code>DaemonStateIndex::lock</code> → <code>DaemonState::lock</code>. Never reversed.</td>
+  <td><span class="sha">8a2f4429b1</span> / <span class="sha">675606bf71</span></td>
+</tr>
+<tr>
+  <td>I-2</td>
+  <td><strong>No stale devices on metadata refresh:</strong> <code>devices</code> and <code>devices_bypath</code> cleared before re-parse in <code>set_metadata()</code>.</td>
+  <td><span class="sha">c52fc7b5d3</span></td>
+</tr>
+<tr>
+  <td>I-3</td>
+  <td><strong>Index consistency:</strong> if <code>all</code> contains a key, <code>by_server</code> and <code>devices</code> are consistent with it. Enforced by <code>_insert</code>/<code>_erase</code> always updating all three atomically under exclusive lock.</td>
+  <td><span class="sha">38afbae026</span></td>
+</tr>
+<tr>
+  <td>I-4</td>
+  <td><strong>No phantom absence:</strong> <code>update_metadata()</code> holds exclusive lock across <code>_rm→set_metadata→_insert</code>; daemon is never absent from index during update.</td>
+  <td><span class="sha">8a2f4429b1</span></td>
+</tr>
+<tr>
+  <td>I-5</td>
+  <td><strong>Device pruned only when truly empty:</strong> <code>empty() = daemons.empty() &amp;&amp; metadata.empty()</code>. Device survives if it has persistent metadata even with no daemon references.</td>
+  <td><span class="sha">45d4dfed1d</span></td>
+</tr>
+<tr>
+  <td>I-6</td>
+  <td><strong>Life-expectancy persistence:</strong> both in-memory typed fields and <code>metadata</code> map updated atomically in <code>set_life_expectancy()</code>. Serialised as <code>stringify(t)</code> (non-zero) or <code>""</code> (zero) — not <code>"0.000000"</code>.</td>
+  <td><span class="sha">78b72b0be7</span></td>
+</tr>
+<tr>
+  <td>I-7</td>
+  <td><strong><code>_get_config_defaults</code> lock discipline:</strong> leading underscore = caller must hold <code>DaemonState::lock</code>. Same convention as <code>_insert</code>, <code>_rm</code>, <code>_erase</code>.</td>
+  <td><span class="sha">1c2bc53df7</span> (tracker#36590)</td>
+</tr>
+<tr>
+  <td>I-8</td>
+  <td><strong><code>DeviceState</code> construction via factory only:</strong> constructor private, <code>FRIEND_MAKE_REF</code> enforces correct initial refcount.</td>
+  <td><span class="sha">517bdca529</span></td>
+</tr>
+<tr>
+  <td>I-9</td>
+  <td><strong>Blank device IDs are skipped</strong> during <code>set_metadata()</code> parsing.</td>
+  <td><span class="sha">7add8da7b0</span></td>
+</tr>
+</table>
+
+<h3>Algorithm Notes</h3>
+<ul>
+  <li><strong><code>cull(svc, names_exist)</code>:</strong> O(k + v·log n) — <code>lower_bound({svc,""})</code> scans only the service prefix, collects victims into <code>vector&lt;string&gt;</code>, then reconstructs <code>DaemonKey</code> for erase. Optimised by <span class="sha">0e7137aa6a</span>.</li>
+  <li><strong><code>get_by_service(svc)</code>:</strong> O(n) full linear scan of <code>all</code> — <em>inconsistency vs. <code>cull()</code></em> which uses <code>lower_bound</code> on the same sorted map. Never optimised.</li>
+  <li><strong><code>_get_or_create_device</code>:</strong> single <code>try_emplace</code> call (<span class="sha">517bdca529</span>) — one map operation vs. the original find+insert two-step.</li>
+  <li><strong><code>get_by_server</code>:</strong> single <code>find</code> after <span class="sha">f9a11737ea</span> — was <code>count()+at()</code> (two lookups) before.</li>
+</ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 4 — THREAT MODEL
+═══════════════════════════════════════════════════════════ -->
+<div class="section" id="threat">
+<h2>4 · Threat Model &amp; Adversarial Handling</h2>
+
+<p>The ceph-mgr assumes authenticated daemons (messenger v2 auth). The threat model is primarily <strong>misbehaving or buggy daemons</strong>, not external attackers. The registry's attack surface is the <code>MMgrReport</code> message path and the Python module interface.</p>
+
+<table>
+<tr>
+  <th>Actor / Scenario</th>
+  <th>Attack Vector</th>
+  <th>What happens</th>
+  <th>Status</th>
+</tr>
+<tr>
+  <td>Malicious / buggy daemon sends <code>metadata["hostname"] = ""</code></td>
+  <td><code>update_metadata()</code> → <code>set_metadata()</code> → <code>_insert()</code></td>
+  <td><code>by_server[""]</code> bucket accumulates entries. All queries for server <code>""</code> return these contaminated results. No assertion guards this. <strong>Silent corruption of by_server index.</strong></td>
+  <td><span class="tag danger">UNGROUNDED</span> no empty-hostname guard in <code>_insert()</code></td>
+</tr>
+<tr>
+  <td>Daemon sends corrupt <code>config_defaults_bl</code></td>
+  <td>Blob stored; decoded on first access by <code>_get_config_defaults()</code></td>
+  <td><code>buffer::error</code> caught and silently swallowed (<span class="sha">62382040ee</span>). <code>config_defaults</code> remains empty. No log line. Caller sees empty config defaults with no indication of corruption.</td>
+  <td><span class="tag danger">UNGROUNDED</span> silent failure</td>
+</tr>
+<tr>
+  <td>Daemon sends metadata with <code>device_ids</code> containing spaces</td>
+  <td><code>set_metadata()</code> <code>for_each_pair</code> with delimiter <code>",; "</code></td>
+  <td>Space is treated as field delimiter — device ID is silently truncated at the space. Device with space in WWN/serial would be split into two bogus entries.</td>
+  <td><span class="tag warn">UNGROUNDED</span> undocumented wire contract</td>
+</tr>
+<tr>
+  <td>Python module sends inverted life expectancy (<code>from &gt; to</code>)</td>
+  <td><code>set_life_expectancy(from, to, now)</code></td>
+  <td>No assertion. Stored as-is. <code>get_life_expectancy_str()</code> would compute negative duration. Output would be nonsensical but not crash.</td>
+  <td><span class="tag warn">OVERCAUTIOUS</span> no from≤to guard</td>
+</tr>
+<tr>
+  <td>Python module sets <code>wear_level = 999.0</code></td>
+  <td><code>with_device_write(id, cb)</code> → <code>set_wear_level(999.0)</code></td>
+  <td>Only <code>wear &gt;= 0</code> checked; arbitrary float stored and persisted to config-key store. Dashboard would display <code>999.0</code>.</td>
+  <td><span class="tag warn">UNGROUNDED</span> no upper-bound check</td>
+</tr>
+<tr>
+  <td>Daemon re-registers with same key after being culled</td>
+  <td><code>insert(dm)</code> when <code>all.count(dm->key) &gt; 0</code></td>
+  <td><code>_erase(key)</code> called first, then <code>_insert(dm)</code>. Idempotent; old entry fully replaced. No crash.</td>
+  <td><span class="tag ok">OK</span></td>
+</tr>
+<tr>
+  <td>Two daemons register with the same key simultaneously</td>
+  <td>Concurrent <code>insert()</code> calls</td>
+  <td>Both acquire exclusive write lock sequentially. Second insert calls <code>_erase</code> on the first entry then inserts its own. Last writer wins. No data corruption.</td>
+  <td><span class="tag ok">OK</span> — <span class="sha">5b6037aeb4</span> fixed crash from multiple sessions with same name</td>
+</tr>
+<tr>
+  <td>Python callback blocks indefinitely in <code>with_devices2(cbi, cb)</code></td>
+  <td>Callback into Python while holding index shared lock</td>
+  <td>GIL-vs-index-lock inversion identical to the one fixed in <code>with_daemons_by_server</code> (<span class="sha">b4304d521f</span>, tracker#72337). <code>with_devices2</code> was <em>not</em> fixed. Extended shared lock hold blocks all writers.</td>
+  <td><span class="tag danger">UNGROUNDED</span> potential GIL deadlock</td>
+</tr>
+<tr>
+  <td><code>exists() + get()</code> double-check pattern in callers</td>
+  <td>Daemon removed between <code>exists()</code> (shared lock released) and <code>get()</code> (new shared lock)</td>
+  <td><code>get()</code> returns <code>nullptr</code> on miss (<span class="sha">f9a4ca07ac</span>). Callers that don't null-check after <code>get()</code> would dereference null. <code>get()</code> itself is safe; calling pattern is TOCTOU.</td>
+  <td><span class="tag warn">OVERCAUTIOUS</span> at API level — caller responsibility</td>
+</tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 5 — FAILURE MODES
+═══════════════════════════════════════════════════════════ -->
+<div class="section" id="failures">
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<table>
+<tr>
+  <th>Failure</th>
+  <th>Trigger</th>
+  <th>Blast Radius</th>
+  <th>Recovery</th>
+</tr>
+<tr>
+  <td><strong><code>get_all()</code> data race</strong></td>
+  <td>Caller invokes <code>get_all()</code> while <code>insert()</code> or <code>cull()</code> is running</td>
+  <td><code>get_all()</code> copies <code>all</code> without holding <code>lock</code> — the copy is unprotected during a concurrent structural write. UB if the map is being modified. <strong>DIVERGED</strong> from <span class="sha">806f10847c</span> intent.</td>
+  <td>Only callers that take the shared lock themselves avoid this. Fix: add <code>std::shared_lock</code> to <code>get_all()</code>.</td>
+</tr>
+<tr>
+  <td><strong>Stale empty <code>DeviceState</code> after <code>with_device_create</code></strong></td>
+  <td>Callback leaves device empty (no metadata set, no daemon attached)</td>
+  <td>Device never pruned from <code>devices</code> index until next <code>_erase</code> of a daemon that references it. Memory leak of <code>DeviceState</code> proportional to number of such calls.</td>
+  <td>Minor; no correctness impact. Fix: add <code>empty()</code> check post-callback in <code>with_device_create</code>.</td>
+</tr>
+<tr>
+  <td><strong>Silent corrupt config defaults</strong></td>
+  <td>Corrupt <code>config_defaults_bl</code> from daemon</td>
+  <td><code>_get_config_defaults()</code> returns empty map. Python modules querying config defaults get silently empty results. Modules that enforce config rules see no defaults, potentially accepting invalid config values.</td>
+  <td>No automatic recovery. Requires daemon reconnect with valid bufferlist. Add <code>dout</code> on catch to make visible.</td>
+</tr>
+<tr>
+  <td><strong>Re-decode loop on empty-but-valid config defaults</strong></td>
+  <td>Daemon with zero config-default entries connects</td>
+  <td><code>config_defaults.empty()</code> stays true even after decode; every subsequent call to <code>_get_config_defaults()</code> re-decodes the bufferlist. CPU waste proportional to call frequency; no correctness impact.</td>
+  <td>Pathological but possible. Fix: use a separate <code>config_defaults_decoded</code> bool flag.</td>
+</tr>
+<tr>
+  <td><strong>GIL deadlock in <code>with_devices2</code></strong></td>
+  <td>Python module calls <code>get('devices')</code> while another thread holds the GIL and waits for index shared lock</td>
+  <td>mgr ActivePyModules thread and the mgr main thread deadlock. mgr becomes unresponsive. Same root cause as tracker#72337 (fixed for <code>with_daemons_by_server</code> in <span class="sha">b4304d521f</span>).</td>
+  <td>mgr restart required. Fix: copy devices map before releasing lock in <code>with_devices2</code> (same pattern as <span class="sha">b4304d521f</span>).</td>
+</tr>
+<tr>
+  <td><strong>Long exclusive lock in <code>cull</code> / <code>cull_services</code></strong></td>
+  <td>Cluster map update with many stale daemons, or many service-daemon removals</td>
+  <td>All readers (<code>get</code>, <code>get_by_service</code>, Python callbacks) block for duration of full scan + N×<code>_erase</code> under exclusive lock. Dashboard and REST APIs stall.</td>
+  <td>Operational: keep service daemon counts low. Engineering fix: incremental cull or collect-then-release pattern.</td>
+</tr>
+<tr>
+  <td><strong><code>by_server[""]</code> contamination</strong></td>
+  <td>Daemon connects before metadata is set (<code>hostname</code> is <code>""</code>)</td>
+  <td><code>by_server[""]</code> accumulates entries. Queries for server <code>""</code> return wrong results. <code>list_devids_by_server("")</code> returns all devices on all daemons with no hostname. Dashboard host view corrupted.</td>
+  <td>Subsequent <code>update_metadata()</code> with correct hostname will <code>_rm</code> + <code>_insert</code> correctly. Self-heals on metadata arrival. Guard: assert non-empty hostname in <code>_insert</code>.</td>
+</tr>
+<tr>
+  <td><strong><code>DaemonState</code> outlives <code>DaemonStateIndex</code></strong></td>
+  <td>Caller holds <code>DaemonStatePtr</code> past mgr shutdown</td>
+  <td><code>perf_counters</code> holds a reference to <code>DaemonStateIndex::types</code>. If <code>DaemonStateIndex</code> is destroyed first, the reference dangles. Use-after-free on any perf counter access.</td>
+  <td>Enforced only by convention (all DaemonStatePtr owned by index). No RAII guarantee. Shutdown order must be correct.</td>
+</tr>
+<tr>
+  <td><strong>Life-expectancy persistence forgotten on mgr restart</strong></td>
+  <td>Pre-<span class="sha">78b72b0be7</span> behaviour</td>
+  <td><em>(Historical, fixed)</em> <code>life_expectancy</code> in-memory only; mgr restart cleared all predictions. Disk failure warnings silently disappeared after mgr failover.</td>
+  <td>Fixed: <span class="sha">78b72b0be7</span> (tracker#49215) — both typed fields and metadata map updated atomically.</td>
+</tr>
+</table>
+
+<h3>Known Findings Summary</h3>
+<div class="two-col">
+<div>
+<h3>DIVERGED</h3>
+<ul>
+  <li><code>get_all()</code> at <code>h:180</code> — copies <code>all</code> without <code>lock</code>, contradicting <span class="sha">806f10847c</span>'s own stated rationale that by-value returns exist to let callers safely drop the lock.</li>
+</ul>
+</div>
+<div>
+<h3>Top UNGROUNDED Risks</h3>
+<ul>
+  <li><code>with_devices2</code> — potential GIL deadlock (unfixed sibling of tracker#72337)</li>
+  <li><code>_insert</code> — no empty-hostname guard → <code>by_server[""]</code> contamination</li>
+  <li><code>_get_config_defaults</code> — silent corrupt decode</li>
+  <li><code>set_wear_level</code> — no upper-bound validation</li>
+  <li><code>with_device_create</code> — no post-callback <code>empty()</code> prune</li>
+</ul>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 6 — OBSERVABILITY
+═══════════════════════════════════════════════════════════ -->
+<div class="section" id="obs">
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<h3>What is observable</h3>
+<table>
+<tr><th>Signal</th><th>Source</th><th>What it tells you</th></tr>
+<tr><td>Daemon visible in <code>ceph status</code> / <code>ceph service dump</code></td><td><code>DaemonStateIndex::all</code></td><td>Daemon is in the <code>all</code> index and its metadata is current</td></tr>
+<tr><td><code>ceph device ls</code></td><td><code>DaemonStateIndex::devices</code></td><td>All <code>DeviceState</code> entries in the device index</td></tr>
+<tr><td><code>ceph device info &lt;devid&gt;</code></td><td><code>DeviceState::dump()</code> / <code>print()</code></td><td>Attachments, daemons, life expectancy, wear level</td></tr>
+<tr><td><code>ceph mgr dump</code></td><td>mgr metadata export</td><td>Confirms daemon metadata is present in index</td></tr>
+<tr><td>mgr log at debug level</td><td><code>dout</code> in <code>cull()</code>, <code>cull_services()</code></td><td>Which daemons are being evicted on cluster map update</td></tr>
+</table>
+
+<h3>Triage Scenarios</h3>
+<table>
+<tr><th>Symptom</th><th>First check</th><th>Likely cause</th></tr>
+<tr>
+  <td>Daemon appears in <code>ceph status</code> but wrong host</td>
+  <td><code>ceph device ls-by-daemon &lt;type.id&gt;</code>; inspect <code>hostname</code> in metadata</td>
+  <td><code>hostname</code> not yet received from daemon — <code>by_server[""]</code> contamination; self-heals on metadata arrival</td>
+</tr>
+<tr>
+  <td>Config defaults silently empty for a daemon</td>
+  <td>Check if daemon reconnects and sends valid <code>MMgrReport</code>; grep mgr log for decode errors (none present = <em>silent failure</em>)</td>
+  <td>Corrupt <code>config_defaults_bl</code> silently swallowed in <code>_get_config_defaults()</code></td>
+</tr>
+<tr>
+  <td>Device life expectancy disappears after mgr failover</td>
+  <td>Check mgr version: pre-<span class="sha">78b72b0be7</span>? Check config-key store for <code>device/&lt;devid&gt;</code> keys</td>
+  <td>Pre-fix behaviour (tracker#49215): life expectancy was in-memory only; <span class="sha">78b72b0be7</span> fixed this</td>
+</tr>
+<tr>
+  <td>mgr hangs / dashboard unresponsive after many daemons stop</td>
+  <td>Take mgr thread dump; look for threads waiting on <code>DaemonStateIndex::lock</code></td>
+  <td><code>cull_services()</code> or <code>cull()</code> holding exclusive lock for extended time; or <code>with_devices2</code> GIL deadlock</td>
+</tr>
+<tr>
+  <td>Stale daemon still appears after it was removed</td>
+  <td>Check if <code>cull(svc, names_exist)</code> is being called with the correct <code>names_exist</code> set; verify daemon key type matches</td>
+  <td><code>cull_services()</code> only removes <code>service_daemon==true</code> entries; first-party daemons need <code>cull()</code>. Wrong type string misses the <code>lower_bound</code> prefix entirely.</td>
+</tr>
+<tr>
+  <td><code>ceph device info</code> shows blank life expectancy even after <code>device set-predicted-failure</code></td>
+  <td>Inspect config-key store: <code>ceph config-key get device/&lt;devid&gt;</code></td>
+  <td>Pre-<span class="sha">78b72b0be7</span>: metadata not persisted. Post-fix: check if <code>set_life_expectancy()</code> was called with <code>from = utime_t()</code>.</td>
+</tr>
+<tr>
+  <td>Wear level shows <code>0.0</code> unexpectedly</td>
+  <td>Check raw device metadata string for <code>wear_level</code>; look for empty or non-numeric value</td>
+  <td><code>atof("")</code> returns <code>0.0</code> — corrupt or empty <code>wear_level</code> metadata string silently stored as valid level</td>
+</tr>
+</table>
+
+<h3>Key Commit Reference</h3>
+<table>
+<tr><th>SHA</th><th>Date</th><th>Impact</th></tr>
+<tr><td><span class="sha">b7c9561accef</span></td><td>2016-07-01</td><td>Fixed missing locks in original <code>DaemonMetadata</code> — foundational correctness fix</td></tr>
+<tr><td><span class="sha">806f10847cef</span></td><td>2017-08-24</td><td>RWLock + by-value return semantics established; also left <code>get_all()</code> DIVERGED</td></tr>
+<tr><td><span class="sha">f236b5e78338</span></td><td>2017-07-19</td><td>Per-DaemonState lock added — enables concurrent per-entry mutations</td></tr>
+<tr><td><span class="sha">8a2f4429b129</span></td><td>2018-10-18</td><td>Atomic <code>update_metadata</code> — no-phantom-absence invariant</td></tr>
+<tr><td><span class="sha">38afbae02696</span></td><td>2018-06-05</td><td>DeviceState index introduced; 3-map consistency invariant established</td></tr>
+<tr><td><span class="sha">0b14f926ec23</span></td><td>2018-11-08</td><td>DeviceState initial refcount bug fixed</td></tr>
+<tr><td><span class="sha">517bdca529db</span></td><td>2019-02-06</td><td>Private constructor + FRIEND_MAKE_REF — prevents refcount recurrence</td></tr>
+<tr><td><span class="sha">675606bf712e</span></td><td>2019-07-07</td><td>ceph::shared_mutex + ceph::mutex replacing RWLock — modern C++ primitives</td></tr>
+<tr><td><span class="sha">78b72b0be752</span></td><td>2021-02-08</td><td>Life expectancy persistence fix (tracker#49215)</td></tr>
+<tr><td><span class="sha">b4304d521f61</span></td><td>2025-07-31</td><td>GIL deadlock fix for <code>with_daemons_by_server</code> (tracker#72337)</td></tr>
+<tr><td><span class="sha">35f6dd06dd0b</span></td><td>2025-08-14</td><td>PerfCounters extracted to separate files; DaemonState header significantly slimmed</td></tr>
+</table>
+</div>
+
+<hr>
+<div style="color:var(--muted);font-size:11px;text-align:center;padding:8px 0">
+  DaemonState Whiteboard Defense · Generated from 85 commits (2016-06-30 → 2025-10-02) · HEAD <span class="sha">8681fa6ebac2</span>
+</div>
+</body>
+</html>

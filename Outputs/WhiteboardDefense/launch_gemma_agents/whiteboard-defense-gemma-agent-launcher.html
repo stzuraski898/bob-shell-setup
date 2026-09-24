@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Whiteboard Defense — Gemma Agent Launchers</title>
+<style>
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --border:    #30363d;
+    --accent:    #58a6ff;
+    --accent2:   #f78166;
+    --accent3:   #3fb950;
+    --warn:      #d29922;
+    --muted:     #8b949e;
+    --text:      #e6edf3;
+    --code-bg:   #1c2128;
+    --radius:    6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 48px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  /* ── Typography ── */
+  h1 { font-size: 1.9rem; color: var(--accent); margin-bottom: 6px; }
+  h2 { font-size: 1.2rem; color: var(--accent); margin: 36px 0 14px;
+       border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  h3 { font-size: 0.95rem; color: var(--accent2); margin: 20px 0 8px; text-transform: uppercase; letter-spacing: .06em; }
+  p  { margin-bottom: 10px; }
+  ul, ol { padding-left: 20px; margin-bottom: 10px; }
+  li { margin-bottom: 4px; }
+  strong { color: #f0f6fc; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 0.85em;
+    color: #ffa657;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin-bottom: 14px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 0.82em;
+    line-height: 1.55;
+    color: #cdd9e5;
+  }
+
+  /* ── Tables ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 18px;
+    font-size: 0.88em;
+  }
+  th {
+    background: var(--surface);
+    color: var(--accent);
+    text-align: left;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  td {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #12171e; }
+  tr:hover td { background: #1e2731; }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block;
+    border-radius: 3px;
+    padding: 1px 7px;
+    font-size: 0.75em;
+    font-weight: 600;
+    letter-spacing: .04em;
+  }
+  .badge-green  { background: #1a3828; color: var(--accent3); border: 1px solid var(--accent3); }
+  .badge-red    { background: #3b1219; color: var(--accent2); border: 1px solid var(--accent2); }
+  .badge-yellow { background: #2d2208; color: var(--warn);    border: 1px solid var(--warn);    }
+  .badge-blue   { background: #102030; color: var(--accent);  border: 1px solid var(--accent);  }
+
+  /* ── Callout boxes ── */
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    padding: 10px 16px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    margin-bottom: 14px;
+  }
+  .callout.warn  { border-color: var(--warn);   }
+  .callout.error { border-color: var(--accent2); }
+  .callout.ok    { border-color: var(--accent3); }
+
+  /* ── Flow diagram (SVG) ── */
+  .diagram-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    overflow-x: auto;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+  svg text { font-family: "SFMono-Regular", Consolas, monospace; }
+
+  /* ── Header meta ── */
+  .meta-row {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .meta-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 0.8em;
+    color: var(--muted);
+  }
+  .meta-pill strong { color: var(--text); }
+
+  /* ── Section anchor offset ── */
+  section { margin-bottom: 10px; }
+  .toc { margin-bottom: 32px; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 3px; }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense</h1>
+<p style="color:var(--muted); font-size:0.9em; margin-bottom:14px;">Gemma Agent Launchers — <code>launch-gemma-agents.sh</code> · <code>setup-gemma-remote.sh</code> · <code>launch-gemma-remote.sh</code> · <code>run-remaining.sh</code></p>
+
+<div class="meta-row">
+  <span class="meta-pill"><strong>Domain:</strong> LLM-driven test generation</span>
+  <span class="meta-pill"><strong>Model:</strong> Gemma 4 via Ollama</span>
+  <span class="meta-pill"><strong>Target:</strong> Ceph mgr C++ unit tests (gtest)</span>
+  <span class="meta-pill"><strong>Runtime:</strong> Local laptop OR remote sockeni07</span>
+  <span class="meta-pill"><strong>Language:</strong> Bash + Python 3</span>
+</div>
+
+<nav class="toc">
+  <ol>
+    <li><a href="#arch">High-Level Architecture &amp; Mental Model</a></li>
+    <li><a href="#decisions">Architectural Decisions &amp; Trade-offs</a></li>
+    <li><a href="#datastructs">Data Structures, Algorithms &amp; Invariants</a></li>
+    <li><a href="#threat">Threat Model &amp; Adversarial Handling</a></li>
+    <li><a href="#failures">Failure Modes, Edge Cases &amp; Blast Radius</a></li>
+    <li><a href="#observability">Observability &amp; Triage Playbook</a></li>
+  </ol>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<section id="arch">
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+
+<h3>System Overview</h3>
+<p>Three execution modes, one core agent (<code>generate_tests.py</code>), one decision: <em>local RAM is scarce</em> → offload to a 503 GB RAM server.</p>
+
+<div class="diagram-wrap">
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="420" viewBox="0 0 980 420">
+  <!-- background -->
+  <rect width="980" height="420" fill="#1c2128" rx="8"/>
+
+  <!-- LOCAL LAPTOP box -->
+  <rect x="20" y="20" width="380" height="370" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+  <text x="210" y="46" fill="#58a6ff" font-size="13" font-weight="bold" text-anchor="middle">LOCAL LAPTOP</text>
+  <text x="210" y="62" fill="#8b949e" font-size="10" text-anchor="middle">Intel Ultra 7 165H · 16 GB free RAM · Gemma4:latest 9.6 GB</text>
+
+  <!-- launch-gemma-agents.sh -->
+  <rect x="40" y="78" width="340" height="64" rx="4" fill="#102030" stroke="#58a6ff" stroke-width="1"/>
+  <text x="210" y="97" fill="#58a6ff" font-size="11" font-weight="bold" text-anchor="middle">launch-gemma-agents.sh</text>
+  <text x="210" y="112" fill="#cdd9e5" font-size="9.5" text-anchor="middle">1. Validate: Ollama reachable · generator exists · instructions file</text>
+  <text x="210" y="126" fill="#cdd9e5" font-size="9.5" text-anchor="middle">2. Parse instructions → source_file[] / output_file[] arrays</text>
+  <text x="210" y="140" fill="#cdd9e5" font-size="9.5" text-anchor="middle">3. Cap at MAX_AGENTS · spawn Tilix window+sessions</text>
+
+  <!-- run-remaining.sh -->
+  <rect x="40" y="158" width="340" height="50" rx="4" fill="#1a3828" stroke="#3fb950" stroke-width="1"/>
+  <text x="210" y="177" fill="#3fb950" font-size="11" font-weight="bold" text-anchor="middle">run-remaining.sh</text>
+  <text x="210" y="192" fill="#cdd9e5" font-size="9.5" text-anchor="middle">Serial fallback: ServiceMap → MgrClient → DaemonServer (hardcoded)</text>
+  <text x="210" y="205" fill="#cdd9e5" font-size="9.5" text-anchor="middle">--no-feedback, local Ollama, writes directly to ceph test tree</text>
+
+  <!-- Tilix -->
+  <rect x="40" y="224" width="160" height="40" rx="4" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+  <text x="120" y="239" fill="#8b949e" font-size="10" text-anchor="middle">Tilix Window</text>
+  <text x="120" y="255" fill="#8b949e" font-size="9" text-anchor="middle">Tab N per agent</text>
+
+  <!-- generate_tests.py -->
+  <rect x="40" y="280" width="340" height="95" rx="4" fill="#2d2208" stroke="#d29922" stroke-width="1"/>
+  <text x="210" y="300" fill="#d29922" font-size="11" font-weight="bold" text-anchor="middle">generate_tests.py  (core agent)</text>
+  <text x="210" y="316" fill="#cdd9e5" font-size="9.5" text-anchor="middle">1. Read source · load optional system prompt override</text>
+  <text x="210" y="330" fill="#cdd9e5" font-size="9.5" text-anchor="middle">2. POST /api/chat → Ollama → extract_code_block()</text>
+  <text x="210" y="344" fill="#cdd9e5" font-size="9.5" text-anchor="middle">3. Write test file → run pytest → pass? exit 0</text>
+  <text x="210" y="358" fill="#cdd9e5" font-size="9.5" text-anchor="middle">4. On failure: send source + test + pytest output → Gemma → rewrite</text>
+  <text x="210" y="372" fill="#cdd9e5" font-size="9.5" text-anchor="middle">5. Repeat up to --max-iterations (default 5) · exit 1 on exhaustion</text>
+
+  <!-- Ollama (local) -->
+  <rect x="230" y="224" width="150" height="40" rx="4" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+  <text x="305" y="239" fill="#8b949e" font-size="10" text-anchor="middle">Ollama</text>
+  <text x="305" y="255" fill="#8b949e" font-size="9" text-anchor="middle">127.0.0.1:11434</text>
+
+  <!-- arrow: launch → Tilix -->
+  <line x1="210" y1="142" x2="120" y2="224" stroke="#58a6ff" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#arr-blue)"/>
+  <!-- arrow: launch → generate -->
+  <line x1="210" y1="142" x2="210" y2="280" stroke="#d29922" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#arr-yellow)"/>
+  <!-- arrow: generate → Ollama local -->
+  <line x1="295" y1="264" x2="305" y2="264" stroke="#d29922" stroke-width="1.2" marker-end="url(#arr-yellow)"/>
+
+  <!-- REMOTE box -->
+  <rect x="560" y="20" width="400" height="370" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+  <text x="760" y="46" fill="#58a6ff" font-size="13" font-weight="bold" text-anchor="middle">REMOTE  sockeni07</text>
+  <text x="760" y="62" fill="#8b949e" font-size="10" text-anchor="middle">503 GB RAM · 222 GB free · CPU-only inference · Gemma4:27b / 31b</text>
+
+  <!-- setup-gemma-remote.sh -->
+  <rect x="580" y="78" width="360" height="72" rx="4" fill="#102030" stroke="#58a6ff" stroke-width="1"/>
+  <text x="760" y="97" fill="#58a6ff" font-size="11" font-weight="bold" text-anchor="middle">setup-gemma-remote.sh  (one-time)</text>
+  <text x="760" y="112" fill="#cdd9e5" font-size="9.5" text-anchor="middle">Step 1: ssh → install Ollama if absent  (curl | sh, idempotent)</text>
+  <text x="760" y="126" fill="#cdd9e5" font-size="9.5" text-anchor="middle">Step 2: ssh → start ollama serve (systemd or nohup fallback)</text>
+  <text x="760" y="140" fill="#cdd9e5" font-size="9.5" text-anchor="middle">Step 3: ssh → ollama pull &lt;MODEL&gt;  (idempotent)</text>
+  <text x="760" y="154" fill="#cdd9e5" font-size="9.5" text-anchor="middle">30s readiness probe on API before declaring ready</text>
+
+  <!-- launch-gemma-remote.sh -->
+  <rect x="580" y="166" width="360" height="120" rx="4" fill="#102030" stroke="#58a6ff" stroke-width="1"/>
+  <text x="760" y="185" fill="#58a6ff" font-size="11" font-weight="bold" text-anchor="middle">launch-gemma-remote.sh</text>
+  <text x="760" y="200" fill="#cdd9e5" font-size="9.5" text-anchor="middle">Pre-flight: ssh probe Ollama · grep ollama list for model</text>
+  <text x="760" y="215" fill="#cdd9e5" font-size="9.5" text-anchor="middle">Sync (rsync -az): generate_tests.py · Inputs/prompts/</text>
+  <text x="760" y="229" fill="#cdd9e5" font-size="9.5" text-anchor="middle">Sync (rsync -az): .cc + .h source files for active targets</text>
+  <text x="760" y="244" fill="#cdd9e5" font-size="9.5" text-anchor="middle">Per-target SERIAL loop: ssh bash → python3 generate_tests.py</text>
+  <text x="760" y="258" fill="#cdd9e5" font-size="9.5" text-anchor="middle">Per-target: rsync output back → LOCAL_CEPH/src/test/mgr/</text>
+  <text x="760" y="273" fill="#cdd9e5" font-size="9.5" text-anchor="middle">Prints elapsed seconds + line count per target</text>
+
+  <!-- Ollama remote -->
+  <rect x="580" y="302" width="360" height="70" rx="4" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+  <text x="760" y="322" fill="#8b949e" font-size="10" text-anchor="middle">Remote Ollama  127.0.0.1:11434 (remote loopback)</text>
+  <text x="760" y="338" fill="#8b949e" font-size="9" text-anchor="middle">Accessed exclusively via SSH tunnel (no open port)</text>
+  <text x="760" y="352" fill="#8b949e" font-size="9" text-anchor="middle">Auto-restart via nohup fallback inside each SSH session</text>
+  <text x="760" y="366" fill="#8b949e" font-size="9" text-anchor="middle">Logs: /tmp/ollama-serve.log</text>
+
+  <!-- SSH arrows local→remote -->
+  <line x1="400" y1="200" x2="580" y2="200" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-gray)"/>
+  <text x="490" y="194" fill="#8b949e" font-size="9" text-anchor="middle">SSH + rsync</text>
+
+  <!-- arrow: remote launcher → remote Ollama -->
+  <line x1="760" y1="286" x2="760" y2="302" stroke="#d29922" stroke-width="1.2" marker-end="url(#arr-yellow)"/>
+
+  <!-- Markers -->
+  <defs>
+    <marker id="arr-blue"   markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#58a6ff"/></marker>
+    <marker id="arr-yellow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#d29922"/></marker>
+    <marker id="arr-gray"   markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#8b949e"/></marker>
+  </defs>
+</svg>
+</div>
+
+<h3>Execution Modes Side-by-Side</h3>
+<table>
+  <thead>
+    <tr><th>Mode</th><th>Script</th><th>Concurrency</th><th>Model</th><th>Target Resolution</th><th>Output Location</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge badge-blue">Local Interactive</span></td>
+      <td><code>launch-gemma-agents.sh</code></td>
+      <td>1–N Tilix tabs (capped by <code>--agents</code>)</td>
+      <td><code>gemma4:latest</code> (12b, ~9.6 GB)</td>
+      <td>Flat text file: <code>Inputs/gemma-instructions</code></td>
+      <td>Caller-defined per-entry</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-green">Remote Serial</span></td>
+      <td><code>launch-gemma-remote.sh</code></td>
+      <td>Serial (1 at a time on remote)</td>
+      <td><code>gemma4:27b</code> or <code>gemma4:31b</code> (~17-20 GB)</td>
+      <td>Hardcoded assoc-array: 5 Ceph mgr classes</td>
+      <td><code>LOCAL_CEPH/src/test/mgr/</code> (rsync pull)</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-yellow">Local Serial Fallback</span></td>
+      <td><code>run-remaining.sh</code></td>
+      <td>Serial (no concurrency)</td>
+      <td>Default Ollama model</td>
+      <td>Hardcoded: ServiceMap, MgrClient, DaemonServer</td>
+      <td><code>~/Projects/ceph/src/test/mgr/</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Core Agent Loop (<code>generate_tests.py</code>)</h3>
+<pre>
+[1] Read source (.cc file)         → raw string
+[2] Load system prompt             → file OR built-in default
+[3] POST /api/chat (ollama SDK)    → Gemma generates initial gtest file
+[4] extract_code_block()           → strip ```cpp fence (3 fallback cases)
+[5] Write output file              → os.makedirs + open("w")
+[6] if --no-feedback → exit 0
+[7] loop up to --max-iterations:
+      run_pytest(output_path)      → subprocess pytest -v --tb=short
+      if pass  → exit 0
+      truncate output to 8000 chars
+      fix_tests(source, test, build_output) → Gemma rewrites test
+      write updated file
+[8] Exhausted → exit 1, last attempt left on disk
+</pre>
+
+<h3>Feedback Loop Prompt Construction</h3>
+<p>Each fix iteration sends a <strong>3-part user message</strong> with no conversation history threading — each call is a fresh stateless <code>client.chat()</code>:</p>
+<ul>
+  <li><strong>System role:</strong> Hard-coded C++ test engineer persona for fix calls; custom <code>.md</code> file (or default) for initial generation.</li>
+  <li><strong>User role:</strong> <code>source_code</code> + <code>test_code</code> + <code>build_output</code> (truncated at 8,000 chars).</li>
+  <li><strong>No</strong> multi-turn history — each request is independent. Context accumulation happens via prompt construction, not conversation state.</li>
+</ul>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<section id="decisions">
+<h2>2 · Architectural Decisions &amp; Trade-offs</h2>
+<table>
+  <thead>
+    <tr><th>Decision</th><th>What was chosen</th><th>Why / trade-off</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Default concurrency = 1</strong></td>
+      <td><code>MAX_AGENTS=1</code> hardcoded in launcher; requires explicit <code>--agents N</code></td>
+      <td>Gemma4:latest is ~9.6 GB; the laptop has ~16 GB free. Two instances compete for RAM → swap → both slow down. Fail-safe default avoids accidental OOM. User must consciously opt in.</td>
+    </tr>
+    <tr>
+      <td><strong>Tilix for local parallelism</strong></td>
+      <td>One <code>tilix --action=app-new-window</code> + N <code>app-new-session</code> calls</td>
+      <td>Visual parallelism: each tab is independently observable and survives shell exit. No need for a process manager; Tilix is already the dev terminal. Trade-off: requires Tilix installed, not portable to non-GTK environments.</td>
+    </tr>
+    <tr>
+      <td><strong>Remote server offload for larger model</strong></td>
+      <td><code>sockeni07</code> (503 GB RAM) runs <code>gemma4:27b</code>/<code>31b</code></td>
+      <td>The 27b/31b model won't fit in laptop RAM at all. sockeni07 is an idle server with no GPU required — pure CPU inference. The larger model produces noticeably better C++ test output at the cost of serial execution and SSH round-trip latency.</td>
+    </tr>
+    <tr>
+      <td><strong>Serial execution on remote</strong></td>
+      <td>Targets run one at a time via a sequential <code>for</code> loop</td>
+      <td>CPU inference saturates cores on a single model invocation. Parallel remote runs would compete for the same CPU pool with no VRAM to distribute across. Serial is faster wall-clock than two thrashing simultaneous runs.</td>
+    </tr>
+    <tr>
+      <td><strong>rsync over scp for file sync</strong></td>
+      <td><code>rsync -az --info=progress2</code></td>
+      <td>Incremental delta sync — re-running the script after a partial failure only transfers changed bytes. Idempotent by nature. Progress reporting keeps the operator informed during large source-tree uploads.</td>
+    </tr>
+    <tr>
+      <td><strong>Ollama <code>127.0.0.1:11434</code> only</strong></td>
+      <td>Local loopback; no firewall rules, no port forwarding</td>
+      <td>Security: Ollama has no auth. Binding to loopback means only local processes (or SSH-tunneled sessions) can reach it. The remote launcher issues commands via <code>ssh … bash -s</code> — the remote Ollama never needs to be network-accessible.</td>
+    </tr>
+    <tr>
+      <td><strong>Stateless per-call LLM requests</strong></td>
+      <td>Each <code>client.chat()</code> call is independent; no session/thread ID</td>
+      <td>Simplicity — no state management, no conversation expiry. Each fix iteration reconstructs the full context from scratch. Downside: the model cannot learn from prior iterations' reasoning; each fix is "cold".</td>
+    </tr>
+    <tr>
+      <td><strong>Prompt file override (<code>--prompt-file</code>)</strong></td>
+      <td>Caller-supplied <code>.md</code>/<code>.txt</code> replaces built-in system prompt</td>
+      <td>Allows per-class contract annotations (e.g., <code>DaemonKey.md</code>) to be injected as context for the model without modifying <code>generate_tests.py</code>. The prompt directory defaults to <code>Inputs/prompts/</code> and is resolved by basename-without-extension matching.</td>
+    </tr>
+    <tr>
+      <td><strong><code>set -euo pipefail</code> in all scripts</strong></td>
+      <td>Strict error propagation in every launcher</td>
+      <td>Any unexpected non-zero exit (bad <code>rsync</code>, SSH failure, missing file) halts the entire script immediately. Prevents silent partial-state failures where some targets ran and others silently didn't.</td>
+    </tr>
+    <tr>
+      <td><strong>Feedback loop uses pytest (Python only)</strong></td>
+      <td><code>run_pytest()</code> uses <code>subprocess pytest</code></td>
+      <td>The generator was originally designed for Python source. For C++ gtest output, pytest does not compile the file — so the feedback loop is a no-op for C++ targets unless the user manually pipes build errors back. Acknowledged in code comments; <code>--no-feedback</code> is the default in <code>run-remaining.sh</code>.</td>
+    </tr>
+    <tr>
+      <td><strong><code>num_ctx=32768</code>, <code>num_predict=16384</code></strong></td>
+      <td>Fixed token limits in <code>generate_tests.py</code></td>
+      <td>32k context fits comfortably in 30 GB RAM on local hardware. 16k predict is enough for even large gtest files. Going higher risks OOM; going lower risks truncated code. Not configurable via CLI — tuned for the hardware profile.</td>
+    </tr>
+    <tr>
+      <td><strong>Parallel arrays vs. assoc arrays for target mapping</strong></td>
+      <td>Local launcher: parallel <code>source_file[]</code>/<code>output_file[]</code> arrays parsed from file. Remote launcher: two <code>declare -A</code> assoc-arrays hardcoded.</td>
+      <td>Local launcher reads a user-editable flat file — parallel arrays are the natural parse target for paired lines. Remote launcher has a fixed known set of 5 Ceph mgr targets — assoc-arrays keyed by class name are more readable and trivially extensible.</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<section id="datastructs">
+<h2>3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Key Data Structures</h3>
+<table>
+  <thead>
+    <tr><th>Structure</th><th>Location</th><th>Purpose &amp; Shape</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>source_file[]</code> / <code>output_file[]</code></td>
+      <td><code>launch-gemma-agents.sh</code></td>
+      <td>Parallel bash arrays, indexed 0…N-1. Populated by parsing the instructions file: blank-line delimited pairs, first non-blank line → source, second → output. Always same length by construction.</td>
+    </tr>
+    <tr>
+      <td><code>SOURCE_FILE[ClassName]</code> / <code>OUTPUT_FILE[ClassName]</code></td>
+      <td><code>launch-gemma-remote.sh</code></td>
+      <td>Bash associative arrays keyed by class name (e.g. <code>DaemonKey</code>). 5 entries. <code>TARGETS[]</code> is a plain array of keys to iterate — set to all 5 by default or filtered to one via <code>--target</code>.</td>
+    </tr>
+    <tr>
+      <td><code>SYNC_FILES[]</code></td>
+      <td><code>launch-gemma-remote.sh</code></td>
+      <td>Plain array accumulating all <code>.cc</code> + optional <code>.h</code> paths needed. Deduplicated via <code>sort -u</code> before rsyncing — prevents duplicate transfers when multiple targets share a header.</td>
+    </tr>
+    <tr>
+      <td>Chat message list</td>
+      <td><code>generate_tests.py</code></td>
+      <td>Python list of <code>{"role": …, "content": …}</code> dicts passed to <code>ollama.chat()</code>. Always exactly 2 entries (system + user). No persistent history between calls.</td>
+    </tr>
+    <tr>
+      <td>Pytest output string</td>
+      <td><code>generate_tests.py</code></td>
+      <td>Plain string, stdout+stderr concatenated. <strong>Hard-truncated at 8,000 chars</strong> before inclusion in the fix prompt to stay within <code>num_ctx</code> budget.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Algorithms</h3>
+<table>
+  <thead>
+    <tr><th>Algorithm</th><th>Location</th><th>Detail</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Instructions file parser</td>
+      <td><code>launch-gemma-agents.sh:99–109</code></td>
+      <td>Two-state FSM: <code>src=""</code> = waiting for source; <code>src≠""</code> = waiting for output. Blank line resets to waiting. Processes last entry via <code>|| [[ -n "$line" ]]</code> guard to handle files without a trailing newline.</td>
+    </tr>
+    <tr>
+      <td><code>extract_code_block()</code></td>
+      <td><code>generate_tests.py:42–62</code></td>
+      <td>3-tier regex fallback: (1) properly closed ``` fence → capture group; (2) opening fence, no close (truncated response) → take everything after opening; (3) no fence → raw stripped text. Handles partial LLM responses gracefully.</td>
+    </tr>
+    <tr>
+      <td>Feedback loop</td>
+      <td><code>generate_tests.py:250–285</code></td>
+      <td>Bounded retry with hard exit: iterate 1…max_iterations. On pass → exit 0. On last iteration → print warning, exit 1. On intermediate failure → call <code>fix_tests()</code>, overwrite file, continue. O(max_iterations) LLM calls worst case.</td>
+    </tr>
+    <tr>
+      <td>Prompt file resolution</td>
+      <td><code>launch-gemma-agents.sh:130–142</code></td>
+      <td><code>basename(src)</code> strip extension → try <code>.md</code> then <code>.txt</code> in PROMPT_DIR. First hit wins. No-op if neither exists — falls back to built-in system prompt.</td>
+    </tr>
+    <tr>
+      <td>Ollama readiness probe</td>
+      <td><code>setup-gemma-remote.sh:89–96</code></td>
+      <td>Polling loop: up to 30 iterations × 1s sleep. Calls <code>curl -sf http://127.0.0.1:11434/api/tags</code>. Exits 1 with log pointer if not ready in 30s.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Invariants</h3>
+<ul>
+  <li><strong>INV-1:</strong> <code>source_file[]</code> and <code>output_file[]</code> are always the same length — the parser only appends to both in the same branch.</li>
+  <li><strong>INV-2:</strong> <code>AGENT_COUNT ≤ MAX_AGENTS</code> — the local launcher hard-caps the number of spawned tabs before entering the loop.</li>
+  <li><strong>INV-3:</strong> The output file always exists on disk after <code>generate_tests()</code> returns — <code>write_tests()</code> is called before any feedback loop iteration.</li>
+  <li><strong>INV-4:</strong> Remote Ollama is probed alive before each target SSH invocation (inline check + auto-restart inside the remote heredoc).</li>
+  <li><strong>INV-5:</strong> LLM context budget is bounded: <code>num_ctx=32768</code>, pytest output truncated at 8,000 chars — the fix prompt cannot overflow context by construction.</li>
+  <li><strong>INV-6:</strong> All launchers use <code>set -euo pipefail</code> — partial execution (some targets ran, some didn't) is not a valid terminal state; the script aborts.</li>
+</ul>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<section id="threat">
+<h2>4 · Threat Model &amp; Adversarial Handling</h2>
+
+<div class="callout warn">
+  <strong>Scope:</strong> This is a local developer tooling system with no public network surface. Threat model focuses on misuse, credential leakage, malicious model output, and accidental data destruction.
+</div>
+
+<table>
+  <thead>
+    <tr><th>Threat</th><th>Attack Vector</th><th>Actual Exposure</th><th>Mitigation / Gap</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Malicious model output written to codebase</strong></td>
+      <td>Gemma generates test file with injected shell commands, destructive <code>#include</code>s, or data exfiltration via build system macros</td>
+      <td><span class="badge badge-yellow">MEDIUM</span> Output is written directly to <code>src/test/mgr/</code> with no content inspection</td>
+      <td>Generated files are <code>.cc</code> files requiring explicit compilation — no auto-execution. Developer reviews before merging. No mitigation in script. <em>Gap: no diff/review step before write.</em></td>
+    </tr>
+    <tr>
+      <td><strong>Ollama running with no auth on loopback</strong></td>
+      <td>Any local process or SSH-forwarded connection can send arbitrary prompts to the Ollama API</td>
+      <td><span class="badge badge-yellow">MEDIUM</span> Ollama binds to <code>127.0.0.1</code> only — external network cannot reach it</td>
+      <td>Loopback binding is the only access control. Any local user on sockeni07 can use the API. Acceptable for an internal dev server; unacceptable in a shared prod environment.</td>
+    </tr>
+    <tr>
+      <td><strong>Hardcoded SSH username/host</strong></td>
+      <td><code>REMOTE_HOST="szuraski@sockeni07"</code> in scripts — wrong if hostname/user changes</td>
+      <td><span class="badge badge-blue">LOW</span> Scripts accept <code>--host</code> override; no credential is hardcoded, only host alias</td>
+      <td>SSH key auth assumed (no password in script). If <code>~/.ssh/config</code> has the host defined, the alias works transparently. Not a security risk, but an operational brittleness.</td>
+    </tr>
+    <tr>
+      <td><strong>Prompt injection via source file content</strong></td>
+      <td>A crafted comment in a <code>.cc</code> source file could attempt to override the system prompt or instruct the model to produce harmful output</td>
+      <td><span class="badge badge-yellow">MEDIUM</span> The entire source file is embedded verbatim in the user message</td>
+      <td>No sanitization. Gemma 4 is not an agentic model with tool access — worst case is poor/malicious test code, which still requires compilation and human review before use.</td>
+    </tr>
+    <tr>
+      <td><strong>Disk exhaustion from repeated test file overwrites</strong></td>
+      <td>Feedback loop runs 5 iterations × potentially large test files</td>
+      <td><span class="badge badge-blue">LOW</span> Each iteration overwrites the same output file path — no accumulation</td>
+      <td>File is overwritten in place. No temp files accumulate. Disk risk is bounded by one file per target.</td>
+    </tr>
+    <tr>
+      <td><strong>OOM / swap thrashing from >1 concurrent agents</strong></td>
+      <td">User passes <code>--agents 3</code> on a 16 GB laptop with Gemma4:latest (9.6 GB)</td>
+      <td><span class="badge badge-red">HIGH</span> Two instances alone may saturate all RAM</td>
+      <td>Default cap is 1. Warning printed when AGENT_COUNT > MAX_AGENTS. No enforcement beyond the cap — user can set <code>--agents 99</code> and the script will attempt to spawn 99 Tilix sessions.</td>
+    </tr>
+    <tr>
+      <td><strong>Curl-pipe installer on remote</strong></td>
+      <td><code>curl -fsSL https://ollama.com/install.sh | sh</code> executed on sockeni07</td>
+      <td><span class="badge badge-yellow">MEDIUM</span> Downloads and executes an arbitrary shell script from the internet with sudo</td>
+      <td>This is the official Ollama install method. Idempotency guard (<code>command -v ollama</code>) means it only runs once. Acceptable risk for a controlled internal server; would need review for stricter environments.</td>
+    </tr>
+    <tr>
+      <td><strong>SSH heredoc variable injection</strong></td>
+      <td>Variables like <code>${MODEL}</code>, <code>${REMOTE_WORK}</code> are interpolated into heredoc commands sent over SSH</td>
+      <td><span class="badge badge-yellow">MEDIUM</span> If a model name or path contains shell metacharacters, they would execute on the remote</td>
+      <td>Values come from the operator (CLI args or hardcoded defaults). User-controlled paths in <code>--target</code> are validated against the assoc-array keyset before use. Not a significant risk in practice given the controlled operator context.</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<section id="failures">
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<table>
+  <thead>
+    <tr><th>Failure</th><th>Trigger</th><th>Blast Radius</th><th>Recovery</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Ollama not running (local)</strong></td>
+      <td><code>curl -sf http://127.0.0.1:11434/api/tags</code> fails at launch</td>
+      <td>Script exits 1 immediately. No agents spawned. No side effects.</td>
+      <td><code>ollama serve</code> in another terminal; re-run launcher.</td>
+    </tr>
+    <tr>
+      <td><strong>Ollama not running (remote, pre-flight)</strong></td>
+      <td>SSH probe fails before any sync</td>
+      <td>Script exits 1. No files transferred or modified.</td>
+      <td><code>./setup-gemma-remote.sh</code> to restart service.</td>
+    </tr>
+    <tr>
+      <td><strong>Ollama dies mid-target (remote)</strong></td>
+      <td>Ollama crashes during SSH inference run</td>
+      <td>Current target's SSH session fails → <code>set -e</code> aborts the launcher. Remaining targets do not run. Already-completed targets' output was already rsynced back.</td>
+      <td>Check <code>/tmp/ollama-serve.log</code> on remote. Re-run with <code>--target &lt;ClassName&gt;</code> for the failed target. Inline auto-restart in heredoc adds resilience (nohup restart + 5s sleep).</td>
+    </tr>
+    <tr>
+      <td><strong>Model not pulled on remote</strong></td>
+      <td><code>ollama list | grep -c</code> returns 0 for model name prefix</td>
+      <td>Script exits 1 before any sync. No files changed.</td>
+      <td>Run <code>./setup-gemma-remote.sh --model &lt;MODEL&gt;</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Instructions file missing / empty</strong></td>
+      <td>File not found or no valid pairs parsed</td>
+      <td>Script exits 1 with clear error. Nothing spawned.</td>
+      <td>Create/fix the instructions file and re-run.</td>
+    </tr>
+    <tr>
+      <td><strong>Source file not found (Python agent)</strong></td>
+      <td><code>os.path.isfile(args.source)</code> returns False</td>
+      <td>That agent's process exits 1. Other Tilix tabs unaffected (independent processes).</td>
+      <td>Fix the source path in the instructions file.</td>
+    </tr>
+    <tr>
+      <td><strong>Truncated LLM response (no closing fence)</strong></td>
+      <td>Model hits <code>num_predict</code> limit mid-generation</td>
+      <td><code>extract_code_block()</code> catches Case 2 — returns everything after the opening fence. Output file is written but may be syntactically incomplete C++.</td>
+      <td>Increase <code>_NUM_PREDICT</code> in <code>generate_tests.py</code> or simplify the prompt. Feedback loop will attempt to fix on next iteration.</td>
+    </tr>
+    <tr>
+      <td><strong>Feedback loop exhausted (max iterations)</strong></td>
+      <td>pytest still failing after N attempts</td>
+      <td>Script exits 1. <strong>Last generated test file is left on disk</strong> (not rolled back). Prior correct file (if any) is overwritten.</td>
+      <td>Manually inspect the last output file and pytest errors. Use <code>--no-feedback</code> and edit manually or increase <code>--max-iterations</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>rsync pull fails after remote generation succeeds</strong></td>
+      <td>Network drop between remote run and <code>rsync … back</code> step</td>
+      <td>Local file is not updated. Remote output file exists on sockeni07. <code>set -e</code> aborts; remaining targets do not run.</td>
+      <td>Re-run with <code>--target &lt;ClassName&gt;</code> for the affected target — rsync is idempotent, remote file still exists.</td>
+    </tr>
+    <tr>
+      <td><strong>Tilix not installed</strong></td>
+      <td><code>tilix</code> command not found on PATH</td>
+      <td><code>set -e</code> exits immediately after the first <code>tilix</code> call. No agents run.</td>
+      <td>Install Tilix, or use <code>run-remaining.sh</code> / <code>launch-gemma-remote.sh</code> which don't require it.</td>
+    </tr>
+    <tr>
+      <td><strong>OOM during local inference</strong></td>
+      <td>RAM pressure when running ≥2 agents on 16 GB laptop</td>
+      <td>OS kills Ollama or Python process. Affected tab exits non-zero. Other tabs may also be impacted by swap pressure.</td>
+      <td>Reduce <code>--agents</code> to 1. Check <code>ollama ps</code> for live memory usage.</td>
+    </tr>
+    <tr>
+      <td><strong>Ceph source file has no matching .h header</strong></td>
+      <td><code>[[ -f "${base}.h" ]]</code> check is false in remote sync step</td>
+      <td>Only the <code>.cc</code> file is synced. The model will not have the interface declaration in scope. Generated tests may be lower quality but the run proceeds normally.</td>
+      <td>Expected for some Ceph mgr classes. Not a failure — the guard is intentionally soft (<code>&&</code> not checked by <code>set -e</code>).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Blast Radius Summary</h3>
+<div class="callout ok">
+  <strong>Contained failures:</strong> Each <code>generate_tests.py</code> process is independent — a Tilix tab crash does not affect other tabs. The remote launcher runs targets serially, so a mid-run failure leaves already-completed targets' output intact on disk.
+</div>
+<div class="callout warn">
+  <strong>Unguarded:</strong> If the feedback loop exhausts its iterations, the last (potentially broken) test file overwrites any previously correct version. There is no backup/rollback mechanism.
+</div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<section id="observability">
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<h3>Live Signals During a Run</h3>
+<table>
+  <thead>
+    <tr><th>Signal</th><th>How to observe</th><th>What it tells you</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Ollama model memory</td>
+      <td><code>watch -n 2 ollama ps</code></td>
+      <td>Shows active model, VRAM/RAM used. If 0 entries → model unloaded or crashed.</td>
+    </tr>
+    <tr>
+      <td>Agent progress (local)</td>
+      <td>Each Tilix tab's stdout</td>
+      <td>Prints <code>[generate]</code>, <code>[write]</code>, <code>[pytest]</code>, <code>[fix]</code> prefixed lines per iteration.</td>
+    </tr>
+    <tr>
+      <td>Remote Ollama serve log</td>
+      <td><code>ssh szuraski@sockeni07 tail -f /tmp/ollama-serve.log</code></td>
+      <td>Startup errors, model load failures, OOM signals from the server.</td>
+    </tr>
+    <tr>
+      <td>Remote run timing</td>
+      <td>Printed by launcher: <code>[done] DaemonKey finished in 347s</code></td>
+      <td>Baseline: expect ~300–600s per target on sockeni07 for gemma4:27b. >1200s → stalled / OOM.</td>
+    </tr>
+    <tr>
+      <td>Output file line count</td>
+      <td>Printed after each rsync pull: <code>lines: 312</code></td>
+      <td>Quick sanity check. <50 lines → truncated response or extraction failure.</td>
+    </tr>
+    <tr>
+      <td>Remote disk space</td>
+      <td><code>ssh szuraski@sockeni07 df -h /</code></td>
+      <td>149 GB free on <code>/</code> per setup comments. Model is ~17-20 GB. Generous headroom.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Triage Playbook</h3>
+
+<table>
+  <thead>
+    <tr><th>Symptom</th><th>First check</th><th>Fix</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Error: Ollama is not running on 127.0.0.1:11434</code></td>
+      <td><code>curl http://127.0.0.1:11434/api/tags</code></td>
+      <td><code>ollama serve</code> (local) or <code>./setup-gemma-remote.sh</code> (remote)</td>
+    </tr>
+    <tr>
+      <td>Remote: <code>ERROR: model 'gemma4:27b' not found</code></td>
+      <td><code>ssh sockeni07 ollama list</code></td>
+      <td><code>./setup-gemma-remote.sh --model gemma4:27b</code></td>
+    </tr>
+    <tr>
+      <td>Generated file is empty or &lt;10 lines</td>
+      <td>Check <code>num_predict</code> limit; inspect raw Ollama response</td>
+      <td>Increase <code>_NUM_PREDICT</code> in <code>generate_tests.py</code>; simplify source file or prompt</td>
+    </tr>
+    <tr>
+      <td>Feedback loop always exits 1 (tests never pass)</td>
+      <td>Read last pytest output at bottom of terminal</td>
+      <td>Use <code>--no-feedback</code> and fix manually; or add a <code>--prompt-file</code> with better class contract docs</td>
+    </tr>
+    <tr>
+      <td>Remote launcher hangs after <code>[sync]</code> step</td>
+      <td>Check <code>ssh sockeni07 ollama ps</code> — is model loading?</td>
+      <td>First load of a large model (~17 GB) can take 60–120s. Wait. If >300s, check <code>/tmp/ollama-serve.log</code>.</td>
+    </tr>
+    <tr>
+      <td>Local: generation is very slow (&gt;30 min)</td>
+      <td><code>ollama ps</code> → check if model is swapping (memory column near max)</td>
+      <td>Use <code>run-remaining.sh</code> with <code>--no-feedback</code>, or offload to sockeni07 via <code>launch-gemma-remote.sh</code></td>
+    </tr>
+    <tr>
+      <td><code>set -e</code> abort mid-run (no clear error message)</td>
+      <td>Re-run with <code>bash -x launch-gemma-remote.sh</code></td>
+      <td>Trace output shows exact failing command. Most common cause: SSH timeout or rsync permission denied.</td>
+    </tr>
+    <tr>
+      <td>Only some targets ran; need to resume</td>
+      <td>Check which output files exist in <code>LOCAL_CEPH/src/test/mgr/</code></td>
+      <td><code>./launch-gemma-remote.sh --target &lt;ClassName&gt;</code> for each missing target</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Key File Paths</h3>
+<table>
+  <thead>
+    <tr><th>Path</th><th>What it is</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>gemma-agents/Inputs/gemma-instructions</code></td><td>Local launcher target list (source/output pairs)</td></tr>
+    <tr><td><code>gemma-agents/Inputs/prompts/&lt;Class&gt;.md</code></td><td>Per-class system prompt overrides</td></tr>
+    <tr><td><code>~/Projects/ceph/src/mgr/*.cc</code></td><td>Source files fed to the model</td></tr>
+    <tr><td><code>~/Projects/ceph/src/test/mgr/test_*_gemma.cc</code></td><td>Final generated test output (local)</td></tr>
+    <tr><td><code>szuraski@sockeni07:~/gemma-test-gen/output/</code></td><td>Staging area for generated files on remote</td></tr>
+    <tr><td><code>szuraski@sockeni07:/tmp/ollama-serve.log</code></td><td>Remote Ollama daemon log</td></tr>
+    <tr><td><code>szuraski@sockeni07:~/.ollama/</code></td><td>Remote model weights storage</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr style="border:none; border-top:1px solid var(--border); margin: 40px 0 20px;"/>
+<p style="color:var(--muted); font-size:0.78em;">
+  Generated from <code>gemma-agents/launch-gemma-agents.sh</code>, <code>setup-gemma-remote.sh</code>, <code>launch-gemma-remote.sh</code>, <code>run-remaining.sh</code>, and <code>generate_tests.py</code>.
+  All claims grounded in source code. No invented details.
+</p>
+
+</body>
+</html>

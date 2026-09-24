@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — MgrStandby</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --orange: #e3b341;
+    --purple: #bc8cff;
+    --cyan: #39d353;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 2em; color: var(--accent); margin-bottom: 4px; }
+  h2 { font-size: 1.3em; color: var(--orange); margin: 32px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  h3 { font-size: 1.05em; color: var(--purple); margin: 20px 0 8px; }
+  .subtitle { color: var(--muted); font-size: 0.9em; margin-bottom: 24px; }
+  code { background: var(--surface2); color: var(--cyan); padding: 1px 5px; border-radius: 4px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.88em; }
+  .sha { color: var(--yellow); font-family: monospace; font-size: 0.82em; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th { background: var(--surface2); color: var(--accent); text-align: left; padding: 8px 12px; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid var(--border); }
+  td { padding: 8px 12px; border: 1px solid var(--border); vertical-align: top; font-size: 0.9em; }
+  tr:nth-child(even) td { background: var(--surface); }
+  tr:nth-child(odd) td { background: var(--bg); }
+  ul { padding-left: 20px; margin: 6px 0; }
+  li { margin: 3px 0; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+  .tag-bug   { background: #3d1a1a; color: var(--red); border: 1px solid var(--red); }
+  .tag-warn  { background: #3d2e00; color: var(--yellow); border: 1px solid var(--yellow); }
+  .tag-ok    { background: #0d2b0d; color: var(--green); border: 1px solid var(--green); }
+  .tag-gap   { background: #1a1a3d; color: var(--purple); border: 1px solid var(--purple); }
+  .tag-design { background: #0d2b3d; color: var(--accent); border: 1px solid var(--accent); }
+  pre {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 0.85em;
+    line-height: 1.5;
+    color: var(--text);
+    margin: 12px 0;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    margin: 12px 0;
+  }
+  .card-title { color: var(--orange); font-weight: 600; margin-bottom: 8px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+  .finding-row { background: #1a0d0d !important; }
+  .finding-row td { color: var(--red); }
+  .note { color: var(--muted); font-style: italic; font-size: 0.85em; margin-top: 4px; }
+  .inline-sha { color: var(--yellow); font-size: 0.8em; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; display: inline-block; margin-bottom: 20px; }
+  .toc ul { list-style: none; padding: 0; }
+  .toc li { margin: 4px 0; }
+  .toc a { color: var(--muted); font-size: 0.9em; }
+  .toc a:hover { color: var(--accent); }
+  .state-box {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 16px;
+    display: inline-block;
+    margin: 4px;
+    background: var(--surface2);
+    font-family: monospace;
+    font-size: 0.9em;
+  }
+  .arrow { color: var(--muted); font-size: 1.1em; margin: 0 4px; }
+  .flow-row { display: flex; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense — <code>MgrStandby</code></h1>
+<p class="subtitle">
+  <code>src/mgr/MgrStandby.cc</code> &nbsp;·&nbsp; <code>src/mgr/MgrStandby.h</code> &nbsp;·&nbsp;
+  HEAD <span class="sha">8681fa6e</span> &nbsp;·&nbsp;
+  131 commits · 2016-07-15 → 2026-06-30 &nbsp;·&nbsp; 
+  Ancestor: <code>src/mds/MDSUtility.h</code> (<span class="sha">7a985df6</span> 2014-02-12)
+</p>
+
+<div class="toc">
+  <strong style="color:var(--orange)">Sections</strong>
+  <ul>
+    <li><a href="#s1">1. High-Level Architecture &amp; Mental Model</a></li>
+    <li><a href="#s2">2. Architectural Decisions &amp; Trade-offs</a></li>
+    <li><a href="#s3">3. Data Structures, Algorithms &amp; Invariants</a></li>
+    <li><a href="#s4">4. Threat Model &amp; Adversarial Handling</a></li>
+    <li><a href="#s5">5. Failure Modes, Edge Cases &amp; Blast Radius</a></li>
+    <li><a href="#s6">6. Observability &amp; Triage Playbook</a></li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 1 -->
+<h2 id="s1">1. High-Level Architecture &amp; Mental Model</h2>
+
+<h3>What is MgrStandby?</h3>
+<ul>
+  <li><strong>Process harness</strong> for <code>ceph-mgr</code>. Every mgr daemon runs as <code>MgrStandby</code> first. One will be elected active; the rest stay in standby.</li>
+  <li>Owns all long-lived infrastructure: messenger, MonClient, Objecter, timer, ASIO pool, PyModuleRegistry, finisher, admin socket.</li>
+  <li>When elected active, allocates a <code>Mgr</code> instance on the heap and background-inits it. On demotion — <strong>respawns via <code>execv()</code></strong>.</li>
+</ul>
+
+<h3>State Machine</h3>
+<pre>
+  Process starts
+       │
+       ▼
+ ┌─────────────┐   mgrmap: active_gid != self   ┌──────────────────────────┐
+ │   STANDBY   │ ◄────────────────────────────── │  STANDBY (w/ modules)    │
+ │  no Mgr obj │   (another active exists)        │  standby Python mods up  │
+ └──────┬──────┘                                  └──────────────────────────┘
+        │  mgrmap: active_gid == self
+        ▼
+ ┌─────────────────────────┐
+ │  ACTIVE (STARTING)      │  ← state_str() = "active (starting)"
+ │  Mgr allocated          │    send_beacon: available = false
+ │  background_init() ...  │    (unless expiration fired — see §2)
+ └──────────┬──────────────┘
+            │  Mgr::is_initialized() == true   OR   expiration fired (bf25a08c)
+            ▼
+ ┌─────────────────────────┐
+ │  ACTIVE                 │  ← state_str() = "active"
+ │  Mgr fully running      │    send_beacon: available = true
+ │  Python mods loaded     │    command descs sent once (!available_in_map)
+ └──────────┬──────────────┘
+            │  mgrmap: active_gid != self  OR  module-list changed
+            ▼
+        respawn()
+    execv(/proc/self/exe)  ──────────────────────► new process (clean slate)
+</pre>
+
+<h3>Key Subsystem Wiring</h3>
+<pre>
+MgrStandby
+ ├── client_messenger ──► MonClient (monc) ──► mgrmap subscription
+ │                    └── MgrClient (mgrc) ──► active mgr reports
+ ├── Objecter ──────────► RADOS OSD ops (ASIO-backed, poolctx)
+ ├── SafeTimer ─────────► tick() loop → send_beacon() every mgr_tick_period
+ ├── Finisher ──────────► Python module loading (off lock)
+ ├── PyModuleRegistry ──► standby modules + module-list change detection
+ ├── AdminSocket ───────► MgrHook → asok_command() [status, heap]
+ └── Mgr* active_mgr ──► (null if standby, non-null if active)
+        └── ms_dispatch2 delegates non-MGR_MAP messages here
+</pre>
+
+<h3>Lifecycle: init() Sequence (25 ordered steps)</h3>
+<table>
+  <tr><th>#</th><th>Step</th><th>Key Invariant / Commit</th></tr>
+  <tr><td>1</td><td>Register SIGHUP, SIGTERM, SIGINT handlers</td><td><code class="sha">a3dad559</code> — oneshot; before lock acquired</td></tr>
+  <tr><td>2</td><td><code>add_observer(this)</code></td><td><code class="sha">73af779d</code> — bug fix; without this, <code>handle_conf_change</code> never fires</td></tr>
+  <tr><td>3</td><td><code>lock_guard l(lock)</code></td><td>Held for remainder of init</td></tr>
+  <tr><td>4</td><td><code>finisher.start()</code></td><td><code class="sha">f22347db</code> — MUST precede messenger start to avoid early-message race</td></tr>
+  <tr><td>5</td><td>Start messenger, register dispatchers</td><td>–</td></tr>
+  <tr><td>6</td><td>Register admin socket hook (status + heap)</td><td><code class="sha">4a7976a5</code>, <code class="sha">d8dde402</code></td></tr>
+  <tr><td>7</td><td><code>poolctx.start(2)</code></td><td><code class="sha">306eebe0</code> — ASIO pool for Objecter timeouts</td></tr>
+  <tr><td>8</td><td><code>build_initial_monmap()</code></td><td>Failure → clean shutdown; <span class="tag tag-warn">WARN</span> asok may stay registered on failure</td></tr>
+  <tr><td>9</td><td><code>monc.sub_want("mgrmap", 0, 0)</code></td><td>–</td></tr>
+  <tr><td>10–11</td><td>Config callback + notify callback registered</td><td><code class="sha">3193d40d</code> — MUST precede monc.init()</td></tr>
+  <tr><td>12</td><td><code>monc.init()</code> — return checked</td><td><code class="sha">10bf5123</code> — failure (missing keyring) propagates correctly</td></tr>
+  <tr><td>13</td><td><code>mgrc.init()</code> + register mgrc dispatcher</td><td><code class="sha">cf68ce51</code></td></tr>
+  <tr><td>14</td><td><code>monc.authenticate()</code> — return checked</td><td>–</td></tr>
+  <tr><td>15</td><td><code>monc.set_passthrough_monmap()</code></td><td><code class="sha">430ba5e2</code> — MUST be after auth to avoid deadlock</td></tr>
+  <tr><td>16–20</td><td>Entity name, log client, objecter init/start, timer init</td><td>–</td></tr>
+  <tr><td>21</td><td><code>py_module_registry.init()</code></td><td><code class="sha">810369b0</code> — moved sooner; error return silently dropped (see §5)</td></tr>
+  <tr><td>22</td><td><code>mgr_perf_start()</code></td><td><code class="sha">15dfa71c</code></td></tr>
+  <tr><td>23</td><td><code>tick()</code></td><td><code class="sha">35fd964e</code> — starts beacon loop; LAST step in init</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 2 -->
+<h2 id="s2">2. Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <tr><th>Decision</th><th>Why This, Not That</th><th>Commit(s)</th><th>Trade-off / Risk</th></tr>
+
+  <tr>
+    <td><strong>Demotion → <code>execv()</code> respawn, not in-process teardown</strong></td>
+    <td>Unwinding the CPython interpreter is unreliable. Module threads, global state, and GIL interactions make in-place teardown non-deterministic. <code>execv()</code> gives a clean address space.</td>
+    <td><span class="sha">2fd49a1a</span></td>
+    <td>Re-exec latency (~1s). No graceful drain of in-flight ops. Process state logged but not flushed on respawn path.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Respawn via <code>/proc/self/exe</code>, fallback to <code>orig_argv[0]</code></strong></td>
+    <td>Binary upgrade: if the binary is replaced on disk, <code>/proc/self/exe</code> still resolves to the running binary's inode, not the new file.</td>
+    <td><span class="sha">2fd49a1a</span></td>
+    <td>On non-Linux (FreeBSD, <code>PROCPREFIX</code> set), logged path vs. exec path can diverge. Not a bug on Linux.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Random nonce via <code>Messenger::get_random_nonce()</code>, not <code>getpid()</code></strong></td>
+    <td>PID is reused across rapid restarts (e.g., cephadm rolling restart). Reused nonce → connection identity collision with monitors.</td>
+    <td><span class="sha">e27f6c6a</span></td>
+    <td>Nonce is now opaque; <code>ps</code>-based debugging loses easy correlation. Acceptable trade.</td>
+  </tr>
+
+  <tr>
+    <td><strong>SIGTERM/SIGINT → <code>_exit(0)</code>, not <code>exit(0)</code></strong></td>
+    <td><code>exit()</code> runs atexit handlers and Python finalizers — known broken/hang-prone. <code>_exit(0)</code> exits immediately.</td>
+    <td><span class="sha">6146c85b</span>, <span class="sha">b925be726</span>, <span class="sha">a3dad559</span></td>
+    <td>No subsystem cleanup on signal; file descriptors not flushed. Intentional — systemd will clean up the cgroup.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Standby SIGTERM registered as <code>oneshot</code></strong></td>
+    <td>Prevents re-entrant signal delivery into <code>_exit()</code>. Avoids the signal-in-signal problem.</td>
+    <td><span class="sha">a3dad559</span></td>
+    <td>After promotion to active, the oneshot has already fired (or not). <code>Mgr::init()</code> registers its own handlers — interaction undocumented.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Config-driven module list change → respawn (not hot-reload)</strong></td>
+    <td>Same rationale as demotion: Python interpreter teardown is unsafe. <code>mgr_standby_modules</code> change triggers respawn only if we are not currently active.</td>
+    <td><span class="sha">efc29fb3</span></td>
+    <td>Brief standby downtime on config change. Guard: <code>!active_mgr &amp;&amp; value differs from have_standby_modules()</code>.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Command descriptions sent only on first "available" transition</strong></td>
+    <td>Avoids redundant large payloads on every beacon tick. Monitor confirms receipt by setting our gid as active in the mgrmap → <code>available_in_map = true</code>.</td>
+    <td><span class="sha">5c3846306</span></td>
+    <td>Until <code>available_in_map</code> flips, command descs are re-sent every tick (implicit retry). Benign but not commented as intentional retry.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Expiration override for module-load deadlock (<code>exceeded_initialization_expiration()</code>)</strong></td>
+    <td>If a Python module hangs at load time, PG availability reporting stalls indefinitely. After <code>mgr_module_load_expiration</code> ms, beacon declares <code>available=true</code> anyway, unblocking the cluster.</td>
+    <td><span class="sha">bf25a08c</span></td>
+    <td><span class="tag tag-warn">WARN</span> Creates <code>state_str()</code> vs. beacon availability mismatch — <code>state_str</code> returns <code>"active (starting)"</code> while beacon says available. <span class="sha">bf25a08c</span> updated <code>send_beacon</code> but not <code>state_str</code>. DIVERGED.</td>
+  </tr>
+
+  <tr>
+    <td><strong><code>available_in_map</code> initialised <code>false</code></strong></td>
+    <td>Must guarantee command descriptions are sent at first availability declaration, not on every beacon. If initialised <code>true</code>, the transition beacon would skip command descs and the CLI would have no commands.</td>
+    <td><span class="sha">5c3846306</span></td>
+    <td>Zero: this is correct. The initial value is load-bearing.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Config callback registered before <code>monc.init()</code></strong></td>
+    <td>The first config message from the monitor arrives during <code>init()</code>. If the callback is registered after, that initial config is missed.</td>
+    <td><span class="sha">3193d40d</span></td>
+    <td>Callback fires on the MonClient thread; <code>py_module_registry.handle_config()</code> must be thread-safe.</td>
+  </tr>
+
+  <tr>
+    <td><strong><code>set_passthrough_monmap()</code> after auth</strong></td>
+    <td>Calling it before auth would cause <code>ms_dispatch2</code> to try to acquire <code>lock</code> while <code>authenticate()</code> holds it — deadlock, since <code>init()</code> already holds <code>lock</code>.</td>
+    <td><span class="sha">430ba5e2</span></td>
+    <td>The ordering is invisible in the code; a future refactor that reorders these calls would reintroduce the deadlock.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Asok <code>status</code> returns <code>{}</code></strong></td>
+    <td>Rook operator health check needed a 200-OK response from the admin socket to detect a live mgr process. Content was deferred ("TBD").</td>
+    <td><span class="sha">4a7976a5</span> (tracker #70571)</td>
+    <td>Cannot distinguish a fully-functional mgr from one that just started. No follow-up commit adds content.</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 3 -->
+<h2 id="s3">3. Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Core Members &amp; Their Roles</h3>
+<table>
+  <tr><th>Member</th><th>Type</th><th>Role</th><th>Key Invariant</th></tr>
+  <tr>
+    <td><code>lock</code></td>
+    <td><code>ceph::mutex</code></td>
+    <td>Global reentrance guard for all state mutations</td>
+    <td>Must be held by <code>send_beacon</code> (assert at cc:300), <code>tick</code>, <code>handle_mgr_map</code>, <code>ms_dispatch2</code>. NOT held by <code>handle_conf_change</code> (inconsistency — see §5).</td>
+  </tr>
+  <tr>
+    <td><code>active_mgr</code></td>
+    <td><code>std::unique_ptr&lt;Mgr&gt;</code></td>
+    <td>Non-null iff this daemon is active</td>
+    <td>Allocation under <code>lock</code> in <code>handle_mgr_map</code>. In <code>ms_dispatch2</code>, copied to a local <code>shared_ptr</code> before dropping <code>lock</code> to prevent use-after-free (<span class="sha">890f48256</span>).</td>
+  </tr>
+  <tr>
+    <td><code>available_in_map</code></td>
+    <td><code>bool</code></td>
+    <td>Whether monitor has acknowledged our availability</td>
+    <td>Init: <code>false</code> (<span class="sha">5c3846306</span>). Set <code>true</code> in <code>handle_mgr_map</code> when map confirms our gid as active. Governs whether command descs are included in beacon.</td>
+  </tr>
+  <tr>
+    <td><code>timer</code></td>
+    <td><code>SafeTimer</code></td>
+    <td>Periodic tick → beacon loop</td>
+    <td>SafeTimer holds <code>lock</code> when invoking callbacks — this is the contract that satisfies <code>send_beacon</code>'s mutex assert. Period read dynamically from <code>g_conf()</code> on every tick (<span class="sha">80ee71ab5</span>).</td>
+  </tr>
+  <tr>
+    <td><code>py_module_registry</code></td>
+    <td><code>PyModuleRegistry</code></td>
+    <td>Manages Python module lifecycle (standby + active)</td>
+    <td>Inited in <code>MgrStandby::init()</code> (<span class="sha">810369b0</span>). <code>handle_mgr_map()</code> called on every map; returns <code>true</code> if respawn needed.</td>
+  </tr>
+  <tr>
+    <td><code>orig_argc</code> / <code>orig_argv</code></td>
+    <td><code>int</code> / <code>const char**</code></td>
+    <td>Saved for <code>respawn()</code></td>
+    <td>Stored in constructor (<span class="sha">2fd49a1a</span>). <code>respawn()</code> copies argv into a new null-terminated array and passes to <code>execv()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>asok_hook</code></td>
+    <td><code>std::unique_ptr&lt;MgrHook&gt;</code></td>
+    <td>Admin socket proxy to <code>asok_command()</code></td>
+    <td>Unregistered before reset in destructor (<span class="sha">4a7976a5</span>) to prevent dispatch-into-freed-hook.</td>
+  </tr>
+  <tr>
+    <td><code>poolctx</code></td>
+    <td><code>boost::asio::io_context</code></td>
+    <td>ASIO thread pool for MonClient + Objecter</td>
+    <td>Started with 2 threads (<span class="sha">306eebe0</span>). Must be started before <code>objecter.init()</code>.</td>
+  </tr>
+</table>
+
+<h3>Beacon Algorithm</h3>
+<div class="card">
+  <div class="card-title">send_beacon() — what goes in the beacon</div>
+  <ul>
+    <li><strong>Always:</strong> gid, addrs, metadata (<code>addr</code> legacy + <code>addrs</code>), module list with <code>{name, error_string, can_run, module_options}</code>, RADOS client list (blocklist support), <code>CEPH_FEATURES_ALL</code></li>
+    <li><strong>available flag:</strong> <code>active_mgr != nullptr &amp;&amp; (is_initialized() || exceeded_initialization_expiration())</code> — <span class="sha">bf25a08c</span></li>
+    <li><strong>First availability only (<code>!available_in_map</code>):</strong> full command descriptions; pre-quincy compat strips <code>positional=false</code> — <span class="sha">218f4cef</span></li>
+    <li><strong>If available:</strong> <code>active_mgr-&gt;get_services()</code> and <code>get_server_addrs()</code></li>
+    <li><strong>Trigger:</strong> periodic tick (<code>mgr_tick_period</code> seconds) + immediate call on <code>background_init</code> completion — <span class="sha">e0e87da6</span></li>
+  </ul>
+</div>
+
+<h3>Invariant Table</h3>
+<table>
+  <tr><th>Invariant</th><th>Where Enforced</th><th>Commit</th></tr>
+  <tr><td><code>send_beacon</code> must be called under <code>lock</code></td><td><code>ceph_assert(ceph_mutex_is_locked_by_me(lock))</code> at cc:300</td><td><span class="sha">c93dc884</span></td></tr>
+  <tr><td><code>available_in_map</code> starts <code>false</code></td><td>Constructor initializer list cc:92</td><td><span class="sha">5c3846306</span></td></tr>
+  <tr><td>Config callback registered before <code>monc.init()</code></td><td>Order in <code>init()</code> cc:239 before cc:257</td><td><span class="sha">3193d40d</span></td></tr>
+  <tr><td><code>set_passthrough_monmap()</code> after auth</td><td>Order in <code>init()</code> cc:277 after cc:265</td><td><span class="sha">430ba5e2</span></td></tr>
+  <tr><td><code>finisher.start()</code> before messenger</td><td>Order in <code>init()</code> cc:201 before cc:203</td><td><span class="sha">f22347db</span></td></tr>
+  <tr><td><code>unblock_all_signals()</code> before <code>execv()</code></td><td><code>respawn()</code> cc:436</td><td><span class="sha">2fd49a1a</span></td></tr>
+  <tr><td>Asok hook unregistered before reset</td><td><code>~MgrStandby</code> cc:101–104</td><td><span class="sha">4a7976a5</span></td></tr>
+  <tr><td><code>active_mgr</code> local-copied before lock drop in dispatch</td><td><code>ms_dispatch2</code> cc:518–522</td><td><span class="sha">890f48256</span></td></tr>
+  <tr><td>Standby-only respawn guard: <code>!active_mgr</code></td><td><code>handle_conf_change</code> cc:139</td><td><span class="sha">efc29fb3</span></td></tr>
+  <tr><td>Thread name set to <code>"ceph-mgr"</code> for <code>killall</code></td><td>Warning comment in <code>respawn()</code> cc:399–406</td><td><span class="sha">8e070294</span></td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 4 -->
+<h2 id="s4">4. Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <tr><th>Actor / Scenario</th><th>What They Can Do</th><th>System Response</th><th>Residual Risk</th></tr>
+
+  <tr>
+    <td><strong>Malicious / stale mgrmap from monitor</strong></td>
+    <td>Flood fake mgrmap messages to force rapid respawn cycles</td>
+    <td><code>ms_dispatch2</code> calls <code>handle_mgr_map()</code> under <code>lock</code>. Respawn calls <code>execv()</code> — process is replaced, flood cannot escalate within a single process. Monitor auth (CephX) required.</td>
+    <td>Rapid <code>execv()</code> cycles = temporary service disruption. No crash, no data corruption.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Attacker sends malformed MSG_MGR_MAP</strong></td>
+    <td>Craft a message with bad module list, bad addrs, etc.</td>
+    <td>MMgrMap decode follows protobuf/Ceph wire format; bad decode → message dropped at messenger layer before reaching <code>handle_mgr_map()</code>. CephX prevents unauthenticated injection.</td>
+    <td>Low. Wire-format integrity protected by HMAC in CephX session.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Attacker with admin socket access</strong></td>
+    <td>Send <code>heap</code> command to profile/manipulate memory</td>
+    <td><code>heap</code> guarded by <code>ceph_using_tcmalloc()</code> — returns <code>-EOPNOTSUPP</code> if tcmalloc not loaded. Admin socket is a Unix domain socket; permissions controlled by OS.</td>
+    <td><span class="tag tag-gap">GAP</span> <code>asok_command</code> holds no <code>lock</code> during <code>ceph_heap_profiler_handle_command</code>. Race with concurrent state mutation is theoretically possible but unexploited in corpus.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Python module hangs at load time</strong></td>
+    <td>Hang <code>Mgr::init()</code> indefinitely, blocking PG availability reporting</td>
+    <td>After <code>mgr_module_load_expiration</code> ms, <code>exceeded_initialization_expiration()</code> returns <code>true</code> → beacon sends <code>available=true</code> + health error. Cluster unblocked.</td>
+    <td>Module is still hung; health error surfaced. <code>state_str()</code> still returns <code>"active (starting)"</code> despite beacon saying available (DIVERGED — <span class="sha">bf25a08c</span> vs. cc:552).</td>
+  </tr>
+
+  <tr>
+    <td><strong>Active mgr crashes mid-dispatch</strong></td>
+    <td><code>active_mgr</code> is reset concurrently while <code>ms_dispatch2</code> is dispatching</td>
+    <td>Local <code>shared_ptr</code> copy of <code>active_mgr</code> in <code>ms_dispatch2</code> keeps the object alive for the duration of the call. Reset of <code>active_mgr</code> under <code>lock</code> is safe.</td>
+    <td>Correct. <span class="sha">890f48256</span> was specifically a use-after-free fix.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Binary replaced on disk during run</strong></td>
+    <td>Admin replaces <code>ceph-mgr</code> binary mid-session</td>
+    <td><code>respawn()</code> tries <code>/proc/self/exe</code> (resolves via open inode — old binary) first, then falls back to <code>orig_argv[0]</code> (new binary on PATH).</td>
+    <td>On rolling upgrade, respawn may exec the <em>new</em> binary depending on filesystem inode state. Intentional upgrade path.</td>
+  </tr>
+
+  <tr>
+    <td><strong>SIGTERM before initialization completes</strong></td>
+    <td>OS kills process during <code>init()</code></td>
+    <td><code>handle_standby_mgr_signal</code> fires <code>_exit(0)</code>. Registered as oneshot before lock is acquired.</td>
+    <td>Registered handlers before lock; signal fires at any point during init. Subsystems may be partially initialized — <code>_exit(0)</code> bypasses destructors. Intentional.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Monitor authentication fails (missing keyring)</strong></td>
+    <td>Misconfiguration or keyring theft</td>
+    <td><code>monc.init()</code> and <code>monc.authenticate()</code> return values are checked (<span class="sha">10bf5123</span>). On failure, <code>client_messenger-&gt;shutdown()</code> is called and <code>init()</code> returns error.</td>
+    <td><span class="tag tag-warn">WARN</span> On <code>build_initial_monmap()</code> failure path: asok hook, finisher, and timer are NOT cleaned up. Admin socket remains registered pointing to a partially-initialized object.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Config change to <code>mgr_standby_modules</code> while active</strong></td>
+    <td>Attempt to force active mgr to respawn and yield active role</td>
+    <td><code>handle_conf_change</code>: <code>!active_mgr</code> guard prevents respawn when active. Only standby daemons respawn on this config key change.</td>
+    <td>Low. Active mgr is immune to this trigger.</td>
+  </tr>
+
+  <tr>
+    <td><strong><code>respawn()</code> fails (<code>execv</code> returns)</strong></td>
+    <td><code>/proc/self/exe</code> and <code>orig_argv[0]</code> both fail</td>
+    <td><code>ceph_abort()</code> — process dies with a fatal log. No recovery path.</td>
+    <td>mgr daemon absent until cephadm/systemd restarts it. Cluster continues with remaining mgr standbys.</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 5 -->
+<h2 id="s5">5. Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<h3>DIVERGED Findings (intent vs. implementation)</h3>
+<table>
+  <tr><th>Finding</th><th>Establishing Commit</th><th>Conflicting Code</th><th>Impact</th></tr>
+
+  <tr class="finding-row">
+    <td><strong>MSG_MGR_MAP double-dispatch: <code>ACKNOWLEDGED()</code> overwritten</strong></td>
+    <td><span class="sha">56cb0577</span> intended <code>MGR_MAP always returns ACKNOWLEDGED()</code></td>
+    <td><code>ms_dispatch2</code> cc:521 — if <code>active_mgr != null</code>, <code>active_mgr-&gt;ms_dispatch2(m)</code> can return non-ACKNOWLEDGED, overwriting <code>r</code></td>
+    <td>Monitor may see spurious "unhandled message" warnings for MGR_MAP when active_mgr exists</td>
+  </tr>
+
+  <tr class="finding-row">
+    <td><strong><code>state_str()</code> vs. beacon <code>available</code> mismatch</strong></td>
+    <td><span class="sha">bf25a08c</span> added <code>exceeded_initialization_expiration()</code> to <code>send_beacon</code></td>
+    <td><code>state_str()</code> cc:552 only tests <code>is_initialized()</code></td>
+    <td>When expiration fires: beacon=available, state_str="active (starting)". Admin socket status, logs, and Rook health check see inconsistent state.</td>
+  </tr>
+
+  <tr class="finding-row">
+    <td><strong>Partial destructor vs. old <code>shutdown()</code> contract</strong></td>
+    <td><span class="sha">75b6149b</span> re-adds active_mgr shutdown in destructor; <span class="sha">dd9f9e268</span> removed full <code>shutdown()</code></td>
+    <td><code>~MgrStandby</code> cc:97–100 — only shuts down <code>active_mgr</code>, not timer/finisher/monc/objecter/messenger</td>
+    <td>Non-respawn process exit (rare) leaves subsystem threads unjoined. Acceptable by design (<span class="sha">dd9f9e268</span> acknowledged), but leak-check tooling will flag it.</td>
+  </tr>
+
+  <tr class="finding-row">
+    <td><strong><code>py_module_registry.init()</code> error ignored</strong></td>
+    <td><span class="sha">9718896c</span> had <code>assert(r == 0)</code>; <span class="sha">810369b0</span> moved init and dropped assertion</td>
+    <td><code>init()</code> cc:288 — <code>py_module_registry.init()</code> returns void in current API</td>
+    <td>Python module init failure is silent — mgr continues running with no Python support, no error surfaced.</td>
+  </tr>
+</table>
+
+<h3>UNGROUNDED Gaps (no commit explains the behaviour)</h3>
+<table>
+  <tr><th>Gap</th><th>Location</th><th>Risk</th></tr>
+  <tr>
+    <td><code>background_init</code> callback does not check return code <code>r</code></td>
+    <td>cc:473–478 (<span class="sha">e0e87da6</span>)</td>
+    <td>On async init failure, <code>send_beacon()</code> fires immediately and may advertise availability prematurely</td>
+  </tr>
+  <tr>
+    <td><code>add_observer(this)</code> has no matching <code>remove_observer</code></td>
+    <td>cc:197 (<span class="sha">73af779d</span>)</td>
+    <td>Safe (process lifetime = observer lifetime) but breaks convention; future refactors may miss the dangling observer</td>
+  </tr>
+  <tr>
+    <td><code>handle_conf_change</code> has no <code>ceph_mutex_is_locked_by_me</code> assertion</td>
+    <td>cc:124 (vs. cc:300 in <code>send_beacon</code>)</td>
+    <td>If called from non-observer thread, <code>active_mgr</code> nullness check races with <code>handle_mgr_map</code> deactivation under lock</td>
+  </tr>
+  <tr>
+    <td><code>ms_handle_refused</code> is a permanent no-op (10 years)</td>
+    <td>cc:528 (<span class="sha">58dd3db0</span>)</td>
+    <td>Refused connections to the monitor silently ignored; no reconnect or respawn triggered</td>
+  </tr>
+  <tr>
+    <td>Expiration beacon with empty/unbound <code>get_server_addrs()</code></td>
+    <td>cc:341 (<span class="sha">bf25a08c</span> + <span class="sha">7f787704</span>)</td>
+    <td>If expiration fires before the mgr server socket is bound, beacon advertises an unusable address to clients</td>
+  </tr>
+  <tr>
+    <td><code>asok_command</code> unlocked during <code>heap</code> profiler call</td>
+    <td>cc:152–181 (<span class="sha">d8dde402</span>)</td>
+    <td>No lock held; theoretical race with object state during heap profiling</td>
+  </tr>
+  <tr>
+    <td><code>build_initial_monmap()</code> failure leaves asok, finisher, timer alive</td>
+    <td>cc:225–229 (<span class="sha">7845f8d7</span>, never fixed)</td>
+    <td>Admin socket active pointing to partially-initialized object on this error path</td>
+  </tr>
+  <tr>
+    <td><code>main()</code> <code>args</code> parameter never used</td>
+    <td>cc:534 (<span class="sha">7845f8d7</span>)</td>
+    <td>Dead parameter — cosmetic, no functional risk</td>
+  </tr>
+</table>
+
+<h3>Failure Blast Radius</h3>
+<table>
+  <tr><th>Failure</th><th>Scope</th><th>Recovery</th></tr>
+  <tr>
+    <td>Active mgr crashes / respawns</td>
+    <td>Mgr commands unavailable for election timeout + init time (~5–30s). Cluster data path (OSDs, RADOS) unaffected.</td>
+    <td>Standby mgr elected, respawns, re-inits. cephadm detects and restarts on persistent failure.</td>
+  </tr>
+  <tr>
+    <td>Python module hangs at load</td>
+    <td>PG availability health reporting delayed until <code>mgr_module_load_expiration</code>. HEALTH_WARN after expiration.</td>
+    <td>Expiration override unblocks cluster. Admin must fix the module or disable it via <code>mgr_standby_modules</code>.</td>
+  </tr>
+  <tr>
+    <td><code>monc.authenticate()</code> fails (bad keyring)</td>
+    <td>This mgr instance exits. Other standbys unaffected.</td>
+    <td>Fix keyring, cephadm restarts daemon.</td>
+  </tr>
+  <tr>
+    <td><code>respawn()</code> fails (<code>execv</code> error)</td>
+    <td><code>ceph_abort()</code> — this mgr process terminates.</td>
+    <td>cephadm/systemd restarts. Other standbys elect a new active.</td>
+  </tr>
+  <tr>
+    <td>Timer stops firing (bug in SafeTimer)</td>
+    <td>Beacon stops → monitor marks mgr unavailable after beacon timeout → election.</td>
+    <td>New standby takes over. No data loss.</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 6 -->
+<h2 id="s6">6. Observability &amp; Triage Playbook</h2>
+
+<h3>Key Log Indicators</h3>
+<table>
+  <tr><th>Log Pattern</th><th>Meaning</th><th>Action</th></tr>
+  <tr>
+    <td><code>tick</code> at level 10</td>
+    <td>Beacon loop is alive. Silence = timer stopped.</td>
+    <td>Check <code>ceph daemon mgr.X log flush</code> at debug level 10</td>
+  </tr>
+  <tr>
+    <td><code>respawning with exe ...</code> level 1</td>
+    <td>Daemon is re-execing. Check reason in preceding line (<span class="sha">b835b07b</span>).</td>
+    <td>Check if demotion (mgrmap changed), module-list change, or conf change</td>
+  </tr>
+  <tr>
+    <td><code>handle_mgr_map ... active_in_map</code></td>
+    <td>Map received; traces promotion/demotion decision</td>
+    <td>Verify gid and module-list match expectations</td>
+  </tr>
+  <tr>
+    <td><code>state_str()</code> = <code>"active (starting)"</code></td>
+    <td>Mgr allocated but Python modules not yet initialized</td>
+    <td>Check if expiration override fired (beacon available but state shows starting)</td>
+  </tr>
+  <tr>
+    <td><code>SIGTERM/SIGINT received</code> + <code>_exit(0)</code></td>
+    <td>Orderly stop signal. Exit code 0 prevents CEPHADM_FAILED_DAEMON (<span class="sha">a3dad559</span>).</td>
+    <td>Normal if cephadm/systemd stop. Unexpected if seen during normal operation.</td>
+  </tr>
+  <tr>
+    <td><code>handle_standby_mgr_signal</code> at derr</td>
+    <td>Signal received in standby mode</td>
+    <td>Verify signal source; check cephadm logs</td>
+  </tr>
+</table>
+
+<h3>Admin Socket Commands</h3>
+<table>
+  <tr><th>Command</th><th>Output</th><th>Use</th></tr>
+  <tr>
+    <td><code>ceph daemon mgr.X status</code></td>
+    <td><code>{}</code> (empty JSON — stub per <span class="sha">4a7976a5</span>)</td>
+    <td>Rook liveness probe; not useful for diagnostics yet</td>
+  </tr>
+  <tr>
+    <td><code>ceph daemon mgr.X heap stats</code></td>
+    <td>tcmalloc heap stats</td>
+    <td>Memory leak investigation; requires tcmalloc build (<span class="sha">d8dde402</span>)</td>
+  </tr>
+  <tr>
+    <td><code>ceph daemon mgr.X config show</code></td>
+    <td>Current config values</td>
+    <td>Verify <code>mgr_tick_period</code>, <code>mgr_standby_modules</code>, <code>mgr_module_load_expiration</code></td>
+  </tr>
+</table>
+
+<h3>Triage Decision Tree</h3>
+<pre>
+Symptom: mgr unavailable / commands failing
+│
+├── Is `ceph mgr stat` showing no active mgr?
+│   ├── YES → Check mgr daemon logs for "respawning" or "authenticate failed"
+│   │         Check cephadm: `cephadm ls` and `journalctl -u ceph-mgr@X`
+│   └── NO  → Commands failing but mgr listed as active
+│             → Check if mgr is in "active (starting)" state
+│             → Check if expiration fired (HEALTH_WARN in `ceph health detail`)
+│
+├── Rapid respawn loop?
+│   ├── Check if mgr_standby_modules config key is oscillating
+│   ├── Check if mgrmap is flip-flopping (mon election in progress?)
+│   └── Check /proc/self/exe resolution and orig_argv[0] validity
+│
+├── Beacon not reaching monitor (tick loop dead)?
+│   ├── Set log level 10 and check for tick() messages
+│   ├── Verify SafeTimer is not deadlocked under `lock`
+│   └── Check if `monc` is connected: `ceph daemon mgr.X mon_status`
+│
+└── Python modules not loading?
+    ├── Check `ceph mgr module ls` for error_string in module list
+    ├── Wait for or reduce mgr_module_load_expiration
+    └── Disable problem module: `ceph config set mgr mgr_standby_modules false`
+</pre>
+
+<h3>Critical Config Knobs</h3>
+<table>
+  <tr><th>Key</th><th>Effect</th><th>Default Guidance</th></tr>
+  <tr>
+    <td><code>mgr_tick_period</code></td>
+    <td>Beacon interval (read dynamically per tick — <span class="sha">80ee71ab5</span>)</td>
+    <td>Too large: monitor declares mgr unavailable. Too small: beacon storm.</td>
+  </tr>
+  <tr>
+    <td><code>mgr_module_load_expiration</code></td>
+    <td>Timeout before expiration-availability override fires (<span class="sha">bf25a08c</span>)</td>
+    <td>Tune for slow Python import environments. Too short triggers false-available state.</td>
+  </tr>
+  <tr>
+    <td><code>mgr_standby_modules</code></td>
+    <td>Enables Python modules on standby daemons. Change triggers respawn (<span class="sha">efc29fb3</span>).</td>
+    <td>Set <code>false</code> to disable standby Python load (reduces RAM/startup on standbys).</td>
+  </tr>
+</table>
+
+<hr class="divider">
+<p class="note">
+  Sources: <code>MgrStandby-intent.md</code> (131 commits, HEAD <span class="sha">8681fa6e</span>) · 
+  <code>BobOutput/Object History/v4/MgrStandby/</code> corpus · 
+  Generated: 2026-09-14
+</p>
+
+</body>
+</html>

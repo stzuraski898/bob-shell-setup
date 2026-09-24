@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Whiteboard Defense — collect-object-history-v4.sh</title>
+<style>
+  :root {
+    --bg:       #0d1117;
+    --surface:  #161b22;
+    --border:   #30363d;
+    --accent:   #58a6ff;
+    --green:    #3fb950;
+    --yellow:   #d29922;
+    --red:      #f85149;
+    --purple:   #bc8cff;
+    --orange:   #e3b341;
+    --text:     #e6edf3;
+    --muted:    #8b949e;
+    --code-bg:  #1f2937;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.8rem; color: var(--accent); margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 40px; }
+  h2 {
+    font-size: 1.15rem;
+    color: var(--orange);
+    margin: 40px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  h3 { font-size: 1rem; color: var(--accent); margin: 20px 0 8px; }
+  p  { margin-bottom: 10px; }
+  ul { padding-left: 20px; margin-bottom: 10px; }
+  li { margin-bottom: 4px; }
+  code, .mono {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.85em;
+    color: var(--green);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.82em;
+    line-height: 1.5;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+  pre .c   { color: var(--muted); }
+  pre .kw  { color: var(--purple); }
+  pre .str { color: var(--orange); }
+  pre .var { color: var(--green); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 0.87em;
+  }
+  th {
+    background: var(--surface);
+    color: var(--orange);
+    text-align: left;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.78em;
+  }
+  td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #111820; }
+  tr:hover td { background: #1c2433; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.78em;
+    font-weight: 600;
+    font-family: monospace;
+  }
+  .badge-green  { background: #0f3a1e; color: var(--green);  border: 1px solid #1a6030; }
+  .badge-red    { background: #3a0f0f; color: var(--red);    border: 1px solid #6a1a1a; }
+  .badge-yellow { background: #3a2a0f; color: var(--yellow); border: 1px solid #6a4a1a; }
+  .badge-blue   { background: #0f2040; color: var(--accent); border: 1px solid #1a4080; }
+  .badge-purple { background: #20103a; color: var(--purple); border: 1px solid #4a2060; }
+  .tag { color: var(--muted); font-size: 0.8em; margin-right: 6px; }
+  .section-intro { color: var(--muted); margin-bottom: 14px; font-size: 0.9em; }
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 32px;
+  }
+  .toc a { color: var(--accent); text-decoration: none; font-size: 0.88em; }
+  .toc a:hover { text-decoration: underline; }
+  .toc-label { color: var(--muted); font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; grid-column: 1/-1; }
+  .flow-box {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.82em;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin-bottom: 20px;
+  }
+  .flow-box .stage  { color: var(--accent); font-weight: bold; }
+  .flow-box .arrow  { color: var(--muted); }
+  .flow-box .output { color: var(--green); }
+  .flow-box .note   { color: var(--yellow); }
+  .divider { height: 1px; background: var(--border); margin: 36px 0; }
+  .invariant-box {
+    background: var(--surface);
+    border-left: 3px solid var(--purple);
+    padding: 10px 14px;
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 10px;
+    font-size: 0.88em;
+  }
+  .warn-box {
+    background: #1f1a0f;
+    border-left: 3px solid var(--yellow);
+    padding: 10px 14px;
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 10px;
+    font-size: 0.88em;
+  }
+  .danger-box {
+    background: #1f0f0f;
+    border-left: 3px solid var(--red);
+    padding: 10px 14px;
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 10px;
+    font-size: 0.88em;
+  }
+  .meta { color: var(--muted); font-size: 0.78em; margin-top: 2px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) {
+    .two-col { grid-template-columns: 1fr; }
+    .toc { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h1>Whiteboard Defense</h1>
+<div class="subtitle">
+  <code>collect-object-history-v4.sh</code> &mdash; Rename-Aware Git History Corpus Collector &nbsp;·&nbsp;
+  Ceph <code>src/mgr/</code> subsystem &nbsp;·&nbsp; 27 classes &nbsp;·&nbsp; bash + git + ctags
+</div>
+
+<div class="toc">
+  <div class="toc-label">Sections</div>
+  <a href="#arch">1. High-Level Architecture &amp; Mental Model</a>
+  <a href="#decisions">2. Architectural Decisions &amp; Trade-offs</a>
+  <a href="#ds">3. Data Structures, Algorithms &amp; Invariants</a>
+  <a href="#threat">4. Threat Model &amp; Adversarial Handling</a>
+  <a href="#failures">5. Failure Modes, Edge Cases &amp; Blast Radius</a>
+  <a href="#triage">6. Observability &amp; Triage Playbook</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="arch">1 — High-Level Architecture &amp; Mental Model</h2>
+
+<p class="section-intro">
+  <strong>One-liner:</strong> For each of 27 Ceph mgr C++ classes, resolve the file's entire rename history, build a SHA→historicPath map, then write commits, blame, function index, scoped diffs, and a commit→function map — all in parallel background subshells.
+</p>
+
+<div class="flow-box">
+<span class="stage">ENTRY</span>
+  cd ${CEPH_ROOT}  ·  capture HEAD_SHA, RUN_TS
+  iterate CLASS_FILES[27] sorted alphabetically
+<span class="arrow">        │
+        │  for each class, launch &amp; (background subshell)
+        ▼</span>
+<span class="stage">PHASE 1 — RENAME RESOLUTION</span>
+  resolve_rename_chain(SRC_CC) ──▶ <span class="output">chain_cc.tmp</span>   <span class="note">segments: path sha_new sha_old</span>
+  resolve_rename_chain(SRC_H)  ──▶ <span class="output">chain_h.tmp</span>
+    └── git log --follow --name-status --format='COMMIT:%H' -- {path}
+        piped into awk state machine (segment tracker)
+<span class="arrow">        │</span>
+<span class="stage">PHASE 2 — SHA→PATH MAP</span>
+  build_sha_to_path_map(chain_cc) ──▶ <span class="output">map_cc.tmp</span>   <span class="note">sha path (one per commit)</span>
+  build_sha_to_path_map(chain_h)  ──▶ <span class="output">map_h.tmp</span>
+    └── per segment: git log ${seg_old}~1..${seg_new} + git log -1 ${seg_old}
+<span class="arrow">        │</span>
+<span class="stage">PHASE 3 — ARTIFACT GENERATION</span>
+  commits.txt        union SHAs(map_cc ∪ map_h) → git log --no-walk --stdin
+  blame.txt          git blame -w -M -C on current .cc / .h
+  functions.txt      ctags --language-force=C++ --c++-kinds=f+p
+  rename_chain.txt   cat chain_cc + chain_h (human readable)
+  diffs/{sha}.diff   git show {sha} -- {hist_cc} [{hist_h}]   ← historically-correct path
+<span class="arrow">        │</span>
+<span class="stage">PHASE 4 — COMMIT→FUNCTION MAP</span>
+  commit_function_map.txt
+    └── for each diff: parse @@ hunk headers, extract func context,
+        match against functions.txt names (full Class::method + bare)
+<span class="arrow">        │</span>
+<span class="stage">PHASE 5 — CLEANUP + INDEX</span>
+  rm chain_cc/h.tmp map_cc/h.tmp func_names.tmp
+  wait all 27 background jobs → collect FAILED count
+  write INDEX.txt (class | commits | functions | diffs)
+</div>
+
+<h3>Filesystem Output Layout</h3>
+<pre>
+${OUTPUT_DIR}/
+├── INDEX.txt                          # summary table: class | commits | funcs | diffs
+└── &lt;ClassName&gt;/                       # one dir per class (27 total)
+    ├── commits.txt                    # SHA date author | subject  (rename-aware, newest-first*)
+    ├── blame.txt                      # git blame -w -M -C  (.cc + .h)
+    ├── functions.txt                  # ctags: "qualified_name | file:line"
+    ├── rename_chain.txt               # "path sha_new sha_old" per segment
+    ├── commit_function_map.txt        # "SHA | func1 func2 …"  (or "(no functions)")
+    └── diffs/
+        └── &lt;40-char-sha&gt;.diff        # git show scoped to historic path  [idempotent]
+
+* sort order from git --no-walk --stdin, not guaranteed strictly chronological
+</pre>
+
+<h3>Concurrency Model</h3>
+<ul>
+  <li>27 workers spawned simultaneously via <code>&amp;</code> — no work queue, no semaphore.</li>
+  <li>Each worker owns its own <code>${OUTPUT_DIR}/${CLASS}/</code> subtree — zero shared mutable state.</li>
+  <li>Stderr serialized with <code>flock</code> on a per-run lockfile <code>/tmp/collect-v4-$$.lock</code>.</li>
+  <li>Main process harvests exit codes via <code>wait ${job}</code>; accumulates <code>FAILED</code> counter.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="decisions">2 — Architectural Decisions &amp; Trade-offs</h2>
+<p class="section-intro">"Why did you do X instead of Y?"</p>
+
+<table>
+  <thead>
+    <tr><th>Decision</th><th>Chosen Approach</th><th>Rejected Alternative</th><th>Rationale</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Rename tracking</strong></td>
+      <td><code>git log --follow --name-status</code> per file, parsed by awk into path segments; each segment's diffs use its historically-correct path</td>
+      <td>v3 approach: always call <code>git show &lt;sha&gt; -- &lt;current_path&gt;</code></td>
+      <td>v3 produces spurious <em>"new file mode"</em> diffs for any commit predating a rename. The segment map eliminates this contamination entirely.</td>
+    </tr>
+    <tr>
+      <td><strong>SHA→path mapping</strong></td>
+      <td>Two-pass: <code>seg_old~1..seg_new</code> range + separate <code>-1 seg_old</code> catch-up</td>
+      <td>Single <code>seg_old..seg_new</code> range (inclusive both ends)</td>
+      <td>Git range <code>A..B</code> excludes A. The two-pass approach is explicit about the boundary commit rather than relying on a half-open range that silently drops it.</td>
+    </tr>
+    <tr>
+      <td><strong>Function extraction</strong></td>
+      <td>ctags on current working tree files; kinds <code>f+p</code> (function definition + prototype)</td>
+      <td>Parse function names from diffs/source manually</td>
+      <td>ctags provides structured, language-aware extraction. Regex parsing of C++ headers is fragile against templates and macros.</td>
+    </tr>
+    <tr>
+      <td><strong>Commit→function linkage</strong></td>
+      <td>Parse <code>@@ … @@ context</code> from git unified diff hunk headers; match against ctags names</td>
+      <td>Map line numbers from diff to function ranges from ctags</td>
+      <td>Line numbers shift across the entire rename history. Git's nearest-enclosing-function annotation in <code>@@</code> is derived from diff content and works correctly across all historical commits.</td>
+    </tr>
+    <tr>
+      <td><strong>Parallelism</strong></td>
+      <td>Bash <code>&amp;</code> with one subshell per class; main waits with <code>wait</code></td>
+      <td>Sequential processing; <code>xargs -P</code>; GNU parallel</td>
+      <td>27 classes is a bounded, known-small set. Simple <code>&amp;</code> requires no external tools, no job-queue logic, and bash natively provides exit-code harvesting via <code>wait</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Diff idempotency</strong></td>
+      <td><code>[[ -f "${diff_file}" ]] &amp;&amp; continue</code> skips existing diffs</td>
+      <td>Always regenerate diffs; delete output dir on each run</td>
+      <td>Diffs are immutable (content-addressed by SHA). Skipping avoids redundant <code>git show</code> calls on re-runs, enabling safe incremental execution.</td>
+    </tr>
+    <tr>
+      <td><strong>Class registry</strong></td>
+      <td>Bash associative array <code>CLASS_FILES[ClassName]="cc_path:h_path"</code></td>
+      <td>External config file (JSON/YAML/CSV); auto-discovery by grep</td>
+      <td>Keeps the script self-contained and deployable with a single <code>scp</code>. Auto-discovery would pick up unrelated files; explicit registry is auditable.</td>
+    </tr>
+    <tr>
+      <td><strong>Merge commits</strong></td>
+      <td><code>--no-merges</code> flag on all <code>git log</code> calls in the map and commits list</td>
+      <td>Include merge commits</td>
+      <td>Merge commit diffs are noisy (they combine all changes from a branch). The meaningful history lives on the non-merge commits.</td>
+    </tr>
+    <tr>
+      <td><strong>Blame flags</strong></td>
+      <td><code>git blame -w -M -C</code> (ignore whitespace, detect moved/copied lines within and across files)</td>
+      <td>Plain <code>git blame</code></td>
+      <td>Whitespace-only reformats and internal refactors would incorrectly attribute lines to reformatting commits rather than the original author.</td>
+    </tr>
+    <tr>
+      <td><strong>Logging</strong></td>
+      <td><code>flock</code>-guarded <code>echo</code> to stderr; graceful fallback to unfenced echo if <code>flock</code> absent</td>
+      <td>Named pipe logger; logger process</td>
+      <td>Minimizes dependencies. Partial interleaving of log lines is acceptable; full log corruption (torn lines) is prevented cheaply.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="ds">3 — Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Primary Data Structures</h3>
+<table>
+  <thead>
+    <tr><th>Structure</th><th>Type</th><th>Key</th><th>Value</th><th>Where</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>CLASS_FILES</code></td>
+      <td><span class="badge badge-blue">Bash assoc array</span></td>
+      <td>ClassName (string)</td>
+      <td><code>"cc_path:h_path"</code> colon-separated</td>
+      <td>Global config</td>
+    </tr>
+    <tr>
+      <td><code>chain_cc.tmp</code> / <code>chain_h.tmp</code></td>
+      <td><span class="badge badge-purple">Newline-delimited text</span></td>
+      <td>—</td>
+      <td><code>path sha_new sha_old</code> per line (newest segment first)</td>
+      <td>Per-class temp; deleted after use</td>
+    </tr>
+    <tr>
+      <td><code>map_cc.tmp</code> / <code>map_h.tmp</code></td>
+      <td><span class="badge badge-purple">Newline-delimited text</span></td>
+      <td>—</td>
+      <td><code>sha40 path</code> per line</td>
+      <td>Per-class temp; deleted after use</td>
+    </tr>
+    <tr>
+      <td>awk <code>known[]</code></td>
+      <td><span class="badge badge-green">awk assoc array</span></td>
+      <td>function name (string)</td>
+      <td>1 (presence set)</td>
+      <td>commit_function_map inline awk; per-commit</td>
+    </tr>
+    <tr>
+      <td>awk <code>funcs_seen[]</code></td>
+      <td><span class="badge badge-green">awk assoc array</span></td>
+      <td>function name (string)</td>
+      <td>1 (presence set)</td>
+      <td>commit_function_map inline awk; per-commit</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>rename chain awk state machine (<code>resolve_rename_chain</code>)</h3>
+<div class="flow-box">
+<span class="note">State variables:</span>  cur_path  seg_new  seg_old
+
+<span class="note">Input stream from git log --follow --name-status:</span>
+  COMMIT:&lt;sha&gt;   →  if seg_new=="" set seg_new=sha;  always set seg_old=sha
+  R&lt;N&gt; old new  →  emit "cur_path seg_new seg_old"
+                    cur_path = old (rename source)
+                    seg_new  = seg_old             <span class="note">← new segment starts at rename commit</span>
+  M/A/blank      →  ignored (path tracking handled by R lines only)
+  END            →  if seg_new!="" emit final segment
+</div>
+
+<div class="invariant-box">
+  <strong>Invariant I1:</strong> Segments are non-overlapping and collectively cover every commit reachable via <code>--follow</code>. No SHA appears in two segments for the same file.
+</div>
+<div class="invariant-box">
+  <strong>Invariant I2:</strong> Segment order is newest-first. <code>seg_new</code> is always chronologically ≥ <code>seg_old</code> within a segment.
+</div>
+<div class="invariant-box">
+  <strong>Invariant I3:</strong> For each commit SHA in <code>map_cc.tmp</code>, the stored path is the path that was active when that commit was authored — not the current path.
+</div>
+<div class="invariant-box">
+  <strong>Invariant I4:</strong> <code>diffs/{sha}.diff</code> is content-addressed and immutable. Regenerating with the same SHA always yields identical content (git objects are immutable). Idempotent skip is safe.
+</div>
+<div class="invariant-box">
+  <strong>Invariant I5:</strong> Workers share no mutable state. Each writes exclusively under <code>${OUTPUT_DIR}/${CLASS}/</code>. No locking needed for file I/O.
+</div>
+
+<h3>Boundary Off-by-One in <code>build_sha_to_path_map</code></h3>
+<pre>
+git log ${seg_old}~1..${seg_new} -- ${path}   # range: (seg_old, seg_new]  ← EXCLUDES seg_old
+git log -1 ${seg_old}            -- ${path}   # catch-up: add seg_old explicitly
+</pre>
+<p class="meta">If <code>seg_old</code> is the repository's initial commit, <code>seg_old~1</code> does not exist. The first call silently returns nothing. The second <code>-1</code> call still captures it. Net result: correct.</p>
+
+<h3><code>commit_function_map</code> Algorithm</h3>
+<ol>
+  <li>Load ctags function names into awk set <code>known[]</code> from <code>func_names.tmp</code>.</li>
+  <li>Scan each <code>.diff</code> for <code>/^@@ /</code> lines.</li>
+  <li>Strip <code>@@ -a,b +c,d @@ </code> prefix; strip argument list <code>(…)</code>; trim whitespace → <code>ctx</code>.</li>
+  <li>Test both <code>ctx</code> (full <code>Class::method</code>) and <code>bare</code> (post-<code>::</code> suffix) against <code>known[]</code>.</li>
+  <li>Accumulate matches into <code>funcs_seen[]</code>; emit space-separated list or <code>(no functions)</code>.</li>
+</ol>
+<p class="meta">Limitation: git's nearest-enclosing-function heuristic is language-aware but not perfect for C++ templates, lambdas, or functions in anonymous namespaces.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="threat">4 — Threat Model &amp; Adversarial Handling</h2>
+<p class="section-intro">"What if an actor behaves maliciously or unexpectedly?"</p>
+<p><em>Note: This is an offline corpus-collection tool run by a developer in a trusted ceph worktree. There is no network-facing surface or user input. The threat model centers on malformed git objects, hostile repository content, and filesystem misuse.</em></p>
+
+<table>
+  <thead>
+    <tr><th>Actor / Scenario</th><th>Attack Vector</th><th>Impact</th><th>Handling / Mitigation</th><th>Residual Risk</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Malicious commit message</strong></td>
+      <td>Commit subject containing shell metacharacters (<code>$(…)</code>, backticks, newlines)</td>
+      <td>Potential command injection if commit subject is eval'd</td>
+      <td>Commit subjects written directly to <code>commits.txt</code> via <code>--format</code>; never passed to <code>eval</code> or <code>sh -c</code>. SHA regex guard <code>[[ "${sha}" =~ ^[0-9a-f]{40}$ ]]</code> ensures only valid SHAs are acted on.</td>
+      <td><span class="badge badge-green">LOW</span> No eval path exists.</td>
+    </tr>
+    <tr>
+      <td><strong>Malicious file path in rename history</strong></td>
+      <td>A rename record with a path containing spaces, newlines, or shell metacharacters</td>
+      <td>awk field splitting may mis-parse <code>path sha_new sha_old</code></td>
+      <td>awk splits on whitespace; paths with spaces would break field alignment. <code>IFS=' '</code> read in <code>build_sha_to_path_map</code> would also misparse.</td>
+      <td><span class="badge badge-yellow">MEDIUM</span> Ceph src/mgr paths historically use no spaces. Exotic paths would produce silent map miss → fallback to current path → diff may be wrong but no code exec.</td>
+    </tr>
+    <tr>
+      <td><strong>Symlink / path traversal in OUTPUT_DIR</strong></td>
+      <td>Attacker pre-places a symlink at <code>${OUTPUT_DIR}/${CLASS}/</code> pointing outside intended directory</td>
+      <td>Script writes corpus files to attacker-controlled location</td>
+      <td>Script does <code>mkdir -p ${DIFFS_DIR}</code> and writes files under it. If <code>${OUTPUT_DIR}/${CLASS}</code> is a symlink, <code>mkdir -p</code> follows it. No validation of symlink targets.</td>
+      <td><span class="badge badge-yellow">MEDIUM</span> Requires attacker write access to <code>OUTPUT_DIR</code> parent. Corpus content (git diffs, blame) is non-sensitive in context.</td>
+    </tr>
+    <tr>
+      <td><strong>git object corruption / tampered repo</strong></td>
+      <td>Crafted git objects producing unexpected <code>git log</code> output</td>
+      <td>Incorrect path maps, missing diffs, wrong blame attribution</td>
+      <td>All git calls have <code>2>/dev/null || true</code> guards; failures produce empty/missing outputs, not crashes. SHA regex guard prevents non-SHA tokens from triggering <code>git show</code>.</td>
+      <td><span class="badge badge-yellow">MEDIUM</span> Silent data corruption (wrong diffs) is possible. No crash or code exec.</td>
+    </tr>
+    <tr>
+      <td><strong>Output directory already exists with stale data</strong></td>
+      <td>Re-running script with partially-completed prior run</td>
+      <td>Stale commits.txt / blame.txt from prior HEAD; mixed-epoch data</td>
+      <td>Only <code>diffs/{sha}.diff</code> files are idempotent-skipped. All other artifacts are unconditionally overwritten. <code>HEAD_SHA</code> and <code>RUN_TS</code> stamped in headers detect staleness.</td>
+      <td><span class="badge badge-green">LOW</span> Non-diff artifacts always reflect current run.</td>
+    </tr>
+    <tr>
+      <td><strong>Huge repository / unbounded parallelism</strong></td>
+      <td>Running script in a repo with thousands of commits and 27 simultaneous workers</td>
+      <td>OOM, fd exhaustion, git pack contention</td>
+      <td>27 workers is bounded and fixed. Each worker runs ~4 serial git processes. Git's object store uses file locks internally (pack-refs); concurrent reads are safe.</td>
+      <td><span class="badge badge-blue">INFO</span> Memory and fd usage scales linearly with history depth, not parallelism.</td>
+    </tr>
+    <tr>
+      <td><strong>ctags absent or wrong version</strong></td>
+      <td">Missing binary or exuberant-ctags with different field syntax</td>
+      <td><code>functions.txt</code> empty or malformed</td>
+      <td>Graceful: if <code>CTAGS_BIN</code> is empty, emits comment line. Field extraction uses both regex (<code>match(raw, /\tline:([0-9]+)/</code>) and positional fallback for exuberant-ctags compatibility.</td>
+      <td><span class="badge badge-green">LOW</span> Degrades functions.txt only; all other artifacts unaffected.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="failures">5 — Failure Modes, Edge Cases &amp; Blast Radius</h2>
+<p class="section-intro">"Where does this fail or bottleneck?"</p>
+
+<table>
+  <thead>
+    <tr><th>Failure Mode</th><th>Trigger</th><th>Blast Radius</th><th>Behavior</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Not run inside a git repo</strong></td>
+      <td><code>CEPH_ROOT</code> resolves to <code>.</code>; all subsequent git calls fail</td>
+      <td><span class="badge badge-red">ALL 27</span> workers fail</td>
+      <td><code>set -euo pipefail</code> on main script; workers have <code>|| true</code> guards producing empty output. FAILED=27 logged. No crash.</td>
+    </tr>
+    <tr>
+      <td><strong>Single worker crash</strong></td>
+      <td>Unexpected error in a subshell (disk full, permission denied)</td>
+      <td><span class="badge badge-yellow">1 class</span></td>
+      <td><code>wait ${job}</code> catches non-zero exit; increments FAILED counter; other workers unaffected. Partial output may exist in that class's dir.</td>
+    </tr>
+    <tr>
+      <td><strong>Disk full mid-run</strong></td>
+      <td>Output volume exhausted</td>
+      <td><span class="badge badge-red">ALL</span> — all writes fail</td>
+      <td>Workers silently produce empty files or partial files; FAILED counter may or may not catch this depending on which call fails. No cleanup of partial output.</td>
+    </tr>
+    <tr>
+      <td><strong>Initial commit boundary (seg_old~1 undefined)</strong></td>
+      <td>Class file was added in the very first repo commit</td>
+      <td><span class="badge badge-green">0</span> — handled</td>
+      <td><code>seg_old~1</code> range returns nothing; separate <code>-1 seg_old</code> call captures the initial commit. Correct.</td>
+    </tr>
+    <tr>
+      <td><strong>Single-file class (.cc == .h)</strong></td>
+      <td>CLASS_FILES entry like <code>[Foo]="src/mgr/Foo.cc:src/mgr/Foo.cc"</code></td>
+      <td><span class="badge badge-green">0</span> — handled</td>
+      <td>chain_h / map_h are <code>cp</code>'d from .cc equivalents; blame and diffs run once. No duplicate output.</td>
+    </tr>
+    <tr>
+      <td><strong>File deleted from HEAD</strong></td>
+      <td>A class source file was removed in a recent commit</td>
+      <td><span class="badge badge-yellow">1 class</span></td>
+      <td><code>git blame</code> emits <code># (file not found or empty)</code>. ctags skips (file check <code>[[ -f ]]</code>). Commits and diffs still collected from history.</td>
+    </tr>
+    <tr>
+      <td><strong>commits.txt sort order not chronological</strong></td>
+      <td><code>git log --no-walk --stdin</code> order depends on git internals</td>
+      <td><span class="badge badge-blue">INFO</span></td>
+      <td>Documented limitation. Consumers requiring time-order must re-sort on the date field. commit_function_map processing is order-independent (per-SHA lookup).</td>
+    </tr>
+    <tr>
+      <td><strong>commit_function_map false negatives</strong></td>
+      <td>C++ template functions, lambdas, free functions outside class scope</td>
+      <td><span class="badge badge-blue">INFO</span></td>
+      <td>Emits <code>(no functions)</code>. Does not affect any other artifact. Git hunk context heuristic is best-effort.</td>
+    </tr>
+    <tr>
+      <td><strong>Path with spaces in CLASS_FILES</strong></td>
+      <td>Hypothetical: a mgr path containing a space</td>
+      <td><span class="badge badge-yellow">1 class</span></td>
+      <td>awk field split and IFS read would mis-parse; map lookup would fail; fallback to current path used for diffs. Wrong diffs possible, no crash.</td>
+    </tr>
+    <tr>
+      <td><strong>Parallelism bottleneck</strong></td>
+      <td>27 workers all calling git pack-objects / gc simultaneously</td>
+      <td><span class="badge badge-blue">INFO</span></td>
+      <td>Git read operations are safe to parallelize. No explicit locking needed. Contention manifests as slowdown, not failure.</td>
+    </tr>
+    <tr>
+      <td><strong>OUTPUT_DIR path with spaces</strong></td>
+      <td>Default path <code>/home/szuraski/BobOutput/Object History/v4</code> contains a space</td>
+      <td><span class="badge badge-green">0</span> in script itself</td>
+      <td>Script quotes all uses of <code>${OUTPUT_DIR}</code>. Risk is downstream tools (shell pipelines, external scripts) that receive the path unquoted.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="triage">6 — Observability &amp; Triage Playbook</h2>
+
+<h3>What the Script Emits</h3>
+<table>
+  <thead>
+    <tr><th>Signal</th><th>Where</th><th>What it tells you</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>[collect-v4] HEAD: &lt;sha&gt; (&lt;date&gt;)</code></td>
+      <td>stderr</td>
+      <td>Confirms script ran at correct HEAD; compare to expected branch tip</td>
+    </tr>
+    <tr>
+      <td><code>[collect-v4] Launching 27 workers in parallel…</code></td>
+      <td>stderr</td>
+      <td>Confirms CLASS_FILES loaded (hash size shown)</td>
+    </tr>
+    <tr>
+      <td><code>[collect-v4] --- &lt;CLASS&gt; ---</code></td>
+      <td>stderr</td>
+      <td>Worker started; if a class never appears, it was not in CLASS_FILES</td>
+    </tr>
+    <tr>
+      <td><code>[collect-v4] &lt;CLASS&gt;: N commits, M functions, K diffs → path</code></td>
+      <td>stderr</td>
+      <td>Worker summary; 0 commits or 0 functions warrants investigation</td>
+    </tr>
+    <tr>
+      <td><code>[collect-v4] WARNING: worker PID &lt;n&gt; exited non-zero</code></td>
+      <td>stderr</td>
+      <td>A worker failed; check its output dir for empty/missing files</td>
+    </tr>
+    <tr>
+      <td><code>[collect-v4] Collection complete (v4) with N worker failure(s)</code></td>
+      <td>stderr (final)</td>
+      <td>Non-zero N = actionable; 0 = clean run</td>
+    </tr>
+    <tr>
+      <td><code>INDEX.txt</code></td>
+      <td>file</td>
+      <td>Per-class counts table; 0 in any column flags missing/failed artifacts</td>
+    </tr>
+    <tr>
+      <td><code>commits.txt</code> header</td>
+      <td>file</td>
+      <td>Contains <code>collected_at</code> and <code>head:</code> — staleness check</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Triage Checklist</h3>
+
+<div class="warn-box">
+  <strong>Symptom: 0 commits for a class</strong><br/>
+  <ul>
+    <li>Check <code>rename_chain.txt</code> — is the chain populated? Empty chain = git couldn't find the file at all.</li>
+    <li>Verify <code>SRC_CC</code> path in CLASS_FILES matches actual repo path (case-sensitive on Linux).</li>
+    <li>Run manually: <code>git log --follow --name-status -- src/mgr/ClassName.cc | head -40</code></li>
+  </ul>
+</div>
+
+<div class="warn-box">
+  <strong>Symptom: diffs contain "new file mode" or show full file content</strong><br/>
+  <ul>
+    <li>Indicates historic path lookup failed — check <code>map_cc.tmp</code> was populated (it's deleted post-run; re-run with <code>rm -f diffs/*.diff</code> and add a debug <code>cat map_cc.tmp</code> line).</li>
+    <li>Fallback path (<code>SRC_CC</code>) was used; rename chain likely missed that commit's segment.</li>
+  </ul>
+</div>
+
+<div class="warn-box">
+  <strong>Symptom: functions.txt is empty (beyond header comment)</strong><br/>
+  <ul>
+    <li>Check <code>CTAGS_BIN</code>: run <code>command -v universal-ctags ctags</code> on the target machine.</li>
+    <li>Verify ctags version supports <code>--c++-kinds</code> and <code>--fields=+nk</code> (universal-ctags ≥ 5.x).</li>
+    <li>Inspect raw ctags output: <code>ctags --language-force=C++ --c++-kinds=f+p --fields=+nk -f - src/mgr/ClassName.cc | head</code></li>
+  </ul>
+</div>
+
+<div class="warn-box">
+  <strong>Symptom: commit_function_map.txt has only "(no functions)" entries</strong><br/>
+  <ul>
+    <li>First verify functions.txt is populated — if empty, all lookups will miss.</li>
+    <li>Check if diff hunk headers actually contain function context: <code>grep "^@@" diffs/&lt;sha&gt;.diff | head</code></li>
+    <li>C++ files that lack context (e.g., all code inside anonymous namespaces) will produce no matches. Expected for some files.</li>
+  </ul>
+</div>
+
+<div class="danger-box">
+  <strong>Symptom: script exits immediately with error</strong><br/>
+  <ul>
+    <li><code>set -euo pipefail</code> is active on the main script. Check: is <code>git rev-parse --show-toplevel</code> succeeding? (<code>CEPH_ROOT</code> fallback is <code>.</code> only if it fails).</li>
+    <li>Bash ≥ 4.0 required for <code>declare -A</code>. Check: <code>bash --version</code>.</li>
+    <li>If subshells fail, main script still continues (subshell errors don't propagate to the main shell's <code>set -e</code>).</li>
+  </ul>
+</div>
+
+<h3>Quick Validation Commands</h3>
+<pre>
+# Confirm run completed
+tail -5 ~/tmp/collect-v4.log
+
+# Check INDEX for anomalies
+column -t ${OUTPUT_DIR}/INDEX.txt | grep -E "(0\s+|0$)"
+
+# Inspect rename chain for a specific class
+cat "${OUTPUT_DIR}/ActivePyModule/rename_chain.txt"
+
+# Verify historic path is being used (not current path for old commits)
+head -3 "${OUTPUT_DIR}/ActivePyModule/diffs/$(head -2 "${OUTPUT_DIR}/ActivePyModule/commits.txt" | tail -1 | awk '{print $1}').diff"
+
+# Count missing diffs
+echo "Expected:"; grep -c "^[0-9a-f]" "${OUTPUT_DIR}/ActivePyModule/commits.txt"
+echo "Actual:";   ls "${OUTPUT_DIR}/ActivePyModule/diffs/" | wc -l
+</pre>
+
+<h3>Dependencies Quick Reference</h3>
+<table>
+  <thead>
+    <tr><th>Tool</th><th>Required</th><th>Min Version</th><th>Fallback if Missing</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>git</code></td>
+      <td><span class="badge badge-red">REQUIRED</span></td>
+      <td>≥ 2.9 (<code>--no-walk --stdin</code>)</td>
+      <td>All collection fails</td>
+    </tr>
+    <tr>
+      <td><code>bash</code></td>
+      <td><span class="badge badge-red">REQUIRED</span></td>
+      <td>≥ 4.0 (<code>declare -A</code>)</td>
+      <td>Script exits at associative array declaration</td>
+    </tr>
+    <tr>
+      <td><code>awk</code></td>
+      <td><span class="badge badge-red">REQUIRED</span></td>
+      <td>POSIX (gawk/mawk/nawk)</td>
+      <td>Rename chain and function map fail</td>
+    </tr>
+    <tr>
+      <td><code>ctags</code></td>
+      <td><span class="badge badge-yellow">OPTIONAL</span></td>
+      <td>universal-ctags preferred; exuberant OK</td>
+      <td><code>functions.txt</code> emits comment only; all other artifacts unaffected</td>
+    </tr>
+    <tr>
+      <td><code>flock</code></td>
+      <td><span class="badge badge-yellow">OPTIONAL</span></td>
+      <td>Any</td>
+      <td>Log lines may interleave on stderr; no data corruption</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="divider"></div>
+<p style="color:var(--muted);font-size:0.78em;text-align:center;">
+  Generated from <code>collect-object-history-v4.sh</code> source analysis &nbsp;·&nbsp;
+  Whiteboard Defense Document &nbsp;·&nbsp;
+  Ceph <code>src/mgr/</code> corpus collector
+</p>
+
+</body>
+</html>

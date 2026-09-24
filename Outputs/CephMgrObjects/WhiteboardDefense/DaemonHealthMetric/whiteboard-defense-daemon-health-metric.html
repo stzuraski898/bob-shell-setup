@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — DaemonHealthMetric</title>
+<style>
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --border:   #2e3245;
+    --accent:   #4f8ef7;
+    --warn:     #f7c94f;
+    --danger:   #f75f5f;
+    --ok:       #4fd98e;
+    --muted:    #8b90a8;
+    --text:     #e2e5f0;
+    --code-bg:  #12141e;
+    --mono:     'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  /* ── Typography ── */
+  h1 { font-size: 1.75rem; color: var(--accent); margin-bottom: 4px; }
+  h2 { font-size: 1.15rem; color: var(--accent); border-bottom: 1px solid var(--border);
+       padding-bottom: 6px; margin: 36px 0 14px; text-transform: uppercase; letter-spacing: .06em; }
+  h3 { font-size: .95rem; color: var(--warn); margin: 18px 0 8px; }
+  p  { margin-bottom: 10px; }
+  code {
+    font-family: var(--mono);
+    font-size: .82em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  pre {
+    font-family: var(--mono);
+    font-size: .82em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 10px 0 16px;
+    line-height: 1.5;
+  }
+
+  /* ── Meta bar ── */
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 16px; margin: 14px 0 32px;
+    font-size: .82em; color: var(--muted);
+  }
+  .meta span strong { color: var(--text); }
+
+  /* ── Tables ── */
+  table {
+    width: 100%; border-collapse: collapse; margin: 10px 0 20px;
+    font-size: .83em;
+  }
+  th {
+    background: var(--surface); color: var(--accent);
+    border: 1px solid var(--border); padding: 7px 11px;
+    text-align: left; font-weight: 600; white-space: nowrap;
+  }
+  td {
+    border: 1px solid var(--border); padding: 7px 11px;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: rgba(255,255,255,.025); }
+  tr:hover td { background: rgba(79,142,247,.06); }
+
+  /* ── Tag pills ── */
+  .pill {
+    display: inline-block; border-radius: 4px;
+    padding: 1px 7px; font-size: .75em; font-weight: 700;
+    font-family: var(--mono); white-space: nowrap;
+  }
+  .pill-ok     { background: rgba(79,217,142,.15); color: var(--ok); border:1px solid rgba(79,217,142,.3); }
+  .pill-warn   { background: rgba(247,201,79,.15);  color: var(--warn); border:1px solid rgba(247,201,79,.3); }
+  .pill-danger { background: rgba(247,95,95,.15);   color: var(--danger); border:1px solid rgba(247,95,95,.3); }
+  .pill-info   { background: rgba(79,142,247,.15);  color: var(--accent); border:1px solid rgba(79,142,247,.3); }
+  .pill-muted  { background: rgba(139,144,168,.12); color: var(--muted); border:1px solid rgba(139,144,168,.25); }
+
+  /* ── SHA link style ── */
+  .sha {
+    font-family: var(--mono); font-size: .78em;
+    color: var(--muted); background: var(--code-bg);
+    border: 1px solid var(--border); border-radius: 3px;
+    padding: 1px 5px;
+  }
+
+  /* ── Callout boxes ── */
+  .callout {
+    border-left: 3px solid; border-radius: 0 6px 6px 0;
+    padding: 10px 14px; margin: 12px 0; font-size: .86em;
+  }
+  .callout-warn   { border-color: var(--warn);   background: rgba(247,201,79,.07); }
+  .callout-danger { border-color: var(--danger);  background: rgba(247,95,95,.07); }
+  .callout-ok     { border-color: var(--ok);      background: rgba(79,217,142,.07); }
+  .callout-info   { border-color: var(--accent);  background: rgba(79,142,247,.07); }
+
+  /* ── Flow diagram ── */
+  .flow-wrap { background: var(--code-bg); border:1px solid var(--border);
+               border-radius:8px; padding:20px 24px; margin:14px 0 20px; overflow-x:auto; }
+  .flow-wrap pre { background:none; border:none; padding:0; margin:0; font-size:.82em; }
+
+  /* ── Section divider ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+  ul { padding-left: 20px; margin-bottom: 10px; }
+  ul li { margin-bottom: 4px; }
+  ol  { padding-left: 20px; margin-bottom: 10px; }
+  ol li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense — <code>DaemonHealthMetric</code></h1>
+
+<div class="meta">
+  <span><strong>Files:</strong> src/mgr/DaemonHealthMetric.h · src/mgr/DaemonHealthMetric.cc</span>
+  <span><strong>HEAD:</strong> <span class="sha">8681fa6e</span></span>
+  <span><strong>Corpus:</strong> 11 non-merge commits · 2017-10-23 → 2026-03-19</span>
+  <span><strong>Predecessor:</strong> <code>OSDHealthMetric</code> in <code>src/osd/OSDHealthMetric.h</code></span>
+  <span><strong>Consumers:</strong> OSD, MON → MGR → Prometheus, ceph-dencoder, debug log</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     1. HIGH-LEVEL ARCHITECTURE & MENTAL MODEL
+═══════════════════════════════════════════════════════════ -->
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+
+<p>
+  <code>DaemonHealthMetric</code> is a <strong>lightweight, serialisable value-type</strong> that carries
+  a single typed health counter from a daemon (OSD or MON) to the Ceph manager (<code>mgr</code>).
+  It is a <em>one-way message payload</em>: daemons construct instances, serialise them over the
+  Ceph messenger wire protocol using DENC, and the <code>mgr</code> deserialises and consumes them for
+  health checks and Prometheus exposition.
+</p>
+
+<div class="flow-wrap"><pre>
+  OSD / MON                         MGR
+  ─────────                         ───
+  DaemonHealthMetric(SLOW_OPS, n)   ◄── constructed by daemon
+         │
+         │  DENC encode  (uint8 type | uint64 n)
+         ▼
+  ════ Ceph messenger wire ════════════════════════════════════
+         │
+         ▼
+  DENC decode → DaemonHealthMetric
+         │
+         ├──► health check aggregation  (get_type(), get_n())
+         │
+         ├──► Prometheus exposition     (get_type_name(), get_n())   ← 5a2b7c25
+         │
+         ├──► debug log                 (operator&lt;&lt;)                 ← adc480e3
+         │
+         └──► ceph-dencoder             (dump(), generate_test_instances()) ← 899276a5
+</pre></div>
+
+<h3>Key Design Decisions at a Glance</h3>
+<ul>
+  <li><strong>Value type, not pointer type</strong> — trivially copyable, stack-allocatable, stored in vectors/lists by value.</li>
+  <li><strong>Union payload</strong> — one <code>uint64_t n</code> field that aliases two <code>uint32_t</code> sub-fields (<code>n1</code>, <code>n2</code>), serialised always as the single <code>uint64_t</code>.</li>
+  <li><strong>Enum tag + union value</strong> — the <code>daemon_metric</code> tag tells the consumer which interpretation applies; no polymorphism, no vtable.</li>
+  <li><strong>Schema version frozen</strong> — <code>DENC_START(1, 1, p)</code>: both v and compat pinned to 1, no migration path ever added.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════
+     2. ARCHITECTURAL DECISIONS & TRADE-OFFS
+═══════════════════════════════════════════════════════════ -->
+<h2>2 · Architectural Decisions &amp; Trade-offs ("Why X instead of Y?")</h2>
+
+<table>
+  <thead>
+    <tr><th>Decision</th><th>Choice made</th><th>Alternative</th><th>Rationale / Evidence</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Payload layout</td>
+      <td><code>union daemon_metric_t</code> — <code>uint64_t n</code> aliasing <code>struct { uint32_t n1, n2 }</code></td>
+      <td>Two separate optional <code>uint64_t</code> fields; or a <code>std::variant</code></td>
+      <td>
+        Established <span class="sha">f4b74125</span> (2017). Single 64-bit field keeps the wire encoding trivially small (9 bytes total: 1 + 8).
+        A variant would require a tag byte anyway and adds header weight.
+        The union avoids heap allocation on a per-message hot path.
+      </td>
+    </tr>
+    <tr>
+      <td>Wire encoding of pair metrics</td>
+      <td>Always encode <code>value.n</code> (the full 64-bit union view), not <code>n1</code>+<code>n2</code> separately</td>
+      <td>Encode <code>n1</code> and <code>n2</code> as two <code>uint32_t</code> fields</td>
+      <td>
+        Established <span class="sha">f4b74125</span>. Encoding <code>n</code> round-trips the pair correctly:
+        the pair constructor sets <code>n1</code> and <code>n2</code>, DENC reads <code>n</code>, decoder writes back <code>n</code>
+        and the pair is recovered. One field, one <code>denc()</code> call, no schema branching needed.
+      </td>
+    </tr>
+    <tr>
+      <td>Type generalisation: OSD → daemon-generic</td>
+      <td>Renamed <code>OSDHealthMetric</code> → <code>DaemonHealthMetric</code>, moved to <code>src/mgr/</code></td>
+      <td>Keep OSD-specific type; add a separate MON type</td>
+      <td>
+        <span class="sha">714ffe0d</span> "make osd_metric more popular" — MON needed the same message shape.
+        One type in <code>mgr/</code> instead of two OSD/MON duplicates. Wire format identical, only names changed.
+      </td>
+    </tr>
+    <tr>
+      <td>Header weight reduction</td>
+      <td>Move <code>dump()</code>, <code>generate_test_instances()</code>, <code>operator&lt;&lt;</code> to <code>.cc</code>; replace <code>#include "Formatter.h"</code> with <code>namespace ceph { class Formatter; }</code> forward-decl; swap <code>&lt;ostream&gt;</code> for <code>&lt;iosfwd&gt;</code></td>
+      <td>Keep everything inline in header</td>
+      <td>
+        <span class="sha">437e8949</span> "un-inline methods to reduce header dependencies". <code>DaemonHealthMetric.h</code> is
+        transitively included by many OSD/MON/MGR translation units; pulling in <code>common/Formatter.h</code>
+        and <code>&lt;ostream&gt;</code> in every TU is a measurable compile-time cost. The DENC macro and small
+        accessors remain inline because they are either macros or trivial one-liners not worth the
+        call overhead.
+      </td>
+    </tr>
+    <tr>
+      <td><code>generate_test_instances()</code> memory model</td>
+      <td>Returns <code>std::list&lt;DaemonHealthMetric&gt;</code> by value (since <span class="sha">ed6b7124</span>)</td>
+      <td>Out-parameter <code>std::list&lt;T*&gt;</code> with <code>new</code> (original <span class="sha">899276a5</span> design)</td>
+      <td>
+        <span class="sha">ed6b7124</span> "Fix memory leaks in generate_test_instance() by returning values instead of
+        pointers." ASan was reporting leaks in ceph-dencoder because callers weren't reliably freeing
+        the raw pointers. Value semantics eliminate the ownership ambiguity entirely.
+      </td>
+    </tr>
+    <tr>
+      <td>Prometheus label API</td>
+      <td><code>get_type_name()</code> returns <code>std::string</code></td>
+      <td>Return <code>const char*</code> from <code>daemon_metric_name()</code> directly</td>
+      <td>
+        <span class="sha">5a2b7c25</span> "expose daemon health metrics" to Prometheus. Prometheus label construction
+        requires <code>std::string</code>; exposing the <code>const char*</code> directly would push the conversion
+        to every call site in the Prometheus exporter.
+      </td>
+    </tr>
+    <tr>
+      <td>DENC schema version</td>
+      <td><code>DENC_START(1, 1, p)</code> — compat == 1, no migration path</td>
+      <td><code>DENC_START(1, 0, p)</code> or versioned migration</td>
+      <td>
+        Established <span class="sha">f4b74125</span>. Setting compat==1 means any bump forces all readers to update
+        simultaneously — a conscious tight coupling. Acceptable because the struct is small, simple,
+        and has had zero schema changes in 8 years.
+      </td>
+    </tr>
+    <tr>
+      <td><code>daemon_metric_name()</code> left inline</td>
+      <td>Still <code>static inline const char*</code> in header despite <span class="sha">437e8949</span> un-inline pass</td>
+      <td>Move to <code>.cc</code> like the other three functions</td>
+      <td>
+        No functional reason to un-inline it — it returns a <code>const char*</code> literal with no header
+        dependencies. Moving it would add a call overhead for a trivially devirtualisable switch. Minor
+        inconsistency with <span class="sha">437e8949</span>'s stated goal (OC1).
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════
+     3. DATA STRUCTURES, ALGORITHMS & INVARIANTS
+═══════════════════════════════════════════════════════════ -->
+<h2>3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>3.1 · <code>enum class daemon_metric : uint8_t</code></h3>
+<table>
+  <thead><tr><th>Enumerator</th><th>Value (implicit)</th><th>Payload semantics</th><th>Established</th></tr></thead>
+  <tbody>
+    <tr><td><code>SLOW_OPS</code></td><td><code>0</code></td><td>Single counter: slow-op count → use <code>get_n()</code></td><td><span class="sha">f4b74125</span></td></tr>
+    <tr><td><code>PENDING_CREATING_PGS</code></td><td><code>1</code></td><td>Pair: PGs waiting (<code>n1</code>) + total (<code>n2</code>) → use <code>get_n1()</code>, <code>get_n2()</code></td><td><span class="sha">f4b74125</span></td></tr>
+    <tr><td><code>NONE</code></td><td><code>2</code></td><td>Default/unset — no value access expected</td><td><span class="sha">f4b74125</span></td></tr>
+  </tbody>
+</table>
+
+<div class="callout callout-warn">
+  <strong>Invariant (unwritten but implicit):</strong> The caller is responsible for matching
+  the correct accessor to the metric type. <code>SLOW_OPS</code> → <code>get_n()</code> only;
+  <code>PENDING_CREATING_PGS</code> → <code>get_n1()</code> + <code>get_n2()</code>.
+  There is <strong>no enforcement</strong> in the class — any accessor can be called on any type.
+  (UNGROUNDED finding U1.)
+</div>
+
+<h3>3.2 · <code>union daemon_metric_t</code></h3>
+<pre>
+union daemon_metric_t {
+  struct {
+    uint32_t n1;   // low word  — "count A" or low-32 of scalar
+    uint32_t n2;   // high word — "count B" or high-32 of scalar (usually 0)
+  };
+  uint64_t n;      // full 64-bit view — DENC always serialises this field
+
+  daemon_metric_t(uint32_t x, uint32_t y) : n1(x), n2(y) {}   // pair path
+  daemon_metric_t(uint64_t x = 0)         : n(x) {}            // scalar path
+};
+</pre>
+<ul>
+  <li>On <strong>little-endian</strong>: <code>n1</code> occupies the low 32 bits of <code>n</code>; <code>n2</code> occupies the high 32 bits.</li>
+  <li><strong>No endianness annotation</strong> exists. The DENC macro for <code>uint64_t</code> handles byte-swap
+      on encode/decode, so the on-wire bytes are correct, but if code ever reads <code>n1</code>/<code>n2</code>
+      from a value decoded via the <code>n</code> path on a big-endian platform, the halves would be swapped.</li>
+  <li>Ceph targets are predominantly x86 little-endian; no big-endian CI is known for this path.</li>
+</ul>
+
+<h3>3.3 · <code>class DaemonHealthMetric</code> — Private Members</h3>
+<table>
+  <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td><code>type</code></td><td><code>daemon_metric</code></td><td><code>daemon_metric::NONE</code> (brace-init)</td><td>Always initialised after default construction</td></tr>
+    <tr><td><code>value</code></td><td><code>daemon_metric_t</code></td><td><span class="pill pill-danger">UNINITIALISED</span></td><td><code>= default</code> ctor does NOT call <code>daemon_metric_t(uint64_t=0)</code>; reading <code>get_n()</code> on a default-constructed instance is UB (U2)</td></tr>
+  </tbody>
+</table>
+
+<h3>3.4 · DENC Wire Format</h3>
+<pre>
+DENC_START(1, 1, p)          // version=1, compat=1 — frozen since f4b74125
+  denc(v.type,    p);         // uint8_t  — enum value (0, 1, or 2)
+  denc(v.value.n, p);         // uint64_t — always the full union field
+DENC_FINISH(p)
+
+On-wire size (typical): 1 header byte (DENC overhead) + 1 (type) + 8 (n) = ~10 bytes
+</pre>
+
+<div class="callout callout-warn">
+  <strong>Schema freeze:</strong> <code>compat == 1</code> means any schema change requires a coordinated
+  cluster upgrade. No migration path has ever been added in 8 years. Adding a field would require
+  bumping both <code>v</code> and <code>compat</code>, and all decoders must understand the new version before
+  any encoder can use it.
+</div>
+
+<h3>3.5 · Public API Surface</h3>
+<table>
+  <thead><tr><th>Method</th><th>Returns</th><th>Inline?</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>get_type()</code></td><td><code>daemon_metric</code></td><td>✓</td><td>Safe on default-constructed instance</td></tr>
+    <tr><td><code>get_n()</code></td><td><code>uint64_t</code></td><td>✓</td><td>UB if called on default-constructed (<code>value</code> uninit)</td></tr>
+    <tr><td><code>get_n1()</code></td><td><code>uint32_t</code></td><td>✓</td><td>Same caveat; low word of <code>n</code></td></tr>
+    <tr><td><code>get_n2()</code></td><td><code>uint32_t</code></td><td>✓</td><td>Same caveat; high word of <code>n</code></td></tr>
+    <tr><td><code>get_type_name()</code></td><td><code>std::string</code></td><td>✓</td><td>Delegates to <code>daemon_metric_name()</code>; always safe</td></tr>
+    <tr><td><code>dump(ceph::Formatter*)</code></td><td><code>void</code></td><td>✗ (.cc)</td><td>Emits <code>type</code>, <code>n</code>, <code>n1</code>, <code>n2</code> — dencoder contract (U3)</td></tr>
+    <tr><td><code>generate_test_instances()</code></td><td><code>std::list&lt;DaemonHealthMetric&gt;</code></td><td>✗ (.cc)</td><td>Value-return since <span class="sha">ed6b7124</span></td></tr>
+    <tr><td><code>operator&lt;&lt;</code></td><td><code>std::ostream&</code></td><td>✗ (.cc)</td><td>Format: <code>TYPE(n|(n1,n2))</code></td></tr>
+    <tr><td>DENC macro</td><td>void</td><td>✓ (macro)</td><td>Must stay inline — DENC framework requirement</td></tr>
+  </tbody>
+</table>
+
+<h3>3.6 · <code>dump()</code> Output Schema (dencoder contract)</h3>
+<pre>
+{ "type": "&lt;string&gt;",  // daemon_metric_name() result: "SLOW_OPS" | "PENDING_CREATING_PGS" | "NONE"
+  "n":    &lt;int64&gt;,     // full 64-bit union view
+  "n1":   &lt;int32&gt;,     // low 32 bits
+  "n2":   &lt;int32&gt; }    // high 32 bits
+</pre>
+<div class="callout callout-warn">
+  <strong>Semantic ambiguity (U3):</strong> For <code>SLOW_OPS</code>, the meaningful field is <code>"n"</code>;
+  <code>"n1"</code> and <code>"n2"</code> are low/high halves of the slow-op count (e.g. <code>n=42, n1=42, n2=0</code>).
+  For <code>PENDING_CREATING_PGS</code>, the meaningful fields are <code>"n1"</code> and <code>"n2"</code>;
+  <code>"n"</code> is their combined 64-bit view. <strong>No commit has type-gated the output.</strong>
+  Log scrapers and consumers must know which fields to read per metric type.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     4. THREAT MODEL & ADVERSARIAL HANDLING
+═══════════════════════════════════════════════════════════ -->
+<h2>4 · Threat Model &amp; Adversarial Handling ("What if an actor behaves maliciously?")</h2>
+
+<table>
+  <thead><tr><th>Actor / Scenario</th><th>Attack vector</th><th>Actual behaviour</th><th>Risk</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Rogue OSD sends malformed DENC bytes</td>
+      <td>Corrupt <code>type</code> byte (e.g. <code>0xFF</code>) outside enum range</td>
+      <td>
+        DENC decodes <code>uint8_t</code> without range checking.
+        <code>daemon_metric</code> receives an out-of-range enumerator value.
+        <code>daemon_metric_name()</code> returns <code>"???"</code> (default arm).
+        No crash, no assertion.
+      </td>
+      <td><span class="pill pill-warn">LOW</span> — graceful degradation; metric logged as <code>"???"</code>, health check logic should guard on known types</td>
+    </tr>
+    <tr>
+      <td>Rogue OSD sends corrupt <code>n</code> value</td>
+      <td>Encode <code>value.n = UINT64_MAX</code></td>
+      <td>
+        Decoded as-is. For <code>SLOW_OPS</code> this propagates an absurdly large slow-op count
+        to the health check aggregation and Prometheus. No overflow protection in the class.
+      </td>
+      <td><span class="pill pill-warn">MEDIUM</span> — consumer health check logic must sanitise values; the type itself is a pass-through</td>
+    </tr>
+    <tr>
+      <td>Rogue OSD sends truncated/oversized DENC buffer</td>
+      <td>Underflow the buffer before <code>denc(v.value.n, p)</code> can read</td>
+      <td>
+        DENC framework handles this via its buffer-check macros; throws or returns error before
+        any field is written to the class. The class itself is not involved in that error path.
+      </td>
+      <td><span class="pill pill-ok">HANDLED</span> — DENC framework boundary check</td>
+    </tr>
+    <tr>
+      <td>Consumer reads value on default-constructed instance</td>
+      <td>Code path reaches <code>get_n()</code> without prior type check</td>
+      <td>
+        <code>value.n</code> is uninitialised — undefined behaviour per C++ standard.
+        In practice: reads stack garbage; can yield any value.
+        No assertion or <code>[[nodiscard]]</code> guards this path (U2).
+      </td>
+      <td><span class="pill pill-danger">HIGH</span> — silent UB; callers must check <code>get_type() != NONE</code> before accessing value</td>
+    </tr>
+    <tr>
+      <td>Log scraper / external consumer misreads union fields</td>
+      <td>Reads <code>"n1"</code>/<code>"n2"</code> from a <code>SLOW_OPS</code> dump output</td>
+      <td>
+        Gets the low/high 32-bit halves of the slow-op count instead of two distinct counters.
+        No error thrown; data is technically valid but semantically misleading. (U3)
+      </td>
+      <td><span class="pill pill-warn">MEDIUM</span> — consumer data integrity issue; no formal format spec exists (U4)</td>
+    </tr>
+    <tr>
+      <td>Schema bump without compat update</td>
+      <td>Encoder adds new field under new version; old decoder has <code>compat==1</code></td>
+      <td>
+        Old decoder rejects the new version → decoding fails at DENC framework level.
+        Cluster mixed-version scenario: new MGR encoding metrics from old OSD is fine;
+        old MGR decoding from new OSD would fail if version bumped.
+      </td>
+      <td><span class="pill pill-danger">HIGH</span> — coordinated upgrade required; compat==1 is a hard gate. No rollback path exists.</td>
+    </tr>
+    <tr>
+      <td>Duplicate <code>#include "common/Formatter.h"</code> (historical)</td>
+      <td><span class="sha">09f3c879</span> copy-paste introduced duplicate include</td>
+      <td>Idempotent due to <code>#pragma once</code> — compiled correctly but was code smell. Resolved by <span class="sha">437e8949</span>.</td>
+      <td><span class="pill pill-ok">RESOLVED</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════
+     5. FAILURE MODES, EDGE CASES & BLAST RADIUS
+═══════════════════════════════════════════════════════════ -->
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<table>
+  <thead>
+    <tr><th>Failure</th><th>Trigger</th><th>Blast radius</th><th>Detection</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>UB on default-constructed value read</td>
+      <td><code>DaemonHealthMetric m; m.get_n();</code> without type check</td>
+      <td>Silent wrong health data or crash in sanitised builds. Bug is in the caller, invisible at the class boundary.</td>
+      <td>ASan/UBSan in test builds. No runtime guard in the class itself.</td>
+    </tr>
+    <tr>
+      <td>New <code>daemon_metric</code> enumerator added; <code>daemon_metric_name()</code> not updated</td>
+      <td>Enum grows; switch not updated</td>
+      <td><code>daemon_metric_name()</code> returns <code>"???"</code>. Prometheus label is <code>"???"</code>. Debug log unreadable. No compile error. No NONE coverage gap in dencoder since <code>NONE</code> is already not tested (OC2).</td>
+      <td>Code review / grep. No static_assert enforces exhaustive switch.</td>
+    </tr>
+    <tr>
+      <td>New metric type added without <code>generate_test_instances()</code> entry</td>
+      <td>New enumerator; test list not updated</td>
+      <td>ceph-dencoder encode/decode coverage gap for new type. Silent correctness hole until a corpus mismatch surfaces.</td>
+      <td>ceph-dencoder corpus test run.</td>
+    </tr>
+    <tr>
+      <td>DENC version bump without compat alignment</td>
+      <td>Developer adds field without updating all readers</td>
+      <td>Old MGR daemons reject new metrics entirely — health data from new OSDs silently dropped by old MGR. Cluster health visibility degraded.</td>
+      <td>Integration test with mixed-version cluster. Hard to catch in unit tests.</td>
+    </tr>
+    <tr>
+      <td>Big-endian platform: pair-constructed metric misread via <code>n</code> path</td>
+      <td>Reading <code>get_n1()</code>/<code>get_n2()</code> after DENC round-trip on big-endian</td>
+      <td>
+        DENC byte-swaps <code>n</code> correctly, but the pair halves (<code>n1</code>/<code>n2</code>) come back
+        in swapped positions on big-endian. Metrics silently transposed.
+      </td>
+      <td>No big-endian CI. No endian annotation. Theoretical risk on POWER/s390x.</td>
+    </tr>
+    <tr>
+      <td>Prometheus exporter reads wrong field for metric type</td>
+      <td>Prometheus code calls <code>get_n()</code> on a <code>PENDING_CREATING_PGS</code> metric</td>
+      <td>Exposes combined 64-bit value instead of the intended per-field count. Monitoring dashboards silently wrong.</td>
+      <td>Visual inspection of Prometheus output. No type-safety guard in the API.</td>
+    </tr>
+    <tr>
+      <td><code>SLOW_OPS</code> count exceeds <code>uint32_t</code></td>
+      <td>Very high slow-op count (&gt; 4 billion, pathological)</td>
+      <td>Value is held correctly in <code>uint64_t n</code>. <code>get_n1()</code> would return the low 32 bits only, silently truncated. Not a realistic scenario.</td>
+      <td>N/A — theoretical only.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Known UNGROUNDED Invariants (quick reference)</h3>
+<table>
+  <thead><tr><th>ID</th><th>Location</th><th>Issue</th></tr></thead>
+  <tbody>
+    <tr><td>U1</td><td>Union + accessors</td><td>No documented or enforced mapping from <code>daemon_metric</code> type → correct accessor (<code>get_n</code> vs <code>get_n1</code>/<code>get_n2</code>)</td></tr>
+    <tr><td>U2</td><td>Default constructor</td><td><code>value</code> uninitialised; reading it is UB with no guard</td></tr>
+    <tr><td>U3</td><td><code>dump()</code> + <code>operator&lt;&lt;</code></td><td>All three of <code>n</code>, <code>n1</code>, <code>n2</code> emitted unconditionally; semantics depend on metric type, undocumented</td></tr>
+    <tr><td>U4</td><td><code>operator&lt;&lt;</code> format</td><td>Format string <code>NAME(n|(n1,n2))</code> is undocumented; log scrapers relying on it are fragile</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════
+     6. OBSERVABILITY & TRIAGE PLAYBOOK
+═══════════════════════════════════════════════════════════ -->
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<h3>What does it look like in logs?</h3>
+<pre>
+// operator&lt;&lt; output (established adc480e3):
+SLOW_OPS(42|(42,0))
+PENDING_CREATING_PGS(8589934593|(1,2))   // n = (2 &lt;&lt; 32) | 1
+
+// "???" in a log line means:
+//   daemon_metric byte had an out-of-range value (post-decode corruption or future unknown type)
+</pre>
+
+<h3>What does it look like in Prometheus?</h3>
+<ul>
+  <li>Metric label uses <code>get_type_name()</code> → <code>"SLOW_OPS"</code> or <code>"PENDING_CREATING_PGS"</code> (added <span class="sha">5a2b7c25</span>).</li>
+  <li>Value exposed via <code>get_n()</code> — for <code>PENDING_CREATING_PGS</code> this is the combined 64-bit value, not the intended individual pair counts.</li>
+  <li>If the Prometheus exporter emits <code>???</code> as a label, an unknown metric type was decoded.</li>
+</ul>
+
+<h3>What does it look like in ceph-dencoder?</h3>
+<pre>
+# Encode a test instance, decode it, verify:
+ceph-dencoder type DaemonHealthMetric encode decode dump_json
+
+# Expected output:
+{ "type": "SLOW_OPS", "n": 1, "n1": 1, "n2": 0 }
+{ "type": "PENDING_CREATING_PGS", "n": 8589934593, "n1": 1, "n2": 2 }
+</pre>
+
+<h3>Triage: "health metric shows wrong value"</h3>
+<ol>
+  <li>Check <code>get_type()</code> first — if it returns <code>NONE</code> (2), <code>value</code> is uninitialised (U2). Trace call site to find a default-constructed metric that leaked out.</li>
+  <li>For <code>SLOW_OPS</code>: read <code>get_n()</code> — that is the authoritative count. Ignore <code>n1</code>/<code>n2</code> in Formatter output.</li>
+  <li>For <code>PENDING_CREATING_PGS</code>: read <code>get_n1()</code> (PGs waiting) and <code>get_n2()</code> (total). Ignore <code>n</code> in Formatter output.</li>
+  <li>If metric type is <code>"???"</code> in logs/Prometheus: the <code>type</code> byte decoded to an out-of-range value. Check OSD version vs MGR version — potential new enumerator not known to this MGR.</li>
+  <li>If DENC decode fails entirely: DENC schema version mismatch. Check that OSD and MGR are on compatible versions (schema v1 is the only version ever shipped — any deviation is a build error).</li>
+</ol>
+
+<h3>Triage: "generate_test_instances() crash / leak"</h3>
+<ul>
+  <li>Pre-<span class="sha">ed6b7124</span>: callers received raw <code>T*</code> and had to <code>delete</code> them; ASan leaks were routine.</li>
+  <li>Post-<span class="sha">ed6b7124</span>: returns <code>std::list&lt;DaemonHealthMetric&gt;</code> by value — no heap allocation, no ownership issue. If you're on a branch still showing leaks, check if <span class="sha">ed6b7124</span> was merged.</li>
+</ul>
+
+<h3>Commit Commit Map: "which SHA do I look at?"</h3>
+<table>
+  <thead><tr><th>What changed</th><th>SHA</th></tr></thead>
+  <tbody>
+    <tr><td>Original creation (as <code>OSDHealthMetric</code>)</td><td><span class="sha">f4b74125</span></td></tr>
+    <tr><td>Rename to <code>DaemonHealthMetric</code>, moved to mgr/</td><td><span class="sha">714ffe0d</span></td></tr>
+    <tr><td>Added <code>operator&lt;&lt;</code> + <code>daemon_metric_name()</code> for debug logging</td><td><span class="sha">adc480e3</span></td></tr>
+    <tr><td>Fixed unqualified <code>ostream</code> → <code>std::ostream</code></td><td><span class="sha">550c8102</span></td></tr>
+    <tr><td>Added <code>get_type_name()</code> for Prometheus exposition</td><td><span class="sha">5a2b7c25</span></td></tr>
+    <tr><td>Added <code>dump()</code> + raw-pointer <code>generate_test_instances()</code> for ceph-dencoder</td><td><span class="sha">899276a5</span></td></tr>
+    <tr><td>Duplicate <code>#include "common/Formatter.h"</code> introduced (now resolved)</td><td><span class="sha">09f3c879</span></td></tr>
+    <tr><td>Fixed ASan leaks: value-return <code>generate_test_instances()</code></td><td><span class="sha">ed6b7124</span></td></tr>
+    <tr><td>Un-inline pass: created <code>.cc</code>, forward-decl Formatter, <code>&lt;iosfwd&gt;</code></td><td><span class="sha">437e8949</span></td></tr>
+    <tr><td>Indent settings update (cosmetic only)</td><td><span class="sha">85d82faa</span></td></tr>
+    <tr><td>Added missing <code>&lt;list&gt;</code>, <code>&lt;string&gt;</code> includes</td><td><span class="sha">55da168f</span></td></tr>
+  </tbody>
+</table>
+
+<hr>
+<p style="font-size:.78em; color:var(--muted);">
+  Generated from intent artefact + git corpus · HEAD <span class="sha">8681fa6e</span> · Corpus collected 2026-09-14
+</p>
+
+</body>
+</html>

@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — MgrOpRequest</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3352;
+    --accent: #4f8ef7;
+    --accent2: #f7c94f;
+    --accent3: #5de8a6;
+    --red: #f76f6f;
+    --orange: #f7aa4f;
+    --text: #e2e8f0;
+    --muted: #8892aa;
+    --code-bg: #151820;
+    --warn-bg: #2a1f1f;
+    --warn-border: #7a2e2e;
+    --ok-bg: #1a2a22;
+    --ok-border: #2e6645;
+    --info-bg: #1a1f30;
+    --info-border: #2e3d7a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.8rem;
+    color: var(--accent);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  h2 {
+    font-size: 1.2rem;
+    color: var(--accent2);
+    margin: 2rem 0 0.75rem;
+    padding: 0.4rem 0.8rem;
+    background: var(--surface);
+    border-left: 4px solid var(--accent2);
+    border-radius: 0 4px 4px 0;
+  }
+  h3 {
+    font-size: 1rem;
+    color: var(--accent3);
+    margin: 1.25rem 0 0.5rem;
+  }
+  p { margin: 0.5rem 0; color: var(--text); }
+  code {
+    background: var(--code-bg);
+    color: var(--accent3);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.88em;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--accent3);
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.85em;
+    border: 1px solid var(--border);
+    margin: 0.75rem 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.75rem 0 1.25rem;
+    font-size: 0.88em;
+  }
+  th {
+    background: var(--surface2);
+    color: var(--accent2);
+    text-align: left;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--border);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  td {
+    padding: 0.5rem 0.8rem;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: var(--surface); }
+  tr:hover td { background: var(--surface2); }
+  .sha {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.8em;
+    background: var(--code-bg);
+    color: var(--accent);
+    padding: 1px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .flag-bad {
+    color: var(--red);
+    font-weight: 600;
+  }
+  .flag-warn {
+    color: var(--orange);
+    font-weight: 600;
+  }
+  .flag-ok {
+    color: var(--accent3);
+    font-weight: 600;
+  }
+  .badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.78em;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+  .badge-diverged { background: #4a1a1a; color: var(--red); border: 1px solid var(--red); }
+  .badge-ungrounded { background: #3a2a0a; color: var(--orange); border: 1px solid var(--orange); }
+  .badge-overcautious { background: #0a2a2a; color: var(--accent3); border: 1px solid var(--accent3); }
+  .badge-bug { background: #4a1a1a; color: #ff8888; border: 1px solid #ff5555; }
+  .badge-fixed { background: var(--ok-bg); color: var(--accent3); border: 1px solid var(--ok-border); }
+  .callout {
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+    border-left: 4px solid;
+  }
+  .callout-warn { background: var(--warn-bg); border-color: var(--red); }
+  .callout-info { background: var(--info-bg); border-color: var(--accent); }
+  .callout-ok { background: var(--ok-bg); border-color: var(--accent3); }
+  .callout-orange { background: #1f1800; border-color: var(--orange); }
+  ul { margin: 0.4rem 0 0.4rem 1.4rem; }
+  ul li { margin: 0.2rem 0; }
+  .meta-table td:first-child { color: var(--muted); font-weight: 600; width: 140px; }
+  .flow-box {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.25rem 1.5rem;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.82em;
+    line-height: 1.8;
+    white-space: pre;
+    overflow-x: auto;
+    color: #cdd6f4;
+    margin: 0.75rem 0 1.25rem;
+  }
+  .highlight-cell { color: var(--red); font-weight: bold; }
+  .section-anchor { display: block; height: 0; }
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.4rem;
+    margin: 1rem 0 1.5rem;
+    display: inline-block;
+    min-width: 320px;
+  }
+  .toc h4 { color: var(--muted); font-size: 0.82em; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+  .toc a { color: var(--accent); text-decoration: none; display: block; padding: 1px 0; }
+  .toc a:hover { color: var(--accent2); text-decoration: underline; }
+  .toc-num { color: var(--muted); margin-right: 0.4em; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0.5rem 0 1rem; }
+  @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>⚙️ Whiteboard Defense — <code>MgrOpRequest</code></h1>
+
+<table class="meta-table" style="width:auto;margin-bottom:1.5rem;">
+  <tr><td>Files</td><td><code>src/mgr/MgrOpRequest.cc</code> · <code>src/mgr/MgrOpRequest.h</code></td></tr>
+  <tr><td>Corpus HEAD</td><td><span class="sha">8681fa6e</span></td></tr>
+  <tr><td>Date range</td><td>2023-12-21 → 2025-10-02</td></tr>
+  <tr><td>Commits</td><td>7 total · 4 substantive · 3 style-only</td></tr>
+  <tr><td>Parent class</td><td><code>TrackedOp</code> (<code>common/TrackedOp.h</code>)</td></tr>
+  <tr><td>Intro commit</td><td><span class="sha">66efcaae</span> — "mgr: integrate optracker in ceph-mgr" (Prashant D, 2023-12-21)</td></tr>
+</table>
+
+<div class="toc">
+  <h4>Table of Contents</h4>
+  <a href="#s1"><span class="toc-num">1.</span> High-Level Architecture &amp; Mental Model</a>
+  <a href="#s2"><span class="toc-num">2.</span> Architectural Decisions &amp; Trade-offs</a>
+  <a href="#s3"><span class="toc-num">3.</span> Data Structures, Algorithms &amp; Invariants</a>
+  <a href="#s4"><span class="toc-num">4.</span> Threat Model &amp; Adversarial Handling</a>
+  <a href="#s5"><span class="toc-num">5.</span> Failure Modes, Edge Cases &amp; Blast Radius</a>
+  <a href="#s6"><span class="toc-num">6.</span> Observability &amp; Triage Playbook</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<a class="section-anchor" id="s1"></a>
+<h2>§1 · High-Level Architecture &amp; Mental Model</h2>
+
+<h3>What is this?</h3>
+<p><code>MgrOpRequest</code> is the <strong>ceph-mgr analogue of OSD's <code>OpRequest</code></strong>. It wraps an inbound <code>MessageRef</code> and registers it with <code>OpTracker</code>, giving the mgr daemon the same op-tracking / slow-op visibility that OSDs have had for years. Introduced as a single large commit (<span class="sha">66efcaae</span>) in December 2023.</p>
+
+<h3>Lifecycle Flow</h3>
+<div class="flow-box">
+Caller (DaemonServer / Dispatcher)
+  │
+  │  OpTracker::create_request&lt;MgrOpRequest&gt;(msg)
+  │    └─ new MgrOpRequest(req, tracker)
+  │         ├─ TrackedOp(tracker, req-&gt;get_recv_stamp())   ← anchors timer at wire-recv time
+  │         ├─ request = req                                ← MessageRef ref-count +1
+  │         └─ req_src_inst = req-&gt;get_source_inst()       ← snapshot; immutable hereafter
+  │
+  ├─ mark_started()
+  │
+  ├─ mark_queued_for_module()
+  │
+  ├─ mark_reached("module-name")          ← stores module name in last_event_detail
+  │
+  ├─ [optional] mark_start_mon_command()
+  │
+  ├─ [optional] mark_finish_mon_command() ── ⚠ BUG: sets flag_start_mon_command, not flag_finish_mon_command
+  │
+  │  Processing completes / op deregisters
+  │
+  ├─ OpTracker calls _unregistered()
+  │    ├─ request-&gt;clear_data()
+  │    ├─ request-&gt;clear_payload()
+  │    ├─ request-&gt;release_message_throttle()
+  │    └─ request-&gt;set_connection(nullptr)   ← drops connection ref; big memory win
+  │
+  └─ ~MgrOpRequest()   ← MessageRef RAII calls put(); (was double-put before 941c5eda)
+
+─────────────────────────────────────────────────────────────────
+Parallel observers (dump_ops_in_flight / dump_historic_ops):
+
+  _dump(Formatter*)          ← called by OpTracker; lock held for events iteration
+  _dump_op_descriptor(os)   ← one-liner: get_req()-&gt;print(stream)
+  filter_out(filters)        ← address filter: exact → nonce=0 → nonce+port=0
+</div>
+
+<h3>Class Hierarchy</h3>
+<div class="flow-box">
+TrackedOp  (common/TrackedOp.h)
+  └── MgrOpRequest  (src/mgr/MgrOpRequest.h)
+        friend: OpTracker   (only OpTracker may construct via create_request&lt;&gt;)
+</div>
+
+<h3>Key Relationships</h3>
+<table>
+  <tr><th>Actor</th><th>Role</th><th>Interaction</th></tr>
+  <tr><td><code>OpTracker</code></td><td>Factory + registry</td><td>Creates via <code>create_request&lt;MgrOpRequest&gt;</code>; calls <code>_unregistered()</code>, <code>_dump()</code>, <code>filter_out()</code></td></tr>
+  <tr><td><code>MessageRef</code></td><td>Wire message (intrusive_ptr)</td><td>Held for full tracked lifetime; heavyweight fields cleared in <code>_unregistered()</code></td></tr>
+  <tr><td><code>DaemonServer</code></td><td>Dispatcher</td><td>Calls <code>mark_*()</code> methods to advance lifecycle flags</td></tr>
+  <tr><td>Admin socket / <code>ceph tell</code></td><td>Observer</td><td>Triggers <code>dump_ops_in_flight</code> / <code>dump_historic_ops_by_duration</code> → <code>_dump()</code></td></tr>
+  <tr><td>LTTng tracer</td><td>Optional instrumentation</td><td><code>tracepoint(mgroprequest, mark_flag_point, …)</code> in each <code>mark_*()</code> path</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<a class="section-anchor" id="s2"></a>
+<h2>§2 · Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <tr>
+    <th style="width:28%">Decision</th>
+    <th style="width:36%">Rationale / Defence</th>
+    <th style="width:18%">Alternative Rejected</th>
+    <th style="width:18%">Evidence</th>
+  </tr>
+  <tr>
+    <td><strong>Inherit <code>TrackedOp</code> directly</strong></td>
+    <td>Reuses the entire OpTracker infrastructure (event log, slow-op watcher, dump APIs, address filter contract) without reimplementing it for mgr.</td>
+    <td>Custom standalone tracker with no base class</td>
+    <td><span class="sha">66efcaae</span></td>
+  </tr>
+  <tr>
+    <td><strong><code>MessageRef</code> (intrusive_ptr) instead of raw pointer</strong></td>
+    <td>RAII ref-count ensures the Message stays alive for the full tracked lifetime even after the caller drops its reference. No manual lifetime bookkeeping.</td>
+    <td>Raw <code>Message*</code> with manual <code>get()</code>/<code>put()</code></td>
+    <td><span class="sha">66efcaae</span>; bug confirmed by <span class="sha">941c5eda</span></td>
+  </tr>
+  <tr>
+    <td><strong>Snapshot <code>req_src_inst</code> at construction</strong></td>
+    <td><code>_unregistered()</code> clears the connection; after that point <code>request-&gt;get_source_inst()</code> may be unusable. Snapshotting at ctor makes <code>_dump()</code> and <code>filter_out()</code> safe to call post-unregister.</td>
+    <td>Re-read from <code>request</code> each time</td>
+    <td><span class="sha">66efcaae</span></td>
+  </tr>
+  <tr>
+    <td><strong><code>uint8_t</code> bitmask for flags</strong></td>
+    <td>Five stages fit comfortably in a byte; bitmask accumulation in <code>hit_flag_points</code> allows asking "did this op ever reach module?" independently of current state.</td>
+    <td>Enum, int counter, or string state</td>
+    <td><span class="sha">66efcaae</span></td>
+  </tr>
+  <tr>
+    <td><strong><code>_unregistered()</code> clears payload/data/throttle/connection but does NOT deallocate the <code>Message</code></strong></td>
+    <td>The <code>MgrOpRequest</code> may still be referenced by <code>dump_historic_ops</code> after it leaves the active table. Clearing payload reclaims the memory-intensive parts while keeping metadata (source, tid, type) accessible for dumps.</td>
+    <td>Full delete of Message on unregister</td>
+    <td><span class="sha">66efcaae</span></td>
+  </tr>
+  <tr>
+    <td><strong><code>static_cast</code> in <code>get_req&lt;T&gt;()</code></strong></td>
+    <td>Consistent with OSD's <code>OpRequest</code>; no runtime type check overhead. Callers know the concrete type from the message type field before calling.</td>
+    <td><code>dynamic_cast</code> with null check</td>
+    <td><span class="sha">66efcaae</span> (undocumented)</td>
+  </tr>
+  <tr>
+    <td><strong>Three-pass address matching in <code>filter_out()</code></strong></td>
+    <td>Copied from OSD's <code>OpRequest::filter_out</code>: <em>exact → nonce=0 → nonce+port=0</em>. Allows operators to filter by IP only, or IP+port, without needing to know the session nonce.</td>
+    <td>Exact-only match</td>
+    <td><span class="sha">66efcaae</span> (no comment; U3)</td>
+  </tr>
+  <tr>
+    <td><strong>Two <code>mark_flag_point</code> overloads</strong> (<code>const char*</code> vs <code>const string&amp;</code>)</td>
+    <td>Avoids unnecessary <code>std::string</code> construction for literal-string callers. The <code>string</code> variant is used when the caller already has a <code>std::string</code> (e.g. from Python module name).</td>
+    <td>Single overload accepting only <code>std::string</code></td>
+    <td><span class="sha">66efcaae</span></td>
+  </tr>
+  <tr>
+    <td><strong>LTTng tracepoint opt-in (<code>#ifdef WITH_LTTNG</code>)</strong></td>
+    <td>Zero overhead when LTTng not compiled in; <code>#define tracepoint(...)</code> makes calls compile to nothing.</td>
+    <td>Always-on logging or perf counters only</td>
+    <td><span class="sha">66efcaae</span></td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<a class="section-anchor" id="s3"></a>
+<h2>§3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Member Layout</h3>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Access</th><th>Purpose &amp; Invariants</th></tr>
+  <tr>
+    <td><code>request</code></td>
+    <td><code>MessageRef</code><br>(boost::intrusive_ptr&lt;Message&gt;)</td>
+    <td>private</td>
+    <td>
+      Always non-null post-construction. RAII manages ref-count.<br>
+      <span class="badge badge-fixed">Fixed 941c5eda</span> — original code called <code>request-&gt;put()</code> in dtor causing double-decrement (tracker #70618).
+    </td>
+  </tr>
+  <tr>
+    <td><code>req_src_inst</code></td>
+    <td><code>entity_inst_t</code></td>
+    <td>private</td>
+    <td>Snapshotted once at construction from <code>req-&gt;get_source_inst()</code>. Immutable thereafter. Read by <code>_dump()</code> and <code>filter_out()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>hit_flag_points</code></td>
+    <td><code>uint8_t</code></td>
+    <td>private</td>
+    <td>
+      Accumulating bitmask — OR'd on each <code>mark_flag_point</code> call. Never cleared. Represents the full history of stages reached.<br>
+      <span class="badge badge-ungrounded">UNGROUNDED</span> No explicit zero-init in ctor member-init list; relies on <code>OpTracker</code>'s allocation zeroing.
+    </td>
+  </tr>
+  <tr>
+    <td><code>latest_flag_point</code></td>
+    <td><code>uint8_t</code></td>
+    <td>private</td>
+    <td>
+      Current state — overwritten on each <code>mark_*()</code> call. Used by <code>_get_state_string()</code> and exposed via <code>state_flag()</code>.<br>
+      <span class="badge badge-ungrounded">UNGROUNDED</span> Same zero-init concern as above.
+    </td>
+  </tr>
+  <tr>
+    <td><code>last_event_detail</code></td>
+    <td><code>std::string</code></td>
+    <td>private</td>
+    <td>
+      Stores the module name / event string for <code>flag_reached_module</code> state. Updated only by <code>mark_flag_point(const char*, …)</code>.<br>
+      <span class="badge badge-fixed">Fixed 16b3343b</span> — was <code>const char*</code>, dangling pointer on stack-allocated strings (tracker #66268).<br>
+      <span class="badge badge-diverged">DIVERGED</span> NOT updated by <code>mark_flag_point_string</code>.
+    </td>
+  </tr>
+</table>
+
+<h3>Flag Constants (bits in <code>uint8_t</code>)</h3>
+<table>
+  <tr><th>Constant</th><th>Value</th><th>State string (<code>_get_state_string</code>)</th><th>State string (<code>get_state_string</code> static)</th></tr>
+  <tr><td><code>flag_started</code></td><td><code>0x01</code></td><td>"started"</td><td>"started"</td></tr>
+  <tr><td><code>flag_queued_for_module</code></td><td><code>0x02</code></td><td>"queued for module"</td><td>"queued for module"</td></tr>
+  <tr><td><code>flag_reached_module</code></td><td><code>0x04</code></td><td><em>last_event_detail</em> (dynamic)</td><td>"reached module" (static literal)</td></tr>
+  <tr><td><code>flag_start_mon_command</code></td><td><code>0x08</code></td><td>"start mon command"</td><td>"start mon command"</td></tr>
+  <tr class="flag-bad"><td><code>flag_finish_mon_command</code></td><td><code>0x10</code></td><td class="highlight-cell">"mon command finished" — UNREACHABLE via mark_finish_mon_command()</td><td>"mon command finished"</td></tr>
+</table>
+
+<h3>Known Bugs &amp; Active Divergences</h3>
+
+<div class="callout callout-warn">
+  <strong>🐛 D3 — <code>mark_finish_mon_command()</code> copy-paste bug</strong> <span class="badge badge-diverged">DIVERGED</span><br>
+  <code>h:122</code>: calls <code>mark_flag_point(<strong>flag_start_mon_command</strong>, "mon_command_finished")</code> instead of <code>flag_finish_mon_command</code>.<br>
+  <strong>Effect:</strong> After <code>mark_finish_mon_command()</code> runs:
+  <ul>
+    <li><code>latest_flag_point == 0x08</code> (start, not finish)</li>
+    <li><code>_get_state_string()</code> returns <code>"start mon command"</code></li>
+    <li><code>flag_finish_mon_command</code> (0x10) is <em>never</em> set in <code>hit_flag_points</code> via this path</li>
+    <li>Introduced <span class="sha">66efcaae</span>; never corrected.</li>
+  </ul>
+</div>
+
+<div class="callout callout-warn">
+  <strong>🐛 D2 — <code>mark_flag_point_string</code> does not update <code>last_event_detail</code></strong> <span class="badge badge-diverged">DIVERGED</span><br>
+  If <code>mark_flag_point_string</code> is called with <code>flag_reached_module</code>, <code>_get_state_string()</code> returns whatever stale (or empty) value is in <code>last_event_detail</code> — not the module string passed in. Introduced <span class="sha">66efcaae</span>; never corrected.
+</div>
+
+<div class="callout callout-orange">
+  <strong>📖 D1 — Stale class doc comment</strong> <span class="badge badge-diverged">DIVERGED</span><br>
+  <code>h:25–26</code> reads: <em>"takes over a single reference to it, which it puts() when destroyed."</em><br>
+  The explicit <code>put()</code> was removed by <span class="sha">941c5eda</span>. <code>MessageRef</code> RAII handles release now. Comment not updated.
+</div>
+
+<div class="callout callout-orange">
+  <strong>⚠ U6 — Underscore/space inconsistency in event strings</strong> <span class="badge badge-ungrounded">UNGROUNDED</span><br>
+  Event log strings: <code>"queued_for_module"</code>, <code>"start_mon_command"</code><br>
+  State strings: <code>"queued for module"</code>, <code>"start mon command"</code><br>
+  Cannot be compared by string equality across the two representations.
+</div>
+
+<h3>Algorithm: <code>filter_out()</code> — Three-Pass Address Matching</h3>
+<pre>
+Pass 1: exact match — full entity_addr_t (IP + port + nonce)
+Pass 2: nonce zeroed — matches IP:port regardless of session ID
+Pass 3: nonce + port zeroed — matches IP-only
+
+If any filter set is all non-parseable strings → addrs is empty → return true (include all)
+</pre>
+<p>Copied from OSD's <code>OpRequest::filter_out</code>. No comment in any commit explains the three-pass approach in the mgr context. (<span class="badge badge-ungrounded">UNGROUNDED</span> U3)</p>
+
+<h3>Algorithm: <code>_dump()</code> — Event Duration Calculation</h3>
+<pre>
+for each event i in events (random-access vector):
+    duration = (i == begin) ? 0 : i.stamp - (i-1).stamp
+emit { event: i.str, time: i.stamp, duration: duration }
+</pre>
+<p><strong>Lock scope:</strong> <code>lock</code> (TrackedOp::lock) held only around the events iteration. <code>state_string()</code> (reads <code>latest_flag_point</code> + <code>last_event_detail</code>) is called <em>before</em> the lock. <span class="badge badge-ungrounded">UNGROUNDED</span> U2 — these two reads are not protected.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<a class="section-anchor" id="s4"></a>
+<h2>§4 · Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <tr>
+    <th style="width:28%">Threat / Adversarial Input</th>
+    <th style="width:36%">What Happens</th>
+    <th style="width:18%">Severity</th>
+    <th style="width:18%">Mitigation</th>
+  </tr>
+  <tr>
+    <td><strong>Client sends malformed / garbage source address</strong></td>
+    <td><code>req-&gt;get_source_inst()</code> is called unconditionally at construction. A structurally invalid address is snapshotted into <code>req_src_inst</code>. <code>filter_out()</code> compares against it; a garbage addr just won't match any filter.</td>
+    <td><span class="flag-ok">Low</span></td>
+    <td>No crash. Worst case: op is always visible in <code>dump_ops_in_flight</code> even when a filter is active.</td>
+  </tr>
+  <tr>
+    <td><strong>Client sends a null/null-source message (<code>req == nullptr</code>)</strong></td>
+    <td>Constructor dereferences <code>req-&gt;get_recv_stamp()</code> without a null guard. Immediate null-dereference crash.</td>
+    <td><span class="flag-bad">Critical</span></td>
+    <td>Precondition: callers (<code>OpTracker::create_request</code>) must never pass null. No in-class guard exists. Enforced by convention only.</td>
+  </tr>
+  <tr>
+    <td><strong>Attacker floods mgr with many inflight ops</strong></td>
+    <td>Each op registers with <code>OpTracker</code>; the table grows. OpTracker enforces <code>osd_op_complaint_time</code> / <code>osd_op_num_ops_threshold</code> (mgr uses analogous config). No per-op size bound on <code>events</code>.</td>
+    <td><span class="flag-warn">Medium</span></td>
+    <td>OpTracker slow-op threshold will log/alert. Memory: each op holds a <code>MessageRef</code> until <code>_unregistered()</code> — which fires when the tracker deregisters the op. For historic ops, only the cleared message shell remains.</td>
+  </tr>
+  <tr>
+    <td><strong>Caller passes all-garbage filter strings to <code>dump_ops_in_flight</code></strong></td>
+    <td><code>filter_out()</code> parses each string as <code>entity_addr_t</code>; unparseable strings are silently ignored. If <em>all</em> strings are unparseable, <code>addrs</code> is empty → <code>return true</code> → all ops are shown. Not a security risk, but unpredictable UX.</td>
+    <td><span class="flag-ok">Low</span></td>
+    <td>Operator issue only; no crash or info leak.</td>
+  </tr>
+  <tr>
+    <td><strong>Concurrent <code>mark_*</code> calls from multiple threads</strong></td>
+    <td><code>mark_event()</code> acquires <code>TrackedOp::lock</code> to append to <code>events</code>. But <code>last_event_detail</code> and <code>latest_flag_point</code> are written <em>outside</em> the lock in <code>mark_flag_point</code>. Concurrent <code>_dump()</code> reads them without the lock too.</td>
+    <td><span class="flag-warn">Medium</span></td>
+    <td><span class="badge badge-ungrounded">UNGROUNDED</span> U2 — technically a data race on <code>std::string last_event_detail</code>. In practice the mgr processes ops on a single event thread, making this benign in deployed code but fragile by design.</td>
+  </tr>
+  <tr>
+    <td><strong>Wrong <code>T</code> in <code>get_req&lt;T&gt;()</code></strong></td>
+    <td><code>static_cast&lt;const T*&gt;(request)</code> will succeed silently at compile time. If <code>T</code> is not the actual dynamic type, reading through the cast pointer is undefined behaviour.</td>
+    <td><span class="flag-warn">Medium</span></td>
+    <td>Caller contract: must guarantee type before calling. No runtime check. Pattern copied from OSD OpRequest which is also performance-sensitive. <span class="badge badge-ungrounded">UNGROUNDED</span> U4.</td>
+  </tr>
+  <tr>
+    <td><strong>Short-lived <code>const char*</code> passed to <code>mark_reached()</code></strong></td>
+    <td>Pre-<span class="sha">16b3343b</span>: stored as raw pointer → dangling pointer → garbage in <code>dump_historic_ops_by_duration</code>. Post-<span class="sha">16b3343b</span>: copied into <code>std::string</code>; safe.</td>
+    <td><span class="flag-ok">Fixed</span></td>
+    <td><span class="badge badge-fixed">Fixed 16b3343b</span> tracker #66268</td>
+  </tr>
+  <tr>
+    <td><strong>Explicit <code>request-&gt;put()</code> in destructor</strong></td>
+    <td>Pre-<span class="sha">941c5eda</span>: double-decrement of ref-count when <code>MessageRef</code> destructor also called <code>put()</code> → use-after-free / crash.</td>
+    <td><span class="flag-ok">Fixed</span></td>
+    <td><span class="badge badge-fixed">Fixed 941c5eda</span> tracker #70618</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<a class="section-anchor" id="s5"></a>
+<h2>§5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<table>
+  <tr>
+    <th style="width:28%">Failure Mode</th>
+    <th style="width:36%">Root Cause</th>
+    <th style="width:18%">Blast Radius</th>
+    <th style="width:18%">Observable Signal</th>
+  </tr>
+  <tr>
+    <td><strong>Op stuck showing "start mon command" after it finished</strong></td>
+    <td><code>mark_finish_mon_command()</code> passes <code>flag_start_mon_command</code> (D3 bug). <code>latest_flag_point</code> never advances to <code>flag_finish_mon_command</code>.</td>
+    <td>Observability only. Ops in <code>dump_ops_in_flight</code> show wrong stage. No correctness impact.</td>
+    <td><code>ceph tell mgr dump_ops_in_flight</code> → <code>flag_point: "start mon command"</code> even for completed mon commands.</td>
+  </tr>
+  <tr>
+    <td><strong>Module name missing or garbage in <code>flag_point</code></strong> (pre-fix)</td>
+    <td>Pre-<span class="sha">16b3343b</span>: <code>last_event_detail</code> was <code>const char*</code>; caller's stack frame destroyed.</td>
+    <td>Garbage in <code>dump_historic_ops_by_duration</code> output. No crash.</td>
+    <td><span class="badge badge-fixed">Fixed 16b3343b</span>. Regression: calling <code>mark_flag_point_string</code> with <code>flag_reached_module</code> still silently returns empty/stale string (D2).</td>
+  </tr>
+  <tr>
+    <td><strong>Use-after-free / crash on op destruction</strong> (pre-fix)</td>
+    <td>Pre-<span class="sha">941c5eda</span>: explicit <code>request-&gt;put()</code> in dtor + <code>MessageRef</code> RAII both decrement ref-count.</td>
+    <td>mgr daemon crash on any op completing.</td>
+    <td><span class="badge badge-fixed">Fixed 941c5eda</span>. Tracker #70618.</td>
+  </tr>
+  <tr>
+    <td><strong>Static <code>get_state_string()</code> returns <code>""</code> for unknown flag</strong></td>
+    <td>No <code>default:</code> branch in switch. Unknown <code>uint8_t</code> value → empty string returned silently.</td>
+    <td>Silent empty string in external display code that uses raw <code>state_flag()</code> value.</td>
+    <td>Empty <code>flag_point</code> in admin output. No crash. <span class="badge badge-ungrounded">UNGROUNDED</span>.</td>
+  </tr>
+  <tr>
+    <td><strong>Null check in <code>get_source()</code> is dead code</strong></td>
+    <td><code>request</code> is always non-null post-construction. The <code>else { return {}; }</code> branch is unreachable. If the invariant were ever violated (memory corruption), the check would hide the underlying bug by returning a default entity.</td>
+    <td>Zero blast radius from the guard itself. Risk is masking a corruption bug silently.</td>
+    <td><span class="badge badge-overcautious">OVERCAUTIOUS O1</span> h:65.</td>
+  </tr>
+  <tr>
+    <td><strong><code>hit_flag_points</code> / <code>latest_flag_point</code> uninitialized</strong></td>
+    <td>No explicit zero-init in ctor member-init list. Relies on <code>OpTracker::create_request</code> zero-initializing via <code>new</code> allocation. If ever stack-allocated or placement-new'd: undefined starting value.</td>
+    <td>Wrong initial <code>flag_point</code> in <code>_dump()</code>.</td>
+    <td><span class="badge badge-ungrounded">UNGROUNDED U1</span>. No in-tree test exercises non-heap allocation.</td>
+  </tr>
+  <tr>
+    <td><strong>Data race on <code>last_event_detail</code> / <code>latest_flag_point</code></strong></td>
+    <td>Written outside <code>TrackedOp::lock</code> in <code>mark_flag_point</code>; read in <code>_dump()</code> without lock.</td>
+    <td>Torn read of <code>std::string</code> theoretically possible. In practice mgr dispatches on one thread; benign operationally.</td>
+    <td><span class="badge badge-ungrounded">UNGROUNDED U2</span>. Would manifest as garbled <code>flag_point</code> in dumps under concurrent mark/dump.</td>
+  </tr>
+  <tr>
+    <td><strong>Missing includes causing build failure</strong></td>
+    <td><code>msg/Message.h</code>, <code>msg/MessageRef.h</code>, <code>msg/msg_types.h</code> not included in header.</td>
+    <td>Build failure when header included by TU that didn't transitively pull them in.</td>
+    <td><span class="badge badge-fixed">Fixed 5c70e38a</span> (Max Kellermann, 2024-10-26).</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<a class="section-anchor" id="s6"></a>
+<h2>§6 · Observability &amp; Triage Playbook</h2>
+
+<h3>Available Commands</h3>
+<table>
+  <tr><th>Command</th><th>What it shows</th><th>Calls into</th></tr>
+  <tr>
+    <td><code>ceph tell mgr dump_ops_in_flight</code></td>
+    <td>All currently tracked ops: <code>flag_point</code>, <code>client_info</code> (if client), event log with per-event durations</td>
+    <td><code>_dump(Formatter*)</code></td>
+  </tr>
+  <tr>
+    <td><code>ceph tell mgr dump_historic_ops</code></td>
+    <td>Recently completed ops (in OpTracker's history ring)</td>
+    <td><code>_dump(Formatter*)</code></td>
+  </tr>
+  <tr>
+    <td><code>ceph tell mgr dump_historic_ops_by_duration</code></td>
+    <td>Completed ops sorted by duration; uses <code>state_flag()</code> → <code>get_state_string(static)</code></td>
+    <td><code>state_flag()</code>, <code>get_state_string()</code></td>
+  </tr>
+  <tr>
+    <td><code>ceph tell mgr dump_ops_in_flight --filter 192.168.1.5:0/0</code></td>
+    <td>Ops filtered to a specific client address (three-pass: exact → nonce=0 → nonce+port=0)</td>
+    <td><code>filter_out()</code></td>
+  </tr>
+</table>
+
+<h3>Reading a Dump — Quick Reference</h3>
+<pre>
+{
+  "ops": [{
+    "flag_point": "queued for module",     ← _get_state_string() via _dump()
+    "client_info": {                        ← only present when is_client()
+      "client": "client.4308",
+      "client_addr": "192.168.1.5:0/12345",
+      "tid": 42
+    },
+    "events": [
+      {"event": "started",          "time": "...", "duration": 0},
+      {"event": "queued_for_module","time": "...", "duration": 0.0012},
+      ...
+    ]
+  }]
+}
+</pre>
+<div class="callout callout-info">
+  <strong>⚠ Known dump anomalies to be aware of:</strong>
+  <ul>
+    <li><strong>Mon-command ops stuck at "start mon command"</strong> even after completion → D3 bug. The <code>events</code> array will show <code>"mon_command_finished"</code> as the last event string, but <code>flag_point</code> remains <code>"start mon command"</code>. Use the <em>events array</em>, not <code>flag_point</code>, to determine actual mon-command completion.</li>
+    <li><strong>Empty <code>flag_point</code></strong> in <code>dump_historic_ops_by_duration</code> → unknown flag value passed to static <code>get_state_string()</code>.</li>
+    <li><strong>Stale/empty module name in <code>flag_point</code></strong> when <code>flag_point</code> shows <code>"reached module"</code> but no module name appears → <code>mark_flag_point_string</code> was used instead of <code>mark_flag_point</code> (D2).</li>
+    <li><strong>Event string vs state string inconsistency</strong>: event log says <code>"queued_for_module"</code> (underscore), state says <code>"queued for module"</code> (space). Don't grep for one to find the other.</li>
+  </ul>
+</div>
+
+<h3>Triage Decision Tree</h3>
+<div class="flow-box">
+Op appears stuck in dump_ops_in_flight?
+  │
+  ├── flag_point = "no flag points reached"
+  │     → Op never called mark_started(); either just created or DaemonServer bug.
+  │
+  ├── flag_point = "queued for module"
+  │     → Op is waiting in module dispatch queue. Check module backlog.
+  │
+  ├── flag_point = "start mon command"
+  │     → EITHER genuinely stuck in mon command, OR mark_finish_mon_command() was
+  │       called (D3 bug). Check events array for "mon_command_finished" entry.
+  │       If present: op completed but tracking is wrong (D3).
+  │       If absent: op genuinely blocked waiting for mon response.
+  │
+  ├── flag_point = "reached module" with empty/missing module name
+  │     → mark_flag_point_string() was used (D2). Check LTTng trace for actual module.
+  │
+  └── flag_point = "" (empty)
+        → Unknown flag value. Check state_flag() raw value via LTTng trace.
+</div>
+
+<h3>LTTng Trace Points</h3>
+<p>When compiled with <code>-DWITH_LTTNG</code>, every <code>mark_flag_point</code> and <code>mark_flag_point_string</code> fires:</p>
+<pre>tracepoint(mgroprequest, mark_flag_point, flag, s, old_flags, hit_flag_points)</pre>
+<p>This is the only reliable way to observe <code>old_flags</code> (pre-transition bitmask) and get the raw event string for <code>mark_flag_point_string</code> calls (which don't update <code>last_event_detail</code>).</p>
+
+<h3>Commit History Cheatsheet</h3>
+<table>
+  <tr><th>SHA</th><th>Date</th><th>Author</th><th>What Changed</th><th>Impact</th></tr>
+  <tr>
+    <td><span class="sha">66efcaae</span></td>
+    <td>2023-12-21</td>
+    <td>Prashant D</td>
+    <td>Initial implementation — entire class</td>
+    <td>All logic. Also introduced D2, D3, U1–U6, O1.</td>
+  </tr>
+  <tr>
+    <td><span class="sha">16b3343b</span></td>
+    <td>2024-06-14</td>
+    <td>Mohit Agrawal</td>
+    <td><code>last_event_detail</code>: <code>const char*</code> → <code>std::string</code></td>
+    <td>Fixed dangling pointer / garbage in <code>dump_historic_ops_by_duration</code> (tracker #66268)</td>
+  </tr>
+  <tr>
+    <td><span class="sha">5c70e38a</span></td>
+    <td>2024-10-26</td>
+    <td>Max Kellermann</td>
+    <td>Added missing includes to <code>MgrOpRequest.h</code></td>
+    <td>Fixed latent build failures</td>
+  </tr>
+  <tr>
+    <td><span class="sha">941c5eda</span></td>
+    <td>2025-04-04</td>
+    <td>Milind Changire</td>
+    <td>Removed explicit <code>request-&gt;put()</code> from destructor</td>
+    <td>Fixed double-decrement / use-after-free on op destruction (tracker #70618)</td>
+  </tr>
+  <tr>
+    <td><span class="sha">f1bac418</span>, <span class="sha">85d82faa</span>, <span class="sha">4adaf64d</span></td>
+    <td>2025-10-01–02</td>
+    <td>Edwin Rodriguez</td>
+    <td>Style: indent settings, blank line after header block</td>
+    <td>No functional change</td>
+  </tr>
+</table>
+
+<h3>Open Known Bugs (unfixed as of corpus HEAD <span class="sha">8681fa6e</span>)</h3>
+<table>
+  <tr><th>ID</th><th>Bug</th><th>Location</th><th>Introduced</th></tr>
+  <tr class="flag-bad">
+    <td>D3</td>
+    <td><code>mark_finish_mon_command()</code> passes wrong flag constant; <code>flag_finish_mon_command</code> (0x10) is never set; state display wrong after mon command finish</td>
+    <td><code>h:122</code></td>
+    <td><span class="sha">66efcaae</span></td>
+  </tr>
+  <tr class="flag-warn">
+    <td>D2</td>
+    <td><code>mark_flag_point_string</code> silently skips <code>last_event_detail</code> update; stale/empty module name returned by <code>_get_state_string</code> when called via string overload</td>
+    <td><code>cc:96–104</code></td>
+    <td><span class="sha">66efcaae</span></td>
+  </tr>
+  <tr>
+    <td>D1</td>
+    <td>Class doc comment still claims manual <code>put()</code> on destroy; behaviour removed by <span class="sha">941c5eda</span></td>
+    <td><code>h:25–26</code></td>
+    <td><span class="sha">66efcaae</span></td>
+  </tr>
+  <tr>
+    <td>U2</td>
+    <td><code>latest_flag_point</code> / <code>last_event_detail</code> written outside <code>lock</code>; read in <code>_dump()</code> without lock — data race under concurrency</td>
+    <td><code>cc:37–38</code>, <code>cc:88–90</code></td>
+    <td><span class="sha">66efcaae</span></td>
+  </tr>
+</table>
+
+<hr style="border:1px solid var(--border); margin: 2.5rem 0 1rem;">
+<p style="color:var(--muted); font-size:0.82em;">
+  Generated from corpus <span class="sha">8681fa6e</span> · 7 commits analysed · Intent artefact: <code>BobOutput/Object History/MgrOpRequest-intent.md</code>
+</p>
+
+</body>
+</html>

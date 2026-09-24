@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Whiteboard Defense — MgrCap Authorization</title>
+<style>
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --border:   #2e3347;
+    --accent:   #4f8ef7;
+    --warn:     #f7a94f;
+    --danger:   #f75f5f;
+    --ok:       #4fc98e;
+    --muted:    #7b8099;
+    --text:     #dde1f0;
+    --heading:  #ffffff;
+    --code-bg:  #12141e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.9em; color: var(--heading); margin-bottom: 4px; }
+  h2 { font-size: 1.25em; color: var(--accent); margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1em; color: var(--warn); margin: 20px 0 8px; }
+  .meta { color: var(--muted); font-size: 0.85em; margin-bottom: 28px; }
+  .meta span { margin-right: 20px; }
+  .meta a { color: var(--accent); text-decoration: none; }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.88em; }
+  th { background: var(--surface); color: var(--heading); text-align: left; padding: 8px 12px; border: 1px solid var(--border); }
+  td { padding: 7px 12px; border: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: #13161f; }
+  tr:hover td { background: #1f2335; }
+
+  /* code / pre */
+  code { background: var(--code-bg); color: #a8d8ff; padding: 1px 5px; border-radius: 3px; font-family: 'Cascadia Code','Fira Code',monospace; font-size: 0.9em; }
+  pre  { background: var(--code-bg); color: #a8d8ff; padding: 14px 18px; border-radius: 6px; overflow-x: auto; font-family: 'Cascadia Code','Fira Code',monospace; font-size: 0.85em; line-height: 1.5; margin: 10px 0 16px; border: 1px solid var(--border); }
+
+  /* badges */
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 0.78em; font-weight: 700; vertical-align: middle; margin-left: 6px; }
+  .b-sha  { background: #1e2a42; color: #6ab4ff; border: 1px solid #2e4a72; }
+  .b-div  { background: #3a1a1a; color: #ff7070; border: 1px solid #6a2020; }
+  .b-ung  { background: #2e2810; color: #f5c842; border: 1px solid #5a4a10; }
+  .b-ok   { background: #0f2a1a; color: #4fc98e; border: 1px solid #1a5a30; }
+  .b-warn { background: #2a1e0a; color: #f7a94f; border: 1px solid #5a3a10; }
+
+  /* callout boxes */
+  .callout { border-left: 4px solid var(--accent); background: var(--surface); padding: 10px 16px; margin: 12px 0; border-radius: 0 4px 4px 0; }
+  .callout.danger { border-color: var(--danger); }
+  .callout.warn   { border-color: var(--warn); }
+  .callout.ok     { border-color: var(--ok); }
+
+  /* flow diagram */
+  .flow { background: var(--code-bg); border: 1px solid var(--border); padding: 18px 24px; border-radius: 6px; font-family: monospace; font-size: 0.85em; color: var(--text); overflow-x: auto; line-height: 1.7; }
+  .flow .box  { color: #a8d8ff; }
+  .flow .arr  { color: var(--muted); }
+  .flow .lbl  { color: var(--warn); }
+  .flow .ok   { color: var(--ok); }
+  .flow .bad  { color: var(--danger); }
+
+  ul { padding-left: 20px; margin: 6px 0; }
+  li { margin: 3px 0; }
+  .section-anchor { scroll-margin-top: 20px; }
+
+  /* nav */
+  nav { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px 18px; margin-bottom: 32px; }
+  nav ol { padding-left: 22px; }
+  nav li { margin: 4px 0; }
+  nav a  { color: var(--accent); text-decoration: none; font-size: 0.9em; }
+  nav a:hover { text-decoration: underline; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media(max-width:750px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense: <code>MgrCap</code></h1>
+<p class="meta">
+  <span>Files: <code>src/mgr/MgrCap.cc</code> / <code>src/mgr/MgrCap.h</code></span>
+  <span>HEAD: <code class="badge b-sha">8681fa6</code></span>
+  <span>Corpus: 21 non-merge commits · 2019-10-11 → 2026-07-26</span>
+  <span>Primary author: Jason Dillaman (Oct 2019) — origin commit <code class="badge b-sha">6350bee</code></span>
+</p>
+
+<nav>
+  <strong style="color:var(--heading)">Contents</strong>
+  <ol>
+    <li><a href="#s1">High-Level Architecture &amp; Mental Model</a></li>
+    <li><a href="#s2">Architectural Decisions &amp; Trade-offs</a></li>
+    <li><a href="#s3">Data Structures, Algorithms &amp; Invariants</a></li>
+    <li><a href="#s4">Threat Model &amp; Adversarial Handling</a></li>
+    <li><a href="#s5">Failure Modes, Edge Cases &amp; Blast Radius</a></li>
+    <li><a href="#s6">Observability &amp; Triage Playbook</a></li>
+    <li><a href="#s7">Known Bugs &amp; Deferred Work</a></li>
+  </ol>
+</nav>
+
+
+<!-- ═══════════════════════════════════════════════════════════ S1 ════ -->
+<h2 id="s1" class="section-anchor">1 · High-Level Architecture &amp; Mental Model</h2>
+
+<h3>What it is</h3>
+<p>
+  <code>MgrCap</code> is the standalone authorization engine for Ceph's Manager daemon.
+  It was carved out of <code>MonCap</code> in <code class="badge b-sha">6350bee</code> because
+  the MGR's five distinct grant types — blanket, service, module, profile, command —
+  are semantically different from MON grants and warranted a dedicated parser + evaluator.
+</p>
+
+<h3>Request Lifecycle</h3>
+<div class="flow">
+<span class="box">Caller</span> <span class="arr">──parse_cap_string──►</span> <span class="box">MgrCap::parse()</span>
+<br>
+<span class="arr">  │</span>
+<span class="arr">  ├──[Boost.Spirit Qi grammar]──► grants[]  (MgrCapGrant)</span>
+<span class="arr">  │   ├── parse_network()   per grant</span>
+<span class="arr">  │   └── expand_profile()  per profile grant  ◄──validates at parse time (9193d87)</span>
+<span class="arr">  │</span>
+<span class="arr">  └──[encode/decode]──► text only (v4/compat4);  decode re-parses text</span>
+<br>
+<span class="box">AuthZ check</span> <span class="arr">──is_capable(service,module,command,args,op_r/w/x,addr)──►</span>
+<span class="arr">  │</span>
+<span class="arr">  ├─ for each grant:</span>
+<span class="arr">  │   ├── network check  (skip grant if addr outside range / invalid CIDR)</span>
+<span class="arr">  │   ├── is_allow_all?  ──► <span class="ok">return true</span>  (fast-path)</span>
+<span class="arr">  │   └── get_allowed()  OR bits → check if all needed bits satisfied → <span class="ok">return true</span></span>
+<span class="arr">  └── all grants exhausted → <span class="bad">return false</span></span>
+</div>
+
+<h3>Five Grant Forms</h3>
+<table>
+  <tr><th>Form</th><th>Parser rule</th><th>Discriminator field</th><th>Returns from <code>get_allowed()</code></th><th>Introduced</th></tr>
+  <tr><td><strong>Blanket</strong> <code>allow rw</code></td><td><code>rwxa_match</code></td><td>all empty, <code>allow≠0</code></td><td><code>allow</code></td><td><code class="badge b-sha">6350bee</code></td></tr>
+  <tr><td><strong>Service</strong> <code>allow service mds rw</code></td><td><code>service_match</code></td><td><code>service</code></td><td><code>allow</code> if name matches</td><td><code class="badge b-sha">6350bee</code></td></tr>
+  <tr><td><strong>Module</strong> <code>allow module rbd_support rw</code></td><td><code>module_match</code></td><td><code>module</code></td><td><code>allow</code> if name + args match</td><td><code class="badge b-sha">3463613</code></td></tr>
+  <tr><td><strong>Profile</strong> <code>profile rbd pool=rbd</code></td><td><code>profile_match</code></td><td><code>profile</code></td><td>OR of sub-grants from <code>expand_profile()</code></td><td><code class="badge b-sha">6350bee</code></td></tr>
+  <tr><td><strong>Command</strong> <code>allow command "crash post"</code></td><td><code>command_match</code></td><td><code>command</code></td><td><code>MGR_CAP_ANY</code> (all bits) if name + args match</td><td><code class="badge b-sha">6350bee</code></td></tr>
+</table>
+
+<h3>Profile Expansion Map</h3>
+<table>
+  <tr><th>Profile name</th><th>Expands to</th><th>Allowed args</th><th>Commit</th></tr>
+  <tr><td><code>read-only</code></td><td>blanket <code>allow r</code></td><td>none</td><td><code class="badge b-sha">6350bee</code></td></tr>
+  <tr><td><code>read-write</code></td><td>blanket <code>allow rw</code></td><td>none</td><td><code class="badge b-sha">6350bee</code></td></tr>
+  <tr><td><code>crash</code></td><td>command grant <code>"crash post"</code></td><td>none</td><td><code class="badge b-sha">6350bee</code></td></tr>
+  <tr><td><code>rbd</code></td><td>module <code>rbd_support allow rw</code></td><td><code>pool</code>, <code>namespace</code> only</td><td><code class="badge b-sha">b0d73ae</code></td></tr>
+  <tr><td><code>rbd-read-only</code></td><td>module <code>rbd_support allow r</code></td><td><code>pool</code>, <code>namespace</code> only</td><td><code class="badge b-sha">b0d73ae</code></td></tr>
+  <tr><td><code>osd</code>, <code>mds</code></td><td>accepted — grants <strong>nothing</strong> on MGR</td><td>—</td><td><code class="badge b-sha">2dc7a95</code></td></tr>
+  <tr><td><code>rgw</code></td><td>accepted — grants <strong>nothing</strong> on MGR</td><td>—</td><td><code class="badge b-sha">488cb91</code></td></tr>
+</table>
+
+<div class="callout warn">
+  <strong>Design intent:</strong> <code>osd</code>, <code>mds</code>, <code>rgw</code> profiles are cross-service profiles
+  whose meaningful grants live on the OSD/MON/RGW auth path. Accepting them here avoids a parse error when the
+  same cap string is evaluated at the MGR.
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ S2 ════ -->
+<h2 id="s2" class="section-anchor">2 · Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <tr>
+    <th style="width:26%">Decision</th>
+    <th style="width:37%">Why X (chosen)</th>
+    <th style="width:37%">Why not Y (alternative)</th>
+  </tr>
+  <tr>
+    <td><strong>Split MgrCap from MonCap</strong></td>
+    <td>MGR has module grants + profile grants with their own semantics. Reusing MonCap added accidental complexity and mismatched semantics. (<code class="badge b-sha">6350bee</code>)</td>
+    <td>Keeping MonCap would have required adding MGR-specific branches everywhere inside a MON-centric type, violating single-responsibility.</td>
+  </tr>
+  <tr>
+    <td><strong>Text-only serialisation (encode/decode)</strong></td>
+    <td>Only <code>text</code> is encoded (v4/compat4); grants are reconstructed by re-parsing on decode. Format is the cap string itself — simple, human-readable, unambiguous. (<code class="badge b-sha">6350bee</code>)</td>
+    <td>Encoding the struct directly would require a versioned schema per field and would break when new grant types are added.</td>
+  </tr>
+  <tr>
+    <td><strong>Profile validation at parse time</strong></td>
+    <td>Unknown profile = <code>parse()</code> returns <code>false</code> immediately. Fail fast; invalid caps never enter the grants vector. (<code class="badge b-sha">9193d87</code>)</td>
+    <td>Deferring to auth time would silently grant nothing (confusing) or require error propagation through <code>is_capable()</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>Profile expansion memoised (<code>profile_grants</code>)</strong></td>
+    <td><code>expand_profile()</code> is called once; result cached in <code>mutable profile_grants</code>. Free after first authorisation check. (<code class="badge b-sha">6350bee</code>)</td>
+    <td>Re-expanding on every <code>get_allowed()</code> call would be safe but wastes allocations for long-lived cap objects.</td>
+  </tr>
+  <tr>
+    <td><strong>Boost.Spirit Qi grammar</strong></td>
+    <td>Type-safe parser that maps directly to BOOST_FUSION_ADAPT_STRUCT fields. Error position is recoverable. Used consistently with MonCap. (<code class="badge b-sha">6350bee</code>)</td>
+    <td>Hand-written recursive descent would be simpler to understand but harder to keep in sync with the struct layout when fields are added.</td>
+  </tr>
+  <tr>
+    <td><strong>Command grants return <code>MGR_CAP_ANY</code></strong></td>
+    <td>Command access is all-or-nothing by design. The grammar injects <code>qi::attr(0)</code> for the allow field; returning <code>MGR_CAP_ANY</code> is the semantic choice. (<code class="badge b-sha">6350bee</code>)</td>
+    <td>Returning <code>allow</code> (which is 0) would silently deny all command grants — a catastrophic bug.</td>
+  </tr>
+  <tr>
+    <td><strong>Invalid network → silent skip, not deny-all</strong></td>
+    <td>Only the affected grant is skipped; other grants still apply. Fail-safe: bad CIDR cannot escalate access. (<code class="badge b-sha">6350bee</code>)</td>
+    <td>Denying the entire cap on one invalid network CIDR would be too aggressive; the intent is to restrict that grant, not revoke all caps.</td>
+  </tr>
+  <tr>
+    <td><strong>Module arg bypass when command is given</strong></td>
+    <td>When <code>c ≠ ""</code>, module argument constraints are skipped — command-level checking handles the arguments independently. (<code class="badge b-sha">cb534e0</code>)</td>
+    <td>Enforcing module constraints even during command checks would double-count constraints and could incorrectly deny a command the module explicitly permits. <span class="badge b-ung">UNGROUNDED — design intent underdocumented</span></td>
+  </tr>
+  <tr>
+    <td><strong>Partial parse = failure (full-input consumption required)</strong></td>
+    <td><code>r &amp;&amp; iter == end</code> — the grammar must consume the entire string. Trailing garbage is caught. (<code class="badge b-sha">6350bee</code>)</td>
+    <td>Accepting a partial parse would silently ignore trailing grant clauses, resulting in over-permissive or under-permissive caps.</td>
+  </tr>
+  <tr>
+    <td><strong>Grants OR-ed across the list</strong></td>
+    <td>A principal may hold multiple grants from different services; ORing allows <code>allow service mds r, allow service osd w</code> to compose naturally. (<code class="badge b-sha">6350bee</code>)</td>
+    <td>AND-ing would be too restrictive for composable multi-service caps.</td>
+  </tr>
+</table>
+
+
+<!-- ═══════════════════════════════════════════════════════════ S3 ════ -->
+<h2 id="s3" class="section-anchor">3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Type Hierarchy</h3>
+<pre>
+MgrCap
+├── text : std::string           ← only field serialised (encode/decode)
+└── grants : std::vector&lt;MgrCapGrant&gt;
+
+MgrCapGrant  (BOOST_FUSION_ADAPT_STRUCT field order — POSITIONAL, must be kept in sync)
+  [0] service   : std::string
+  [1] module    : std::string
+  [2] profile   : std::string
+  [3] command   : std::string
+  [4] arguments : std::map&lt;std::string, MgrCapGrantConstraint&gt;
+  [5] allow     : mgr_rwxa_t   (__u8 bitmask; R=2 W=4 X=8; ANY=0xff)
+  [6] network   : std::string       ← NOT a constructor param; filled by parse_network()
+  [── not in FUSION ──]
+      network_parsed  : entity_addr_t  ← result of ::parse_network()
+      network_prefix  : int
+      network_valid   : bool           ← default true
+      profile_grants  : mutable std::vector&lt;MgrCapGrant&gt;
+
+MgrCapGrantConstraint
+  match_type : MatchType  { NONE=0, EQUAL, PREFIX, REGEX }
+  value      : std::string
+</pre>
+
+<h3>Grammar (BNF summary)</h3>
+<pre>
+mgrcap      := grant ((',' | ';') grant)*
+grant       := rwxa_match | profile_match | service_match | module_match | command_match
+
+rwxa_match  := 'allow' spaces rwxa [network_clause]
+service_match := 'allow' 'service' ['='] str rwxa [network_clause]
+module_match  := 'allow' 'module'  ['='] str ['with' kv_map] spaces rwxa [network_clause]
+profile_match := ['allow'] 'profile' ['='] str [kv_map] [network_clause]
+command_match := 'allow' 'command' ['='] str ['with' kv_map] [network_clause]
+
+rwxa        := '*' | 'all' | [r][w][x]          # qi:: || (optional parallel)
+kv_map      := kv_pair (spaces kv_pair)*
+kv_pair     := str ('=' str | ' prefix ' str | ' regex ' str)
+network_clause := 'network' network_str
+
+str         := quoted_string | unquoted_word
+unquoted_word := +[a-zA-Z0-9_./-]
+quoted_string := '"' + chars + '"' | "'" + chars + "'"
+</pre>
+
+<div class="callout warn">
+  <strong>Asymmetry:</strong> <code>unquoted_word</code> allows <code>.</code> and <code>/</code>, but
+  <code>maybe_quote_string()</code> wraps strings containing those chars in double-quotes.
+  Round-trip is still sound (both forms accepted by parser), but the grammar accepts more than it emits.
+  Single-quote quoting in the grammar has <strong>no corresponding emission path</strong>. <span class="badge b-ung">UNGROUNDED</span>
+</div>
+
+<h3>Key Algorithmic Properties</h3>
+<table>
+  <tr><th>Property</th><th>Complexity</th><th>Notes</th></tr>
+  <tr><td>Grant evaluation (<code>is_capable</code>)</td><td>O(G)</td><td>G = number of grants; early return on <code>is_allow_all</code></td></tr>
+  <tr><td>Argument constraint check (<code>validate_arguments</code>)</td><td>O(K × log A)</td><td>K = constraints in grant, A = args in request; map lookup per key</td></tr>
+  <tr><td>Profile expansion (<code>expand_profile</code>)</td><td>O(1) after first call</td><td>Memoised in <code>profile_grants</code>; runs once per grant lifetime</td></tr>
+  <tr><td>Regex match (<code>MATCH_TYPE_REGEX</code>)</td><td>O(std::regex_match)</td><td>Regex compiled fresh on each call; no caching. Potential CPU bottleneck under high call frequency.</td></tr>
+  <tr><td>Parse (<code>MgrCap::parse</code>)</td><td>O(|cap string|)</td><td>Single-pass Boost.Spirit Qi; allocates grammar object per call</td></tr>
+</table>
+
+<h3>Core Invariants</h3>
+<table>
+  <tr><th>Invariant</th><th>Where enforced</th><th>SHA</th></tr>
+  <tr><td>Grants vector is empty after any <code>parse()</code> failure</td><td><code>grants.clear()</code> at line 566 <span class="badge b-div">DIVERGED: profile-error path at 555–563 does NOT clear</span></td><td><code class="badge b-sha">6350bee</code></td></tr>
+  <tr><td>Network-invalid grant is never active</td><td><code>grant.network.size() &amp;&amp; (!network_valid || !network_contains(...))</code> → <code>continue</code></td><td><code class="badge b-sha">6350bee</code></td></tr>
+  <tr><td>Profile validated at parse time, not auth time</td><td><code>parse()</code> calls <code>expand_profile(&amp;profile_err)</code> and returns false on error</td><td><code class="badge b-sha">9193d87</code></td></tr>
+  <tr><td>Command grants return all bits (<code>MGR_CAP_ANY</code>)</td><td><code>get_allowed()</code> line 272: <code>return mgr_rwxa_t{MGR_CAP_ANY}</code></td><td><code class="badge b-sha">6350bee</code></td></tr>
+  <tr><td><code>allow == MGR_CAP_ANY</code> only for true blanket grant</td><td><code>is_allow_all()</code>: all 5 discriminator fields must be empty + <code>allow == 0xff</code></td><td><code class="badge b-sha">6350bee</code>, <code class="badge b-sha">3463613</code></td></tr>
+  <tr><td><code>set_allow_all()</code> keeps <code>text</code> in sync</td><td>Sets <code>text = "allow *"</code> immediately after clearing grants</td><td><code class="badge b-sha">6350bee</code></td></tr>
+  <tr><td>Unknown profile arg = parse error (not runtime deny)</td><td><code>expand_profile()</code> writes to <code>err</code> and returns without populating <code>profile_grants</code></td><td><code class="badge b-sha">9193d87</code></td></tr>
+</table>
+
+
+<!-- ═══════════════════════════════════════════════════════════ S4 ════ -->
+<h2 id="s4" class="section-anchor">4 · Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <tr>
+    <th style="width:28%">Attack / Adversarial Input</th>
+    <th style="width:36%">What happens</th>
+    <th style="width:36%">Verdict &amp; gaps</th>
+  </tr>
+  <tr>
+    <td><strong>Malformed cap string</strong> (garbage, truncated, extra trailing text)</td>
+    <td><code>parse()</code> returns <code>false</code>; <code>grants.clear()</code> called → zero access.</td>
+    <td><span class="badge b-ok">SAFE</span> Fail-closed. Error message propagated if <code>err != nullptr</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>Unknown profile name</strong> e.g. <code>profile evil</code></td>
+    <td><code>expand_profile(&amp;profile_err)</code> sets error string; <code>parse()</code> returns <code>false</code>.</td>
+    <td><span class="badge b-ok">SAFE</span> at auth time. <span class="badge b-div">DIVERGED D2</span>: grants vector not cleared on this code path — cap object left in partial state if caller ignores return value.</td>
+  </tr>
+  <tr>
+    <td><strong>Profile with unrecognised key</strong> e.g. <code>profile rbd evil_key=x</code></td>
+    <td>Same as above: <code>expand_profile</code> writes error, returns without populating <code>profile_grants</code>.</td>
+    <td><span class="badge b-ok">SAFE</span> — grants nothing. <span class="badge b-div">DIVERGED D1</span>: memoisation guard broken; <code>get_allowed()</code> will re-call <code>expand_profile(nullptr)</code> on every check. Silent no-op per call.</td>
+  </tr>
+  <tr>
+    <td><strong>Malicious regex in constraint</strong> e.g. <code>k regex "(a+)+"</code></td>
+    <td><code>std::regex_match</code> with <code>std::regex::extended</code>. <code>std::regex_error</code> caught → <code>return false</code> (deny).</td>
+    <td><span class="badge b-warn">PARTIAL</span> ReDoS possible — <code>std::regex</code> has no execution timeout. A crafted regex + matching input string can cause catastrophic backtracking.</td>
+  </tr>
+  <tr>
+    <td><strong>Invalid network CIDR</strong> e.g. <code>network 999.999.999.0/24</code></td>
+    <td><code>parse_network()</code> returns false → <code>network_valid=false</code>. Grant silently skipped in <code>is_capable()</code>.</td>
+    <td><span class="badge b-ok">SAFE</span> Fail-closed: invalid network = no access from that grant.</td>
+  </tr>
+  <tr>
+    <td><strong>Stored cap with obsolete profile decoded at runtime</strong></td>
+    <td><code>decode()</code> calls <code>parse(s, NULL)</code>; <code>NULL</code> silences all errors. Profile failure → empty grants.</td>
+    <td><span class="badge b-ok">SAFE</span> (deny direction). <span class="badge b-div">DIVERGED D4</span>: error is silently swallowed, making silent access loss impossible to diagnose.</td>
+  </tr>
+  <tr>
+    <td><strong>Crafted cap string that partially parses</strong></td>
+    <td><code>r &amp;&amp; iter == end</code> check — partial parse = failure. No partial grants.</td>
+    <td><span class="badge b-ok">SAFE</span></td>
+  </tr>
+  <tr>
+    <td><strong>Attacker injects semicolons to split grants</strong></td>
+    <td>Grammar accepts <code>;</code> as grant separator. This is valid and intended. Multiple grants are OR-ed.</td>
+    <td><span class="badge b-ok">SAFE</span> Semicolons are not privileged; they behave identically to commas.</td>
+  </tr>
+  <tr>
+    <td><strong>Module cap with arguments + specific command check</strong></td>
+    <td><code>c.empty()</code> guard in <code>get_allowed()</code>: module argument constraints are <em>skipped</em> when a command string is provided.</td>
+    <td><span class="badge b-warn">REVIEW</span> A caller that provides both module name and command name bypasses the module's argument constraints. Intent is that command-level constraints take over. Underdocumented. <span class="badge b-ung">UNGROUNDED U4</span></td>
+  </tr>
+  <tr>
+    <td><strong>Programmatic grant construction (bypass parser)</strong></td>
+    <td><code>MgrCap(vector ctor)</code> sets empty <code>text</code>. Grant with <code>network=""</code> and <code>network_valid=true</code> (default) is treated as unrestricted.</td>
+    <td><span class="badge b-warn">GAP</span> Programmatic caps have no text, so <code>get_str()</code> returns <code>""</code>. <span class="badge b-ung">UNGROUNDED U8</span></td>
+  </tr>
+  <tr>
+    <td><strong>Service grant with injected arguments (struct only, not from parser)</strong></td>
+    <td>Parser never produces arguments for service grants. If programmatically constructed with arguments, <code>operator&lt;&lt;</code> would emit <code>" with ..."</code> but <code>service_match</code> grammar does not accept a <code>with</code> block.</td>
+    <td><span class="badge b-warn">LATENT</span> Round-trip would break for such a cap, but the path is unreachable from the parser. <span class="badge b-ung">UNGROUNDED U3</span></td>
+  </tr>
+</table>
+
+
+<!-- ═══════════════════════════════════════════════════════════ S5 ════ -->
+<h2 id="s5" class="section-anchor">5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<div class="grid2">
+
+<div>
+<h3>D1 — Memoisation broken for invalid profiles</h3>
+<div class="callout danger">
+  <strong>DIVERGED</strong> <code class="badge b-sha">9193d87</code> vs <code>get_allowed()</code> line 238<br>
+  <strong>What happens:</strong> If a profile expansion fails (invalid key), <code>profile_grants</code> stays empty.
+  The memoisation guard <code>if (!profile_grants.empty()) return</code> never fires.
+  <code>get_allowed()</code> re-invokes <code>expand_profile(nullptr)</code> on every auth check — no error logging, no grants.<br>
+  <strong>Blast radius:</strong> CPU waste (re-runs expand on every auth for that grant). Security direction correct (zero grants).
+  In practice blocked by parse-time validation, but reachable if cap is deserialized without validation.
+</div>
+</div>
+
+<div>
+<h3>D2 — grants not cleared on profile-error path</h3>
+<div class="callout danger">
+  <strong>DIVERGED (highest severity)</strong> <code class="badge b-sha">6350bee</code> invariant violated by <code class="badge b-sha">9193d87</code><br>
+  <strong>What happens:</strong> <code>parse()</code> returns <code>false</code> on profile error but does <em>not</em>
+  call <code>grants.clear()</code>. The grammar-parsed grants remain. Explicit comment at line 565:
+  <em>"Make sure no grants are kept after parsing failed!"</em><br>
+  <strong>Blast radius:</strong> Caller that ignores <code>parse()</code> return value
+  (e.g., calls <code>is_capable()</code> after a failed parse) would operate on stale grants.
+  The grants themselves have empty <code>profile_grants</code>, so profile-typed grants grant nothing.
+  Other grant types in the same cap string would evaluate normally.
+  This is a latent correctness exposure, not a guaranteed exploit.
+</div>
+</div>
+
+<div>
+<h3>D3 — Parameter name inconsistency</h3>
+<div class="callout">
+  <strong>DIVERGED</strong> <code class="badge b-sha">cb534e0</code><br>
+  <code>is_capable()</code> parameter still named <code>command_args</code> (line 312), not renamed to <code>arguments</code>.
+  Pure naming inconsistency — no functional impact. Causes confusion when reading the function.
+</div>
+</div>
+
+<div>
+<h3>D4 — decode silences profile errors</h3>
+<div class="callout warn">
+  <strong>DIVERGED</strong> <code class="badge b-sha">9193d87</code> vs <code>decode()</code> line 376<br>
+  <code>decode()</code> calls <code>parse(s, NULL)</code>. If a stored cap string contains an unrecognised profile
+  (e.g., after a rollback), parse returns <code>false</code> but no error is emitted.
+  The cap silently becomes zero-access.<br>
+  <strong>Blast radius:</strong> Silent access loss after rolling back to a Ceph version before a new profile was introduced.
+  Operator sees permission denied with no diagnostic.
+</div>
+</div>
+
+</div>
+
+<h3>Regex ReDoS</h3>
+<div class="callout warn">
+  <code>validate_arguments()</code> compiles a fresh <code>std::regex</code> on every call and invokes <code>std::regex_match</code>.
+  No regex caching, no execution timeout. A crafted cap with a pathological regex constraint (e.g., <code>k regex "(a+)+"</code>)
+  against a long matching value can cause catastrophic backtracking and spin the auth thread.
+  Only reachable if an attacker can inject a cap string (requires write access to the auth database).
+</div>
+
+<h3>Edge Cases</h3>
+<table>
+  <tr><th>Edge case</th><th>Behaviour</th></tr>
+  <tr><td><code>allow *</code> with a network restriction</td><td>Network check still runs first; the <code>is_allow_all()</code> short-circuit only fires AFTER the network guard passes.</td></tr>
+  <tr><td><code>profile osd</code> / <code>profile mds</code> / <code>profile rgw</code></td><td>Parse succeeds, <code>expand_profile</code> returns without populating <code>profile_grants</code>. Auth check → zero grants from this rule.</td></tr>
+  <tr><td>Semicolon-separated cap round-tripped via <code>operator&lt;&lt;</code></td><td>Output uses commas only; semantically equivalent but textually different. <code>text</code> still holds the original.</td></tr>
+  <tr><td><code>decode</code> of a corrupt bufferlist</td><td>DECODE_START handles version mismatch via Ceph encoding macros; <code>parse(s, NULL)</code> handles any text-level corruption silently.</td></tr>
+  <tr><td><code>mgr_rwxa_t{0x0f}</code> programmatically constructed</td><td>Not equal to <code>MGR_CAP_ANY (0xff)</code>; will not be printed as <code>*</code> nor trip <code>is_allow_all()</code>. Only 3 bits (R/W/X) are semantically used. <span class="badge b-ung">UNGROUNDED U7</span></td></tr>
+  <tr><td>Empty cap string <code>""</code></td><td><code>parse()</code> → grammar fails → <code>grants.clear()</code> → <code>false</code>. Correct — empty cap = no access.</td></tr>
+  <tr><td>Multiple grants ORed to satisfy op_may_read + op_may_write separately</td><td>Correctly supported: accumulator <code>allow</code> ORs across grants; early return when all needed bits satisfied.</td></tr>
+</table>
+
+
+<!-- ═══════════════════════════════════════════════════════════ S6 ════ -->
+<h2 id="s6" class="section-anchor">6 · Observability &amp; Triage Playbook</h2>
+
+<h3>Log Entry (dout subsys: <code>ceph_subsys_mgr</code>, level 20)</h3>
+<pre>
+is_capable service=&lt;s&gt; module=&lt;m&gt; command=&lt;c&gt; [read][write][exec] addr &lt;addr&gt; on cap &lt;cap&gt;
+  allow so far &lt;bits&gt;, doing grant &lt;grant&gt;
+  match                   ← on success
+</pre>
+<p>Enable with: <code>ceph daemon mgr.&lt;name&gt; config set debug_mgr 20/20</code></p>
+
+<h3>Triage Table</h3>
+<table>
+  <tr><th>Symptom</th><th>First check</th><th>Likely cause</th></tr>
+  <tr>
+    <td>Client gets <code>EACCES</code> on MGR operation unexpectedly</td>
+    <td><code>ceph auth get &lt;entity&gt;</code> → inspect <code>mgr</code> cap string</td>
+    <td>Missing grant type; network restriction mismatch; profile that grants nothing (osd/mds/rgw)</td>
+  </tr>
+  <tr>
+    <td>Client gets <code>EACCES</code> after Ceph downgrade/upgrade</td>
+    <td>Re-set the cap: <code>ceph auth caps &lt;entity&gt; mgr "profile &lt;name&gt;"</code></td>
+    <td>D4: decode silences profile validation errors — silent empty grants after version mismatch</td>
+  </tr>
+  <tr>
+    <td>Cap parses but grants nothing at runtime</td>
+    <td>Check if grant is profile-typed with invalid key or unknown profile name</td>
+    <td>D1: empty <code>profile_grants</code> re-triggers on every call silently</td>
+  </tr>
+  <tr>
+    <td><code>ceph auth caps</code> returns error "unrecognized profile"</td>
+    <td>Check Ceph version — new profiles may not be back-ported</td>
+    <td>Profile added in a later release (e.g., <code>rgw</code> from <code class="badge b-sha">488cb91</code> requires ≥ that release)</td>
+  </tr>
+  <tr>
+    <td>MGR auth thread CPU spike</td>
+    <td>Check cap strings for <code>regex</code> constraints</td>
+    <td>ReDoS: <code>std::regex</code> compiled + executed on every auth check, no caching or timeout</td>
+  </tr>
+  <tr>
+    <td>Cap round-trips differently (commas vs semicolons)</td>
+    <td>Not a bug — <code>operator&lt;&lt;</code> always emits commas; both are valid</td>
+    <td>Cosmetic only; functionally equivalent</td>
+  </tr>
+</table>
+
+<h3>Useful Commands</h3>
+<pre>
+# Show effective cap string for an entity
+ceph auth get client.rbd
+
+# Set a new MGR cap
+ceph auth caps client.rbd mon 'profile rbd' osd 'profile rbd' mgr 'profile rbd'
+
+# Validate cap string (uses parse internally, errors surfaced to CLI)
+ceph auth caps client.rbd mgr 'profile invalid_profile'
+# ► Error EINVAL "unrecognized profile 'invalid_profile'"
+
+# Enable debug logging for is_capable traces
+ceph tell mgr.* injectargs --debug-mgr 20
+</pre>
+
+
+<!-- ═══════════════════════════════════════════════════════════ S7 ════ -->
+<h2 id="s7" class="section-anchor">7 · Known Bugs &amp; Deferred Work</h2>
+
+<table>
+  <tr>
+    <th>ID</th>
+    <th>Type</th>
+    <th>Location</th>
+    <th>Description</th>
+    <th>Security direction</th>
+  </tr>
+  <tr>
+    <td><strong>D1</strong></td>
+    <td><span class="badge b-div">DIVERGED</span></td>
+    <td><code>get_allowed()</code> line 238</td>
+    <td>Memoisation guard broken for failed profile expansion; <code>expand_profile(nullptr)</code> re-runs on every auth call with no logging.</td>
+    <td>Deny (silent zero grants) — safe direction but wasteful</td>
+  </tr>
+  <tr>
+    <td><strong>D2</strong></td>
+    <td><span class="badge b-div">DIVERGED</span></td>
+    <td><code>parse()</code> lines 555–563</td>
+    <td><strong>Highest severity.</strong> Profile-error path returns <code>false</code> without calling <code>grants.clear()</code>. Violates explicit <code>6350bee</code> safety comment. Stale grants remain.</td>
+    <td>Latent — other grant types in cap still evaluate normally after failed profile validation</td>
+  </tr>
+  <tr>
+    <td><strong>D3</strong></td>
+    <td><span class="badge b-div">DIVERGED</span></td>
+    <td><code>is_capable()</code> line 312</td>
+    <td>Parameter named <code>command_args</code> — not renamed to <code>arguments</code> by <code class="badge b-sha">cb534e0</code>.</td>
+    <td>Cosmetic — no functional impact</td>
+  </tr>
+  <tr>
+    <td><strong>D4</strong></td>
+    <td><span class="badge b-div">DIVERGED</span></td>
+    <td><code>decode()</code> line 376</td>
+    <td><code>parse(s, NULL)</code> silences profile validation errors on deserialization. Silent empty grants.</td>
+    <td>Safe direction (deny), but silent</td>
+  </tr>
+  <tr>
+    <td><strong>U1</strong></td>
+    <td><span class="badge b-ung">UNGROUNDED</span></td>
+    <td>Grammar / <code>maybe_quote_string</code></td>
+    <td>Single-quote path in grammar has no corresponding emission path in <code>maybe_quote_string</code>.</td>
+    <td>No impact — round-trip correct</td>
+  </tr>
+  <tr>
+    <td><strong>U4</strong></td>
+    <td><span class="badge b-ung">UNGROUNDED</span></td>
+    <td><code>get_allowed()</code> line 259</td>
+    <td>Module arg constraints bypassed when command string is non-empty. Intent underdocumented.</td>
+    <td>Potential over-permission for module-restricted caps when called with both module+command</td>
+  </tr>
+  <tr>
+    <td><strong>U7</strong></td>
+    <td><span class="badge b-ung">UNGROUNDED</span></td>
+    <td><code>mgr_rwxa_t</code></td>
+    <td><code>MGR_CAP_ANY=0xff</code> but only 3 bits used. Programmatic values like <code>0x0f</code> fail <code>== MGR_CAP_ANY</code> tests.</td>
+    <td>Unreachable from parser; only a hazard for direct struct construction</td>
+  </tr>
+  <tr>
+    <td><strong>U8</strong></td>
+    <td><span class="badge b-ung">UNGROUNDED</span></td>
+    <td><code>MgrCap</code> vector ctor, <code>get_str()</code></td>
+    <td><code>text</code> is empty when using the vector ctor. <code>get_str()</code> returns <code>""</code> for non-empty caps.</td>
+    <td>No auth impact; diagnostic gap</td>
+  </tr>
+  <tr>
+    <td><strong>—</strong></td>
+    <td><span class="badge b-warn">GAP</span></td>
+    <td><code>validate_arguments</code></td>
+    <td>No regex caching; no execution timeout. ReDoS exposure if regex constraint used under high auth load.</td>
+    <td>Availability (not confidentiality)</td>
+  </tr>
+  <tr>
+    <td><strong>—</strong></td>
+    <td><span class="badge b-warn">GAP</span></td>
+    <td><code>generate_test_instances</code></td>
+    <td>No test instance with a network restriction, despite network being a documented feature since <code class="badge b-sha">6350bee</code>.</td>
+    <td>Test coverage gap only</td>
+  </tr>
+</table>
+
+<hr style="border-color:var(--border); margin:40px 0 20px"/>
+<p style="color:var(--muted); font-size:0.8em">
+  Document generated from corpus HEAD <code>8681fa6</code> · 21 commits analysed · intent artefact <code>MgrCap-intent.md</code>
+  · all findings grounded in blame.txt and diff corpus · no speculation.
+</p>
+
+</body>
+</html>

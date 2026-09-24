@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whiteboard Defense: MgrMapCache</title>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --accent: #38bdf8;
+      --accent-hover: #7dd3fc;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --border: #334155;
+      --table-header: #1e293b;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.5;
+      margin: 0;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      color: var(--accent);
+      font-size: 2.5rem;
+      margin: 0 0 0.5rem 0;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+      margin: 0;
+    }
+
+    .metadata-badges {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.85rem;
+      font-family: monospace;
+    }
+
+    .badge.accent-badge {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    section {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    h2 {
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+      margin-top: 0;
+      margin-bottom: 1.25rem;
+      font-size: 1.5rem;
+    }
+
+    p, li {
+      color: var(--text-primary);
+    }
+
+    ul, ol {
+      padding-left: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    code {
+      background-color: rgba(0, 0, 0, 0.3);
+      color: #f472b6;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      padding: 0.15rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+
+    pre {
+      background-color: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+
+    pre code {
+      background-color: transparent;
+      padding: 0;
+      color: #e2e8f0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+      background-color: rgba(0, 0, 0, 0.15);
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      text-align: left;
+    }
+
+    th {
+      background-color: var(--table-header);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    tr:nth-child(even) td {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    .diagram-container {
+      text-align: center;
+      margin: 1.5rem 0;
+      background-color: rgba(0, 0, 0, 0.2);
+      padding: 1.5rem;
+      border-radius: 6px;
+      border: 1px dashed var(--border);
+    }
+
+    .alert {
+      border-left: 4px solid;
+      padding: 1rem;
+      border-radius: 4px;
+      margin: 1rem 0;
+      background-color: rgba(0, 0, 0, 0.15);
+    }
+
+    .alert-danger {
+      border-left-color: var(--danger);
+      background-color: rgba(239, 68, 68, 0.05);
+    }
+
+    .alert-warning {
+      border-left-color: var(--warning);
+      background-color: rgba(245, 158, 11, 0.05);
+    }
+
+    .alert-success {
+      border-left-color: var(--success);
+      background-color: rgba(16, 185, 129, 0.05);
+    }
+
+    .alert-title {
+      font-weight: bold;
+      margin-bottom: 0.25rem;
+    }
+
+    .alert-danger .alert-title { color: var(--danger); }
+    .alert-warning .alert-title { color: var(--warning); }
+    .alert-success .alert-title { color: var(--success); }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+      body {
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Whiteboard Defense: MgrMapCache</h1>
+      <p class="subtitle">Architectural analysis, threat modeling, and design justification for Ceph's thread-safe manager map cache.</p>
+      <div class="metadata-badges">
+        <span class="badge accent-badge">Class: MgrMapCache&lt;Value&gt;</span>
+        <span class="badge accent-badge">Specialization: MgrMapCache&lt;PyObject*&gt;</span>
+        <span class="badge">Successor of: TTLCache</span>
+        <span class="badge">Establishing Commit: 403340bcf8c2122afff708519f176baa6b646fc1</span>
+        <span class="badge">Subsystem: ceph-mgr</span>
+      </div>
+    </header>
+
+    <!-- SECTION 1: HIGH-LEVEL ARCHITECTURE & MENTAL MODEL -->
+    <section id="architecture">
+      <h2>1. High-Level Architecture & Mental Model</h2>
+      <p>
+        <code>MgrMapCache</code> is a high-performance, generic LFU (Least Frequently Used) cache with a vital full template specialization for <code>PyObject*</code>. It is designed to cache heavy, frequently requested manager API results (like cluster state maps) and expose them safely to Python-based manager modules. 
+      </p>
+      <p>
+        By migrating from the legacy time-based <code>TTLCache</code> to an LFU policy under commit <code>403340bcf8c2122afff708519f176baa6b646fc1</code>, the cache guarantees optimal hit rates for data that is requested in tight python-module loops, while avoiding the dynamic latency spikes and safety hazards of time-to-live expirations.
+      </p>
+
+      <div class="diagram-container">
+        <!-- SVG FLOW DIAGRAM -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 480" width="100%" height="auto" style="background-color: transparent;">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+            </marker>
+          </defs>
+
+          <!-- Outer boundary -->
+          <rect x="10" y="10" width="830" height="460" rx="10" fill="#1e293b" stroke="#334155" stroke-width="2" />
+          <text x="30" y="35" fill="#94a3b8" font-family="monospace" font-size="12" font-weight="bold">MGR MAP CACHE ARCHITECTURE &amp; LIFECYCLE</text>
+
+          <!-- Actor -->
+          <rect x="40" y="60" width="150" height="60" rx="5" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5" />
+          <text x="115" y="90" fill="#f8fafc" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle">Python Mgr Module</text>
+          <text x="115" y="106" fill="#94a3b8" font-family="monospace" font-size="10" text-anchor="middle">(Thread holds GIL)</text>
+
+          <!-- API Guard Layer -->
+          <rect x="250" y="60" width="220" height="120" rx="5" fill="#0f172a" stroke="#f59e0b" stroke-width="1.5" />
+          <text x="360" y="85" fill="#f59e0b" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">MgrMapCache&lt;PyObject*&gt; Guards</text>
+          <text x="270" y="115" fill="#e2e8f0" font-family="monospace" font-size="11">1. is_enabled()</text>
+          <text x="270" y="135" fill="#e2e8f0" font-family="monospace" font-size="11">2. is_cacheable(key)</text>
+          <text x="270" y="155" fill="#e2e8f0" font-family="monospace" font-size="11">3. PyGILState_Check()</text>
+
+          <!-- Arrow Actor to Guards -->
+          <line x1="190" y1="90" x2="242" y2="90" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="216" y="82" fill="#38bdf8" font-family="monospace" font-size="10" text-anchor="middle">get(k)</text>
+
+          <!-- Cache Storage -->
+          <rect x="530" y="60" width="260" height="120" rx="5" fill="#0f172a" stroke="#10b981" stroke-width="1.5" />
+          <text x="660" y="85" fill="#10b981" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Thread-Safe Storage</text>
+          <text x="550" y="115" fill="#e2e8f0" font-family="monospace" font-size="11">Lock: std::shared_mutex m</text>
+          <text x="550" y="135" fill="#e2e8f0" font-family="monospace" font-size="11">Map: std::unordered_map</text>
+          <text x="550" y="155" fill="#e2e8f0" font-family="monospace" font-size="11">Entry: value + atomic hits</text>
+
+          <!-- Arrow Guards to Cache Storage -->
+          <line x1="470" y1="120" x2="522" y2="120" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="496" y="112" fill="#38bdf8" font-family="monospace" font-size="10" text-anchor="middle">PASS</text>
+
+          <!-- Shared Observer -->
+          <rect x="40" y="220" width="180" height="70" rx="5" fill="#0f172a" stroke="#334155" stroke-width="1.5" />
+          <text x="130" y="245" fill="#e2e8f0" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Config Observer</text>
+          <text x="130" y="265" fill="#94a3b8" font-family="monospace" font-size="10" text-anchor="middle">mgr_map_cache_enabled</text>
+          <text x="130" y="278" fill="#94a3b8" font-family="monospace" font-size="10" text-anchor="middle">(md_config_obs_t)</text>
+
+          <!-- Trigger Arrow to cache -->
+          <path d="M 130 290 L 130 330 L 660 330 L 660 188" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4" marker-end="url(#arrow)" />
+          <text x="395" y="322" fill="#ef4444" font-family="monospace" font-size="10" text-anchor="middle">set_enabled(false) -> clear() [Safe Decref]</text>
+
+          <!-- PyObject Safe Deferred Decref (Pending Call) -->
+          <rect x="360" y="360" width="430" height="90" rx="5" fill="#1b1c2e" stroke="#f472b6" stroke-width="1.5" />
+          <text x="575" y="380" fill="#f472b6" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Py_DECREF Safety Engine (Eviction / Replacement / Erase)</text>
+          <text x="380" y="405" fill="#e2e8f0" font-family="monospace" font-size="10.5">1. Py_AddPendingCall() -> Delegates DECREF to Main Thread GIL</text>
+          <text x="380" y="425" fill="#e2e8f0" font-family="monospace" font-size="10.5">2. Fallback on insert fail: PyGILState_Ensure() -> DECREF -> Release()</text>
+
+          <!-- Connection from Storage eviction/replacement to Decref Engine -->
+          <path d="M 720 180 L 720 352" fill="none" stroke="#f472b6" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="728" y="266" fill="#f472b6" font-family="monospace" font-size="10" transform="rotate(90, 720, 266)" text-anchor="middle">Evicted / Replaced</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- SECTION 2: ARCHITECTURAL DECISIONS & TRADE-OFFS -->
+    <section id="decisions">
+      <h2>2. Architectural Decisions & Trade-offs</h2>
+      <p>
+        The table below explains why specific design patterns and abstractions were selected over traditional alternatives, grounded in Ceph manager architectural constraints.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 30%;">Why did you do X...</th>
+            <th style="width: 30%;">...Instead of Y?</th>
+            <th style="width: 40%;">Architectural Justification &amp; Grounding</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <strong>LFU (Least Frequently Used) Eviction</strong>
+            </td>
+            <td>
+              Time-Based Cache (TTL) or standard LRU
+            </td>
+            <td>
+              Predecessor <code>TTLCache</code> caused map evictions during intensive, repetitive Python processing cycles, forcing constant serialization/re-reads of massive OSD and PG maps. LFU keeps hot objects cached regardless of age. Eviction occurs only when capacity is exhausted, targeted at the absolute least frequently utilized maps.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Heterogeneous Map Lookups (StringViewHash)</strong>
+            </td>
+            <td>
+              Default <code>std::unordered_map</code> lookup with string key
+            </td>
+            <td>
+              Standard lookups require constructing a temporary <code>std::string</code>, allocating heap memory on every query. Defining <code>StringViewHash</code> and utilizing <code>std::equal_to&lt;&gt;</code> with <code>using is_transparent = void;</code> enables lock-time lookups using non-allocating <code>std::string_view</code>. String keys are allocated only during new map insertions.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>GIL-Safe Deferred Decrefs (Py_AddPendingCall)</strong>
+            </td>
+            <td>
+              Direct C++ thread <code>Py_DECREF</code> invocations
+            </td>
+            <td>
+              Cache invalidation, replacement, or evictions can occur on background C++ worker threads. Releasing a Python object's memory via <code>Py_DECREF</code> requires holding the Global Interpreter Lock (GIL). We schedule cleanups on Python’s own main thread using <code>Py_AddPendingCall</code>, preventing fatal segmentation faults and race-induced reference count corruption.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Shared/Exclusive Locks (std::shared_mutex)</strong>
+            </td>
+            <td>
+              Standard <code>std::mutex</code> or atomic pointer swapping
+            </td>
+            <td>
+              Ceph's manager undergoes massive concurrent read volumes from multiple active modules, but writes are bursty (epoch increments). <code>std::shared_mutex</code> supports concurrent readers under <code>std::shared_lock</code>, preventing reader-thread starvation while protecting insertions under <code>std::unique_lock</code>.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Full Template Specialization</strong>
+            </td>
+            <td>
+              Polymorphic base pointers or runtime type checking
+            </td>
+            <td>
+              Provides zero-overhead, compile-time safety. Specializing <code>MgrMapCache&lt;PyObject*&gt;</code> allows compile-time deletion of standard helper methods like <code>try_get</code> (which does not manage reference counts safely) and forces programmers to use GIL-safe, INCREF-guaranteed access paths.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- SECTION 3: DATA STRUCTURES, ALGORITHMS & INVARIANTS -->
+    <section id="data-structures">
+      <h2>3. Data Structures, Algorithms &amp; Invariants</h2>
+      
+      <div class="grid-2">
+        <div>
+          <h3>Core Containers &amp; Structures</h3>
+          <ul>
+            <li>
+              <strong>The Hash Map:</strong> <code>std::unordered_map&lt;std::string, Entry, StringViewHash, std::equal_to&lt;&gt;&gt;</code>. Key features: Heterogeneous transparent search, lazy allocation of keys on insertion only.
+            </li>
+            <li>
+              <strong>The Entry Structure:</strong> Holds the stored value and a <code>mutable std::atomic&lt;size_t&gt; hits</code>. Marked mutable so hits can be updated under a <code>std::shared_lock</code> read operation.
+            </li>
+            <li>
+              <strong>Allowed Cache Keys:</strong> Restricted to an immutable allow-list (<code>mgr_cache_keys</code>) defined in <code>MgrMapCache.cc</code>:
+              <code>"osd_map"</code>, <code>"pg_dump"</code>, <code>"pg_stats"</code>, <code>"mon_status"</code>, <code>"mgr_map"</code>, <code>"osd_metadata"</code>, <code>"mds_metadata"</code>, <code>"config"</code>.
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h3>Eviction &amp; Watermark Invariants</h3>
+          <ul>
+            <li>
+              <strong>Capacity Boundary:</strong> Initialized with a maximum capacity (defaulting to <code>UINT16_MAX</code>).
+            </li>
+            <li>
+              <strong>LFU Eviction Selection:</strong> When capacity is reached, the entry with the minimum hit count is chosen using <code>std::min_element</code>. If multiple elements have identical minimum hit counts, the tie-breaker is determined by hash-bucket iteration order (non-deterministic but fast).
+            </li>
+            <li>
+              <strong>The Trim Watermark:</strong> Controlled dynamically via <code>mgr_map_cache_enabled</code>. Whenever flipped to disabled:
+              <ol>
+                <li>The config observer (<code>md_config_obs_t</code>) triggers <code>set_enabled(false)</code>.</li>
+                <li>Virtual dispatch invokes <code>clear()</code>.</li>
+                <li>The <code>PyObject*</code> specialization immediately drains elements and releases references safely under Python's GIL.</li>
+              </ol>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="alert alert-success">
+        <div class="alert-title">Critical Invariant: Atomic Py_INCREF Under Shared Lock</div>
+        In <code>MgrMapCache&lt;PyObject*&gt;::get</code>, the Python reference count is incremented (<code>Py_INCREF(o)</code>) inside the shared-lock critical section. This guarantees no racing C++ thread can call <code>erase</code>/<code>extract</code>, drop the reference count to zero, and free the underlying object before the reading thread successfully claims ownership.
+      </div>
+    </section>
+
+    <!-- SECTION 4: THREAT MODEL & ADVERSARIAL HANDLING -->
+    <section id="threat-model">
+      <h2>4. Threat Model &amp; Adversarial Handling</h2>
+      <p>
+        The manager cache acts as the boundary between untrusted/complex Python module execution and high-performance, critical C++ Ceph daemons. It must defend against unexpected behaviors from both environments.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 30%;">Adversarial Scenario</th>
+            <th style="width: 35%;">Impact if Unmitigated</th>
+            <th style="width: 35%;">Mitigation &amp; Defense Mechanism</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <strong>Python module executes write/read without GIL</strong>
+            </td>
+            <td>
+              Severe memory corruption, interpreter thread-state desynchronization, core dumps.
+            </td>
+            <td>
+              Both <code>get</code> and <code>insert</code> specialization methods strictly check <code>PyGILState_Check()</code>. If called without holding the Python GIL, they immediately abort and return <code>nullptr</code> or skip execution.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Memory leaks via disabled races</strong>
+            </td>
+            <td>
+              A thread increments <code>Py_INCREF</code>, but before it can insert the item, the cache is disabled, leading to a leaked reference.
+            </td>
+            <td>
+              The write lock rechecks the atomic <code>enabled</code> state inside the critical section. If disabled, <code>insert</code> returns <code>{false}</code>, and the specialization instantly runs an undo-decrement (<code>Py_DECREF</code>), preserving the reference balance.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Adversarial key flooding / Cache stuffing</strong>
+            </td>
+            <td>
+              A compromised/buggy module fills the cache with arbitrary keys, leading to OOM or evicting hot system-critical maps.
+            </td>
+            <td>
+              Strict key filtering using <code>is_cacheable(key)</code>. Only maps included in the static allow-list are cacheable. Arbitrary keys are immediately ignored.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Concurrent Delete &amp; Read Race</strong>
+            </td>
+            <td>
+              A reading thread finds a pointer, but before it increments the refcount, a background writer evicts it, causing a use-after-free.
+            </td>
+            <td>
+              The reading thread holds a <code>std::shared_lock</code> over the map, and performs <code>Py_INCREF</code> prior to releasing the lock. The writer cannot execute map erasure (which requires a <code>std::unique_lock</code>) until the read lock is freed, eliminating the race window.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- SECTION 5: FAILURE MODES, EDGE CASES & BLAST RADIUS -->
+    <section id="failure-modes">
+      <h2>5. Failure Modes, Edge Cases &amp; Blast Radius</h2>
+      <p>
+        Knowing where software fails is as critical as knowing how it works. These are the explicit bottlenecks, failure boundaries, and minor design compromises present in the current architecture.
+      </p>
+
+      <div class="alert alert-warning">
+        <div class="alert-title">Failure Mode 1: Ignoring Py_AddPendingCall Failures in <code>erase</code></div>
+        When an item is explicitly erased from the Python specialization cache via <code>erase(key)</code>, the code calls <code>Py_AddPendingCall</code> to schedule the <code>Py_DECREF</code> callback. However, the return value of <code>Py_AddPendingCall</code> is ignored (unlike <code>insert</code> which falls back to <code>PyGILState_Ensure</code> if it fails). If Python is shutting down or the pending-call queue is exhausted, the decref callback is lost, causing a <strong>silent leak</strong> of the cached <code>PyObject*</code>.
+      </div>
+
+      <div class="alert alert-danger">
+        <div class="alert-title">Failure Mode 2: Lock Contention Under Severe Module Over-polling</div>
+        Although reads utilize a shared lock, highly multithreaded Python modules running in parallel can still cause lock contention on <code>std::shared_mutex m</code>. Because <code>get</code> must record hit statistics (calling <code>mark_hit()</code> and updating performance counters), write-side tasks (such as map invalidation or cluster status updates) might experience slight latency spikes while waiting for readers to release the shared lock.
+      </div>
+
+      <h3>Boundary Conditions &amp; Edge Cases</h3>
+      <ul>
+        <li>
+          <strong>Eviction Tie Handling:</strong> When multiple entries have been read 0 times (e.g. freshly inserted entries), <code>std::min_element</code> selects the first match in iteration order. Because of hash map bucketing, eviction is non-deterministic but guarantees <code>O(1)</code> space preservation.
+        </li>
+        <li>
+          <strong>Wrapper Copy Behavior:</strong> The generic wrapper <code>insert(k, v)</code> discards the internal ownership result (<code>InsertRes</code>). While fine for POD types, this makes tracking eviction in generic classes difficult outside the specialization.
+        </li>
+        <li>
+          <strong>Observer Lifetime:</strong> The cache registers itself with <code>g_conf().add_observer(this)</code> on construction and <strong>must</strong> unregister during destruction to avoid trailing pointer dereferences in the configuration proxy.
+        </li>
+      </ul>
+    </section>
+
+    <!-- SECTION 6: OBSERVABILITY & TRIAGE PLAYBOOK -->
+    <section id="observability">
+      <h2>6. Observability &amp; Triage Playbook</h2>
+      <p>
+        When troubleshooting Ceph manager performance or suspected leaks, follow this precise handbook.
+      </p>
+
+      <h3>Performance Counters &amp; Core KPIs</h3>
+      <p>
+        The cache exposes critical performance metrics to Ceph's administration daemon. Check these indicators using:
+      </p>
+      <pre><code>ceph daemon mgr.&lt;id&gt; perf dump</code></pre>
+      <ul>
+        <li><strong><code>l_mgr_cache_hit</code>:</strong> Snapshot of total cache reads served successfully from RAM.</li>
+        <li><strong><code>l_mgr_cache_miss</code>:</strong> Snapshot of cache misses, indicating either first-time loads or items evicted due to size.</li>
+      </ul>
+
+      <h3>Verifying &amp; Triaging Map Cache Leaks</h3>
+      <ol>
+        <li>
+          <strong>Enable Verbose Debug Logs:</strong>
+          Set log level 20 for the manager subsystem to output granular cache trace information (logs insertion counts, reference balance, cache clearances, and hits/misses):
+          <pre><code>ceph config set mgr debug_mgr 20</code></pre>
+        </li>
+        <li>
+          <strong>Analyze Reference Balance:</strong>
+          Look for lines matching <code>api cache insert key: &lt;key&gt; py count: &lt;refcount&gt;</code>. If the refcount for static keys keeps growing without bound while no new modules are loaded, it indicates reference leaks outside the cache boundaries.
+        </li>
+        <li>
+          <strong>The "Nuclear Option" (Dynamic Invalidation):</strong>
+          If you suspect cache corruption or stale map problems:
+          <pre><code>ceph config set mgr mgr_map_cache_enabled false</code></pre>
+          This config change is caught by the observer, triggers immediate virtual clearing, ensures safe GIL state acquisition, and decrements reference counts of all stored PyObjects immediately. Re-enabling starts the cache fresh with zero state.
+        </li>
+      </ol>
+    </section>
+  </div>
+</body>
+</html>

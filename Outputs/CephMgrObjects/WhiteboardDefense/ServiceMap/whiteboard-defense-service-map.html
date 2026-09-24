@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense: ServiceMap (Ceph Manager Service Registry)</title>
+<style>
+  :root {
+    --bg-primary: #0f172a;
+    --bg-surface: #1e293b;
+    --bg-card: #334155;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --accent-blue: #38bdf8;
+    --accent-green: #4ade80;
+    --accent-amber: #fbbf24;
+    --accent-rose: #fb7185;
+    --border-color: #475569;
+    --code-bg: #090d16;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    padding: 2rem;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  header {
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  h1 { font-size: 2rem; color: var(--accent-blue); margin-bottom: 0.5rem; }
+  .subtitle { font-size: 1rem; color: var(--text-secondary); }
+  .meta-badges { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
+  .badge {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.85rem;
+    font-family: monospace;
+  }
+  .badge-blue { color: var(--accent-blue); border-color: var(--accent-blue); }
+  .badge-green { color: var(--accent-green); border-color: var(--accent-green); }
+  .badge-amber { color: var(--accent-amber); border-color: var(--accent-amber); }
+
+  section {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  h2 {
+    font-size: 1.35rem;
+    color: var(--accent-blue);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  h3 { font-size: 1.1rem; color: var(--accent-green); margin: 1.25rem 0 0.5rem; }
+  p, ul { margin-bottom: 1rem; color: var(--text-primary); }
+  ul { padding-left: 1.5rem; }
+  li { margin-bottom: 0.35rem; }
+  strong { color: #ffffff; }
+
+  code, pre {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    background: var(--code-bg);
+    border-radius: 4px;
+  }
+  code { padding: 0.15rem 0.4rem; font-size: 0.9em; color: var(--accent-blue); }
+  pre {
+    padding: 1rem;
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    border: 1px solid var(--border-color);
+    padding: 0.65rem 0.85rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--bg-card);
+    color: var(--accent-blue);
+    font-weight: 600;
+  }
+  tr:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+  td code { color: #38bdf8; }
+
+  .callout {
+    background: rgba(56, 189, 248, 0.1);
+    border-left: 4px solid var(--accent-blue);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .callout-amber {
+    background: rgba(251, 191, 36, 0.1);
+    border-left: 4px solid var(--accent-amber);
+  }
+  .callout-rose {
+    background: rgba(251, 113, 133, 0.1);
+    border-left: 4px solid var(--accent-rose);
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Whiteboard Defense: <code>ServiceMap</code></h1>
+    <div class="subtitle">Ceph Manager/Monitor Serializable Service Registry &amp; Status Aggregation Core</div>
+    <div class="meta-badges">
+      <span class="badge badge-blue">Source: src/mgr/ServiceMap.cc, src/mgr/ServiceMap.h</span>
+      <span class="badge badge-green">Corpus Range: 2017-06-26 &rarr; 2025-10-01 (24 Commits)</span>
+      <span class="badge badge-amber">Object Class: Mgr/Mon Control Plane Core</span>
+    </div>
+  </header>
+
+  <!-- 1. HIGH LEVEL ARCHITECTURE -->
+  <section id="architecture">
+    <h2>1. High-Level Architecture &amp; Mental Model</h2>
+    <p>
+      <code>ServiceMap</code> is Ceph's centralized, cluster-wide, wire-serializable metadata catalog for auxiliary service daemons (e.g., <code>rgw</code>, <code>iscsi</code>, <code>cephfs-mirror</code>, <code>rbd-mirror</code>) and non-standard reporting tasks across Ceph components.
+    </p>
+
+    <div class="callout">
+      <strong>Core Responsibility:</strong> Provides a two-level hierarchical dictionary (<code>service_type &rarr; daemon_id &rarr; Daemon</code>) tracked under a monotonic <code>epoch</code>. It exposes serialization primitives for Paxos persistence across Monitors/Managers and deterministic, aggregated status formatting for CLI/REST consumers (<code>ceph -s</code>, <code>ceph versions</code>).
+    </div>
+
+    <pre>
++---------------------------------------------------------------------------------------------------+
+|                                    ServiceMap (epoch_t epoch, utime_t modified)                    |
+|                                                                                                   |
+|  services: std::map&lt;std::string, Service&gt;                                                          |
+|    |                                                                                              |
+|    +-- "rgw" : ServiceMap::Service                                                                |
+|    |     |-- summary: "" (or custom string override)                                              |
+|    |     \-- daemons: std::map&lt;std::string, Daemon&gt;                                               |
+|    |           |-- "daemon.a" : ServiceMap::Daemon                                                |
+|    |           |     |-- gid: uint64_t (Messenger entity GID)                                     |
+|    |           |     |-- addr: entity_addr_t (legacy IP/port representation)                      |
+|    |           |     |-- start_epoch: epoch_t, start_stamp: utime_t                               |
+|    |           |     |-- metadata: {"daemon_type": "gateway", "hostname": "host1", "zone_id": "z1"}|
+|    |           |     \-- task_status: {"scrub": "active", "sync": "running"}                      |
+|    |           \-- "daemon.b" : ...                                                               |
+|    |                                                                                              |
+|    \-- "iscsi" : ServiceMap::Service                                                              |
+|          \-- daemons: {"gw-1": Daemon { ... }}                                                    |
++---------------------------------------------------------------------------------------------------+
+                                         |
+     +-----------------------------------+-----------------------------------+
+     | Wire Serialization                | Status Presentation               | Admin Aggregations
+     v                                   v                                   v
++------------------------+  +------------------------+  +--------------------------------+
+| ENCODE / DECODE        |  | get_summary()          |  | count_metadata("ceph_version") |
+| - Versioned buffers    |  | - Scalable host/zone   |  | -> Powers `ceph versions`      |
+| - Backward/forward     |  |   summary (no raw IDs) |  +--------------------------------+
+|   compatibility (v1/v2)|  | get_task_summary()     |  | is_normal_ceph_entity()        |
++------------------------+  | - Deterministic scrub  |  | -> Distinguishes core vs aux   |
+                            +------------------------+  +--------------------------------+
+    </pre>
+  </section>
+
+  <!-- 2. ARCHITECTURAL DECISIONS & TRADE-OFFS -->
+  <section id="decisions">
+    <h2>2. Architectural Decisions &amp; Trade-Offs ("Why X Instead of Y?")</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Decision / Choice</th>
+          <th>Alternative Considered</th>
+          <th>Rationale &amp; Grounding (Commit Citations)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Plain <code>uint64_t gid = 0</code></strong></td>
+          <td><code>boost::optional&lt;uint64_t&gt;</code></td>
+          <td>
+            <strong>Wire &amp; API Stability:</strong> Commit <a href="#3e65551d"><code>3e65551d</code></a> deliberately reverted <code>boost::optional</code> from commit <a href="#5c25a018"><code>5c25a018</code></a>. An uninitialized or null <code>optional</code> crashed formatters dereferencing <code>*gid</code> and broke backward compatibility. A default <code>0</code> preserves value semantics and predictable encoding across cluster versions.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Aggregated Host/Zone Summaries</strong></td>
+          <td>Raw Daemon ID Enumeration (e.g. <code>[gw1, gw2, ...]</code>)</td>
+          <td>
+            <strong>CLI Scalability:</strong> Commit <a href="#ab0d8f2"><code>ab0d8f2</code></a> replaced individual daemon listing (from <a href="#394baa0"><code>394baa0</code></a>) with aggregated host and zone sets (<code>groupings</code>). Large clusters with 100+ RGW or iSCSI gateways would blow out <code>ceph -s</code> terminal height.
+          </td>
+        </tr>
+        <tr>
+          <td><strong><code>std::pair&lt;Daemon*, bool&gt; try_emplace</code></strong></td>
+          <td><code>operator[]</code> Lookup / Direct Insertion</td>
+          <td>
+            <strong>Mutation Awareness:</strong> Commit <a href="#3e65551d"><code>3e65551d</code></a> altered <code>get_daemon()</code> to return an insertion flag. DaemonServer needs to know whether an epoch increment and Paxos proposal are strictly required (new daemon arrival) or if it is updating an existing entry in-place.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Auto-Pruning Parent Services on Daemon Removal</strong></td>
+          <td>Retaining empty <code>Service</code> containers</td>
+          <td>
+            <strong>Zero-Leak Memory &amp; Output Hygeine:</strong> Established in <a href="#7fce6382"><code>7fce6382</code></a>. When the last daemon in a service is unregistered (<code>rm_daemon</code>), the service key is erased immediately from <code>services</code> map. Prevents stale empty service headers from cluttering <code>ceph -s</code> and consuming manager heap.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Value Return for Test Fixtures</strong></td>
+          <td>Heap Pointers (<code>std::list&lt;T*&gt;</code>)</td>
+          <td>
+            <strong>ASan Leak Elimination:</strong> Commit <a href="#ed6b7124"><code>ed6b7124</code></a> and <a href="#f6387fd8"><code>f6387fd8</code></a> eliminated pointer-based test generators across Ceph. Prevents heap leaks in <code>ceph-dencoder</code> and CI unit test harnesses.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Legacy Format String for Addresses</strong></td>
+          <td>Full <code>entity_addr_t</code> protocol prefixes (<code>v1:</code>/<code>v2:</code>)</td>
+          <td>
+            <strong>Client Agnostic Presentation:</strong> Commit <a href="#671641df"><code>671641df</code></a> forced <code>addr.get_legacy_str()</code> in <code>dump()</code> because protocol versions are transport details; external scripts and dashboards expect standard host:port tuples.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 3. DATA STRUCTURES & INVARIANTS -->
+  <section id="data-structures">
+    <h2>3. Data Structures, Algorithms &amp; Invariants</h2>
+    <div class="grid-2">
+      <div>
+        <h3>Container Types &amp; Complexity</h3>
+        <ul>
+          <li><strong><code>std::map&lt;std::string, Service&gt; services</code></strong>: O(log S) ordered lookup of services. Guarantees deterministic serialization and JSON output across Paxos runs.</li>
+          <li><strong><code>std::map&lt;std::string, Daemon&gt; daemons</code></strong>: O(log D) per-service daemon mapping keyed by daemon identifier string.</li>
+          <li><strong><code>std::map&lt;std::string, std::string&gt; metadata</code></strong>: Arbitrary string key-value attributes (e.g. <code>hostname</code>, <code>ceph_version</code>, <code>daemon_type</code>, <code>zone_id</code>).</li>
+          <li><strong><code>std::map&lt;std::string, std::string&gt; task_status</code></strong>: Running task descriptors (e.g. scrub state) encoded under version &ge; 2.</li>
+        </ul>
+      </div>
+
+      <div>
+        <h3>Core Invariants</h3>
+        <ul>
+          <li><strong>Strict Pruning Invariant:</strong> If <code>services[svc].daemons.empty()</code> is true after <code>rm_daemon()</code>, <code>services.erase(svc)</code> MUST be executed before return.</li>
+          <li><strong>Encoding Layout Invariant:</strong>
+            <code>ServiceMap</code>: <code>epoch (u32) &rarr; modified (utime) &rarr; services (map)</code>.<br>
+            <code>Daemon</code>: <code>gid &rarr; addr &rarr; start_epoch &rarr; start_stamp &rarr; metadata [&rarr; task_status if v &ge; 2]</code>.
+          </li>
+          <li><strong>Entity Classification Invariant:</strong> <code>is_normal_ceph_entity()</code> returns true <em>strictly</em> for <code>osd</code>, <code>client</code>, <code>mon</code>, <code>mds</code>, <code>mgr</code> (<a href="#79503fc"><code>79503fc</code></a>).</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. THREAT MODEL & ADVERSARIAL HANDLING -->
+  <section id="threat-model">
+    <h2>4. Threat Model &amp; Adversarial Handling</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Adversarial Input / Behavior</th>
+          <th>Failure Vector</th>
+          <th>Mitigation / Defense in ServiceMap</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>High-frequency Daemon Churn (Flapping Registration)</strong></td>
+          <td>Map expansion and Paxos proposal flood</td>
+          <td>
+            <code>get_daemon()</code> uses <code>try_emplace</code> returning <code>added</code> boolean. If a daemon already exists, in-place updates avoid reallocating map nodes. (Epoch increments controlled upstream by DaemonServer).
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Corrupted / Truncated Mon Wire Buffer</strong></td>
+          <td>Crash during cluster map decode</td>
+          <td>
+            Framed with <code>DECODE_START(2, p)</code> and <code>DECODE_FINISH(p)</code>. Buffer overrun or missing version envelope throws <code>ceph::buffer::malformed_input</code> cleanly caught by Mon/Mgr dispatcher.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Oversized Daemon Metadata Injection</strong></td>
+          <td>Memory bloat in Mgr and Mon Paxos store</td>
+          <td>
+            Map storage is constrained to <code>std::string</code> key/value pairs. Upstream message decoders enforce maximum payload bounds; <code>ServiceMap</code> strictly iterates existing keys.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Missing Metadata Keys (e.g. absent version / host)</strong></td>
+          <td>Null pointer dereference or crash in status commands</td>
+          <td>
+            <code>count_metadata()</code> explicitly handles missing fields by incrementing the <code>"unknown"</code> bucket (<a href="#80a42122"><code>80a42122</code></a>). <code>get_summary()</code> defaults fallback daemon type to <code>"daemon"</code> (<a href="#ab0d8f2"><code>ab0d8f2</code></a>).
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 5. FAILURE MODES & BLAST RADIUS -->
+  <section id="failure-modes">
+    <h2>5. Failure Modes, Edge Cases &amp; Blast Radius</h2>
+    <ul>
+      <li><strong>Mixed-Version Cluster Rolling Upgrades:</strong> Version 1 daemons/monitors decoding Version 2 payloads will ignore <code>task_status</code> without error because of <code>DECODE_START(2)</code> backward compatibility rule (compat version 1).</li>
+      <li><strong>Empty Service Map:</strong> <code>get_summary()</code> returns <code>"no daemons active"</code> without string-stream allocation overhead (<a href="#ee5835df"><code>ee5835df</code></a>). <code>has_running_tasks()</code> safely returns <code>false</code> via <code>std::any_of</code> empty check.</li>
+      <li><strong>Missing Custom Summary:</strong> If <code>Service.summary</code> is empty, dynamically falls back to synthesized host/zone breakdown (<a href="#ab0d8f2"><code>ab0d8f2</code></a>).</li>
+      <li><strong>Memory Blast Radius:</strong> Pure in-memory dictionary. Memory consumption is directly proportional to <code>O(S * D * (M + T))</code> where S = services, D = daemons, M = metadata entries, T = task entries.</li>
+    </ul>
+  </section>
+
+  <!-- 6. OBSERVABILITY & TRIAGE PLAYBOOK -->
+  <section id="observability">
+    <h2>6. Observability &amp; Triage Playbook</h2>
+    <div class="grid-2">
+      <div>
+        <h3>Operator Commands &amp; Inspection</h3>
+        <ul>
+          <li><strong><code>ceph -s</code> / <code>ceph status</code></strong>: Invokes <code>ServiceMap::Service::get_summary()</code> and <code>get_task_summary()</code> for active daemon and scrub status.</li>
+          <li><strong><code>ceph mgr dump</code> / <code>ceph service dump</code></strong>: Invokes <code>ServiceMap::dump(Formatter *f)</code> exporting full JSON representation with epoch, timestamps, legacy addrs, and metadata.</li>
+          <li><strong><code>ceph versions</code></strong>: Invokes <code>count_metadata("ceph_version", &amp;out)</code> across all service types.</li>
+        </ul>
+      </div>
+
+      <div>
+        <h3>Triage Diagnostics</h3>
+        <pre>
+# Dump full JSON ServiceMap state:
+$ ceph service dump
+
+# Verify daemon task status:
+$ ceph tell mgr service status
+
+# Check version distribution across daemons:
+$ ceph versions
+        </pre>
+        <p>If a service disappears unexpectedly, verify whether <code>rm_daemon()</code> erased the final active daemon, triggering automatic container cleanup.</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

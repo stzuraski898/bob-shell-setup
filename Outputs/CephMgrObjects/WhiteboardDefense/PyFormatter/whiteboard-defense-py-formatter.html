@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — PyFormatter</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --code-bg: #1f2937;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 2rem; color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: .5rem; margin-bottom: 1.5rem; }
+  h2 { font-size: 1.25rem; color: var(--accent); margin: 2rem 0 .75rem; border-left: 4px solid var(--accent); padding-left: .75rem; }
+  h3 { font-size: 1rem; color: var(--accent2); margin: 1rem 0 .4rem; }
+  p { margin: .4rem 0 .8rem; color: var(--text); }
+  ul { padding-left: 1.4rem; margin: .4rem 0 .8rem; }
+  li { margin: .2rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: .1rem .35rem;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: .85em;
+    color: #a5d6ff;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: .82em;
+    line-height: 1.5;
+    color: #a5d6ff;
+    margin: .5rem 0 1rem;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: .5rem 0 1.2rem;
+    font-size: .88em;
+  }
+  th {
+    background: var(--surface2);
+    color: var(--accent);
+    text-align: left;
+    padding: .55rem .8rem;
+    border: 1px solid var(--border);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: .78em;
+    letter-spacing: .05em;
+  }
+  td {
+    padding: .5rem .8rem;
+    border: 1px solid var(--border);
+    vertical-align: top;
+    background: var(--surface);
+  }
+  tr:nth-child(even) td { background: var(--surface2); }
+  .badge {
+    display: inline-block;
+    border-radius: 3px;
+    padding: .1rem .45rem;
+    font-size: .75em;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .badge-ok     { background: #1a3a1f; color: var(--accent2); border: 1px solid var(--accent2); }
+  .badge-warn   { background: #2e2006; color: var(--warn);    border: 1px solid var(--warn); }
+  .badge-danger { background: #2d1117; color: var(--danger);  border: 1px solid var(--danger); }
+  .badge-info   { background: #0d2135; color: var(--accent);  border: 1px solid var(--accent); }
+  .sha {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: .8em;
+    color: var(--muted);
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: .05rem .3rem;
+  }
+  .meta { color: var(--muted); font-size: .82em; margin-bottom: 1.5rem; }
+  .meta span { margin-right: 1.5rem; }
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 1.5rem;
+  }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.5rem;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: .8em;
+    white-space: pre;
+    overflow-x: auto;
+    color: #a5d6ff;
+    margin: .5rem 0 1rem;
+    line-height: 1.4;
+  }
+  .toc { margin-bottom: 2rem; padding: .8rem 1.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  .toc a { color: var(--accent); text-decoration: none; margin-right: 1.2rem; font-size: .9em; }
+  .toc a:hover { text-decoration: underline; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense — <code>PyFormatter</code></h1>
+<div class="meta">
+  <span>Files: <code>src/mgr/PyFormatter.cc</code> · <code>src/mgr/PyFormatter.h</code></span>
+  <span>Corpus HEAD: <span class="sha">8681fa6e</span></span>
+  <span>Commits: 26 non-merge (2016-06-30 → 2026-01-21)</span>
+  <span>Functions: 48 ctags entries</span>
+</div>
+
+<div class="toc">
+  <strong>Jump to:</strong>
+  <a href="#arch">Architecture</a>
+  <a href="#decisions">Design Decisions</a>
+  <a href="#ds">Data Structures &amp; Invariants</a>
+  <a href="#threat">Threat Model</a>
+  <a href="#failures">Failure Modes</a>
+  <a href="#observability">Observability &amp; Triage</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="arch">1. High-Level Architecture &amp; Mental Model</h2>
+
+<div class="section-card">
+<h3>What it is</h3>
+<p><code>PyFormatter</code> is a Ceph <code>ceph::Formatter</code> subclass that builds a live <strong>Python object graph</strong> instead of serializing to bytes. Every <code>dump_*</code> call inserts a native <code>PyObject*</code> into a <code>PyDict</code> or <code>PyList</code>. The result is retrieved via <code>get()</code> as a new reference ready for the Python GIL holder.</p>
+
+<h3>Two-class hierarchy (since <span class="sha">403340bcf8</span>)</h3>
+<ul>
+  <li><strong><code>PyFormatter</code></strong> — mutable builder. Root stays a <code>PyDict</code> or <code>PyList</code>. Not copyable (<span class="sha">938189e8f2</span>).</li>
+  <li><strong><code>PyFormatterRO</code></strong> — read-only subclass. On first <code>get()</code> it recursively freezes the entire tree (list→tuple, dict stays dict with frozen values, set→frozenset). Subsequent <code>get()</code> calls reuse the frozen tree until <code>reset()</code>.</li>
+</ul>
+
+<h3>Object-construction flow</h3>
+<div class="diagram">
+Caller (holds GIL)
+    │
+    ▼
+PyFormatter::PyFormatter(array=false)
+    │  root = cursor = PyDict_New()         ← ac30e6cee2b2
+    │
+    ├─ open_object_section("foo")
+    │      PyDict_New() → dump_pyobject()   ← inserts into current cursor
+    │      stack.push(cursor); cursor = new dict
+    │
+    ├─ open_array_section("bar")
+    │      PyList_New(0) → dump_pyobject()
+    │      stack.push(cursor); cursor = new list
+    │
+    ├─ dump_int / dump_string / dump_bool …
+    │      PyObject* → dump_pyobject(name, p)   ← steals reference
+    │
+    ├─ close_section()
+    │      cursor = stack.top(); stack.pop()
+    │
+    ├─ dump_stream("key")                   ← deferred write path
+    │      PendingStream captured; returns ostream&
+    │      (caller writes to ostream after this call returns)
+    │
+    ▼
+get()   →  finish_pending_streams()         ← flush deferred ostreams
+            Py_INCREF(root); return root    ← new reference to caller</div>
+
+<h3>Read-only freeze path (PyFormatterRO)</h3>
+<div class="diagram">
+PyFormatterRO::get()
+    │
+    ├─ finish_pending_streams()
+    ├─ if (!is_converted_to_readonly)
+    │      convert_to_readonly()
+    │          make_immutable(root)
+    │              PyList  → convert_list_to_tuple()    (recursive)
+    │              PyDict  → convert_dict_to_proxy()    (recursive values)
+    │              PySet   → convert_set_to_frozenset()
+    │              PyTuple → convert_tuple_contents()   (recursive)
+    │              other   → Py_INCREF; return as-is    (already immutable)
+    │      if new_root != root: Py_DECREF(root); root = new_root
+    │      is_converted_to_readonly = true
+    ├─ Py_INCREF(root); return root</div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="decisions">2. Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <thead>
+    <tr><th>Decision</th><th>Why this, not Y?</th><th>Establishing commit</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Build a live <code>PyObject*</code> graph, not serialize to bytes</td>
+      <td>ceph-mgr plugins are Python. Returning bytes would require a Python-side <code>json.loads()</code> round-trip on every call. Building native objects eliminates that overhead and preserves Python types (int, float, bool, None).</td>
+      <td><span class="sha">ac30e6cee2b2</span></td>
+    </tr>
+    <tr>
+      <td>Cursor + stack model for sections</td>
+      <td>Mirrors how serializing formatters track nesting depth. A single mutable cursor pointer plus a <code>std::stack</code> is the minimal state to implement <code>open_*</code> / <code>close_section</code> at O(1).</td>
+      <td><span class="sha">ac30e6cee2b2</span></td>
+    </tr>
+    <tr>
+      <td><code>dump_pyobject</code> <em>steals</em> its argument</td>
+      <td>Follows Python C-API "new reference" ownership convention. Callers that pass borrowed refs (singletons like <code>Py_True</code>, <code>Py_None</code>) must <code>Py_INCREF</code> first — making ownership explicit at the call site.</td>
+      <td><span class="sha">ac30e6cee2b2</span></td>
+    </tr>
+    <tr>
+      <td>GIL held for entire lifetime (not enforced, caller contract)</td>
+      <td>Python objects are not thread-safe. Construction, destruction, and every <code>dump_*</code> call touches the CPython heap. Enforcement via assertion would add overhead; the comment in the constructor documents the invariant (<span class="sha">9ea37c223f92</span>).</td>
+      <td><span class="sha">9ea37c223f92</span></td>
+    </tr>
+    <tr>
+      <td>Copy and assignment deleted</td>
+      <td>Copying the formatter would clone raw <code>PyObject*</code> pointers without incrementing refcounts, causing double-free on destruction. The mutable cursor/stack state would also be aliased. Deletion makes the error compile-time. (<span class="sha">938189e8f2</span>)</td>
+      <td><span class="sha">938189e8f280</span></td>
+    </tr>
+    <tr>
+      <td><code>flush()</code>, <code>get_len()</code>, <code>write_raw_data()</code> abort on call</td>
+      <td>These methods exist in <code>ceph::Formatter</code> for serializing formatters (JSON, XML). PyFormatter produces objects, not byte streams. Calling them indicates a caller bug; aborting is correct over returning garbage.</td>
+      <td><span class="sha">61fca96c2910</span></td>
+    </tr>
+    <tr>
+      <td>Namespace sections (<code>_in_ns</code>) abort</td>
+      <td>Ceph namespaces are a JSON-serialization concept with no Python object equivalent. The comment "Obscure, don't care" in <span class="sha">ac30e6cee2b2</span> is explicit; <span class="sha">61fca96c2910</span> hardened the abort.</td>
+      <td><span class="sha">61fca96c2910</span></td>
+    </tr>
+    <tr>
+      <td><code>dump_unsigned</code> uses <code>PyLong_FromUnsignedLong</code></td>
+      <td>Original code used the signed variant, silently truncating values above <code>INT64_MAX</code>. Bug fix in <span class="sha">ac8b016b7237</span> preserves the full <code>uint64_t</code> domain.</td>
+      <td><span class="sha">ac8b016b7237</span></td>
+    </tr>
+    <tr>
+      <td>All strings are Python 3 Unicode, via <code>PyUnicode_FromStringAndSize</code></td>
+      <td>Python 2 was dropped (<span class="sha">48c4bc445fc</span>). Unicode objects are the universal string type in Python 3. Length-aware construction from <code>string_view</code> (<span class="sha">6712393fbc53</span>) avoids NUL-termination requirements.</td>
+      <td><span class="sha">48c4bc445fc</span> · <span class="sha">6712393fbc53</span></td>
+    </tr>
+    <tr>
+      <td>Deferred stream materialization via <code>PendingStream</code></td>
+      <td><code>dump_stream()</code> must return an <code>ostream&</code> synchronously, but the content is written <em>after</em> the call returns. A shared <code>PendingStream</code> object captures the cursor context at call time; <code>finish_pending_streams()</code> resolves all of them before <code>get()</code>.</td>
+      <td><span class="sha">ac30e6cee2b2</span></td>
+    </tr>
+    <tr>
+      <td><code>PyFormatterRO</code> freezes lazily (on first <code>get()</code>)</td>
+      <td>Freezing is expensive for deep trees. Deferring it to first <code>get()</code> means formatters that are populated but never read pay no conversion cost. Flag prevents repeated conversion.</td>
+      <td><span class="sha">403340bcf8c2</span></td>
+    </tr>
+    <tr>
+      <td>Fallback to original on conversion failure (readonly path)</td>
+      <td>If <code>PyTuple_New</code> / <code>PyDict_New</code> / child conversion fails, return the original mutable container increffed rather than NULL. Callers receive a valid (mutable) object rather than crashing.</td>
+      <td><span class="sha">403340bcf8c2</span></td>
+    </tr>
+    <tr>
+      <td><code>enable_line_break()</code> is a no-op</td>
+      <td>Line-break semantics are text-serializer concepts. Python objects have no textual line structure. Rather than aborting (which would break callers using the generic <code>Formatter*</code> interface), it silently accepts the request.</td>
+      <td><span class="sha">992829d38cb8</span></td>
+    </tr>
+    <tr>
+      <td>Dict keys decoded as UTF-8 with explicit length</td>
+      <td>Keys arrive as <code>string_view</code>; they may not be NUL-terminated and may be substrings. <code>PyUnicode_DecodeUTF8(name.data(), name.size(), nullptr)</code> is the only safe API for this input.</td>
+      <td><span class="sha">6712393fbc53</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="ds">3. Data Structures, Algorithms &amp; Invariants</h2>
+
+<div class="section-card">
+<h3>Core state (protected members, <span class="sha">ac30e6cee2b2</span>)</h3>
+<table>
+  <thead><tr><th>Field</th><th>Type</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><code>root</code></td><td><code>PyObject*</code></td><td>Owned reference to the top-level dict or list. Never reassigned except in <code>reset()</code> and <code>convert_to_readonly()</code>.</td></tr>
+    <tr><td><code>cursor</code></td><td><code>PyObject*</code></td><td>Non-owning pointer to the <em>currently active</em> container. Starts equal to <code>root</code>; moves inward on open, outward on close.</td></tr>
+    <tr><td><code>stack</code></td><td><code>std::stack&lt;PyObject*&gt;</code></td><td>Parent-cursor stack. Each <code>open_*</code> pushes; each <code>close_section()</code> pops. Stack depth == nesting depth.</td></tr>
+    <tr><td><code>pending_streams</code></td><td><code>std::list&lt;shared_ptr&lt;PendingStream&gt;&gt;</code></td><td>Deferred stream objects. Each holds a captured cursor pointer, a key name, and a <code>stringstream</code>. Flushed by <code>finish_pending_streams()</code> before any <code>get()</code>.</td></tr>
+  </tbody>
+</table>
+
+<h3>Invariants</h3>
+<ul>
+  <li><strong>Cursor invariant:</strong> <code>cursor</code> always points to a live <code>PyList</code> or <code>PyDict</code> owned (directly or transitively) by <code>root</code>. Inserting into any other type → <code>ceph_abort()</code>.</li>
+  <li><strong>Section-stack balance:</strong> <code>close_section()</code> asserts <code>cursor != root</code> and <code>!stack.empty()</code>. Under-close aborts; over-close impossible by construction.</li>
+  <li><strong>Ownership protocol:</strong> <code>dump_pyobject</code> steals its <code>PyObject*</code> argument. Every caller either (a) passes a freshly allocated object (new reference) or (b) <code>Py_INCREF</code>s a borrowed singleton before passing it.</li>
+  <li><strong>get() always returns a new reference:</strong> Caller must <code>Py_DECREF</code> the result. Multiple <code>get()</code> calls are safe; each increments the root's refcount.</li>
+  <li><strong>GIL must be held</strong> for all operations (constructor, destructor, every <code>dump_*</code>, <code>get()</code>). Not enforced by assertions — caller contract.</li>
+  <li><strong>No serializer interface:</strong> <code>flush()</code>, <code>get_len()</code>, <code>write_raw_data()</code> always <code>ceph_abort()</code>.</li>
+  <li><strong>PendingStream cursor snapshot:</strong> The cursor saved in <code>PendingStream</code> is non-owning. If a section is closed after <code>dump_stream()</code> but before <code>finish_pending_streams()</code>, the stream inserts into the <em>original</em> cursor, not the current one — which is the intended deferred-write semantics.</li>
+</ul>
+
+<h3>Type coercion table</h3>
+<table>
+  <thead><tr><th>C++ / Ceph type</th><th>Python type produced</th><th>API used</th></tr></thead>
+  <tbody>
+    <tr><td><code>bool</code></td><td><code>bool</code> (singleton <code>True</code>/<code>False</code>)</td><td><code>Py_True</code> / <code>Py_False</code> + <code>Py_INCREF</code></td></tr>
+    <tr><td><code>nullptr</code> / null</td><td><code>None</code> (singleton)</td><td><code>Py_None</code> — ⚠️ no explicit <code>Py_INCREF</code> in current code</td></tr>
+    <tr><td><code>int64_t</code></td><td><code>int</code></td><td><code>PyLong_FromLongLong</code></td></tr>
+    <tr><td><code>uint64_t</code></td><td><code>int</code> (unsigned)</td><td><code>PyLong_FromUnsignedLong</code></td></tr>
+    <tr><td><code>double</code></td><td><code>float</code></td><td><code>PyFloat_FromDouble</code></td></tr>
+    <tr><td><code>string_view</code></td><td><code>str</code> (Unicode)</td><td><code>PyUnicode_FromStringAndSize</code></td></tr>
+    <tr><td><code>ostream</code> (deferred)</td><td><code>str</code> (Unicode)</td><td><code>PyUnicode_FromString</code> at flush time</td></tr>
+    <tr><td><code>va_list</code> format</td><td><code>str</code> (Unicode)</td><td><code>vsnprintf</code> → 1024-byte buf → <code>PyUnicode_FromString</code></td></tr>
+    <tr><td>nested dict (array=false)</td><td><code>dict</code></td><td><code>PyDict_New</code></td></tr>
+    <tr><td>nested array (array=true)</td><td><code>list</code></td><td><code>PyList_New(0)</code></td></tr>
+  </tbody>
+</table>
+
+<h3>PyFormatterRO immutability map</h3>
+<table>
+  <thead><tr><th>Mutable input</th><th>Immutable output</th><th>Fallback on failure</th></tr></thead>
+  <tbody>
+    <tr><td><code>list</code></td><td><code>tuple</code></td><td>original <code>list</code> (increffed)</td></tr>
+    <tr><td><code>dict</code></td><td>new <code>dict</code> with frozen values</td><td>original <code>dict</code> (increffed)</td></tr>
+    <tr><td><code>set</code></td><td><code>frozenset</code></td><td>original <code>set</code> (increffed)</td></tr>
+    <tr><td><code>tuple</code></td><td>new <code>tuple</code> with frozen contents</td><td>original <code>tuple</code> (increffed)</td></tr>
+    <tr><td>everything else</td><td>unchanged (already immutable)</td><td>n/a — <code>Py_INCREF</code> and return</td></tr>
+  </tbody>
+</table>
+</div>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="threat">4. Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <thead>
+    <tr><th>Scenario</th><th>What happens</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Caller invokes <code>dump_*</code> without holding the GIL</td>
+      <td>CPython heap is accessed without the lock. Race condition → refcount corruption → crash or silent heap corruption. No runtime guard; enforced only by caller discipline.</td>
+      <td><span class="badge badge-warn">CALLER CONTRACT</span></td>
+    </tr>
+    <tr>
+      <td>Caller passes a string with non-UTF-8 bytes (e.g., raw disk data)</td>
+      <td><code>PyUnicode_FromStringAndSize</code> fails, error is cleared, and the value is <strong>silently dropped</strong>. No key is inserted into the dict/list. The commit message of <span class="sha">7c68a00cce5b</span> claims a Latin-1 fallback was added — it was not. Silent drop is the actual behavior.</td>
+      <td><span class="badge badge-danger">DIVERGED / DATA LOSS</span></td>
+    </tr>
+    <tr>
+      <td>Caller passes a string that causes <code>dump_format_va</code> to produce non-UTF-8 bytes (via <code>vsnprintf</code>)</td>
+      <td>Same as above: <code>PyUnicode_FromString</code> on the stack buffer may fail; result passed directly to <code>dump_pyobject</code> which then aborts on null. The pre-check in <code>dump_string</code> is absent here.</td>
+      <td><span class="badge badge-danger">DIVERGED / ABORT RISK</span></td>
+    </tr>
+    <tr>
+      <td>Format string in <code>dump_format_va</code> produces output &gt; 1024 bytes</td>
+      <td><code>vsnprintf</code> truncates silently. The caller has no way to detect truncation. Established behavior since <span class="sha">86c851e138ae</span> — the bound is intentional but the truncation policy is undocumented.</td>
+      <td><span class="badge badge-warn">SILENT TRUNCATION</span></td>
+    </tr>
+    <tr>
+      <td>Caller closes more sections than it opened</td>
+      <td><code>close_section()</code> asserts <code>cursor != root</code> and <code>!stack.empty()</code>. Triggers <code>ceph_assert</code> → <code>ceph_abort()</code>. Process terminates.</td>
+      <td><span class="badge badge-ok">ABORT (INTENTIONAL)</span></td>
+    </tr>
+    <tr>
+      <td>Caller calls <code>flush()</code>, <code>get_len()</code>, or <code>write_raw_data()</code></td>
+      <td>All three call <code>ceph_abort()</code> unconditionally. Intentional: these are serializer-only operations with no Python object equivalent.</td>
+      <td><span class="badge badge-ok">ABORT (INTENTIONAL)</span></td>
+    </tr>
+    <tr>
+      <td>Caller calls <code>open_array_section_in_ns()</code> or <code>open_object_section_in_ns()</code></td>
+      <td><code>ceph_abort()</code>. Namespace sections are XML/JSON concepts; unsupported by design.</td>
+      <td><span class="badge badge-ok">ABORT (INTENTIONAL)</span></td>
+    </tr>
+    <tr>
+      <td>Caller attempts to copy or assign a <code>PyFormatter</code></td>
+      <td>Compile error — copy constructor and assignment operator are <code>= delete</code>. Prevents double-free.</td>
+      <td><span class="badge badge-ok">COMPILE-TIME SAFE</span></td>
+    </tr>
+    <tr>
+      <td><code>PyDict_New()</code> or <code>PyList_New()</code> returns null (OOM in Python heap)</td>
+      <td>For dict/list sections: null is passed to <code>dump_pyobject</code> which then hits the null guard → <code>ceph_abort_msg</code>. For the root constructor: null root, crash on first use. No graceful OOM path.</td>
+      <td><span class="badge badge-warn">ABORT ON OOM</span></td>
+    </tr>
+    <tr>
+      <td><code>dump_null</code> passes <code>Py_None</code> without <code>Py_INCREF</code></td>
+      <td><code>dump_pyobject</code> steals its argument and calls <code>Py_DECREF</code>. Passing the borrowed <code>Py_None</code> singleton without incrementing its refcount decrements <code>None</code>'s refcount. In CPython <code>None</code> has a very high refcount and this is practically harmless, but it violates the ownership contract established by <span class="sha">ac30e6cee2b2</span>.</td>
+      <td><span class="badge badge-warn">UNGROUNDED / OWNERSHIP GAP</span></td>
+    </tr>
+    <tr>
+      <td><code>PyUnicode_DecodeUTF8</code> fails in <code>dump_pyobject</code> (key encoding failure)</td>
+      <td>Returns null key. <code>PyDict_SetItem(cursor, null_key, p)</code> called without checking — undefined behavior, likely Python exception set, value not inserted, no abort. Caller sees a silent data loss.</td>
+      <td><span class="badge badge-warn">UNGROUNDED / SILENT FAILURE</span></td>
+    </tr>
+    <tr>
+      <td>Malicious plugin triggers <code>reset()</code> while sections are open</td>
+      <td><code>reset()</code> does not clear <code>stack</code>. Stale parent-cursor pointers remain in the stack pointing into the now-decref'd tree. A subsequent <code>close_section()</code> restores a dangling pointer to <code>cursor</code>.</td>
+      <td><span class="badge badge-danger">USE-AFTER-FREE RISK</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="failures">5. Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<div class="section-card">
+<h3>Known divergences (commit message ≠ actual behavior)</h3>
+<table>
+  <thead><tr><th>Function</th><th>Claimed behavior</th><th>Actual behavior</th><th>SHA</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>dump_string</code></td>
+      <td>Fall back to Latin-1 on UTF-8 decode failure</td>
+      <td>Clear error + <strong>silent drop</strong> — value not inserted</td>
+      <td><span class="sha">7c68a00cce5b</span></td>
+    </tr>
+    <tr>
+      <td><code>dump_format_va</code></td>
+      <td>Non-printable characters should not reach <code>dump_pyobject</code> as null</td>
+      <td><code>PyUnicode_FromString</code> result passed directly to <code>dump_pyobject</code> without null check → abort on failure</td>
+      <td><span class="sha">7c68a00cce5b</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Ungrounded paths (error policy not established by any commit)</h3>
+<ul>
+  <li><code>PyUnicode_DecodeUTF8</code> failure in <code>dump_pyobject</code> — null key silently passed to <code>PyDict_SetItem</code></li>
+  <li><code>PyDict_SetItem</code> failure — return value unchecked in both <code>dump_pyobject</code> and <code>convert_dict_to_proxy</code></li>
+  <li><code>PyTuple_New</code> null in <code>convert_list_to_tuple</code> — loop proceeds with null tuple, <code>PyTuple_SET_ITEM</code> writes into null</li>
+  <li><code>PyDict_New</code> null in <code>convert_dict_to_proxy</code> — loop proceeds with null dict</li>
+  <li><code>PyUnicode_FromString</code> failure in <code>finish_pending_streams</code> — null passed to <code>dump_pyobject</code> → abort</li>
+  <li><code>reset()</code> while <code>stack</code> is non-empty — stale parent-cursor pointers remain; use-after-free on next <code>close_section()</code></li>
+</ul>
+
+<h3>Blast radius by scenario</h3>
+<table>
+  <thead><tr><th>Scenario</th><th>Blast radius</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Non-UTF-8 string in <code>dump_string</code></td>
+      <td>Single field silently absent from the returned Python object. Downstream code sees <code>KeyError</code> or <code>None</code> — no crash.</td>
+    </tr>
+    <tr>
+      <td>Non-UTF-8 string in <code>dump_format_va</code></td>
+      <td>Process aborts via <code>ceph_abort_msg</code> in <code>dump_pyobject</code> — entire <code>ceph-mgr</code> daemon dies.</td>
+    </tr>
+    <tr>
+      <td><code>vsnprintf</code> truncation at 1024 bytes</td>
+      <td>Truncated value inserted silently. Metrics/status data is wrong but daemon continues.</td>
+    </tr>
+    <tr>
+      <td>OOM during Python allocation (<code>PyDict_New</code> etc.)</td>
+      <td>Abort or use-of-null → daemon crash.</td>
+    </tr>
+    <tr>
+      <td>GIL not held during construction/destruction</td>
+      <td>Heap corruption. Crash may be delayed and far from the call site.</td>
+    </tr>
+    <tr>
+      <td><code>reset()</code> with open sections</td>
+      <td>Dangling cursors in stack; use-after-free on next <code>close_section()</code> → heap corruption or crash.</td>
+    </tr>
+    <tr>
+      <td>Frozen conversion allocation failure in <code>PyFormatterRO</code></td>
+      <td>Returns original mutable container — plugin code receiving it can mutate it, breaking cache consistency if other holders expected immutability.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="observability">6. Observability &amp; Triage Playbook</h2>
+
+<div class="section-card">
+<h3>Signals that PyFormatter is involved</h3>
+<ul>
+  <li>ceph-mgr crash with <code>ceph_abort_msg("PyFormatter::dump_pyobject received null PyObject")</code> — null object reached the helper. Most likely culprit: non-UTF-8 bytes through <code>dump_format_va</code>.</li>
+  <li>ceph-mgr crash with bare <code>ceph_abort()</code> in the stack near <code>PyFormatter</code> — either a serializer method (<code>flush</code>/<code>get_len</code>/<code>write_raw_data</code>) was called, or cursor was in an unexpected state.</li>
+  <li>Python-side <code>KeyError</code> or missing field in plugin output with no crash — <code>dump_string</code> silently dropped a non-UTF-8 value (<span class="sha">7c68a00cce5b</span> divergence).</li>
+  <li>Python <code>SystemError</code> or <code>ValueError</code> referencing dict/tuple operations — unchecked allocation failure in the readonly conversion path.</li>
+</ul>
+
+<h3>Triage decision tree</h3>
+<pre>
+crash in ceph-mgr Python thread?
+  ├── abort "received null PyObject"
+  │     → check if caller is dump_format_va with non-ASCII data
+  │     → look for non-UTF-8 cluster/OSD metadata being formatted
+  ├── bare ceph_abort() near PyFormatter
+  │     → check call stack: flush/get_len/write_raw_data = caller misuse
+  │     → cursor not list/dict = open/close mismatch; check section nesting
+  └── Python exception (AttributeError, KeyError, TypeError) on mgr plugin
+        → check if field is missing (dump_string silent drop)
+        → check if PyFormatterRO fallback returned mutable object (plugin mutated cache)
+
+missing field in mgr module output?
+  → reproduce with string containing bytes 0x80-0xFF
+  → if field absent: dump_string UTF-8 drop confirmed
+  → temporary workaround: sanitize strings to ASCII before passing to formatter
+</pre>
+
+<h3>Key commits for blame-narrowing</h3>
+<table>
+  <thead><tr><th>SHA</th><th>Author</th><th>Date</th><th>What changed</th></tr></thead>
+  <tbody>
+    <tr><td><span class="sha">ac30e6cee2b2</span></td><td>John Spray</td><td>2016-06-30</td><td>Original implementation — cursor/stack/PendingStream/get()</td></tr>
+    <tr><td><span class="sha">61fca96c2910</span></td><td>Sage Weil</td><td>2016-11-21</td><td>All unsupported ops → <code>ceph_abort()</code></td></tr>
+    <tr><td><span class="sha">86c851e138ae</span></td><td>Sage Weil</td><td>2017-06-12</td><td>1024-byte buffer for <code>dump_format_va</code></td></tr>
+    <tr><td><span class="sha">938189e8f280</span></td><td>Jan Fajerski</td><td>2018-09-07</td><td>Delete copy + assignment</td></tr>
+    <tr><td><span class="sha">ac8b016b7237</span></td><td>Mykola Golub</td><td>2018-11-14</td><td>Fix <code>dump_unsigned</code> to use unsigned API</td></tr>
+    <tr><td><span class="sha">48c4bc445fca</span></td><td>Kefu Chai</td><td>2019-12-18</td><td>Drop Python 2; all strings → Unicode</td></tr>
+    <tr><td><span class="sha">6712393fbc53</span></td><td>Kefu Chai</td><td>2020-02-10</td><td>All names → <code>string_view</code>; UTF-8 key decode with explicit length</td></tr>
+    <tr><td><span class="sha">5f57c526b22a</span></td><td>Patrick Donnelly</td><td>2023-07-21</td><td>Add <code>dump_null</code> → <code>Py_None</code></td></tr>
+    <tr><td><span class="sha">403340bcf8c2</span></td><td>Nitzan Mordechai</td><td>2025-07-17</td><td>Add <code>PyFormatterRO</code> with recursive freeze; <code>get()</code> virtual</td></tr>
+    <tr><td><span class="sha">7c68a00cce5b</span></td><td>NitzanMordhai</td><td>2026-01-21</td><td>Guard null in <code>dump_pyobject</code>; silent-drop non-UTF-8 in <code>dump_string</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Quick-reference: what aborts vs. what silently fails</h3>
+<table>
+  <thead><tr><th>Condition</th><th>Outcome</th></tr></thead>
+  <tbody>
+    <tr><td>Null <code>PyObject*</code> reaches <code>dump_pyobject</code></td><td><span class="badge badge-danger">ABORT</span> <code>ceph_abort_msg</code></td></tr>
+    <tr><td>Non-UTF-8 string via <code>dump_string</code></td><td><span class="badge badge-warn">SILENT DROP</span> value absent from output</td></tr>
+    <tr><td>Non-UTF-8 string via <code>dump_format_va</code></td><td><span class="badge badge-danger">ABORT</span> (no null guard before <code>dump_pyobject</code>)</td></tr>
+    <tr><td><code>&gt;1024</code> byte formatted output</td><td><span class="badge badge-warn">SILENT TRUNCATION</span></td></tr>
+    <tr><td>Under-closed section (<code>close_section</code> with empty stack)</td><td><span class="badge badge-danger">ABORT</span> <code>ceph_assert</code></td></tr>
+    <tr><td><code>flush()</code> / <code>get_len()</code> / <code>write_raw_data()</code> called</td><td><span class="badge badge-danger">ABORT</span> <code>ceph_abort()</code></td></tr>
+    <tr><td>Namespace section called</td><td><span class="badge badge-danger">ABORT</span> <code>ceph_abort()</code></td></tr>
+    <tr><td>Allocation failure in <code>PyFormatterRO</code> freeze</td><td><span class="badge badge-warn">FALLBACK</span> returns original mutable object</td></tr>
+    <tr><td><code>reset()</code> with open sections</td><td><span class="badge badge-danger">DEFERRED CRASH</span> use-after-free on next <code>close_section()</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Whiteboard Defense: ClusterState (Ceph Manager Cluster State Cache)</title>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-card: #1e293b;
+      --border-color: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --success: #10b981;
+      --code-bg: #090d16;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      line-height: 1.5;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-size: 1.85rem;
+      color: var(--accent);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .meta-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 4px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+    }
+    .badge.cyan { border-color: var(--accent); color: var(--accent); }
+    .badge.amber { border-color: var(--warning); color: var(--warning); }
+
+    h2 {
+      font-size: 1.3rem;
+      color: var(--text-main);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 6px;
+      margin-top: 32px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      color: var(--accent);
+      margin-top: 16px;
+      margin-bottom: 8px;
+    }
+
+    p, ul, ol {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      margin-bottom: 12px;
+    }
+
+    ul, ol {
+      padding-left: 20px;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    strong {
+      color: var(--text-main);
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      background: var(--code-bg);
+      color: #38bdf8;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: 0.85em;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 14px;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+      font-size: 0.88rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: top;
+    }
+
+    th {
+      background: #131d31;
+      color: var(--text-main);
+      font-weight: 600;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background-color: rgba(255,255,255,0.02);
+    }
+
+    .alert {
+      padding: 12px 14px;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      font-size: 0.88rem;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .alert-warning {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #fcd34d;
+    }
+    .alert-danger {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+    .alert-info {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #7dd3fc;
+    }
+
+    .sha-tag {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      color: #fb7185;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>ClusterState &mdash; Whiteboard Defense</h1>
+    <p>Central cluster-wide state aggregator & in-memory synchronized map cache for <code>ceph-mgr</code></p>
+    <div class="meta-badges">
+      <span class="badge cyan">Source: src/mgr/ClusterState.cc / .h</span>
+      <span class="badge">Scope: ceph-mgr Core</span>
+      <span class="badge">Concurrency: Single Mutex + External RWLock</span>
+      <span class="badge amber">Corpus Span: 71 Non-Merge Commits</span>
+    </div>
+  </header>
+
+  <!-- SECTION 1: ARCHITECTURE & MENTAL MODEL -->
+  <h2>1. High-Level Architecture &amp; Mental Model</h2>
+  <p>
+    <code>ClusterState</code> acts as the single source of cluster-wide truth inside the active <code>ceph-mgr</code> daemon. 
+    It ingests asynchronous updates across multiple control planes (Mon digests, OSD stats, OSDMap epochs) and provides thread-safe accessors (via callback templates) to Python plugins, internal telemetry, and CLI services.
+  </p>
+
+  <div class="card">
+    <pre>
+   +--------------------+     +--------------------+     +--------------------+
+   |   MonClient (monc) |     |  OSD (MPGStats)    |     |  Monitor Cluster   |
+   +---------+----------+     +---------+----------+     +---------+----------+
+             | MonMap                   | PG / OSD stats           | MMgrDigest
+             v                          v                          v
+   +--------------------------------------------------------------------------+
+   | ClusterState (ceph-mgr)                                                 |
+   |                                                                          |
+   |  [ ceph::mutex lock ]  ================================================  |
+   |  * fsmap             (FSMap)             * servicemap (ServiceMap)      |
+   |  * mgr_map           (MgrMap)            * health_json (bufferlist)     |
+   |  * existing_pools    (map&lt;int64,uint&gt;)   * mon_status_json (bufferlist) |
+   |                                                                          |
+   |  Accumulator Stage:                      Authoritative Snapshots:        |
+   |  * pending_inc       (PGMap::Inc)  ---&gt;  * pg_map     (PGMap)            |
+   |    (ingest_pgstats)       tick()/notify_osdmap()                         |
+   |                                                                          |
+   |  Delegated OSDMap (No ClusterState::lock acquired):                      |
+   |  * Objecter::osdmap  (Objecter rwlock)                                   |
+   +--------------------------------------------------------------------------+
+             |                                             |
+             v with_* callbacks                            v Admin Socket Hook
+   +--------------------------+               +-------------------------------+
+   | Python Modules / Exporters|               | "dump_osd_network" (hb ping)  |
+   | (Prometheus, Dashboard,  |               |  - Formatter stream           |
+   |  Restful, Balancer)      |               |  - Stale heartbeat filtering  |
+   +--------------------------+               +-------------------------------+
+    </pre>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Key Ingestion Pathways</h3>
+      <ul>
+        <li><code>load_digest(MMgrDigest*)</code>: Replaces health and mon status JSON bufferlists under lock.</li>
+        <li><code>ingest_pgstats(ref_t&lt;MPGStats&gt;)</code>: Accumulates PG stats, pool statfs, and OSD heartbeats into <code>pending_inc</code> (O(1) buffer push, no full apply).</li>
+        <li><code>update_delta_stats()</code> &amp; <code>notify_osdmap()</code>: Batched execution point where <code>pending_inc</code> is applied to <code>pg_map</code> and reset.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Read &amp; Consumption Interface</h3>
+      <ul>
+        <li><strong>Synchronized Callback Model:</strong> <code>with_pgmap()</code>, <code>with_fsmap()</code>, <code>with_mgrmap()</code>, <code>with_servicemap()</code>, <code>with_health()</code> execute callbacks while holding <code>lock</code>.</li>
+        <li><strong>Delegated Reader:</strong> <code>with_osdmap()</code> bypasses <code>ClusterState::lock</code> to avoid lock inversion with Objecter.</li>
+        <li><strong>Composite Reader:</strong> <code>with_osdmap_and_pgmap()</code> strictly locks <code>ClusterState::lock</code> first, then Objecter's lock.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- SECTION 2: ARCHITECTURAL DECISIONS -->
+  <h2>2. Architectural Decisions &amp; Trade-offs ("Why X Instead of Y?")</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Decision (X)</th>
+        <th style="width: 25%;">Alternative Considered (Y)</th>
+        <th style="width: 35%;">Defensive Rationale &amp; Trade-off</th>
+        <th style="width: 15%;">Commit / Grounding</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Accumulate into <code>pending_inc</code></strong> on <code>ingest_pgstats</code>; apply in bulk on <code>tick()</code></td>
+        <td>Apply <code>apply_incremental</code> immediately on every incoming <code>MPGStats</code> message</td>
+        <td>OSD scale protection. Calling <code>apply_incremental</code> for thousands of OSD stat messages per second causes severe lock thrashing and CPU spikes. Batching into <code>pending_inc</code> makes ingestion O(1) buffer insertion; application occurs predictably on the mgr tick interval.</td>
+        <td><span class="sha-tag">d6d1db62edeb</span><br><span class="sha-tag">fa147e3a591a</span></td>
+      </tr>
+      <tr>
+        <td><strong>Do not acquire <code>lock</code> in <code>with_osdmap()</code></strong> (delegate directly to <code>Objecter</code>)</td>
+        <td>Hold <code>ClusterState::lock</code> across all map readers including OSDMap</td>
+        <td>Prevents deadlock and lock convoying. Objecter owns the OSDMap and its own rwlock. If <code>with_osdmap()</code> acquired <code>ClusterState::lock</code>, functions holding <code>ClusterState::lock</code> (like <code>ingest_pgstats</code>) that invoke Objecter routines would trigger cyclic lock inversion.</td>
+        <td><span class="sha-tag">ea46778e3681</span><br><span class="sha-tag">ac30e6cee2b2</span></td>
+      </tr>
+      <tr>
+        <td><strong>Cache <code>existing_pools</code> map</strong> (<code>map&lt;int64_t, unsigned&gt;</code>) from OSDMap</td>
+        <td>Query live <code>pg_map.pg_stat</code> or live <code>OSDMap</code> for pool validity inside <code>ingest_pgstats</code></td>
+        <td>Decouples stat ingestion from active OSDMap transactions. Prevents iterator invalidation and default-map key insertion bugs when stale or deleting pools report in. Also caches <code>pg_num</code> to prune orphaned PG reports immediately.</td>
+        <td><span class="sha-tag">6afca3beb2a8</span><br><span class="sha-tag">9e906733fe07</span></td>
+      </tr>
+      <tr>
+        <td><strong>Reset <code>pending_inc</code> via assignment</strong> (<code>pending_inc = Incremental()</code>)</td>
+        <td>In-place clear or cumulative dirty bits</td>
+        <td>Guarantees exact idempotency. Clearing complex nested maps manually risks stale accumulator residue. Direct re-initialization guarantees no stat is applied twice across successive epochs.</td>
+        <td><span class="sha-tag">aad1afcb96de</span></td>
+      </tr>
+      <tr>
+        <td><strong>Guarded dout(30) incremental dump</strong> (<code>if (!pending_inc.empty())</code>)</td>
+        <td>Unconditional dout(30) dump of entire <code>pg_map</code> + <code>pending_inc</code></td>
+        <td>Eliminates severe memory bloat and log queue lockup (Tracker #64082). Serializing a 100k PG map to JSON on every tick saturated logging memory and caused mgr daemon OOMs.</td>
+        <td><span class="sha-tag">0bac6af3c18a</span><br><span class="sha-tag">c2258991393f</span></td>
+      </tr>
+      <tr>
+        <td><strong>Execute readers via Callback templates</strong> (<code>with_*</code>) forwarding return values</td>
+        <td>Return shared pointers or copies of inner maps</td>
+        <td>Guarantees lock lifetime perfectly covers data access. Returning copies is prohibitive for <code>PGMap</code> (tens of MBs); returning references or raw pointers leads to use-after-unlock concurrency bugs in multi-threaded Python modules.</td>
+        <td><span class="sha-tag">9c652fb305a3</span><br><span class="sha-tag">6646b35ac76d</span></td>
+      </tr>
+      <tr>
+        <td><strong>Preserve <code>seq</code> with empty stat</strong> when OSD is marked out</td>
+        <td>Drop stats completely or ingest full stats from out OSDs</td>
+        <td>Fixes Tracker #46440. Dropping reports breaks sequence tracking and triggers false heartbeats/stale alarms; ingesting out OSD stats distorts cluster-wide capacity calculations. Preserving <code>seq</code> with empty stats maintains heartbeat liveness without polluting metrics.</td>
+        <td><span class="sha-tag">493ec9d3acd3</span><br><span class="sha-tag">a7612d33d1e4</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 3: DATA STRUCTURES & INVARIANTS -->
+  <h2>3. Data Structures, Algorithms &amp; Invariants</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3>Core Member Layout</h3>
+      <ul style="list-style-type: none; padding-left: 0;">
+        <li><code>ceph::mutex lock</code>: Single recursive-free mutex named <code>"ClusterState"</code> guarding all maps except OSDMap.</li>
+        <li><code>PGMap pg_map</code>: Full authoritative snapshot of all Placement Groups, pool utilization, and per-OSD stats.</li>
+        <li><code>PGMap::Incremental pending_inc</code>: Ephemeral delta buffer accumulating updates between <code>tick()</code> cycles.</li>
+        <li><code>std::map&lt;int64_t, unsigned&gt; existing_pools</code>: Fast lookup cache mapping <code>pool_id -&gt; pg_num</code>.</li>
+        <li><code>FSMap fsmap</code> &amp; <code>MgrMap mgr_map</code> &amp; <code>ServiceMap servicemap</code>: Cached cluster service topologies.</li>
+        <li><code>bufferlist health_json, mon_status_json</code>: Raw JSON buffers received from Monitor digests.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Locking Order &amp; Concurrency Hierarchy</h3>
+      <ol>
+        <li><strong>ClusterState::lock Alone:</strong> Acquired by <code>load_digest</code>, <code>ingest_pgstats</code>, <code>set_*</code>, and simple <code>with_*</code> readers.</li>
+        <li><strong>Composite Lock Ordering:</strong> <code>with_osdmap_and_pgmap</code> mandates:
+          <pre>1. std::lock_guard l(lock);      // ClusterState
+2. objecter-&gt;with_osdmap(cb...); // Objecter rwlock</pre>
+          <em>Never acquire in reverse order anywhere in Ceph codebase.</em>
+        </li>
+        <li><strong>OSDMap Delegation:</strong> <code>with_osdmap</code> acquires only <code>Objecter::rwlock</code>.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Critical Structural Invariants</h3>
+    <ul>
+      <li><strong>[INV-1] Monotonic PG Stat Versioning:</strong> In <code>ingest_pgstats</code>, an incoming stat for <code>pgid</code> is discarded if <code>pg_map.pg_stat[pgid].get_version_pair() &gt; pg_stats.get_version_pair()</code>. Lookup MUST use <code>.find()</code> (Commit <span class="sha-tag">ae688fc4d72c</span>) to avoid default insertion.</li>
+      <li><strong>[INV-2] Pool Boundary &amp; Orphan Truncation:</strong> PG updates where <code>pgid.pool() &notin; existing_pools</code> or <code>pgid.ps() &gt;= existing_pools[pool]</code> are silently discarded (Commit <span class="sha-tag">9e906733fe07</span>), preventing ghost PGs after pool shrinkage or deletion.</li>
+      <li><strong>[INV-3] Delta Epoch Sequencing:</strong> Before calling <code>pg_map.apply_incremental()</code>, <code>pending_inc.version</code> MUST be explicitly stamped to <code>pg_map.version + 1</code> (Commit <span class="sha-tag">d6d1db62edeb</span>).</li>
+      <li><strong>[INV-4] Incremental Evacuation:</strong> Immediately following <code>pg_map.apply_incremental()</code>, <code>pending_inc</code> MUST be assigned a fresh <code>PGMap::Incremental()</code> to guarantee idempotency across clock ticks (Commit <span class="sha-tag">aad1afcb96de</span>).</li>
+    </ul>
+  </div>
+
+  <!-- SECTION 4: THREAT MODEL & ADVERSARIAL HANDLING -->
+  <h2>4. Threat Model &amp; Adversarial Handling ("What If an Actor Behaves Maliciously?")</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 22%;">Adversarial Vector / Fault</th>
+        <th style="width: 25%;">Trigger Scenario</th>
+        <th style="width: 38%;">System Defense &amp; Containment</th>
+        <th style="width: 15%;">Blast Radius Limit</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Rogue / Desynchronized OSD</strong></td>
+        <td>OSD flooded with old or fabricated PG reports for deleted pools or invalid PG numbers (e.g. after pool deletion or split/merge).</td>
+        <td><code>ingest_pgstats</code> filters all reports against <code>existing_pools</code> map. Any PG with <code>ps() &gt;= pg_num</code> or unknown pool ID is dropped and logged at <code>dout(15)</code>.</td>
+        <td>Zero state corruption; bad records discarded at ingestion boundary before reaching <code>pg_map</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>Out-of-Order UDP/TCP Messages</strong></td>
+        <td>Network re-ordering delivers an older <code>MPGStats</code> packet after a newer one was already processed.</td>
+        <td>Version comparison checks <code>(reported_epoch, reported_seq)</code> pair against existing <code>pg_map.pg_stat</code>. Stale versions are ignored.</td>
+        <td>Zero regression; authoritative PG state monotonically advances.</td>
+      </tr>
+      <tr>
+        <td><strong>Dead / Stale Heartbeat Flood</strong></td>
+        <td>OSD daemon hangs or network partitions, leaving old heartbeat ping records in memory indefinitely.</td>
+        <td><code>asok_command("dump_osd_network")</code> validates timestamps against <code>osd_mon_heartbeat_stat_stale</code> (default 1h) and skips <code>last_update == 0</code> entries.</td>
+        <td>Admin telemetry filters stale nodes; output reflects verified active mesh only.</td>
+      </tr>
+      <tr>
+        <td><strong>Out OSD Stat Metric Distortion</strong></td>
+        <td>OSD is marked <code>OUT</code> by monitor but continues sending storage utilization metrics.</td>
+        <td><code>ingest_pgstats</code> queries <code>with_osdmap(osdmap.is_in(from))</code>. If <code>false</code>, it substitutes an <code>empty_stat</code> while keeping only <code>seq</code>.</td>
+        <td>Cluster capacity calculations remain accurate; out disk space is excluded from allocation calculations.</td>
+      </tr>
+      <tr>
+        <td><strong>Admin Socket Injection / Fuzzing</strong></td>
+        <td>Malformed arguments or negative values passed to <code>dump_osd_network</code> CLI.</td>
+        <td>Wrapped in <code>try ... catch (bad_cmd_get)</code> returning <code>-EINVAL</code>; negative values clamped to 0; unrecognized commands abort safely via registration validation.</td>
+        <td>Manager daemon protected from unhandled exceptions; error string returned to admin socket.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 5: FAILURE MODES & BOTTLENECK ANALYSIS -->
+  <h2>5. Failure Modes, Edge Cases &amp; Blast Radius ("Where Does This Fail?")</h2>
+  
+  <div class="alert alert-danger">
+    <div>
+      <strong>Critical Lock Inconsistency (DIVERGED Finding):</strong><br>
+      <code>notify_osdmap()</code> contains <code>assert(ceph_mutex_is_locked(lock))</code> (Commit <span class="sha-tag">03a761c980a1</span>), but <code>update_delta_stats()</code> lacks this assertion despite mutating identical structures (<code>pg_map</code>, <code>pending_inc</code>). Any external caller invoking <code>update_delta_stats()</code> without acquiring <code>ClusterState::lock</code> will cause undetected data corruption in production builds.
+    </div>
+  </div>
+
+  <div class="alert alert-warning">
+    <div>
+      <strong>Mutable Escape Hatch Risk (UNGROUNDED Finding):</strong><br>
+      <code>with_mutable_pgmap()</code> (Commit <span class="sha-tag">86f0b811882d</span>) exposes a direct non-const reference to <code>pg_map</code>. Callers that mutate internal PG collections directly bypass <code>pending_inc</code> tracking, making delta accounting desynchronized until the next full sync.
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Failure Point / Bottleneck</th>
+        <th style="width: 35%;">Root Cause &amp; Mechanism</th>
+        <th style="width: 40%;">Blast Radius &amp; Mitigation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Lock Contention on <code>ClusterState::lock</code></strong></td>
+        <td>Heavy active Python plugins (e.g. Dashboard + Prometheus polling <code>with_pgmap()</code> every second) competing with high-frequency <code>ingest_pgstats</code> from 5000+ OSDs.</td>
+        <td>High lock hold times cause latency in mgr message dispatch loop. <em>Mitigation:</em> Keep callbacks short; never perform I/O or sleep inside <code>with_*</code> callbacks.</td>
+      </tr>
+      <tr>
+        <td><strong>Double Call to <code>final_init()</code></strong></td>
+        <td><code>asok_hook</code> allocated via raw <code>new ClusterSocketHook(this)</code> with no null-check or guard.</td>
+        <td>Leaks the first hook object; second registration assertion fails with <code>ceph_assert(r == 0)</code>, terminating the mgr. <em>Mitigation:</em> Invoke only once during mgr startup sequence.</td>
+      </tr>
+      <tr>
+        <td><strong>Return Code Divergence in Socket Hook</strong></td>
+        <td><code>ClusterSocketHook::call()</code> returns <code>asok_command(...)</code> which returns boolean <code>true</code> (cast to <code>int 1</code>). Standard conventions treat 0 as success.</td>
+        <td>AdminSocket dispatcher interprets non-negative return as success, so CLI does not break, but error code propagation is technically non-standard.</td>
+      </tr>
+      <tr>
+        <td><strong>Memory Spike on Debug Logging</strong></td>
+        <td>Historically, setting debug level to 30 caused JSON serialization of <code>pg_map</code> on every tick.</td>
+        <td>Resolved in <span class="sha-tag">0bac6af3c18a</span> by guarding JSON serialization with <code>if (!pending_inc.empty())</code>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 6: OBSERVABILITY & TRIAGE PLAYBOOK -->
+  <h2>6. Observability &amp; Triage Playbook</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3>Diagnostic Logging &amp; Subsystems</h3>
+      <ul>
+        <li><strong>Subsystem:</strong> <code>ceph_subsys_mgr</code> (configured via <code>debug_mgr</code>).</li>
+        <li><strong>Level 10 (<code>dout(10)</code>):</strong> Tracks incremental version increments:
+          <pre>mgr update_delta_stats v48291</pre>
+        </li>
+        <li><strong>Level 15 (<code>dout(15)</code>):</strong> Discarded / filtered PG stat telemetry:
+          <pre>mgr ingest_pgstats got 2.14 reported at 120:4 but pool not in existing_pools
+mgr ingest_pgstats got 3.8 reported at 120:4 but &gt; pg_num 4</pre>
+        </li>
+        <li><strong>Level 20 (<code>dout(20)</code>):</strong> Timed-out heartbeat ping removals.</li>
+        <li><strong>Level 30 (<code>dout(30)</code>):</strong> Full JSON formatted <code>pending_inc</code> dump (only when active).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Runtime Inspection Commands</h3>
+      <ul>
+        <li><strong>Dump Network Ping Times (Microseconds/Milliseconds):</strong>
+          <pre>ceph daemon mgr.&lt;id&gt; dump_osd_network [min_threshold_ms]</pre>
+          Outputs sorted bidirectional 1m, 5m, 15m heartbeat ping metrics between all OSD pairs.
+        </li>
+        <li><strong>Verify Pool &amp; PG Map Cache State:</strong>
+          <pre>ceph daemon mgr.&lt;id&gt; perf dump mgr</pre>
+        </li>
+        <li><strong>Detect Daemon Liveliness / Stuck Locks:</strong>
+          <pre>ceph daemon mgr.&lt;id&gt; status</pre>
+          If commands hang, attach with GDB to inspect thread backtraces on <code>ClusterState::lock</code>.
+        </li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

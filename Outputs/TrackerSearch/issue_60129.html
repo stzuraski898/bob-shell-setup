@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#60129 — crash: File &quot;mgr/diskprediction_local/module.py&quot;, in predict_all_devices: result = self._predict_life_expectancy(devInfo[&#x27;devid&#x27;])</title>
+<style>
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    background: #f7f8fa;
+    color: #1f2328;
+  }
+  .page { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  a { color: #3b82d4; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header {
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 16px;
+    margin-bottom: 28px;
+  }
+  header h1 { font-size: 20px; font-weight: 700; }
+  header .subtitle { color: #57606a; font-size: 13px; margin-top: 4px; }
+  .badge {
+    display: inline-block;
+    font-size: 11px; padding: 1px 7px; border-radius: 10px;
+    white-space: nowrap; font-weight: 500;
+  }
+  .badge-new      { background: #dbeafe; color: #1d4ed8; }
+  .badge-progress { background: #fef9c3; color: #854d0e; }
+  .badge-resolved { background: #dcfce7; color: #166534; }
+  .badge-rejected { background: #fee2e2; color: #991b1b; }
+  .badge-other    { background: #f3f4f6; color: #374151; }
+  .pri-urgent { background: #fee2e2; color: #991b1b; }
+  .pri-high   { background: #ffedd5; color: #9a3412; }
+  .pri-normal { background: #f3f4f6; color: #374151; }
+  .pri-low    { background: #f0fdf4; color: #166534; }
+  footer {
+    margin-top: 48px; padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+    text-align: center; font-size: 12px; color: #57606a;
+  }
+
+  .breadcrumb { font-size: 12px; color: #57606a; margin-bottom: 20px; }
+  .breadcrumb a { color: #3b82d4; }
+  .issue-title { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+  .issue-id { font-size: 14px; color: #57606a; font-weight: 400; }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px 24px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 28px;
+    font-size: 13px;
+  }
+  .meta-grid dt { color: #57606a; font-size: 11px; text-transform: uppercase;
+                   letter-spacing: 0.04em; margin-bottom: 2px; }
+  .meta-grid dd { font-weight: 600; color: #1f2328; }
+  .section-heading {
+    font-size: 13px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #57606a;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 6px; margin-bottom: 16px;
+  }
+  .description {
+    background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 6px; padding: 20px 24px;
+    font-size: 14px; line-height: 1.7;
+    color: #1f2328;
+  }
+  .description p { margin-bottom: 12px; }
+  .description p:last-child { margin-bottom: 0; }
+  .description pre {
+    background: #f7f8fa; border: 1px solid #e5e7eb;
+    border-radius: 4px; padding: 12px 14px;
+    overflow-x: auto; font-size: 13px;
+    margin: 10px 0;
+  }
+  .description code {
+    background: #f0f1f3; border-radius: 3px;
+    padding: 1px 4px; font-size: 12px; font-family: monospace;
+  }
+  .description pre code {
+    background: none; padding: 0; font-size: 13px;
+  }
+  .external-link {
+    display: inline-block; margin-top: 20px;
+    font-size: 13px; color: #3b82d4;
+    border: 1px solid #3b82d4; border-radius: 4px;
+    padding: 5px 12px;
+  }
+  .external-link:hover { background: #3b82d4; color: #fff; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="breadcrumb">
+    <a href="index.html">&#8592; Back to search results</a>
+  </div>
+
+  <header>
+    <div class="issue-id">Bug #60129 &mdash; Bug</div>
+    <h1 class="issue-title">crash: File &quot;mgr/diskprediction_local/module.py&quot;, in predict_all_devices: result = self._predict_life_expectancy(devInfo[&#x27;devid&#x27;])</h1>
+    <div>
+      <span class="badge badge-new">New</span>
+      <span class="badge pri-normal">Normal</span>
+    </div>
+  </header>
+
+  <dl class="meta-grid">
+    <div>
+      <dt>Author</dt>
+      <dd>Telemetry Bot</dd>
+    </div>
+    <div>
+      <dt>Assignee</dt>
+      <dd>unassigned</dd>
+    </div>
+    <div>
+      <dt>Created</dt>
+      <dd>2023-05-15</dd>
+    </div>
+    <div>
+      <dt>Updated</dt>
+      <dd>2023-05-15</dd>
+    </div>
+    <div>
+      <dt>Priority</dt>
+      <dd>Normal</dd>
+    </div>
+    <div>
+      <dt>Category</dt>
+      <dd>—</dd>
+    </div>
+    <div>
+      <dt>Target version</dt>
+      <dd>—</dd>
+    </div>
+  </dl>
+
+  <p class="section-heading">Description</p>
+  <div class="description">
+    <p><br><a href="http://telemetry.front.sepia.ceph.com:4000/d/jByk5HaMz/crash-spec-x-ray?orgId=1" target="_blank">http://telemetry.front.sepia.ceph.com:4000/d/jByk5HaMz/crash-spec-x-ray?orgId=1</a>&amp;var-sig_v2=ee427f54f856ccfa4ac17530afdc80a9ea5bb1b71a6544130cdaf9713c74badf<br><br>Sanitized backtrace:<br><pre><code>    File &quot;mgr/diskprediction<em>local/module.py&quot;, in predict</em>all<em>devices: result = self.</em>predict<em>life</em>expectancy(devInfo[&#x27;devid&#x27;])<br>    File &quot;mgr/diskprediction<em>local/module.py&quot;, in </em>predict<em>life</em>expectancy: predicted<em>result = obj</em>predictor.predict(predict_datas)<br>    File &quot;mgr/diskprediction<em>local/predictor.py&quot;, in predict: pred = clf.predict(ordered</em>data)<br>    File &quot;/lib/python3/dist-packages/sklearn/svm/<em>base.py&quot;, in predict: if self.break</em>ties and self.decision<em>function</em>shape == &#x27;ovo&#x27;:<br></code></pre><br>Crash dump sample:<br><pre><code>{<br>    &quot;archived&quot;: &quot;2022-12-28 03:41:04.937317&quot;,<br>    &quot;backtrace&quot;: [<br>        &quot;  File \&quot;/usr/share/ceph/mgr/diskprediction<em>local/module.py\&quot;, line 265, in predict</em>all<em>devices\n    result = self.</em>predict<em>life</em>expectancy(devInfo[&#x27;devid&#x27;])&quot;,<br>        &quot;  File \&quot;/usr/share/ceph/mgr/diskprediction<em>local/module.py\&quot;, line 205, in </em>predict<em>life</em>expectancy\n    predicted<em>result = obj</em>predictor.predict(predict_datas)&quot;,<br>        &quot;  File \&quot;/usr/share/ceph/mgr/diskprediction<em>local/predictor.py\&quot;, line 475, in predict\n    pred = clf.predict(ordered</em>data)&quot;,<br>        &quot;  File \&quot;/lib/python3/dist-packages/sklearn/svm/<em>base.py\&quot;, line 606, in predict\n    if self.break</em>ties and self.decision<em>function</em>shape == &#x27;ovo&#x27;:&quot;,<br>        &quot;&lt;redacted&gt;&quot;<br>    ],<br>    &quot;ceph_version&quot;: &quot;17.2.5&quot;,<br>    &quot;crash<em>id&quot;: &quot;2022-12-28T00:04:43.333080Z</em>1b1df8da-358b-4aa4-b220-b9df7b786167&quot;,<br>    &quot;entity_name&quot;: &quot;mgr.c6959fc214312681bf36158fa28b5f9f88cb79c6&quot;,<br>    &quot;mgr<em>module&quot;: &quot;diskprediction</em>local&quot;,<br>    &quot;mgr<em>module</em>caller&quot;: &quot;ActivePyModule::dispatch<em>remote predict</em>all_devices&quot;,<br>    &quot;mgr<em>python</em>exception&quot;: &quot;AttributeError&quot;,<br>    &quot;os_id&quot;: &quot;11&quot;,<br>    &quot;os_name&quot;: &quot;Debian GNU/Linux 11 (bullseye)&quot;,<br>    &quot;os_version&quot;: &quot;11 (bullseye)&quot;,<br>    &quot;os<em>version</em>id&quot;: &quot;11&quot;,<br>    &quot;process_name&quot;: &quot;ceph-mgr&quot;,<br>    &quot;stack_sig&quot;: &quot;49de89cebd6df4dc0c58118d7aac52d299cea223d6fb3503f3d1656ee72cff29&quot;,<br>    &quot;timestamp&quot;: &quot;2022-12-28T00:04:43.333080Z&quot;,<br>    &quot;utsname<em>machine&quot;: &quot;x86</em>64&quot;,<br>    &quot;utsname_release&quot;: &quot;5.15.83-1-pve&quot;,<br>    &quot;utsname_sysname&quot;: &quot;Linux&quot;,<br>    &quot;utsname_version&quot;: &quot;#1 SMP PVE 5.15.83-1 (2022-12-15T00:00Z)&quot;<br>}</code></pre></p>
+  </div>
+
+  <a class="external-link" href="https://tracker.ceph.com/issues/60129" target="_blank">
+    View on tracker.ceph.com &#8599;
+  </a>
+
+  <footer>Made with IBM Bob &mdash; generated 2026-09-22 21:13 UTC</footer>
+</div>
+</body>
+</html>

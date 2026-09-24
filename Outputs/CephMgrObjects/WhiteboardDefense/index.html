@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — Ceph src/mgr/ Objects</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #ffffff;
+  --surface: #f7f8fa;
+  --border: #e5e7eb;
+  --text: #1f2328;
+  --muted: #57606a;
+  --accent: #3b82d4;
+  --accent-dark: #1d4ed8;
+  --purple: #7c5cd8;
+}
+body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; font-size: 14px; line-height: 1.6; background: var(--bg); color: var(--text); }
+.container { max-width: 1140px; margin: 0 auto; padding: 40px 24px 80px; }
+
+header { margin-bottom: 28px; }
+.header-tag { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: var(--accent); background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; padding: 2px 8px; margin-bottom: 10px; }
+h1 { font-size: 26px; font-weight: 800; color: var(--text); margin-bottom: 6px; letter-spacing: -0.3px; }
+.subtitle { font-size: 14px; color: var(--muted); max-width: 820px; margin-bottom: 18px; }
+.quote { background: var(--surface); border-left: 3px solid var(--accent); border-radius: 4px; padding: 12px 16px; font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+.quote strong { color: var(--text); }
+.quote em { font-style: normal; color: var(--accent-dark); font-weight: 500; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 28px; }
+.search-wrap { position: relative; flex: 1; min-width: 240px; }
+.search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--muted); pointer-events: none; }
+.search { width: 100%; padding: 8px 12px 8px 32px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--surface); color: var(--text); }
+.search:focus { outline: none; border-color: var(--accent); background: #fff; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { padding: 5px 12px; border: 1px solid var(--border); border-radius: 20px; font-size: 12px; font-weight: 500; background: var(--surface); color: var(--muted); cursor: pointer; }
+.pill.active, .pill:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.section-header { display: flex; align-items: baseline; gap: 10px; margin: 32px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.section-header h2 { font-size: 15px; font-weight: 700; color: var(--text); }
+.badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; }
+.card { display: flex; flex-direction: column; justify-content: space-between; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
+.card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(59,130,212,0.10); }
+.card-top { margin-bottom: 10px; }
+.card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+.num { font-size: 11px; font-weight: 700; color: var(--muted); background: var(--border); border-radius: 4px; padding: 1px 6px; min-width: 28px; text-align: center; }
+.card-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.card-path { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; margin-bottom: 6px; }
+.card-desc { font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+.card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+.tag-daemon   { background: #dbeafe; color: #1e40af; }
+.tag-state    { background: #e0e7ff; color: #3730a3; }
+.tag-py       { background: #f3e8ff; color: #6b21a8; }
+.tag-metrics  { background: #dcfce7; color: #166534; }
+.tag-security { background: #fef3c7; color: #92400e; }
+.tag-core     { background: #fee2e2; color: #991b1b; }
+.tag-util     { background: #f0fdf4; color: #166534; }
+.open { font-size: 12px; font-weight: 600; color: var(--accent); }
+.card:hover .open { color: var(--accent-dark); text-decoration: underline; }
+
+.hidden { display: none; }
+
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <span class="header-tag">Ceph src/mgr/ · Whiteboard Defense</span>
+  <h1>Ceph Manager — Whiteboard Defense Index</h1>
+  <p class="subtitle">27 architectural deep-dives for every C++ class in the Ceph manager subsystem. Grounded in function-level intent analysis, git history, and adversarial threat modeling.</p>
+  <div class="quote">
+    <strong>The Standard:</strong> "Pull me aside at any moment and explain any system you've shipped. Why X instead of Y? What happens if this actor misbehaves? What data structure and why? Where does this fail?" — <em>Intent-grounded · Commit-cited · Threat-modeled · Failure-mapped</em>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="search-wrap">
+    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+    <input class="search" id="search" type="text" placeholder="Filter by class, layer, or topic…" oninput="filter()">
+  </div>
+  <div class="pills" id="pills">
+    <button class="pill active" onclick="setGroup('all',this)">All (27)</button>
+    <button class="pill" onclick="setGroup('daemon',this)">Daemon I/O</button>
+    <button class="pill" onclick="setGroup('state',this)">State &amp; Maps</button>
+    <button class="pill" onclick="setGroup('py',this)">Python Bridge</button>
+    <button class="pill" onclick="setGroup('metrics',this)">Metrics</button>
+    <button class="pill" onclick="setGroup('core',this)">Core Lifecycle</button>
+    <button class="pill" onclick="setGroup('security',this)">Security</button>
+    <button class="pill" onclick="setGroup('util',this)">Utilities</button>
+  </div>
+</div>
+
+<main id="main">
+
+<!-- DAEMON I/O -->
+<div class="section-header" data-section="daemon"><h2>Daemon Connection &amp; I/O</h2><span class="badge">3 Documents</span></div>
+<div class="grid">
+
+  <a class="card" href="DaemonServer/whiteboard-defense-daemon-server.html" data-group="daemon" data-kw="daemon server session capability enforcement perf counter ingestion mgroprequest dispatch lock">
+    <div class="card-top">
+      <div class="card-head"><span class="num">08</span><span class="card-title">DaemonServer</span></div>
+      <div class="card-path">src/mgr/DaemonServer.cc/.h</div>
+      <div class="card-desc">Message dispatch server for all Ceph daemon connections — session handling, cap enforcement, perf counter ingestion routing, and MgrOpRequest lifecycle.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-daemon">Daemon I/O · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="MgrClient/whiteboard-defense-mgr-client.html" data-group="daemon" data-kw="mgr client daemon connection report perf counter reconnect backoff session">
+    <div class="card-top">
+      <div class="card-head"><span class="num">14</span><span class="card-title">MgrClient</span></div>
+      <div class="card-path">src/mgr/MgrClient.cc/.h</div>
+      <div class="card-desc">Client-side counterpart used by all non-mgr daemons to connect, report perf counters, forward commands, and reconnect with backoff after active-mgr failover.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-daemon">Daemon I/O · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="MgrOpRequest/whiteboard-defense-mgr-op-request.html" data-group="daemon" data-kw="op request in-flight operation tracking lifecycle timestamp latency op-tracker dispatch">
+    <div class="card-top">
+      <div class="card-head"><span class="num">16</span><span class="card-title">MgrOpRequest</span></div>
+      <div class="card-path">src/mgr/MgrOpRequest.cc/.h</div>
+      <div class="card-desc">In-flight operation tracker for mgr command requests — lifecycle state machine, timestamp recording, latency profiling, and op-tracker registration.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-daemon">Daemon I/O · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+</div>
+
+<!-- STATE & MAPS -->
+<div class="section-header" data-section="state"><h2>State Registries &amp; Map Caches</h2><span class="badge">5 Documents</span></div>
+<div class="grid">
+
+  <a class="card" href="DaemonState/whiteboard-defense-daemon-state-registry.html" data-group="state" data-kw="daemon state registry map daemonkey eviction locking perf counters health metrics">
+    <div class="card-top">
+      <div class="card-head"><span class="num">09</span><span class="card-title">DaemonState</span></div>
+      <div class="card-path">src/mgr/DaemonState.cc/.h</div>
+      <div class="card-desc">Central registry of all connected daemons — <code>map&lt;DaemonKey, DaemonStatePtr&gt;</code> with insertion/eviction logic, per-entry mutex model, and Python-accessible query surface.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-state">State Registry · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="DaemonKey/whiteboard-defense-daemon-key.html" data-group="state" data-kw="daemon key composite hash comparison operator map key type string pair">
+    <div class="card-top">
+      <div class="card-head"><span class="num">06</span><span class="card-title">DaemonKey</span></div>
+      <div class="card-path">src/mgr/DaemonKey.cc/.h</div>
+      <div class="card-desc">Value type uniquely identifying a daemon instance — composite (type, id) key layout, comparison operators, hashing, and use as ordered/unordered map key throughout DaemonState.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-state">Value Type · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="ClusterState/whiteboard-defense-cluster-state-cache.html" data-group="state" data-kw="cluster state osdmap fsmap pgmap monmap rwlock cache update dispatch epoch python">
+    <div class="card-top">
+      <div class="card-head"><span class="num">03</span><span class="card-title">ClusterState</span></div>
+      <div class="card-path">src/mgr/ClusterState.cc/.h</div>
+      <div class="card-desc">Cached view of cluster-wide RADOS state (OSDMap, FSMap, PGMap, MonMap) with RWLock-protected epoch tracking and update dispatch to Python module callbacks.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-state">Map Cache · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="MgrMapCache/whiteboard-defense-mgr-map-cache.html" data-group="state" data-kw="mgr map cache epoch trim subscriber notification standby active role transition">
+    <div class="card-top">
+      <div class="card-head"><span class="num">15</span><span class="card-title">MgrMapCache</span></div>
+      <div class="card-path">src/mgr/MgrMapCache.cc/.h</div>
+      <div class="card-desc">Epoch-keyed MgrMap cache with trim policy, subscriber notification, and awareness of standby-to-active role transitions.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-state">Map Cache · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="ServiceMap/whiteboard-defense-service-map.html" data-group="state" data-kw="service map registration daemon epoch versioning mon persistence python module endpoint">
+    <div class="card-top">
+      <div class="card-head"><span class="num">25</span><span class="card-title">ServiceMap</span></div>
+      <div class="card-path">src/mgr/ServiceMap.cc/.h</div>
+      <div class="card-desc">Cluster-wide service registration map — daemon registration/deregistration, epoch-based versioning, mon persistence serialization, and Python module service endpoint registration.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-state">Map / Registry · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+</div>
+
+<!-- PYTHON BRIDGE -->
+<div class="section-header" data-section="py"><h2>Python Module Bridge</h2><span class="badge">8 Documents</span></div>
+<div class="grid">
+
+  <a class="card" href="ActivePyModule/whiteboard-defense-active-py-module.html" data-group="py" data-kw="active py module lifecycle command dispatch health check teardown rename mgrpymodule gil">
+    <div class="card-top">
+      <div class="card-head"><span class="num">01</span><span class="card-title">ActivePyModule</span></div>
+      <div class="card-path">src/mgr/ActivePyModule.cc/.h</div>
+      <div class="card-desc">Single live Python module plugin — init, command dispatch, health check integration, GIL discipline, and teardown. Renamed from MgrPyModule.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-py">Python Bridge · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="ActivePyModules/whiteboard-defense-active-py-modules-registry.html" data-group="py" data-kw="active py modules registry command routing health aggregation gil lifecycle gating map">
+    <div class="card-top">
+      <div class="card-head"><span class="num">02</span><span class="card-title">ActivePyModules</span></div>
+      <div class="card-path">src/mgr/ActivePyModules.cc/.h</div>
+      <div class="card-desc">Registry of all live Python module instances — cross-module command routing, health report aggregation, GIL coordination, and lifecycle gating.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-py">Python Bridge · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="PyModule/whiteboard-defense-py-module-descriptor.html" data-group="py" data-kw="py module descriptor metadata commands notify types error isolation active vs standby">
+    <div class="card-top">
+      <div class="card-head"><span class="num">22</span><span class="card-title">PyModule</span></div>
+      <div class="card-path">src/mgr/PyModule.cc/.h</div>
+      <div class="card-desc">Metadata and capability holder for a Python plugin — descriptor loading, COMMANDS/NOTIFY_TYPES introspection, and error isolation from the live ActivePyModule instance.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-py">Descriptor · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="PyModuleRegistry/whiteboard-defense-py-module-registry.html" data-group="py" data-kw="py module registry directory scan enable disable interpreter init standby active transition">
+    <div class="card-top">
+      <div class="card-head"><span class="num">23</span><span class="card-title">PyModuleRegistry</span></div>
+      <div class="card-path">src/mgr/PyModuleRegistry.cc/.h</div>
+      <div class="card-desc">Central registry loading and gating all Python module descriptors — directory scanning, enable/disable policy, standby-to-active module set transition, and interpreter init.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-py">Registry · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="PyModuleRunner/whiteboard-defense-py-module-runner.html" data-group="py" data-kw="py module runner thread serve loop exception isolation gil release stop join watchdog">
+    <div class="card-top">
+      <div class="card-head"><span class="num">24</span><span class="card-title">PyModuleRunner</span></div>
+      <div class="card-path">src/mgr/PyModuleRunner.cc/.h</div>
+      <div class="card-desc">Dedicated thread executing a module's serve() loop — exception isolation preventing crash propagation to mgr, GIL release discipline, and stop/join semantics.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-py">Thread Runner · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="StandbyPyModules/whiteboard-defense-standby-py-modules.html" data-group="py" data-kw="standby py modules reduced capability keep-alive health check promotion teardown hooks suppressed">
+    <div class="card-top">
+      <div class="card-head"><span class="num">26</span><span class="card-title">StandbyPyModules</span></div>
+      <div class="card-path">src/mgr/StandbyPyModules.cc/.h</div>
+      <div class="card-desc">Reduced-capability Python module set on a standby mgr — suppressed hooks, keep-alive health loop, and ordered teardown path on promotion to active.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-py">Standby Bridge · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="PyFormatter/whiteboard-defense-py-formatter.html" data-group="py" data-kw="py formatter ceph formatter interface python dict list recursive nesting type coercion gil pyobject stack">
+    <div class="card-top">
+      <div class="card-head"><span class="num">21</span><span class="card-title">PyFormatter</span></div>
+      <div class="card-path">src/mgr/PyFormatter.cc/.h</div>
+      <div class="card-desc">Bridges the Ceph Formatter interface to Python dict/list — recursive nesting via a PyObject* stack, type coercion, GIL interaction during construction, and depth-explosion risk.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-py">Formatter · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="Gil/whiteboard-defense-gil-raii-wrapper.html" data-group="py" data-kw="gil raii wrapper cpython global interpreter lock PyGILState ensure release save restore thread reentrant">
+    <div class="card-top">
+      <div class="card-head"><span class="num">10</span><span class="card-title">Gil</span></div>
+      <div class="card-path">src/mgr/Gil.cc/.h</div>
+      <div class="card-desc">RAII wrapper around CPython's GIL — acquire/release mechanics, PyGILState vs SaveThread semantics, re-entrancy guards, and correct use across multi-threaded Ceph C++ contexts.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-py">GIL / RAII · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+</div>
+
+<!-- METRICS -->
+<div class="section-header" data-section="metrics"><h2>Performance Metrics Collection</h2><span class="badge">5 Documents</span></div>
+<div class="grid">
+
+  <a class="card" href="DaemonPerfCounters/whiteboard-defense-daemon-perf-counters.html" data-group="metrics" data-kw="daemon perf counters schema ingestion counter gauge update semantics python query">
+    <div class="card-top">
+      <div class="card-head"><span class="num">07</span><span class="card-title">DaemonPerfCounters</span></div>
+      <div class="card-path">src/mgr/DaemonPerfCounters.cc/.h</div>
+      <div class="card-desc">Per-daemon decoded perf counter store — schema ingestion, counter vs gauge update semantics, and Python-accessible query interface.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-metrics">Perf Counters · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="PerfCounterInstance/whiteboard-defense-perf-counter-instance.html" data-group="metrics" data-kw="perf counter instance value type variants integer float histogram update reset retrieval">
+    <div class="card-top">
+      <div class="card-head"><span class="num">20</span><span class="card-title">PerfCounterInstance</span></div>
+      <div class="card-path">src/mgr/PerfCounterInstance.cc/.h</div>
+      <div class="card-desc">Per-counter storage unit — value type variants (integer, float, histogram), update vs reset semantics, histogram bucket invariants, and composition into DaemonPerfCounters.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-metrics">Perf Counters · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="MetricCollector/whiteboard-defense-metric-collector-base.html" data-group="metrics" data-kw="metric collector crtp base class subscription dispatch subscriber registry query lifecycle notification">
+    <div class="card-top">
+      <div class="card-head"><span class="num">12</span><span class="card-title">MetricCollector</span></div>
+      <div class="card-path">src/mgr/MetricCollector.cc/.h</div>
+      <div class="card-desc">CRTP base providing shared subscription and dispatch infrastructure for MDS and OSD metric collectors — query lifecycle, subscriber registry, and update notification.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-metrics">Base Template · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="MDSPerfMetricCollector/whiteboard-defense-mds-perf-metric-collector.html" data-group="metrics" data-kw="mds perf metric collector query subscription key encoding aggregation mds ranks python delivery">
+    <div class="card-top">
+      <div class="card-head"><span class="num">11</span><span class="card-title">MDSPerfMetricCollector</span></div>
+      <div class="card-path">src/mgr/MDSPerfMetricCollector.cc/.h</div>
+      <div class="card-desc">MDS-specific metric collection — query subscription model, metric key encoding, counter aggregation across MDS ranks, and Python consumer delivery.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-metrics">MDS Metrics · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="OSDPerfMetricCollector/whiteboard-defense-osd-perf-metric-collector.html" data-group="metrics" data-kw="osd perf metric collector query key per-osd aggregation report back messaging python">
+    <div class="card-top">
+      <div class="card-head"><span class="num">19</span><span class="card-title">OSDPerfMetricCollector</span></div>
+      <div class="card-path">src/mgr/OSDPerfMetricCollector.cc/.h</div>
+      <div class="card-desc">OSD-specific metric collection — query key schema, per-OSD counter aggregation, report-back messaging path, and Python consumer delivery.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-metrics">OSD Metrics · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+</div>
+
+<!-- CORE LIFECYCLE -->
+<div class="section-header" data-section="core"><h2>Core Manager Lifecycle</h2><span class="badge">4 Documents</span></div>
+<div class="grid">
+
+  <a class="card" href="Mgr/whiteboard-defense-mgr-top-level.html" data-group="core" data-kw="mgr top level active manager init daemonserver clusterstate activepymodules tick loop map update shutdown">
+    <div class="card-top">
+      <div class="card-head"><span class="num">18</span><span class="card-title">Mgr</span></div>
+      <div class="card-path">src/mgr/Mgr.cc/.h</div>
+      <div class="card-desc">Top-level active manager — bootstrap sequencing (DaemonServer → ClusterState → ActivePyModules), main tick loop, map update dispatch, command routing, and shutdown.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-core">Core · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="MgrStandby/whiteboard-defense-mgr-standby.html" data-group="core" data-kw="mgr standby hot-spare epoch watch activation standbypymodules takeover signal shutdown">
+    <div class="card-top">
+      <div class="card-head"><span class="num">17</span><span class="card-title">MgrStandby</span></div>
+      <div class="card-path">src/mgr/MgrStandby.cc/.h</div>
+      <div class="card-desc">Hot-spare standby daemon watching the active mgr epoch — activation/takeover transition, StandbyPyModules lifecycle, signal handling, and clean shutdown.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-core">Core · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="ThreadMonitor/whiteboard-defense-thread-hang-detector.html" data-group="core" data-kw="thread monitor watchdog hang detection heartbeat deadline escalation pymodulerunner assert abort">
+    <div class="card-top">
+      <div class="card-head"><span class="num">27</span><span class="card-title">ThreadMonitor</span></div>
+      <div class="card-path">src/mgr/ThreadMonitor.cc/.h</div>
+      <div class="card-desc">Watchdog detecting hung Python module threads — heartbeat registration, per-thread deadline tracking, and escalation policy (log → assert/abort) for PyModuleRunner threads.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-core">Watchdog · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="DaemonHealthMetricCollector/whiteboard-defense-daemon-health-metric-collector.html" data-group="core" data-kw="daemon health metric collector scrape aggregation buffering upstream health check flush">
+    <div class="card-top">
+      <div class="card-head"><span class="num">05</span><span class="card-title">DaemonHealthMetricCollector</span></div>
+      <div class="card-path">src/mgr/DaemonHealthMetricCollector.cc/.h</div>
+      <div class="card-desc">Scrapes and aggregates per-daemon health metrics, buffers reports, and flushes them upstream into the health check pipeline.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-core">Health · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+</div>
+
+<!-- SECURITY -->
+<div class="section-header" data-section="security"><h2>Security &amp; Authorization</h2><span class="badge">1 Document</span></div>
+<div class="grid">
+
+  <a class="card" href="MgrCap/whiteboard-defense-mgr-cap-authz.html" data-group="security" data-kw="mgr cap capability authorization parsing grant allow evaluation command allowlist adversarial">
+    <div class="card-top">
+      <div class="card-head"><span class="num">13</span><span class="card-title">MgrCap</span></div>
+      <div class="card-path">src/mgr/MgrCap.cc/.h</div>
+      <div class="card-desc">Capability authorization for the Ceph manager — cap string parsing, grant/allow evaluation logic, command allow-list matching, and threat analysis of malicious cap strings.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-security">AuthZ · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+</div>
+
+<!-- UTILITIES -->
+<div class="section-header" data-section="util"><h2>Utilities &amp; Value Types</h2><span class="badge">2 Documents</span></div>
+<div class="grid">
+
+  <a class="card" href="DaemonHealthMetric/whiteboard-defense-daemon-health-metric.html" data-group="util" data-kw="daemon health metric struct severity encoding serialization health check value type">
+    <div class="card-top">
+      <div class="card-head"><span class="num">04</span><span class="card-title">DaemonHealthMetric</span></div>
+      <div class="card-path">src/mgr/DaemonHealthMetric.cc/.h</div>
+      <div class="card-desc">Data model for per-daemon health metric records — struct layout, severity enum encoding, serialization path, and integration with the health check pipeline.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-util">Value Type · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+  <a class="card" href="DaemonPerfCounters/whiteboard-defense-daemon-perf-counters.html" data-group="util" data-kw="daemon perf counters instance schema counter gauge histogram storage">
+    <div class="card-top">
+      <div class="card-head"><span class="num">07</span><span class="card-title">DaemonPerfCounters</span></div>
+      <div class="card-path">src/mgr/DaemonPerfCounters.cc/.h</div>
+      <div class="card-desc">Per-daemon decoded perf counter collection — see also PerfCounterInstance for the individual value-type storage unit.</div>
+    </div>
+    <div class="card-foot"><span class="tag tag-util">Perf · C++</span><span class="open">Open Defense →</span></div>
+  </a>
+
+</div>
+
+</main>
+
+<footer>Made with IBM Bob</footer>
+</div>
+
+<script>
+function filter() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const active = document.querySelector('.pill.active').dataset.group || 'all';
+  document.querySelectorAll('.card').forEach(c => {
+    const kw = (c.dataset.kw + ' ' + c.querySelector('.card-title').textContent).toLowerCase();
+    const groupMatch = active === 'all' || c.dataset.group === active;
+    c.classList.toggle('hidden', !(kw.includes(q) && groupMatch));
+  });
+  updateSectionVisibility();
+}
+
+function setGroup(group, el) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  el.dataset.group = group;
+  document.querySelectorAll('.card').forEach(c => {
+    const q = document.getElementById('search').value.toLowerCase();
+    const kw = (c.dataset.kw + ' ' + c.querySelector('.card-title').textContent).toLowerCase();
+    const groupMatch = group === 'all' || c.dataset.group === group;
+    c.classList.toggle('hidden', !(kw.includes(q) && groupMatch));
+  });
+  updateSectionVisibility();
+}
+
+function updateSectionVisibility() {
+  document.querySelectorAll('.grid').forEach(grid => {
+    const visible = [...grid.querySelectorAll('.card')].some(c => !c.classList.contains('hidden'));
+    const header = grid.previousElementSibling;
+    grid.classList.toggle('hidden', !visible);
+    if (header && header.classList.contains('section-header')) header.classList.toggle('hidden', !visible);
+  });
+}
+</script>
+</body>
+</html>

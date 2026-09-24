@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — PyModule</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --orange: #e3853a;
+    --purple: #bc8cff;
+    --teal: #39d353;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.8rem; color: var(--accent); margin-bottom: 4px; }
+  h2 { font-size: 1.15rem; color: var(--accent); border-bottom: 1px solid var(--border);
+       padding-bottom: 6px; margin: 32px 0 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  h3 { font-size: 0.95rem; color: var(--orange); margin: 16px 0 6px; }
+  .meta { color: var(--muted); font-size: 0.82rem; margin-bottom: 28px; }
+  .meta span { margin-right: 20px; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 12px;
+    font-size: 0.72rem; font-weight: 600; margin-left: 6px; vertical-align: middle;
+  }
+  .badge-red    { background: rgba(248,81,73,0.2);  color: var(--red); }
+  .badge-yellow { background: rgba(210,153,34,0.2); color: var(--yellow); }
+  .badge-green  { background: rgba(63,185,80,0.2);  color: var(--green); }
+  .badge-blue   { background: rgba(88,166,255,0.2); color: var(--accent); }
+  .badge-purple { background: rgba(188,140,255,0.2);color: var(--purple); }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 0.84rem; }
+  th { background: var(--surface2); color: var(--muted); font-weight: 600;
+       text-align: left; padding: 8px 12px; border: 1px solid var(--border); }
+  td { padding: 7px 12px; border: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  tr:hover td { background: rgba(88,166,255,0.05); }
+
+  ul { padding-left: 20px; margin: 6px 0; }
+  li { margin-bottom: 3px; }
+  code { font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+         background: var(--surface2); padding: 1px 5px; border-radius: 4px;
+         font-size: 0.82rem; color: #79c0ff; }
+  pre { background: var(--surface2); border: 1px solid var(--border);
+        border-radius: 6px; padding: 14px 16px; overflow-x: auto;
+        font-size: 0.81rem; line-height: 1.5; color: #c9d1d9; margin: 10px 0; }
+  .sha { font-family: monospace; font-size: 0.78rem; color: var(--muted); }
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+  }
+  .flow-box {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    white-space: pre;
+    line-height: 1.7;
+    color: #c9d1d9;
+    overflow-x: auto;
+  }
+  .alert {
+    border-left: 3px solid var(--red);
+    background: rgba(248,81,73,0.08);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin: 10px 0;
+    font-size: 0.85rem;
+  }
+  .alert-yellow {
+    border-left-color: var(--yellow);
+    background: rgba(210,153,34,0.08);
+  }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 10px 0; }
+  .struct-block {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 12px 16px; font-size: 0.82rem;
+  }
+  .struct-block h4 { color: var(--teal); font-size: 0.82rem; margin-bottom: 8px; font-family: monospace; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════════ -->
+<h1>Whiteboard Defense — <code>PyModule</code></h1>
+<div class="meta">
+  <span>📁 <code>src/mgr/PyModule.cc</code> · <code>src/mgr/PyModule.h</code></span>
+  <span>📦 Ceph Manager Daemon</span>
+  <span>🔖 Corpus HEAD: <span class="sha">8681fa6ebac2</span> (2026-08-11)</span>
+  <span>📊 49 commits · 66 functions assessed</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 1 — ARCHITECTURE & MENTAL MODEL
+════════════════════════════════════════════════════════ -->
+<div class="section-card">
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+
+<h3>One-Line Contract</h3>
+<p><code>PyModule</code> is the <strong>plugin descriptor and lifecycle manager</strong> for a single Ceph Manager Python plugin. It loads the module into an interpreter context, interrogates its static metadata (commands, options, notify subscriptions), evaluates runnability, and exposes that metadata to the registry — without executing any plugin logic itself.</p>
+
+<h3>Two-Class System</h3>
+<div class="two-col">
+  <div class="struct-block">
+    <h4>PyModule</h4>
+    <ul>
+      <li>Owns the interpreter thread state (<code>SafeThreadState pMyThreadState</code>)</li>
+      <li>Holds <code>pClass</code>, <code>pStandbyClass</code>, <code>pPickleModule</code></li>
+      <li>Stores extracted metadata: <code>commands</code>, <code>options</code>, <code>notify_types</code></li>
+      <li>Tracks five boolean flags: <code>enabled</code>, <code>always_on</code>, <code>loaded</code>, <code>can_run</code>, <code>failed</code></li>
+      <li>Owns per-module perf counters (<code>PerfCounters* perfcounter</code>)</li>
+    </ul>
+  </div>
+  <div class="struct-block">
+    <h4>PyModuleConfig</h4>
+    <ul>
+      <li>Holds in-memory cache of module KV configuration (<code>std::map&lt;string,string&gt; config</code>)</li>
+      <li>Writes changes through to monitor via <code>MonClient</code></li>
+      <li>Updates local cache <em>only after</em> monitor confirms success</li>
+      <li>Protected by its own <code>ceph::mutex lock</code></li>
+    </ul>
+  </div>
+</div>
+
+<h3>Load Flow</h3>
+<div class="flow-box">  PyModuleRegistry::load_all()
+        │
+        ▼
+  PyModule::PyModule(name)          ← name frozen here, all flags false
+        │
+        ▼
+  PyModule::load(pMainThreadState)
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  1. Check mgr_subinterpreter_modules config                         │
+  │       ├─ name in list OR "*"  →  Py_NewInterpreter()  (subinterp)  │
+  │       └─ default             →  use main interpreter               │
+  │  2. Import pickle (needed for cross-interpreter serialization)      │
+  │  3. init_ceph_logger()  →  redirect sys.stdout / sys.stderr        │
+  │  4. init_ceph_module()  →  register BaseMgrModule C-extension      │
+  │  5. load_subclass_of("MgrModule", &pClass)                         │
+  │       └─ imports mgr_module base + plugin module                   │
+  │       └─ finds unique MgrModule subclass                           │
+  │  6. register_options(pClass)   → _register_options(module_name)    │
+  │  7. load_commands()            → COMMANDS list + _register_cmds    │
+  │  8. load_options()             → MODULE_OPTIONS list               │
+  │  9. load_notify_types()        → NOTIFY_TYPES list (optional)      │
+  │  10. load_subclass_of("MgrStandbyModule", &pStandbyClass)  (opt)   │
+  │  11. call can_run() → (bool, str)  →  set can_run flag             │
+  └─────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+  loaded = true  (descriptor ready for registry queries)
+        │
+        ▼
+  PyModuleRegistry exposes commands / options to active modules &amp; mon
+        │
+        ▼
+  ~PyModule()
+  ┌────────────────────────────────────────────────────────────────────┐
+  │  Decref pClass, pStandbyClass, pPickleModule  (GIL held)           │
+  │  If subinterpreter:  Py_EndInterpreter(pMyThreadState.ts)          │
+  │  ⚠ DIVERGED: condition is currently inverted (see §5)              │
+  └────────────────────────────────────────────────────────────────────┘</div>
+
+<h3>Interpreter Strategy (introduced <span class="sha">239b0dc8a9c4</span>)</h3>
+<table>
+  <tr><th>Mode</th><th>When</th><th>Thread State</th><th>Isolation</th></tr>
+  <tr><td><strong>Main interpreter</strong> (default)</td><td>Module name not in <code>mgr_subinterpreter_modules</code></td><td>Shared main <code>PyThreadState</code></td><td>No object isolation between modules</td></tr>
+  <tr><td><strong>Subinterpreter</strong></td><td>Name listed, or <code>*</code> wildcard configured</td><td>Own <code>Py_NewInterpreter()</code> thread state</td><td>Separate module namespace; requires pickle serialization for cross-module calls (<span class="sha">f69069e114ea</span>)</td></tr>
+</table>
+
+<h3>Logging Subsystem Redirect</h3>
+<ul>
+  <li><code>init_ceph_logger()</code>: binds <code>sys.stdout</code> / <code>sys.stderr</code> to <code>ceph_logger</code> C module → <code>log_write()</code> → <code>dout(4)</code></li>
+  <li><code>ceph_mgr_log()</code>: module-independent root-logger sink; forwards at the record's own dynamic level (<span class="sha">e61de15ddb85</span>)</li>
+</ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 2 — ARCHITECTURAL DECISIONS
+════════════════════════════════════════════════════════ -->
+<div class="section-card">
+<h2>2 · Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <tr>
+    <th style="width:22%">Decision</th>
+    <th style="width:26%">Chose X…</th>
+    <th style="width:26%">…instead of Y</th>
+    <th style="width:26%">Why / Evidence</th>
+  </tr>
+  <tr>
+    <td><strong>Load-all, activate-subset</strong></td>
+    <td>All modules loaded at startup into descriptors</td>
+    <td>Only loading active modules</td>
+    <td>Enables command/option discovery before activation; allows <code>can_run()</code> gating. Introduced <span class="sha">6a8da7ca7347</span>.</td>
+  </tr>
+  <tr>
+    <td><strong>Main interpreter default</strong></td>
+    <td>Modules share the main CPython interpreter by default</td>
+    <td>Subinterpreter-per-module by default</td>
+    <td>Avoids pickle serialization overhead on every inter-module call. Subinterpreters opted-in via <code>mgr_subinterpreter_modules</code>. <span class="sha">239b0dc8a9c4</span>.</td>
+  </tr>
+  <tr>
+    <td><strong>Pickle for cross-interpreter objects</strong></td>
+    <td><code>pickle</code> serialize/deserialize for subinterpreter remote calls</td>
+    <td>Shared Python object pointers</td>
+    <td>Python subinterpreters cannot share PyObject* across boundaries. Pickle is the only safe crossing mechanism. <span class="sha">f69069e114ea</span>.</td>
+  </tr>
+  <tr>
+    <td><strong>Static metadata extraction at load time</strong></td>
+    <td><code>COMMANDS</code>, <code>MODULE_OPTIONS</code>, <code>NOTIFY_TYPES</code> read once at load</td>
+    <td>Queried dynamically at runtime</td>
+    <td>Keeps commands available even if module fails at runtime; allows monitor to know options before module runs.</td>
+  </tr>
+  <tr>
+    <td><strong>Monitor-first config writes</strong></td>
+    <td>Write to monitor, then update local cache on success only</td>
+    <td>Write local cache, then persist to monitor</td>
+    <td>Prevents cache/monitor divergence on failure. <span class="sha">0520ff571cfb</span> fixed a prior bug where cache was updated before confirming monitor success.</td>
+  </tr>
+  <tr>
+    <td><strong><code>can_run()</code> evaluation</strong></td>
+    <td>Module self-reports capability as <code>(bool, str)</code> tuple</td>
+    <td>Always attempting to run every loaded module</td>
+    <td>Modules lacking required deps (e.g. no <code>influxdb</code>) self-report early; prevents silent failures. <span class="sha">712ad57d09a2</span>.</td>
+  </tr>
+  <tr>
+    <td><strong><code>always_on</code> flag</strong></td>
+    <td>Monitor can force modules always-on regardless of user enable/disable</td>
+    <td>Pure user-controlled enable/disable</td>
+    <td>Needed for safety-critical modules (e.g. <code>crash</code>). <code>is_enabled()</code> returns <code>enabled || always_on</code>. <span class="sha">cf292dfa8f92</span>, <span class="sha">18f253aa3f1b</span>.</td>
+  </tr>
+  <tr>
+    <td><strong><code>get_error_string()</code> by value</strong></td>
+    <td>Returns <code>std::string</code> copy</td>
+    <td>Returns <code>const std::string&amp;</code></td>
+    <td>Avoids data race: caller may hold reference after lock is released. <span class="sha">92aa60e99960</span> fixed a thread-safety bug.</td>
+  </tr>
+  <tr>
+    <td><strong>No lock in <code>get_name()</code></strong></td>
+    <td>Direct return of <code>module_name</code></td>
+    <td>Lock-guarded read</td>
+    <td><code>module_name</code> is <code>const</code>-initialized and never mutated. Lock was unnecessary overhead. <span class="sha">2cdb67c2fe1c</span>.</td>
+  </tr>
+  <tr>
+    <td><strong><code>PyType_Ready</code> failure → <code>ceph_abort()</code></strong></td>
+    <td>Hard abort if built-in type initialization fails</td>
+    <td>Return error code</td>
+    <td>If <code>BaseMgrModuleType</code> can't be initialized, the entire manager is broken — no partial operation makes sense. <span class="sha">eb59c69674eb</span>.</td>
+  </tr>
+  <tr>
+    <td><strong>NOTIFY_TYPES optional</strong></td>
+    <td>Missing <code>NOTIFY_TYPES</code> silently treated as subscribe-to-nothing</td>
+    <td>Treat missing attribute as error</td>
+    <td>Backward compatibility: older modules without <code>NOTIFY_TYPES</code> must still load. <span class="sha">4589c4d8ac52</span>; bug fix in <span class="sha">18cb6bf5ad94</span> to clear dangling <code>AttributeError</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>walk_dict_list abstraction</strong></td>
+    <td>Single generic list-of-dicts walker with callback</td>
+    <td>Separate parse loops per attribute</td>
+    <td>Reused for <code>COMMANDS</code>, <code>MODULE_OPTIONS</code>, enum/tag/see_also lists. Introduced <span class="sha">6c8fba975831</span>.</td>
+  </tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 3 — DATA STRUCTURES, ALGORITHMS & INVARIANTS
+════════════════════════════════════════════════════════ -->
+<div class="section-card">
+<h2>3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Key Data Members (PyModule)</h3>
+<table>
+  <tr><th>Member</th><th>Type</th><th>Invariant</th></tr>
+  <tr><td><code>module_name</code></td><td><code>const std::string</code></td><td>Set in constructor, never mutated. Lock-free reads are safe.</td></tr>
+  <tr><td><code>pMyThreadState</code></td><td><code>SafeThreadState</code></td><td>Main interpreter: shared borrowed state. Subinterpreter: owned via <code>Py_NewInterpreter()</code>, freed in destructor with <code>Py_EndInterpreter()</code>.</td></tr>
+  <tr><td><code>pClass</code></td><td><code>PyObject*</code></td><td>Owned ref. Set during <code>load()</code>. Decref'd under GIL in destructor.</td></tr>
+  <tr><td><code>pStandbyClass</code></td><td><code>PyObject*</code></td><td>Optional. Same lifetime contract as <code>pClass</code>.</td></tr>
+  <tr><td><code>pPickleModule</code></td><td><code>PyObject*</code></td><td>Imported once at load. Required when subinterpreter mode active. Decref'd in destructor.</td></tr>
+  <tr><td><code>commands</code></td><td><code>std::vector&lt;ModuleCommand&gt;</code></td><td>Immutable after <code>load()</code>. Accessed under <code>lock</code>.</td></tr>
+  <tr><td><code>options</code></td><td><code>std::map&lt;string, MgrMap::ModuleOption&gt;</code></td><td>Immutable after <code>load()</code>. <code>get_typed_option_value()</code> explicitly documents no lock needed post-startup.</td></tr>
+  <tr><td><code>notify_types</code></td><td><code>std::set&lt;std::string&gt;</code></td><td>Immutable after <code>load()</code>. <code>should_notify()</code> is lock-free.</td></tr>
+  <tr><td><code>failed</code>, <code>error_string</code></td><td><code>bool</code>, <code>std::string</code></td><td>Writable at runtime via <code>fail()</code>. All reads/writes under <code>lock</code>.</td></tr>
+  <tr><td><code>enabled</code>, <code>always_on</code></td><td><code>bool</code></td><td>Written without lock (<code>set_enabled()</code>, <code>set_always_on()</code>). Read under lock. Callers in <code>PyModuleRegistry</code> hold external synchronization.</td></tr>
+  <tr><td><code>perfcounter</code></td><td><code>PerfCounters*</code></td><td>Built once via <code>perf_counter_build()</code>. Asserts null pre-call. Registers: <code>notify_avg_usec</code>, <code>cmd_avg_usec</code>, <code>alive</code>, <code>cpu_usage</code>, <code>mem_rss_change</code>, <code>mem_rss_current</code>, <code>serve_cpu_usage</code>.</td></tr>
+</table>
+
+<h3>Key Data Members (PyModuleConfig)</h3>
+<table>
+  <tr><th>Member</th><th>Type</th><th>Invariant</th></tr>
+  <tr><td><code>config</code></td><td><code>std::map&lt;string,string&gt;</code></td><td>In-memory cache of <code>mgr/&lt;module&gt;/&lt;key&gt;</code> values. Updated only after monitor success.</td></tr>
+  <tr><td><code>lock</code></td><td><code>ceph::mutex</code></td><td>Protects <code>config</code> map. Copy constructor does NOT lock source; caller must ensure exclusivity.</td></tr>
+</table>
+
+<h3>Algorithms</h3>
+
+<h4>walk_dict_list (<span class="sha">6c8fba975831</span>)</h4>
+<ul>
+  <li>Linear scan of a <code>PyList</code> attribute on <code>pClass</code></li>
+  <li>Type-checks each element as <code>PyDict</code></li>
+  <li>Invokes callback; short-circuits on first non-zero return</li>
+  <li>Guaranteed <code>Py_DECREF(command_list)</code> on all paths</li>
+</ul>
+
+<h4>load_subclass_of</h4>
+<ul>
+  <li>Imports <code>mgr_module</code> → extracts base class by attribute name</li>
+  <li>Imports plugin module by <code>module_name</code></li>
+  <li>Iterates module <code>__dict__</code> values, filtering: <code>PyType_Check</code> AND <code>PyObject_IsSubclass</code> AND not identical to base</li>
+  <li>Keeps first match; logs error if multiple found</li>
+  <li>Memory fix: <span class="sha">c1614fe7b893</span> decref'd <code>mgr_module_type</code> on all paths</li>
+</ul>
+
+<h4>py_bytes_{as,from}_{span,vec} (<span class="sha">f69069e114ea</span>)</h4>
+<ul>
+  <li>Zero-copy span view (<code>py_bytes_as_span</code>) vs. owning vector copy (<code>py_bytes_as_vec</code>)</li>
+  <li>Used to marshal pickle-serialized objects across subinterpreter boundaries</li>
+</ul>
+
+<h3>Module State Machine</h3>
+<div class="flow-box">  UNLOADED
+    │  load() called
+    ├── error in subclass/cmds/opts → loaded=false, error_string set
+    └── success → loaded=true
+                     │
+                     ├── can_run()=false → can_run=false (module won't be activated)
+                     └── can_run()=true  → can_run=true
+                                              │
+                                              ├── set_enabled(true) / always_on → enabled
+                                              └── fail(reason) called → failed=true</div>
+
+<h3>Config Key Format</h3>
+<pre>global_key = "mgr/" + module_name + "/" + key    ← e.g. "mgr/dashboard/ssl_port"</pre>
+<p>Persisted via: <code>{"prefix": "config set/rm", "who": "mgr", "name": global_key}</code></p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 4 — THREAT MODEL
+════════════════════════════════════════════════════════ -->
+<div class="section-card">
+<h2>4 · Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <tr>
+    <th style="width:22%">Actor / Scenario</th>
+    <th style="width:30%">Attack Vector</th>
+    <th style="width:28%">Mitigation</th>
+    <th style="width:20%">Residual Risk</th>
+  </tr>
+  <tr>
+    <td><strong>Malicious plugin module</strong></td>
+    <td>Python plugin raises arbitrary exception during <code>load()</code>, <code>can_run()</code>, <code>COMMANDS</code> inspection</td>
+    <td><code>handle_pyerror()</code> catches and formats all Python exceptions. Failure sets <code>error_string</code> + returns error code. Module descriptor survives with <code>loaded=false</code>.</td>
+    <td>No crash isolation — an exception during <code>load()</code> can corrupt interpreter state if not normalized. <code>PyErr_NormalizeException</code> added in <span class="sha">dee598087a37</span> mitigates unnormalized exceptions.</td>
+  </tr>
+  <tr>
+    <td><strong>Plugin with infinite loop in module body</strong></td>
+    <td>Top-level module code blocks during <code>PyImport_ImportModule()</code></td>
+    <td>None — <code>load()</code> holds the GIL and will block indefinitely. Switched from <code>PyImport_ImportModuleNoBlock</code> to <code>PyImport_ImportModule</code> (<span class="sha">a89074c6bee9</span>) as former was deprecated with no safety guarantee.</td>
+    <td><strong>HIGH.</strong> A hung plugin blocks the entire manager load path.</td>
+  </tr>
+  <tr>
+    <td><strong>Plugin with malformed COMMANDS list</strong></td>
+    <td>Non-list, non-dict, or missing <code>cmd</code>/<code>perm</code> keys in <code>COMMANDS</code></td>
+    <td><code>walk_dict_list</code> validates list type and dict type per element; returns <code>-EINVAL</code> on type mismatch, causing <code>load()</code> to fail and module to stay unloaded.</td>
+    <td>Missing individual keys within a valid dict are not validated — they return empty string silently.</td>
+  </tr>
+  <tr>
+    <td><strong>Plugin with multiple MgrModule subclasses</strong></td>
+    <td>Ambiguous class resolution in <code>load_subclass_of</code></td>
+    <td>Logs an error, keeps only the first encountered subclass. Does not abort.</td>
+    <td>Wrong class may be selected — behavior undefined by plugin author intent.</td>
+  </tr>
+  <tr>
+    <td><strong>Cross-subinterpreter object leak</strong></td>
+    <td>PyObject* from one subinterpreter referenced in another</td>
+    <td>All cross-interpreter data serialized via pickle to <code>std::vector&lt;std::byte&gt;</code> and re-deserialized. Span/vec conversion utilities enforce this path. Introduced <span class="sha">f69069e114ea</span>.</td>
+    <td>Depends on plugins calling <code>dispatch_remote</code> correctly; not enforced in plugin Python code.</td>
+  </tr>
+  <tr>
+    <td><strong>Config injection via monitor</strong></td>
+    <td>Attacker modifies monitor config store for <code>mgr/&lt;module&gt;/&lt;key&gt;</code></td>
+    <td>Config values come from monitor — trust boundary is at the monitor, not here. PyModule trusts the monitor unconditionally.</td>
+    <td>No validation of config values — a malicious monitor can inject arbitrary strings to module config.</td>
+  </tr>
+  <tr>
+    <td><strong>Race on <code>fail()</code> vs <code>is_failed()</code></strong></td>
+    <td>Concurrent read/write of <code>failed</code> and <code>error_string</code></td>
+    <td>Both paths acquire <code>std::lock_guard l(lock)</code>. Thread-safe.</td>
+    <td>None.</td>
+  </tr>
+  <tr>
+    <td><strong>Race on <code>set_enabled()</code></strong></td>
+    <td>Concurrent write to <code>enabled</code> without lock</td>
+    <td>Callers in <code>PyModuleRegistry</code> use external synchronization. Documented as UNGROUNDED — design relies on callers.</td>
+    <td>Medium: if external synchronization breaks, <code>enabled</code> write races with <code>is_enabled()</code> lock-guarded read.</td>
+  </tr>
+  <tr>
+    <td><strong>NotImplementedError crash dumps</strong></td>
+    <td>Remote dispatch raises <code>NotImplementedError</code> (expected in standby mode)</td>
+    <td><code>handle_pyerror(crash_dump=false)</code> skips crash dump generation for this case. Added <span class="sha">18c4e08ccddd</span>.</td>
+    <td>None.</td>
+  </tr>
+</table>
+
+<h3>Python GIL Protocol</h3>
+<ul>
+  <li>All Python object operations require GIL. <code>PyModule::~PyModule()</code> acquires it via <code>SafeThreadState</code> before decref'ing <code>pClass</code>, <code>pStandbyClass</code>, <code>pPickleModule</code>.</li>
+  <li><code>get_typed_option_value()</code> documented as requiring GIL on entry — enforced by contract (<span class="sha">c4e2965a4b83</span>), not by code assertion.</li>
+  <li><code>init_ceph_module()</code>: <code>PyType_Ready</code> failures abort the process — no partial type state can be recovered.</li>
+</ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 5 — FAILURE MODES & BLAST RADIUS
+════════════════════════════════════════════════════════ -->
+<div class="section-card">
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<div class="alert">
+  <strong>⚠ CONFIRMED BUG (DIVERGED) — <code>~PyModule()</code> destructor</strong><br>
+  Line <code>PyModule.cc:816</code>: <code>if (use_main_interpreter) { Py_EndInterpreter(pMyThreadState.ts); }</code><br>
+  <strong>Intent</strong> (from <span class="sha">239b0dc8a9c4</span>): call <code>Py_EndInterpreter</code> only for <em>subinterpreters</em> (<code>if (!use_main_interpreter)</code>).<br>
+  <strong>Actual behavior</strong>: calls <code>Py_EndInterpreter</code> on the <em>main</em> interpreter thread state — which terminates the shared interpreter, crashing the process — while leaking memory for subinterpreter thread states.<br>
+  <strong>Blast radius</strong>: Process crash on destruction of any main-interpreter module. Memory leak on destruction of subinterpreter modules.
+</div>
+
+<div class="alert alert-yellow">
+  <strong>⚠ UNGROUNDED — <code>PyModuleConfig</code> copy constructor</strong><br>
+  <code>PyModuleConfig(PyModuleConfig&amp;)</code> at line 237 copies <code>mconfig.config</code> without locking <code>mconfig.lock</code>.<br>
+  Relies on caller ensuring exclusive access before copy. No assertion enforces this.
+</div>
+
+<table>
+  <tr>
+    <th style="width:22%">Failure Mode</th>
+    <th style="width:28%">Trigger</th>
+    <th style="width:24%">Behavior</th>
+    <th style="width:26%">Blast Radius</th>
+  </tr>
+  <tr>
+    <td><strong>Py_NewInterpreter() fails</strong></td>
+    <td>Memory exhaustion or Python internal error</td>
+    <td><code>load()</code> returns <code>-EINVAL</code></td>
+    <td>That module only — others unaffected</td>
+  </tr>
+  <tr>
+    <td><strong>pickle import fails</strong></td>
+    <td>Corrupted Python stdlib</td>
+    <td><code>load()</code> returns <code>-EINVAL</code></td>
+    <td>That module only; all subinterpreter modules affected if stdlib corrupted</td>
+  </tr>
+  <tr>
+    <td><strong>MgrModule subclass not found</strong></td>
+    <td>Plugin missing class, wrong base, import error</td>
+    <td>Returns <code>-EINVAL</code> or <code>-ENOENT</code>; <code>error_string</code> set from Python traceback</td>
+    <td>That module only; registry logs and skips it</td>
+  </tr>
+  <tr>
+    <td><strong>COMMANDS/OPTIONS malformed</strong></td>
+    <td>Type mismatch in <code>walk_dict_list</code></td>
+    <td>Returns <code>-EINVAL</code>; <code>loaded</code> stays <code>false</code></td>
+    <td>Commands/options unavailable for that module</td>
+  </tr>
+  <tr>
+    <td><strong>can_run() returns false</strong></td>
+    <td>Missing Python dependency, wrong platform</td>
+    <td><code>can_run=false</code>, explanation stored; module not activated</td>
+    <td>Module silently inactive; no error — just advisory</td>
+  </tr>
+  <tr>
+    <td><strong>handle_pyerror() traceback formatter raises</strong></td>
+    <td>Python traceback module itself broken</td>
+    <td>Falls back to <code>peek_pyerror()</code> single-line representation (<span class="sha">072699d863e5</span>)</td>
+    <td>Degraded error messages; exception still captured</td>
+  </tr>
+  <tr>
+    <td><strong>AttributeError not cleared on missing NOTIFY_TYPES</strong></td>
+    <td>Plugin without <code>NOTIFY_TYPES</code> attribute</td>
+    <td>Fixed in <span class="sha">18cb6bf5ad94</span>: <code>PyErr_Clear()</code> called; returns 0</td>
+    <td>Pre-fix: pending exception could corrupt subsequent Python calls</td>
+  </tr>
+  <tr>
+    <td><strong>Monitor rejects config write</strong></td>
+    <td>Auth failure, mons unavailable, quorum loss</td>
+    <td><code>set_config()</code> returns <code>{r, outs}</code>; local cache NOT updated</td>
+    <td>Config change fails atomically; no cache drift</td>
+  </tr>
+  <tr>
+    <td><strong>Multiple MgrModule subclasses in one file</strong></td>
+    <td>Author exports multiple classes</td>
+    <td>Error logged; first class wins (arbitrary dict iteration order)</td>
+    <td>Unpredictable class loaded; silent correctness failure</td>
+  </tr>
+  <tr>
+    <td><strong>perf_counter_build() called twice</strong></td>
+    <td>Registry bug calling build twice</td>
+    <td><code>ceph_assert(perfcounter == nullptr)</code> aborts</td>
+    <td>Process crash — assert catch</td>
+  </tr>
+  <tr>
+    <td><strong>Main interpreter module destruction (DIVERGED BUG)</strong></td>
+    <td>Any module running in main interpreter destroyed</td>
+    <td><code>Py_EndInterpreter</code> called on main thread state — terminates shared interpreter</td>
+    <td><strong>Process crash</strong> — all other modules lose interpreter</td>
+  </tr>
+</table>
+
+<h3>Bottlenecks</h3>
+<ul>
+  <li><strong>GIL contention at load time:</strong> <code>load()</code> holds the GIL through all Python import and inspection calls. With many modules, load is serialized.</li>
+  <li><strong>Monitor round-trip on config write:</strong> <code>set_config()</code> blocks waiting for monitor confirmation — synchronous on the calling thread.</li>
+  <li><strong>Pickle serialization overhead:</strong> Every cross-subinterpreter remote call serializes/deserializes through pickle — linear in object graph size.</li>
+</ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 6 — OBSERVABILITY & TRIAGE PLAYBOOK
+════════════════════════════════════════════════════════ -->
+<div class="section-card">
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<h3>Performance Counters (per-module, <span class="sha">95a90f7da8a3</span>)</h3>
+<table>
+  <tr><th>Counter</th><th>What It Measures</th></tr>
+  <tr><td><code>mgr_module_&lt;name&gt;/notify_avg_usec</code></td><td>Average time to dispatch a notify event to this module</td></tr>
+  <tr><td><code>mgr_module_&lt;name&gt;/cmd_avg_usec</code></td><td>Average CLI command execution latency for this module</td></tr>
+  <tr><td><code>mgr_module_&lt;name&gt;/alive</code></td><td>Whether the module is currently running</td></tr>
+  <tr><td><code>mgr_module_&lt;name&gt;/cpu_usage</code></td><td>CPU usage for the module thread</td></tr>
+  <tr><td><code>mgr_module_&lt;name&gt;/mem_rss_change</code></td><td>Delta RSS memory since last sample</td></tr>
+  <tr><td><code>mgr_module_&lt;name&gt;/mem_rss_current</code></td><td>Current RSS memory for this module</td></tr>
+  <tr><td><code>mgr_module_&lt;name&gt;/serve_cpu_usage</code></td><td>CPU in <code>serve()</code> loop</td></tr>
+</table>
+
+<h3>Log Signals</h3>
+<table>
+  <tr><th>Signal</th><th>Meaning</th><th>Action</th></tr>
+  <tr>
+    <td><code>error_string</code> non-empty after <code>load()</code></td>
+    <td>Python import/inspection failure with full traceback</td>
+    <td>Check <code>ceph mgr module ls</code>; read <code>error_string</code> via <code>get_error_string()</code>; inspect plugin Python source for import errors.</td>
+  </tr>
+  <tr>
+    <td><code>can_run=false</code></td>
+    <td>Module self-reported as non-runnable</td>
+    <td>Read explanation string from <code>can_run()</code> tuple; usually a missing Python package or OS feature.</td>
+  </tr>
+  <tr>
+    <td><code>failed=true</code> after activation</td>
+    <td>Runtime failure during module execution</td>
+    <td>Check <code>ceph mgr module ls</code>; look for crash dump in <code>crash ls</code>.</td>
+  </tr>
+  <tr>
+    <td><code>dout(0)</code> from <code>ceph_mgr_log</code></td>
+    <td>Root logger fallback firing — module logging misconfigured</td>
+    <td>Check module's Python logger configuration; ensure it uses <code>self.log</code> not root logger.</td>
+  </tr>
+  <tr>
+    <td>Multiple subclass warning in <code>load_subclass_of</code></td>
+    <td>Plugin file exports more than one <code>MgrModule</code> subclass</td>
+    <td>Fix plugin — keep exactly one exported <code>MgrModule</code> subclass per file.</td>
+  </tr>
+  <tr>
+    <td>Crash dump generated by <code>handle_pyerror</code></td>
+    <td>Python exception with <code>crash_dump=true</code> flag raised during command/notify</td>
+    <td>Check <code>ceph crash ls</code>; crash dump includes traceback, module, and Ceph version metadata.</td>
+  </tr>
+</table>
+
+<h3>Quick Triage Checklist</h3>
+<pre>1. Is module loaded?          ceph mgr module ls  →  check 'available' / 'enabled' columns
+2. Why won't it run?          module.get_error_string()  or  can_run() explanation string
+3. Is it a Python dep issue?  Check can_run=false reason; install missing pip package
+4. Is it always-on forced?    is_always_on()=true → cannot be disabled by user
+5. Subinterpreter mode?       ceph config get mgr mgr_subinterpreter_modules
+6. Config not persisting?     Check monitor status; set_config() returns error pair on failure
+7. Crash dumps?               ceph crash ls ; ceph crash info &lt;id&gt;
+8. Performance issue?         ceph daemon mgr.X perf dump | jq '.["mgr_module_&lt;name&gt;"]'</pre>
+
+<h3>Key Commit Reference</h3>
+<table>
+  <tr><th>SHA (short)</th><th>What changed</th><th>Why it matters for triage</th></tr>
+  <tr><td><span class="sha">239b0dc8a9c4</span></td><td>Added <code>mgr_subinterpreter_modules</code> config</td><td>Root cause of destructor DIVERGED bug</td></tr>
+  <tr><td><span class="sha">18cb6bf5ad94</span></td><td>Clear <code>AttributeError</code> on missing <code>NOTIFY_TYPES</code></td><td>Pre-fix: silent exception corruption across modules</td></tr>
+  <tr><td><span class="sha">0520ff571cfb</span></td><td>Fix: update config cache only after monitor success</td><td>Prior versions had cache/monitor divergence on failure</td></tr>
+  <tr><td><span class="sha">92aa60e99960</span></td><td><code>get_error_string()</code> returns copy</td><td>Prior: data race reading error string under lock</td></tr>
+  <tr><td><span class="sha">719d5e1836c9</span></td><td>Crash dump generation in <code>handle_pyerror</code></td><td>Python exceptions now produce <code>crash ls</code> entries</td></tr>
+  <tr><td><span class="sha">f69069e114ea</span></td><td>Pickle serialization for cross-subinterpreter remote</td><td>Required when <code>mgr_subinterpreter_modules</code> enabled</td></tr>
+  <tr><td><span class="sha">c1614fe7b893</span></td><td>Fix memory leak in <code>load_subclass_of</code></td><td>Pre-fix: <code>mgr_module_type</code> leaked on plugin import failure</td></tr>
+  <tr><td><span class="sha">3366ef5153f3</span></td><td>Fix memory leak: <code>Py_EndInterpreter</code> in destructor</td><td>Now DIVERGED — condition inverted</td></tr>
+</table>
+</div>
+
+<p style="color:var(--muted);font-size:0.75rem;text-align:center;margin-top:24px;">
+  Generated from corpus HEAD <span class="sha">8681fa6ebac2</span> · Intent assessment date 2026-09-11 · 49 commits · 66 functions
+</p>
+
+</body>
+</html>

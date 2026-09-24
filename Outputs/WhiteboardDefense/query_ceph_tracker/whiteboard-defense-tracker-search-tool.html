@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense: Ceph Tracker Search Tool (query_ceph_tracker.py)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-main:    #f7f8fa;
+    --bg-card:    #ffffff;
+    --border:     #e5e7eb;
+    --accent:     #3b82d4;
+    --text-main:  #1f2328;
+    --text-muted: #57606a;
+    --code-bg:    #f0f1f3;
+    --danger:     #991b1b;
+    --warn-bg:    #fef9c3;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px; line-height: 1.6;
+    background: var(--bg-main); color: var(--text-main);
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
+  header { border-bottom: 2px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; }
+  h1 { font-size: 22px; font-weight: 700; color: var(--text-main); margin-bottom: 6px; }
+  .meta-bar { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--text-muted); }
+  .meta-bar strong { color: var(--text-main); }
+  h2 {
+    font-size: 16px; font-weight: 700; margin: 28px 0 12px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px;
+  }
+  h3 { font-size: 14px; font-weight: 600; margin: 18px 0 8px; color: var(--text-main); }
+  p, ul, ol { margin-bottom: 12px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  code {
+    background: var(--code-bg); padding: 2px 5px; border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12.5px; word-break: break-word;
+  }
+  pre {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px 16px; overflow-x: auto; font-size: 13px; margin-bottom: 16px; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; font-size: 12.5px; }
+  table {
+    width: 100%; border-collapse: collapse; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 6px; margin-bottom: 20px; font-size: 13px;
+  }
+  th, td { padding: 10px 14px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { background: #f1f3f5; font-weight: 600; color: var(--text-main); }
+  td strong { color: var(--text-main); }
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+    padding: 16px 18px; margin-bottom: 16px;
+  }
+  .diagram {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+    padding: 14px; margin: 12px 0 16px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12.5px; line-height: 1.5; white-space: pre; overflow-x: auto;
+  }
+  .stat { display: inline-block; font-size: 12px; color: var(--text-muted); margin-right: 16px; }
+  .stat strong { color: var(--text-main); }
+  .tag {
+    display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px;
+    border-radius: 4px; white-space: nowrap;
+  }
+  .tag-read { background: #dcfce7; color: #166534; }
+  .tag-net  { background: #dbeafe; color: #1d4ed8; }
+  .tag-xss  { background: #fee2e2; color: var(--danger); }
+  .footer {
+    margin-top: 40px; padding-top: 12px; border-top: 1px solid var(--border);
+    text-align: center; font-size: 12px; color: var(--text-muted);
+  }
+  .callout {
+    background: var(--warn-bg); border-left: 3px solid #eab008;
+    padding: 8px 12px; margin: 10px 0; font-size: 12.5px; border-radius: 0 4px 4px 0;
+  }
+  .callout-strong {
+    background: #fef2f2; border-left: 3px solid var(--danger);
+    padding: 8px 12px; margin: 10px 0; font-size: 12.5px; border-radius: 0 4px 4px 0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Whiteboard Defense: Ceph Tracker Search Tool</h1>
+    <div class="meta-bar">
+      <span><strong>Source:</strong> <a href="scripts/query_ceph_tracker.py:1"><code>scripts/query_ceph_tracker.py</code></a></span>
+      <span class="tag tag-net">HTTP Client</span>
+      <span class="tag tag-read">Read-Only</span>
+      <span class="tag tag-xss">HTML Generator</span>
+      <span><strong>Output:</strong> <code>Outputs/TrackerSearch/</code></span>
+      <span><strong>Runtime:</strong> Python 3, stdlib only</span>
+    </div>
+  </header>
+
+  <!-- ─── SCHEMA 1: Architecture ───────────────────────── -->
+
+  <h2>1. High-Level Architecture &amp; Mental Model</h2>
+  <div class="card">
+    <p><strong>One-liner:</strong> CLI tool that queries the public Ceph Redmine REST API, deduplicates issues across multiple queries, hydrates full issue descriptions, and renders a static offline HTML investigation dashboard.</p>
+
+    <p><strong>Mental model:</strong> A batch ETL pipeline over an external read API &mdash; Extract (HTTP search), Transform (dedupe + Textile&rarr;HTML sanitization), Load (static file emit). Zero state, zero daemon, zero external dependencies, zero credentials.</p>
+
+    <div class="diagram">
+[ CLI args: --search | --issue | --status | --limit ]
+                           │
+          ┌────────────────┴─────────────────┐
+          │                                  │
+          ▼                                  ▼
+  [ --issue N ]                   [ terms or DEFAULT_SEARCHES ]
+    fetch_issue(N)                    for term in terms:
+    print_issue_detail()              search_issues(term) ── HTTP GET /issues.json
+    return                                           │
+                                                     ▼
+                                            results: list[(str, dict)]
+                                                     │
+                                                     ▼
+                                            write_html_output(results)
+                                                     │
+                          ┌──────────────────────────┼──────────────────────────┐
+                          ▼                          ▼                          ▼
+               Dedup: seen[int,dict]     Detail fetch per issue    Annotate _matched_searches
+               O(1) hash by id          fetch_issue(id)           (union of all matches)
+                          │                          │                          │
+                          ▼                          ▼                          ▼
+               build_issue_page()          build_index()            index.html + N× issue_{id}.html
+
+Key:  --issue N   = terminal-only single fetch (1 HTTP call, no HTML written)
+      --search    = batch mode (N searches + M detail fetches)
+      write_html_output = ETL pipeline: deduplicate -> hydrate details -> render HTML
+    </div>
+
+    <div class="stat">Searches: <strong>8 default terms</strong> &nbsp;·&nbsp; Limit: <strong>25 / search</strong> &nbsp;·&nbsp; Mode: <strong>sequential HTTP</strong> &nbsp;·&nbsp; Fetch pattern: <strong>N+1 hydrated</strong></div>
+  </div>
+
+  <h3>Execution Modes</h3>
+  <table>
+    <thead>
+      <tr><th>CLI Mode</th><th>Handler</th><th>Output</th><th>HTTP Calls</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>--issue &lt;id&gt;</code></td><td><code>fetch_issue()</code> &rarr; <code>print_issue_detail()</code></td><td>Terminal only (stdout)</td><td>1</td></tr>
+      <tr><td><code>--search TERM…</code></td><td>Per-term <code>search_issues()</code> &rarr; <code>write_html_output()</code></td><td>Terminal + HTML files</td><td>S searches + U unique detail fetches</td></tr>
+      <tr><td><em>(no args)</em></td><td><code>DEFAULT_SEARCHES</code> (8 life-expectancy terms)</td><td>Terminal + HTML files</td><td>8 searches + U unique detail fetches</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ─── SCHEMA 2: Decisions ──────────────────────────── -->
+
+  <h2>2. Architectural Decisions &amp; Trade-offs (&ldquo;Why X instead of Y?&rdquo;)</h2>
+  <table>
+    <thead>
+      <tr><th width="24%">Chose (X)</th><th width="24%">Rejected (Y)</th><th width="52%">Defense</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Stdlib only:</strong> <code>urllib</code>, <code>json</code>, <code>html</code>, <code>re</code>, <code>os</code>, <code>sys</code>, <code>argparse</code>, <code>datetime</code></td>
+        <td><code>requests</code> + <code>textile</code> + <code>jinja2</code></td>
+        <td>Zero-dependency requirement: runs immediately in minimal developer boxes, air-gapped workstations, or pristine CI containers without <code>pip install</code>, virtual environments, or dependency supply-chain risks. Hand-rolled Textile handles the subset used in Ceph tracker issues.</td>
+      </tr>
+      <tr>
+        <td><strong>Sequential HTTP requests:</strong> per search and per unique issue</td>
+        <td><code>asyncio</code> / <code>concurrent.futures.ThreadPoolExecutor</code></td>
+        <td>Respects community-hosted upstream infrastructure (<code>tracker.ceph.com</code>) to prevent 429 rate-limiting, IP bans, or DoS. Predictable request sequencing; bounded execution time given default limits.</td>
+      </tr>
+      <tr>
+        <td><strong>Static HTML output:</strong> self-contained files in <code>Outputs/TrackerSearch/</code></td>
+        <td>Live web server (Flask/FastAPI) or terminal scrollback only</td>
+        <td>Zero runtime daemon overhead. Creates portable, permanent, shareable, <code>git add</code>-able triage dossiers readable offline without local ports or background services.</td>
+      </tr>
+      <tr>
+        <td><strong>Two-Stage Hydration:</strong> search query &rarr; individual <code>/issues/{id}.json</code></td>
+        <td>Rely solely on search query results</td>
+        <td>Redmine's <code>/issues.json</code> search endpoint omits full issue descriptions and key custom fields. Hydrating unique IDs guarantees complete backtraces and reproduction steps in the offline report.</td>
+      </tr>
+      <tr>
+        <td><strong>Pre-escape Sanitization:</strong> <code>html.escape()</code> <em>before</em> regex formatting in <code>redmine_to_html()</code></td>
+        <td>Post-escape or raw unescaped regex replacement</td>
+        <td>Guarantees elimination of Stored XSS vectors from untrusted tracker content before converting Markdown/Textile syntax into safe DOM elements. Untrusted markup cannot bypass sanitization.</td>
+      </tr>
+      <tr>
+        <td><strong>Mutual Exclusion:</strong> <code>argparse.add_mutually_exclusive_group()</code> for <code>--issue</code> vs <code>--search</code></td>
+        <td>Manual branching on parsed arguments</td>
+        <td>Enforces mutual exclusion at CLI parse time, providing standard error formatting and failing fast before any network requests are dispatched.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ─── SCHEMA 3: Data Structures ───────────────────── -->
+
+  <h2>3. Data Structures, Algorithms &amp; Invariants</h2>
+
+  <h3>Core Data Structures</h3>
+  <table>
+    <thead>
+      <tr><th width="26%">Structure</th><th width="24%">Code Location</th><th width="40%">Why This Shape</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>seen: dict[int, dict]</code></td>
+        <td><code>write_html_output()</code> [<a href="scripts/query_ceph_tracker.py:535">L535</a>]</td>
+        <td>Hash map keyed by Redmine issue ID &rarr; <em>O(1)</em> membership check and deduplication across search queries. Stores issue dictionary augmented with <code>_matched_searches: list[str]</code> recording every matching term.</td>
+      </tr>
+      <tr>
+        <td><code>STATUS_MAP: dict[str, str]</code></td>
+        <td>Global [<a href="scripts/query_ceph_tracker.py:29">L29</a>]</td>
+        <td>Lookup table mapping user-friendly CLI flags (<code>"open"</code>, <code>"closed"</code>, <code>"all"</code>) to Redmine query parameter values (<code>"o"</code>, <code>"c"</code>, <code>"*"</code>). Single source of truth.</td>
+      </tr>
+      <tr>
+        <td><code>results: list[tuple[str, dict]]</code></td>
+        <td><code>main()</code> [<a href="scripts/query_ceph_tracker.py:612">L612</a>]</td>
+        <td>Ordered list of tuples preserving exact search execution order for structured section-by-section rendering in <code>index.html</code>.</td>
+      </tr>
+      <tr>
+        <td><code>DEFAULT_SEARCHES: list[str]</code></td>
+        <td>Global [<a href="scripts/query_ceph_tracker.py:35">L35</a>]</td>
+        <td>Deterministic list of domain-specific search strings targeting Ceph device life expectancy issues for zero-config execution.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Algorithms</h3>
+  <ul>
+    <li><strong>URL Construction &amp; Query Encoding</strong> [<a href="scripts/query_ceph_tracker.py:100">L100</a>]: <code>urllib.parse.quote(term)</code> applied to search term; interpolated into Redmine query syntax: <code>/issues.json?subject=~{encoded}&amp;status_id={status}&amp;limit={limit}&amp;sort=updated_on:desc</code>.</li>
+    <li><strong>Textile Transpilation Pipeline (<code>redmine_to_html</code>)</strong> [<a href="scripts/query_ceph_tracker.py:150">L150</a>]:
+      <ol style="margin-top:6px">
+        <li><code>html.escape(text)</code> &mdash; neutralizes <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, <code>"</code>.</li>
+        <li><code>&lt;pre&gt;(.*?)&lt;/pre&gt; &rarr; &lt;pre&gt;&lt;code&gt;\1&lt;/code&gt;&lt;/pre&gt;</code> (preserves formatting).</li>
+        <li><code>@([^@\n]+)@ &rarr; &lt;code&gt;\1&lt;/code&gt;</code> (inline code).</li>
+        <li><code>\*([^*\n]+)\* &rarr; &lt;strong&gt;\1&lt;/strong&gt;</code> (bold text).</li>
+        <li><code>_([^_\n]+)_ &rarr; &lt;em&gt;\1&lt;/em&gt;</code> (italic text).</li>
+        <li><code>(https?://[^\s&lt;&gt;"']+) &rarr; &lt;a href="\1" target="_blank"&gt;\1&lt;/a&gt;</code> (safe URL linkification).</li>
+        <li>Double newlines <code>\n{2,} &rarr; &lt;/p&gt;&lt;p&gt;</code>; single newlines <code>\n &rarr; &lt;br&gt;</code>.</li>
+      </ol>
+    </li>
+    <li><strong>Static Artifact Emission</strong> [<a href="scripts/query_ceph_tracker.py:522">L522</a>]: Creates target directory via <code>os.makedirs(out_dir, exist_ok=True)</code>, writes per-issue detail pages <code>issue_{iid}.html</code>, and renders aggregated <code>index.html</code> with embedded CSS.</li>
+  </ul>
+
+  <h3>Core Invariants</h3>
+  <table>
+    <thead><tr><th width="8%">#</th><th>Invariant</th><th>Enforced At</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><strong>Uniqueness:</strong> Exactly one <code>issue_{id}.html</code> detail file generated per unique issue ID across all searches.</td><td><code>seen</code> hash map [<a href="scripts/query_ceph_tracker.py:535">L535</a>]</td></tr>
+      <tr><td>2</td><td><strong>Query Attribution:</strong> <code>_matched_searches</code> reflects the complete set of queries that surfaced the issue.</td><td>Deduplication loop [<a href="scripts/query_ceph_tracker.py:542">L542</a>]</td></tr>
+      <tr><td>3</td><td><strong>DOM Safety:</strong> Untrusted remote strings are sanitized via <code>html.escape()</code> prior to formatting.</td><td><code>redmine_to_html()</code> [<a href="scripts/query_ceph_tracker.py:156">L156</a>] &amp; <code>build_issue_page()</code> [<a href="scripts/query_ceph_tracker.py:246">L246</a>]</td></tr>
+      <tr><td>4</td><td><strong>Hydration Integrity:</strong> Detail pages display full issue descriptions while preserving search attribution metadata.</td><td>Metadata transfer [<a href="scripts/query_ceph_tracker.py:555">L555</a>]</td></tr>
+      <tr><td>5</td><td><strong>Mutual Exclusivity:</strong> <code>--issue</code> and <code>--search</code> CLI flags cannot be invoked concurrently.</td><td><code>argparse</code> group [<a href="scripts/query_ceph_tracker.py:583">L583</a>]</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ─── SCHEMA 4: Threat Model ───────────────────────── -->
+
+  <h2>4. Threat Model &amp; Adversarial Handling (&ldquo;What if an actor behaves maliciously?&rdquo;)</h2>
+  <table>
+    <thead>
+      <tr><th width="24%">Threat / Actor</th><th width="30%">Attack Vector</th><th width="46%">Defensive Countermeasure</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Malicious tracker content (Stored XSS)</strong></td>
+        <td>Attacker submits Redmine issue containing <code>&lt;script&gt;</code>, <code>&lt;img onerror=...&gt;</code>, or event handlers in subject or description.</td>
+        <td>Strict pre-escape architecture: <code>html.escape()</code> neutralizes all HTML entities before formatting regexes run [<a href="scripts/query_ceph_tracker.py:156">L156</a>]. Linkification is constrained strictly to <code>https?://</code> protocols [<a href="scripts/query_ceph_tracker.py:172">L172</a>].</td>
+      </tr>
+      <tr>
+        <td><strong>Upstream API hang / Slow-Loris</strong></td>
+        <td><code>tracker.ceph.com</code> stalls TCP connection or delays response packets indefinitely.</td>
+        <td>Hard socket timeout of <code>timeout=15</code> enforced on all <code>urllib.request.urlopen()</code> calls [<a href="scripts/query_ceph_tracker.py:96">L96</a>]. Socket timeout propagates to local exception handlers.</td>
+      </tr>
+      <tr>
+        <td><strong>Upstream HTTP 429 / 5xx Errors</strong></td>
+        <td>Upstream server returns rate limits, gateway errors, or temporary 503 outages.</td>
+        <td>Per-request <code>try...except</code> blocks catch <code>Exception</code>, log error details to <code>stderr</code>, and continue processing subsequent searches or issue detail fetches without crashing [<a href="scripts/query_ceph_tracker.py:561">L561</a>, <a href="scripts/query_ceph_tracker.py:620">L620</a>].</td>
+      </tr>
+      <tr>
+        <td><strong>Parameter Injection via CLI</strong></td>
+        <td>User inputs query containing URI control characters (e.g. <code>term&amp;status_id=*&amp;limit=9999</code>).</td>
+        <td>All search terms are passed through <code>urllib.parse.quote()</code> before URL string interpolation [<a href="scripts/query_ceph_tracker.py:101">L101</a>]. <code>--status</code> is restricted by <code>argparse.choices</code> [<a href="scripts/query_ceph_tracker.py:593">L593</a>].</td>
+      </tr>
+      <tr>
+        <td><strong>Path Traversal via Issue IDs</strong></td>
+        <td>Upstream returns malicious ID (e.g., <code>../../etc/passwd</code>) to escape output directory.</td>
+        <td>Issue IDs from Redmine API are integers; file path construction uses <code>f"issue_{iid}.html"</code> where <code>iid</code> is integer-keyed [<a href="scripts/query_ceph_tracker.py:557">L557</a>]. Output root is pinned to constant <code>Outputs/TrackerSearch</code>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>Security Footprint:</strong> Zero-credential architecture. The tool uses no API keys, tokens, or basic auth headers. It operates strictly as a read-only client against public endpoints.
+  </div>
+
+  <!-- ─── SCHEMA 5: Failure Modes ─────────────────────── -->
+
+  <h2>5. Failure Modes, Edge Cases &amp; Blast Radius (&ldquo;Where does this fail?&rdquo;)</h2>
+
+  <h3>Failure Modes &amp; Edge Cases</h3>
+  <table>
+    <thead><tr><th width="28%">Failure Mode / Edge Case</th><th width="30%">Code Location</th><th width="42%">Behavior &amp; Recovery</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Network / DNS failure</td>
+        <td><code>fetch_json()</code> [<a href="scripts/query_ceph_tracker.py:96">L96</a>]</td>
+        <td><code>urllib.error.URLError</code> caught in main search loop. Error printed to <code>stderr</code>; empty result appended; pipeline continues to next term.</td>
+      </tr>
+      <tr>
+        <td>Individual issue 404 / 403 on detail fetch</td>
+        <td><code>fetch_issue()</code> in <code>write_html_output()</code> [<a href="scripts/query_ceph_tracker.py:553">L553</a>]</td>
+        <td>Caught by <code>try...except Exception</code>. Error logged to <code>stderr</code>; issue detail HTML write is skipped; issue remains present as card in <code>index.html</code>.</td>
+      </tr>
+      <tr>
+        <td>Schema drift (missing fields in JSON)</td>
+        <td>Template builders [<a href="scripts/query_ceph_tracker.py:200">L200</a>, <a href="scripts/query_ceph_tracker.py:245">L245</a>, <a href="scripts/query_ceph_tracker.py:387">L387</a>]</td>
+        <td>Defensive <code>.get()</code> lookups fall back to <code>"?"</code>, <code>"unassigned"</code>, or <code>"—"</code>. Prevents <code>KeyError</code> exceptions.</td>
+      </tr>
+      <tr>
+        <td>Malformed date strings</td>
+        <td><code>fmt_date()</code> [<a href="scripts/query_ceph_tracker.py:119">L119</a>]</td>
+        <td><code>try...except</code> catches parsing failures and falls back to string slicing (<code>iso[:10]</code>) or <code>"?"</code>.</td>
+      </tr>
+      <tr>
+        <td>Zero matching issues across all searches</td>
+        <td><code>build_index()</code> [<a href="scripts/query_ceph_tracker.py:433">L433</a>]</td>
+        <td>Renders valid <code>index.html</code> containing <code>&lt;p class="no-results"&gt;No matching issues found.&lt;/p&gt;</code> under each search section.</td>
+      </tr>
+      <tr>
+        <td>Disk write permission / storage exhaustion</td>
+        <td><code>write_html_output()</code> [<a href="scripts/query_ceph_tracker.py:558">L558</a>, <a href="scripts/query_ceph_tracker.py:573">L573</a>]</td>
+        <td>Raises standard <code>OSError</code>/<code>IOError</code>. Process terminates with non-zero status.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Blast Radius &amp; Containment</h3>
+  <table>
+    <thead><tr><th width="35%">Dimension</th><th width="65%">Containment Boundary</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Filesystem Impact</strong></td><td>Writes strictly confined to <code>Outputs/TrackerSearch/</code>. No temporary files or system directory modifications.</td></tr>
+      <tr><td><strong>Network Impact</strong></td><td>Read-only HTTP GET requests to <code>tracker.ceph.com</code>. Zero state mutation on upstream servers.</td></tr>
+      <tr><td><strong>Process Isolation</strong></td><td>No subprocess execution, no shell invocation, no background daemon spawned.</td></tr>
+      <tr><td><strong>Failure Propagation</strong></td><td>Per-search and per-issue isolation ensures partial upstream network failure still yields a valid index of successful queries.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ─── SCHEMA 6: Observability ─────────────────────── -->
+
+  <h2>6. Observability &amp; Triage Playbook</h2>
+
+  <h3>Diagnostic Signals</h3>
+  <table>
+    <thead><tr><th width="25%">Channel</th><th width="75%">Signal Content &amp; Purpose</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>stdout</code></td>
+        <td>Live execution telemetry: active search terms, match counts, deduplication summary, detail hydration progress, and emitted file paths.</td>
+      </tr>
+      <tr>
+        <td><code>stderr</code></td>
+        <td>Diagnostic logs for failed HTTP operations and parsing anomalies without polluting standard pipeline output.</td>
+      </tr>
+      <tr>
+        <td>HTML Metadata</td>
+        <td>UTC generation timestamp (<code>generated_at</code>) embedded into page headers and footers for cache/staleness verification.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Triage Checklist</h3>
+  <ol>
+    <li><strong>Upstream Throttling / 429 Errors:</strong> If <code>stderr</code> reports HTTP 429 or connection rejections, verify community tracker availability via <code>curl -Is "https://tracker.ceph.com/issues.json?limit=1"</code>. Reduce search terms or <code>--limit</code> parameter.</li>
+    <li><strong>Missing Issue Detail Page:</strong> If an issue is listed on <code>index.html</code> but its link gives 404, check <code>stderr</code> for hydration failures. Issues restricted by ACL permissions on Redmine return 403 upon detail lookup.</li>
+    <li><strong>Empty Results Unexpectedly:</strong> Check <code>--status</code> filter flag. By default, <code>--status all</code> is used; if set to <code>open</code>, resolved issues will be omitted.</li>
+    <li><strong>Connection Timeouts:</strong> Long search queues on slow connections may hit the 15-second socket timeout. Isolate queries using <code>--search "specific term"</code> to pinpoint failing endpoints.</li>
+  </ol>
+
+  <div class="footer">
+    Whiteboard Defense Reference Document &mdash; generated for <code>scripts/query_ceph_tracker.py</code> &mdash; grounded in source code.
+  </div>
+
+</div>
+</body>
+</html>

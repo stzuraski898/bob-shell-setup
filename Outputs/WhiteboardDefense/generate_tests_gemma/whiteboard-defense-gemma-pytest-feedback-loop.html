@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Whiteboard Defense — generate_tests.py (Gemma / pytest feedback loop)</title>
+  <style>
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --border:    #30363d;
+      --accent:    #58a6ff;
+      --accent2:   #3fb950;
+      --warn:      #d29922;
+      --danger:    #f85149;
+      --muted:     #8b949e;
+      --text:      #e6edf3;
+      --mono-bg:   #1c2128;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 32px 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-bottom: 6px; }
+    h2 { font-size: 1.15rem; color: var(--accent); margin: 32px 0 10px; padding: 6px 10px; background: var(--surface); border-left: 4px solid var(--accent); border-radius: 2px; }
+    h3 { font-size: 0.95rem; color: var(--accent2); margin: 18px 0 6px; text-transform: uppercase; letter-spacing: .05em; }
+    p  { margin: 6px 0 10px; }
+    .meta { color: var(--muted); font-size: 0.82rem; margin-bottom: 24px; }
+    ul, ol { padding-left: 20px; margin: 6px 0 10px; }
+    li { margin-bottom: 4px; }
+    code {
+      background: var(--mono-bg);
+      color: #79c0ff;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 0.88em;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+    pre {
+      background: var(--mono-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      font-size: 0.82rem;
+      margin: 10px 0 16px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      line-height: 1.5;
+      color: #c9d1d9;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 20px;
+      font-size: 0.88rem;
+    }
+    th {
+      background: var(--surface);
+      color: var(--accent);
+      padding: 8px 12px;
+      text-align: left;
+      border: 1px solid var(--border);
+      font-weight: 600;
+    }
+    td {
+      padding: 7px 12px;
+      border: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: #13181f; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-ok    { background: #1a3a24; color: var(--accent2); }
+    .badge-warn  { background: #3d2e0a; color: var(--warn); }
+    .badge-danger{ background: #3d0d0a; color: var(--danger); }
+    .badge-info  { background: #0d2044; color: var(--accent); }
+    .callout {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin: 12px 0;
+      background: var(--surface);
+    }
+    .callout.warn  { border-color: var(--warn);   background: #1e1700; }
+    .callout.danger{ border-color: var(--danger);  background: #1a0a0a; }
+    .callout.ok    { border-color: var(--accent2); background: #0d1f10; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 10px 0; }
+    @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+    .sep { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+    .diagram-box {
+      background: var(--mono-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 20px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.8rem;
+      color: #c9d1d9;
+      white-space: pre;
+      overflow-x: auto;
+      margin: 10px 0 20px;
+      line-height: 1.7;
+    }
+    .tag-loop  { color: #79c0ff; }
+    .tag-ok    { color: #3fb950; }
+    .tag-fail  { color: #f85149; }
+    .tag-model { color: #d2a8ff; }
+  </style>
+</head>
+<body>
+
+<h1>Whiteboard Defense</h1>
+<p class="meta">
+  <strong>File:</strong> <code>gemma-agents/generate_tests.py</code> &nbsp;|&nbsp;
+  <strong>System:</strong> Local Ollama + Gemma 4 → automated test generation + pytest feedback loop &nbsp;|&nbsp;
+  <strong>Primary target:</strong> C++ (gtest) with residual pytest path for Python sources
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>1. High-Level Architecture &amp; Mental Model</h2>
+
+<div class="callout ok">
+  <strong>One-sentence summary:</strong> The script sends a source file to a local Gemma model via Ollama, extracts generated test code from the response, writes it to disk, then iteratively runs pytest and re-prompts the model with failure output until all tests pass or the iteration cap is hit.
+</div>
+
+<div class="diagram-box"><span class="tag-model">┌──────────────────────────────────────────────────────────────────┐
+│                        generate_tests.py                         │
+└──────────────────────────────────────────────────────────────────┘</span>
+
+  CLI args parsed (argparse)
+       │
+       ▼
+  <span class="tag-model">read_source(--source)</span>  ──→  raw UTF-8 string
+       │
+       ▼  [optional]  read --prompt-file  →  system_prompt str
+       │
+       ▼
+  <span class="tag-model">generate_tests()</span>
+  ├─ client.chat(model, messages=[{system}, {user+source}],
+  │              options={num_ctx:32768, num_predict:16384})
+  └─ extract_code_block(response["message"]["content"])
+       │
+       ▼
+  <span class="tag-ok">write_tests(--output, test_code)</span>
+       │
+       ├──[--no-feedback]──→  EXIT 0
+       │
+       ▼
+  <span class="tag-loop">╔═══ FEEDBACK LOOP  (i = 1 … max_iterations) ══════════════════╗
+  ║  run_pytest(output)  →  (passed: bool, output: str)          ║
+  ║       │                                                       ║
+  ║       ├──[passed == True]──────────────────→  EXIT 0 ✅      ║
+  ║       │                                                       ║
+  ║       ├──[i == max_iterations]─────────────→  EXIT 1 ⚠️     ║
+  ║       │                                                       ║
+  ║       └──[failed]──→  truncate output to 8000 chars          ║
+  ║                 │                                             ║
+  ║                 ▼                                             ║
+  ║           fix_tests()  →  extract_code_block()               ║
+  ║                 │                                             ║
+  ║                 └──→  write_tests()  →  next iteration       ║
+  ╚═══════════════════════════════════════════════════════════════╝</span>
+       │
+       ▼
+  EXIT 1  (max iterations exhausted; last file on disk)
+</div>
+
+<h3>Component Map</h3>
+<table>
+  <tr><th>Function</th><th>Role</th><th>Key I/O</th></tr>
+  <tr><td><code>read_source(path)</code></td><td>Filesystem ingestion</td><td>→ UTF-8 <code>str</code></td></tr>
+  <tr><td><code>write_tests(path, code)</code></td><td>Atomic disk write; auto-creates dirs</td><td>← extracted code <code>str</code></td></tr>
+  <tr><td><code>extract_code_block(text)</code></td><td>Response parser — 3-case regex fallback chain</td><td><code>str</code> → <code>str</code></td></tr>
+  <tr><td><code>generate_tests()</code></td><td>Initial generation prompt</td><td>Ollama chat → extracted code</td></tr>
+  <tr><td><code>fix_tests()</code></td><td>Repair prompt (source + broken tests + pytest output)</td><td>Ollama chat → extracted code</td></tr>
+  <tr><td><code>run_pytest(path)</code></td><td>subprocess runner; captures stdout+stderr</td><td>→ <code>(bool, str)</code></td></tr>
+  <tr><td><code>main()</code></td><td>Orchestrator: arg parse, import, loop control</td><td>—</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<hr class="sep" />
+<h2>2. Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <tr>
+    <th style="width:30%">Decision</th>
+    <th style="width:35%">Why this instead of alternative</th>
+    <th style="width:35%">Accepted trade-off / risk</th>
+  </tr>
+  <tr>
+    <td>Local Ollama, not a cloud API (OpenAI / Gemini)</td>
+    <td>Source code never leaves the machine — critical for proprietary / internal Ceph code. Zero per-token cost, no rate-limits during iteration.</td>
+    <td>Speed and quality ceiling bounded by local GPU/CPU. Cold-start latency if model not loaded.</td>
+  </tr>
+  <tr>
+    <td><code>num_ctx = 32 768</code> (not the model max of 131 072)</td>
+    <td>Comfortable on 30 GB RAM; avoids OOM on typical dev laptops. Commment-documented with escape hatch to 65 536.</td>
+    <td>Very large source files + long pytest output may be silently truncated by the model before <code>num_ctx</code> is even reached.</td>
+  </tr>
+  <tr>
+    <td>Pytest output hard-truncated at 8 000 chars</td>
+    <td>Prevents context overflow when a test file produces megabytes of output (e.g., assertion diffs on large data). Keeps repair prompt well inside the 32 K window alongside source + test code.</td>
+    <td>If the critical failure message appears after character 8 000, the model never sees it; repair loop stalls or diverges.</td>
+  </tr>
+  <tr>
+    <td>3-case <code>extract_code_block</code> fallback chain</td>
+    <td>Model responses are noisy — truncated fences and unfenced replies both occur. A single strict regex would silently discard large chunks of valid output.</td>
+    <td>Case 3 (no fence) returns raw LLM prose verbatim, which will fail to compile/run but is better than empty string.</td>
+  </tr>
+  <tr>
+    <td>Stateless single-turn chat (no conversation history threading)</td>
+    <td>Simplicity; each repair call is self-contained (source + broken tests + output). Avoids context drift over many turns.</td>
+    <td>Model cannot learn intra-session patterns (e.g., "you made the same mistake three iterations ago"). Each fix starts cold.</td>
+  </tr>
+  <tr>
+    <td>Late <code>import ollama</code> inside <code>main()</code></td>
+    <td>Gives a clear, actionable error (<code>pip install ollama</code>) instead of a bare <code>ImportError</code> traceback on startup.</td>
+    <td>Minor: the import is deferred, so IDE static analysis won't see it at module scope.</td>
+  </tr>
+  <tr>
+    <td><code>--no-feedback</code> escape hatch</td>
+    <td>C++ gtest files can't be run by pytest; the loop would always fail. Flag lets users generate-once and compile manually.</td>
+    <td>User must manually run the build and, if desired, paste output back in for a manual re-invocation.</td>
+  </tr>
+  <tr>
+    <td>Default system prompt hard-codes <em>C++/gtest/Ceph</em> domain</td>
+    <td>Optimised for the known primary use-case. Script description says "Python" but actual target is C++ Ceph.</td>
+    <td><strong>Misleading docstring</strong> says "pytest unit tests for a Python source file"; the real default is C++ gtest. Overriding via <code>--prompt-file</code> is the intended fix, but it requires user awareness.</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<hr class="sep" />
+<h2>3. Data Structures, Algorithms &amp; Invariants</h2>
+
+<div class="two-col">
+  <div class="callout">
+    <h3>Key Data Structures</h3>
+    <ul>
+      <li><strong>Ollama message list</strong> — <code>list[dict]</code> with <code>role</code> / <code>content</code> keys; always exactly <code>2</code> elements (<code>system</code> + <code>user</code>). No history accumulation.</li>
+      <li><strong>Ollama options dict</strong> — <code>{"num_ctx": 32768, "num_predict": 16384}</code>; only sent on initial generation, <em>not</em> on <code>fix_tests</code> calls (uses model defaults).</li>
+      <li><strong><code>pytest_output</code> str</strong> — <code>result.stdout + result.stderr</code>, bounded to ≤ 8 000 chars before being embedded in the repair prompt.</li>
+      <li><strong><code>test_code</code> str</strong> — mutable binding threaded through the loop; overwritten each iteration; <em>always reflects the last thing written to disk</em>.</li>
+    </ul>
+  </div>
+  <div class="callout">
+    <h3>Loop Invariants</h3>
+    <ul>
+      <li><strong>Termination guaranteed:</strong> loop is a bounded <code>for i in range(1, max_iterations+1)</code>; cannot run forever. Exit conditions are checked in order: <code>passed → EXIT 0</code>, then <code>i == max_iterations → EXIT 1</code>, then repair and continue.</li>
+      <li><strong>Disk state = last model output:</strong> <code>write_tests</code> is called before and after every model round-trip; the output file always reflects the most recent generation, even on failure exit.</li>
+      <li><strong>No partial writes:</strong> <code>write_tests</code> opens with <code>"w"</code> (truncate) and writes atomically from the caller's perspective; the file is never in a half-written state within a single OS write call.</li>
+    </ul>
+  </div>
+</div>
+
+<h3>extract_code_block — Regex Decision Tree</h3>
+<pre>
+Input: LLM response string
+       │
+       ▼
+re.search(r"```(?:\w+)?\s*\n(.*?)```", text, re.DOTALL)
+       │
+       ├── match found  →  group(1).strip()        # Case 1: closed fence  ✅
+       │
+       ▼ (no match)
+re.search(r"```(?:\w+)?\s*\n(.*)", text, re.DOTALL)
+       │
+       ├── match found  →  group(1).strip()        # Case 2: truncated response ⚠️
+       │
+       ▼ (no match)
+text.strip()                                        # Case 3: no fence at all 🔶
+</pre>
+
+<div class="callout warn">
+  <strong>⚠️ Invariant gap:</strong> <code>fix_tests()</code> does <em>not</em> pass <code>num_ctx</code>/<code>num_predict</code> options to <code>client.chat()</code>. Repair calls use Ollama's model defaults, which may differ from the initial generation limits. This can cause shorter repair outputs, increasing the probability of a truncated fence (Case 2).
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<hr class="sep" />
+<h2>4. Threat Model &amp; Adversarial Handling</h2>
+
+<div class="callout warn">
+  <strong>Context:</strong> This is a developer-local automation tool. It is not exposed as a service, has no network listener, and requires explicit CLI invocation. The attack surface is the filesystem and the Ollama local daemon.
+</div>
+
+<table>
+  <tr>
+    <th style="width:25%">Threat / Actor</th>
+    <th style="width:20%">Vector</th>
+    <th style="width:20%">Current mitigation</th>
+    <th style="width:20%">Residual risk</th>
+    <th style="width:15%">Severity</th>
+  </tr>
+  <tr>
+    <td>Malicious source file injects prompt-injection payloads</td>
+    <td>Attacker-controlled <code>.py</code>/<code>.cpp</code> file embedded verbatim in user message</td>
+    <td>None — content is sent raw to the model</td>
+    <td>Model could be manipulated to output harmful shell commands as "tests". Those commands execute when pytest runs the output file.</td>
+    <td><span class="badge badge-danger">High</span></td>
+  </tr>
+  <tr>
+    <td>Malicious <code>--prompt-file</code> input</td>
+    <td>Attacker-supplied prompt file replaces system guardrails</td>
+    <td>File existence check only (<code>os.path.isfile</code>)</td>
+    <td>Complete control over model persona; could suppress safety instructions entirely.</td>
+    <td><span class="badge badge-danger">High</span></td>
+  </tr>
+  <tr>
+    <td>Generated test file executes arbitrary OS commands</td>
+    <td>Model produces <code>os.system()</code> / <code>subprocess</code> calls inside test functions; pytest runs them</td>
+    <td>None — no code review gate before <code>run_pytest</code></td>
+    <td>Full local code execution under the invoking user's privileges.</td>
+    <td><span class="badge badge-danger">High</span></td>
+  </tr>
+  <tr>
+    <td>Path traversal via <code>--output</code></td>
+    <td><code>write_tests</code> calls <code>os.makedirs</code> + open on the raw argument</td>
+    <td>None — no path canonicalization or allowlist</td>
+    <td>Can overwrite arbitrary files if invoked with a crafted path (e.g., <code>--output /etc/cron.d/payload</code>). Requires attacker control of CLI args.</td>
+    <td><span class="badge badge-warn">Medium</span></td>
+  </tr>
+  <tr>
+    <td>pytest output exfiltrates secrets</td>
+    <td>Test file reads env vars / secrets files; output captured and sent to Ollama daemon</td>
+    <td>8 000-char truncation limits blast radius</td>
+    <td>Secrets visible in pytest output string sent to local model; model logs may persist them.</td>
+    <td><span class="badge badge-warn">Medium</span></td>
+  </tr>
+  <tr>
+    <td>Ollama daemon unavailable or returns garbage</td>
+    <td>Network error / model not pulled</td>
+    <td>Unhandled exception propagates to user as traceback</td>
+    <td>Script crashes ungracefully; no retry or user-friendly message.</td>
+    <td><span class="badge badge-info">Low</span></td>
+  </tr>
+  <tr>
+    <td>Denial of iteration budget</td>
+    <td">Model always produces subtly broken tests that never pass but never fully fail</td>
+    <td><code>max_iterations</code> cap (default 5), hard loop bound</td>
+    <td>At worst, 5 × model round-trips + 5 × pytest runs. Bounded, not unbounded.</td>
+    <td><span class="badge badge-ok">Negligible</span></td>
+  </tr>
+</table>
+
+<div class="callout danger">
+  <strong>Critical design gap — no human-in-the-loop before execution:</strong><br/>
+  The generated test code is written to disk and immediately executed by pytest with <strong>zero review gate</strong>. In a developer-local setting this is a known and accepted risk, but it must be explicit: <em>running this script against untrusted source code is equivalent to running untrusted code on your machine.</em>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<hr class="sep" />
+<h2>5. Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<table>
+  <tr>
+    <th style="width:30%">Failure Mode</th>
+    <th style="width:25%">Trigger</th>
+    <th style="width:25%">Observed behaviour</th>
+    <th style="width:20%">Blast radius</th>
+  </tr>
+  <tr>
+    <td>Source file too large to fit in context</td>
+    <td><code>source_code</code> len + system prompt + response headroom &gt; <code>num_ctx</code> (32 768 tokens)</td>
+    <td>Ollama silently truncates the input; model generates tests for a partial file. No error raised.</td>
+    <td>Tests cover only the first N lines. Remaining functions untested. Silent data loss.</td>
+  </tr>
+  <tr>
+    <td>Model generates non-Python/C++ text (explanation prose)</td>
+    <td>Model ignores "ONLY return code" instruction</td>
+    <td><code>extract_code_block</code> Case 3: raw prose written to test file. Pytest fails immediately with syntax error.</td>
+    <td>Wastes all <code>max_iterations</code> trying to fix unfixable prose unless the next generation is better.</td>
+  </tr>
+  <tr>
+    <td>Feedback loop never converges</td>
+    <td>Structural issue in source (e.g., missing symbols, C++ with no pytest runner) that the model cannot fix</td>
+    <td>Exhausts all iterations. Exits with code 1. Last broken file on disk.</td>
+    <td>User left with partially correct tests; manual triage required.</td>
+  </tr>
+  <tr>
+    <td>Truncated fix response (Case 2 extraction)</td>
+    <td>Large test file + <code>fix_tests</code> not setting <code>num_predict</code> → model hits default token limit mid-response</td>
+    <td>Truncated code written to disk; pytest fails with syntax error on next iteration. Model sent a truncated test file to fix again — compounding.</td>
+    <td>Progressive test file corruption over iterations.</td>
+  </tr>
+  <tr>
+    <td>pytest not installed</td>
+    <td><code>run_pytest</code> → <code>subprocess.run([sys.executable, "-m", "pytest", ...])</code></td>
+    <td><code>returncode != 0</code>; stderr says "No module named pytest". Treated as test failure. Model tries to "fix" the test file — forever.</td>
+    <td>All iterations wasted. Script exits 1 after max iterations with misleading output.</td>
+  </tr>
+  <tr>
+    <td>Output directory is a file, not a dir</td>
+    <td><code>--output /some/existing_file/test.py</code></td>
+    <td><code>os.makedirs</code> raises <code>NotADirectoryError</code>. Script crashes with traceback.</td>
+    <td>No file written. Clean failure (no partial state).</td>
+  </tr>
+  <tr>
+    <td>Critical failure after char 8 000 in pytest output</td>
+    <td>Large test suite; early tests produce verbose output pushing key failure past truncation point</td>
+    <td>Model never sees the actual failure. Repair prompt is misleading. Model may "fix" irrelevant things.</td>
+    <td>Loop stalls; may produce progressively worse tests while appearing to work.</td>
+  </tr>
+  <tr>
+    <td><code>--prompt-file</code> is a binary file</td>
+    <td>User passes a <code>.pdf</code> or image accidentally</td>
+    <td><code>read_source</code> opens with <code>encoding="utf-8"</code>; raises <code>UnicodeDecodeError</code>. Script crashes.</td>
+    <td>Clean crash before any model call. No partial state.</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<hr class="sep" />
+<h2>6. Observability &amp; Triage Playbook</h2>
+
+<div class="callout">
+  <strong>Logging model:</strong> All output goes to <code>stdout</code> via <code>print()</code>. Errors go to <code>stderr</code>. No structured logging, no log file. Exit codes: <code>0</code> = success, <code>1</code> = max iterations exhausted or fatal error.
+</div>
+
+<h3>Key Console Signals</h3>
+<table>
+  <tr><th>Output line prefix</th><th>Meaning</th></tr>
+  <tr><td><code>[generate]</code></td><td>Initial model call starting; shows model name, source path, num_ctx, num_predict.</td></tr>
+  <tr><td><code>[prompt]</code></td><td>Custom prompt file loaded successfully.</td></tr>
+  <tr><td><code>[write]</code></td><td>Test file written/updated to disk.</td></tr>
+  <tr><td><code>[pytest]</code></td><td>pytest run started or result reported per iteration.</td></tr>
+  <tr><td><code>[fix]</code></td><td>Repair call to model; shows iteration number.</td></tr>
+  <tr><td><code>✅ All tests passed</code></td><td>Exit 0. Iteration number tells you how many rounds were needed.</td></tr>
+  <tr><td><code>⚠️ Reached max iterations</code></td><td>Exit 1. Last test file on disk. Manual review needed.</td></tr>
+</table>
+
+<h3>Triage Decision Tree</h3>
+<pre>
+Script exits 1
+├── "Reached max iterations"
+│    ├── Inspect test file for truncation (file ends mid-function?)
+│    │    └── YES → re-run; or increase num_predict in fix_tests() call
+│    ├── Is source C++? Did you forget --no-feedback?
+│    │    └── YES → use --no-feedback; compile manually
+│    └── Paste build output into a new invocation manually
+│
+├── ImportError: ollama
+│    └── pip install ollama
+│
+├── Error: source file not found
+│    └── Check --source path
+│
+├── ConnectionRefusedError / Ollama crash
+│    └── ollama serve; ollama pull gemma4:latest
+│
+└── UnicodeDecodeError on --prompt-file
+     └── Ensure prompt file is plain UTF-8 text
+</pre>
+
+<h3>Quick Health Checks Before Running</h3>
+<ul>
+  <li><code>ollama list</code> — confirm <code>gemma4:latest</code> is pulled.</li>
+  <li><code>ollama ps</code> — confirm a model is loaded (warm start = faster).</li>
+  <li><code>python -m pytest --version</code> — confirm pytest is on the same Python used by the script.</li>
+  <li>Estimate token count: <code>wc -w source.cpp</code> × 1.3 ≈ tokens. Keep well under 20 000 to leave headroom for response.</li>
+</ul>
+
+<h3>Known Workarounds</h3>
+<table>
+  <tr><th>Problem</th><th>Workaround</th></tr>
+  <tr><td>Fix responses truncated</td><td>Add <code>options={"num_ctx": _NUM_CTX, "num_predict": _NUM_PREDICT}</code> to the <code>client.chat</code> call inside <code>fix_tests()</code>.</td></tr>
+  <tr><td>Default prompt generates wrong language</td><td>Pass <code>--prompt-file</code> with a Python/pytest-specific system prompt.</td></tr>
+  <tr><td>Source too large</td><td>Split source file; run script once per module; or raise <code>_NUM_CTX</code> to <code>65536</code> if RAM allows.</td></tr>
+  <tr><td>Critical failure past 8 000-char truncation</td><td>Temporarily raise <code>max_output_chars</code> in <code>main()</code>, or pre-filter pytest output to last N lines.</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<hr class="sep" />
+<h2>Appendix: Constants &amp; Limits at a Glance</h2>
+
+<table>
+  <tr><th>Constant</th><th>Value</th><th>Purpose</th></tr>
+  <tr><td><code>_NUM_CTX</code></td><td>32 768 tokens</td><td>Ollama context window for initial generation</td></tr>
+  <tr><td><code>_NUM_PREDICT</code></td><td>16 384 tokens</td><td>Max tokens generated per initial response</td></tr>
+  <tr><td><code>max_output_chars</code></td><td>8 000 chars</td><td>Hard truncation of pytest output before sending to model</td></tr>
+  <tr><td><code>--max-iterations</code></td><td>5 (default)</td><td>Feedback loop iteration cap</td></tr>
+  <tr><td>Model context (hardware max)</td><td>131 072 tokens</td><td>gemma4:latest upper bound; not used by default</td></tr>
+</table>
+
+<div class="callout warn" style="margin-top:24px;">
+  <strong>⚠️ Options gap:</strong> <code>num_ctx</code> and <code>num_predict</code> are applied to <code>generate_tests()</code> but <strong>not</strong> to <code>fix_tests()</code>. This is the single most likely cause of progressive test truncation during repair iterations.
+</div>
+
+<hr class="sep" />
+<p class="meta" style="text-align:center;">Generated from static source analysis of <code>gemma-agents/generate_tests.py</code> — no details invented.</p>
+
+</body>
+</html>

@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — ceph-tracker-issues.sh</title>
+<style>
+  :root {
+    --bg:          #0f172a;
+    --surface:     #1e293b;
+    --surface2:    #273549;
+    --border:      #334155;
+    --text:        #f1f5f9;
+    --muted:       #94a3b8;
+    --accent:      #38bdf8;
+    --accent-dim:  rgba(56,189,248,0.12);
+    --green:       #4ade80;
+    --red:         #f87171;
+    --yellow:      #fbbf24;
+    --orange:      #fb923c;
+    --purple:      #c084fc;
+    --link:        #60a5fa;
+    --code-bg:     #0d1117;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    padding: 2rem 1rem 4rem;
+  }
+  .page { max-width: 980px; margin: 0 auto; }
+
+  /* ── Nav ── */
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(15,23,42,0.92);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.5rem 0;
+    margin-bottom: 2.5rem;
+    display: flex; gap: 1.25rem; flex-wrap: wrap;
+  }
+  nav a { color: var(--muted); font-size: 0.82rem; font-weight: 600; text-decoration: none; letter-spacing: 0.03em; }
+  nav a:hover { color: var(--accent); }
+
+  /* ── Headings ── */
+  h1 { font-size: 1.9rem; font-weight: 800; color: var(--accent); margin-bottom: 0.3rem; }
+  .subtitle { color: var(--muted); font-size: 0.95rem; margin-bottom: 2rem; }
+  h2 {
+    font-size: 1.2rem; font-weight: 700; color: var(--accent);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.4rem; margin: 2.5rem 0 1rem;
+  }
+  h3 { font-size: 1rem; font-weight: 700; color: var(--yellow); margin: 1.25rem 0 0.5rem; }
+
+  /* ── Section ── */
+  section { margin-bottom: 2rem; }
+
+  /* ── Tables ── */
+  .tbl-wrap { overflow-x: auto; margin: 0.75rem 0 1.25rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th {
+    background: var(--surface2);
+    color: var(--accent);
+    font-weight: 700;
+    text-align: left;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 0.5rem 0.85rem;
+    border: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--text);
+  }
+  tr:nth-child(even) td { background: var(--surface); }
+  tr:nth-child(odd) td  { background: rgba(30,41,59,0.5); }
+  tr:hover td { background: var(--surface2); }
+
+  /* ── Badges ── */
+  .tag {
+    display: inline-block;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .tag-green  { background: rgba(74,222,128,0.15); color: var(--green); border: 1px solid rgba(74,222,128,0.35); }
+  .tag-red    { background: rgba(248,113,113,0.15); color: var(--red);   border: 1px solid rgba(248,113,113,0.35); }
+  .tag-yellow { background: rgba(251,191,36,0.15);  color: var(--yellow);border: 1px solid rgba(251,191,36,0.35); }
+  .tag-purple { background: rgba(192,132,252,0.15); color: var(--purple);border: 1px solid rgba(192,132,252,0.35); }
+  .tag-blue   { background: var(--accent-dim);      color: var(--accent);border: 1px solid rgba(56,189,248,0.35); }
+  .tag-orange { background: rgba(251,146,60,0.15);  color: var(--orange);border: 1px solid rgba(251,146,60,0.35); }
+
+  /* ── Code ── */
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.05rem 0.35rem;
+    font-size: 0.82rem;
+    font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    color: #7dd3fc;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+    font-size: 0.8rem;
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    overflow-x: auto;
+    line-height: 1.55;
+    color: #e2e8f0;
+    margin: 0.6rem 0 1.25rem;
+  }
+  pre .c  { color: #64748b; }
+  pre .kw { color: var(--accent); }
+  pre .str{ color: var(--green); }
+  pre .fn { color: var(--yellow); }
+
+  /* ── Bullets ── */
+  ul.bullets { padding-left: 1.4rem; margin: 0.5rem 0 1rem; }
+  ul.bullets li { margin-bottom: 0.35rem; }
+  ul.bullets li::marker { color: var(--accent); }
+
+  /* ── Flow diagram ── */
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+    overflow-x: auto;
+    margin: 1rem 0 1.5rem;
+  }
+  .flow svg { max-width: 100%; height: auto; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+  .card-title { font-weight: 700; color: var(--yellow); margin-bottom: 0.3rem; }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+
+  /* ── Callout ── */
+  .callout {
+    border-left: 3px solid var(--yellow);
+    background: rgba(251,191,36,0.06);
+    border-radius: 0 6px 6px 0;
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0 1.25rem;
+    font-size: 0.9rem;
+  }
+  .callout.red  { border-color: var(--red);   background: rgba(248,113,113,0.06); }
+  .callout.blue { border-color: var(--accent); background: var(--accent-dim); }
+</style>
+</head>
+<body>
+<div class="page">
+
+<nav>
+  <a href="#arch">Architecture</a>
+  <a href="#decisions">Decisions</a>
+  <a href="#data">Data Structures</a>
+  <a href="#threat">Threat Model</a>
+  <a href="#failures">Failure Modes</a>
+  <a href="#observability">Observability</a>
+</nav>
+
+<h1>Whiteboard Defense</h1>
+<p class="subtitle">
+  <code>ceph-tracker-issues.sh</code> &mdash; Redmine + GitHub open-issue fetcher &amp; HTML reporter
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<section id="arch">
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+
+<p><strong>One-sentence summary:</strong> A Bash script that authenticates to <code>tracker.ceph.com</code> (Redmine REST API) and GitHub's public API, paginates all open issues assigned to the current user, enriches each with PR metadata and journal timestamps, computes "new since last run" deltas via a persisted timestamp file, emits a self-contained dark-mode HTML report, and optionally spawns Chrome tabs for every linked PR.</p>
+
+<div class="flow">
+<svg viewBox="0 0 860 320" xmlns="http://www.w3.org/2000/svg" font-family="monospace" font-size="12">
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+
+  <!-- ENV VARS -->
+  <rect x="10" y="130" width="130" height="60" rx="6" fill="#1e293b" stroke="#334155"/>
+  <text x="75" y="154" text-anchor="middle" fill="#94a3b8" font-size="11">ENV VARS</text>
+  <text x="75" y="170" text-anchor="middle" fill="#38bdf8" font-size="10">API_KEY</text>
+  <text x="75" y="184" text-anchor="middle" fill="#38bdf8" font-size="10">USERNAME / PASSWORD</text>
+
+  <!-- AUTH BLOCK -->
+  <rect x="180" y="120" width="120" height="80" rx="6" fill="#1e293b" stroke="#4338ca"/>
+  <text x="240" y="148" text-anchor="middle" fill="#c084fc" font-weight="bold">Auth Resolve</text>
+  <text x="240" y="164" text-anchor="middle" fill="#94a3b8" font-size="10">X-Redmine-API-Key</text>
+  <text x="240" y="178" text-anchor="middle" fill="#94a3b8" font-size="10">or -u user:pass</text>
+  <text x="240" y="192" text-anchor="middle" fill="#94a3b8" font-size="10">GET /users/current</text>
+
+  <line x1="140" y1="160" x2="180" y2="160" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- PAGINATE -->
+  <rect x="340" y="80" width="130" height="100" rx="6" fill="#1e293b" stroke="#334155"/>
+  <text x="405" y="108" text-anchor="middle" fill="#fbbf24" font-weight="bold">Paginate Issues</text>
+  <text x="405" y="126" text-anchor="middle" fill="#94a3b8" font-size="10">GET /issues.json</text>
+  <text x="405" y="140" text-anchor="middle" fill="#94a3b8" font-size="10">?assigned_to_id=me</text>
+  <text x="405" y="154" text-anchor="middle" fill="#94a3b8" font-size="10">&amp;status_id=open</text>
+  <text x="405" y="168" text-anchor="middle" fill="#94a3b8" font-size="10">limit=100 loop</text>
+
+  <line x1="300" y1="160" x2="340" y2="130" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ENRICH LOOP -->
+  <rect x="340" y="210" width="130" height="80" rx="6" fill="#1e293b" stroke="#334155"/>
+  <text x="405" y="236" text-anchor="middle" fill="#fbbf24" font-weight="bold">Enrich Loop</text>
+  <text x="405" y="254" text-anchor="middle" fill="#94a3b8" font-size="10">GET /issues/ID.json</text>
+  <text x="405" y="268" text-anchor="middle" fill="#94a3b8" font-size="10">?include=journals</text>
+  <text x="405" y="282" text-anchor="middle" fill="#94a3b8" font-size="10">GET github PR meta</text>
+
+  <line x1="405" y1="180" x2="405" y2="210" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- TIMESTAMP FILE -->
+  <rect x="10" y="230" width="130" height="60" rx="6" fill="#1e293b" stroke="#334155"/>
+  <text x="75" y="254" text-anchor="middle" fill="#94a3b8" font-size="11">TIMESTAMP FILE</text>
+  <text x="75" y="270" text-anchor="middle" fill="#38bdf8" font-size="10">.last_run_ts</text>
+  <text x="75" y="284" text-anchor="middle" fill="#38bdf8" font-size="10">(ISO-8601 UTC)</text>
+  <line x1="140" y1="260" x2="340" y2="260" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+
+  <!-- SORT + RENDER -->
+  <rect x="520" y="130" width="130" height="60" rx="6" fill="#1e293b" stroke="#334155"/>
+  <text x="585" y="155" text-anchor="middle" fill="#fbbf24" font-weight="bold">Sort + Render</text>
+  <text x="585" y="173" text-anchor="middle" fill="#94a3b8" font-size="10">sort_by(latest_ts)|reverse</text>
+  <line x1="470" y1="250" x2="585" y2="190" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- HTML FILE -->
+  <rect x="700" y="100" width="130" height="60" rx="6" fill="#1e293b" stroke="#4ade80"/>
+  <text x="765" y="125" text-anchor="middle" fill="#4ade80" font-weight="bold">HTML Report</text>
+  <text x="765" y="143" text-anchor="middle" fill="#94a3b8" font-size="10">{user}-Open-Issues.html</text>
+
+  <line x1="650" y1="160" x2="700" y2="130" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- CHROME -->
+  <rect x="700" y="200" width="130" height="60" rx="6" fill="#1e293b" stroke="#334155"/>
+  <text x="765" y="225" text-anchor="middle" fill="#94a3b8">Chrome (opt)</text>
+  <text x="765" y="243" text-anchor="middle" fill="#94a3b8" font-size="10">--open-prs flag</text>
+
+  <line x1="650" y1="160" x2="765" y2="200" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+
+  <!-- LABELS -->
+  <text x="270" y="70" text-anchor="middle" fill="#64748b" font-size="10">TLS 1.2+</text>
+  <text x="490" y="70" text-anchor="middle" fill="#64748b" font-size="10">1 HTTP call / issue (Redmine + GitHub)</text>
+</svg>
+</div>
+
+<h3>Phase Breakdown</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th>#</th><th>Phase</th><th>What happens</th><th>External call?</th></tr>
+  <tr><td>1</td><td>Flag parse</td><td>Only <code>--open-prs</code> recognized; unknown flags → immediate <code>exit 1</code></td><td>No</td></tr>
+  <tr><td>2</td><td>Dep check</td><td><code>command -v curl jq</code>; fail-fast if missing</td><td>No</td></tr>
+  <tr><td>3</td><td>Auth resolve</td><td>API key → header; else user+pass → <code>curl -u</code>; else hard exit</td><td>No</td></tr>
+  <tr><td>4</td><td>Identity probe</td><td><code>GET /users/current.json</code> — resolves login, validates creds</td><td>Redmine HTTPS</td></tr>
+  <tr><td>5</td><td>Pagination loop</td><td><code>GET /issues.json?assigned_to_id=me&amp;status_id=open&amp;limit=100&amp;offset=N</code> accumulates into <code>ISSUES_JSON</code> bash string</td><td>Redmine HTTPS (1+)</td></tr>
+  <tr><td>6</td><td>Enrich loop</td><td>Per issue: fetch journal timestamps, extract PR ID from custom field 21, fetch GitHub PR metadata</td><td>Redmine + GitHub HTTPS (2×N)</td></tr>
+  <tr><td>7</td><td>Sort</td><td><code>jq sort_by(.latest_ts) | reverse</code> — lexicographic ISO-8601 descending</td><td>No</td></tr>
+  <tr><td>8</td><td>HTML render</td><td>Bash heredoc + <code>echo</code> writes complete self-contained HTML to <code>{user}-Open-Issues.html</code></td><td>No</td></tr>
+  <tr><td>9</td><td>Timestamp write</td><td><code>NOW_TS</code> (UTC ISO-8601) persisted to <code>.last_run_ts</code></td><td>No</td></tr>
+  <tr><td>10</td><td>Chrome launch</td><td>If <code>--open-prs</code>: reads <code>$PR_URL_FILE</code>, finds Chrome binary, calls <code>"$CHROME_BIN" --new-window &lt;urls...&gt; &amp;</code></td><td>Browser only</td></tr>
+</table>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<section id="decisions">
+<h2>2 · Architectural Decisions &amp; Trade-offs</h2>
+<div class="tbl-wrap">
+<table>
+  <tr><th>Decision</th><th>Why this</th><th>Why not that</th><th>Cost / Risk</th></tr>
+
+  <tr>
+    <td><strong>API key preferred over basic auth</strong></td>
+    <td>Redmine API key never touches password rotation logic; stateless and revocable without changing account password</td>
+    <td>Basic auth is a plaintext credential in the <code>curl</code> process list (<code>-u user:pass</code>) on older systems</td>
+    <td><span class="tag tag-yellow">Medium</span> Basic auth fallback still exists; password leaks via <code>ps</code> on Linux &lt; 5.x</td>
+  </tr>
+
+  <tr>
+    <td><strong>TLS 1.2 enforced via <code>--tlsv1.2</code></strong></td>
+    <td>Prevents downgrade to TLS 1.0/1.1; satisfies IBM security floor. Every <code>curl</code> call in the script carries this flag</td>
+    <td><code>--tlsv1.3</code> would be stronger but not universally supported on older curl/OpenSSL combos</td>
+    <td><span class="tag tag-green">Low</span> TLS 1.2 is still secure; TLS 1.3 preferred where available</td>
+  </tr>
+
+  <tr>
+    <td><strong>Bash-native pagination (accumulate in-memory string)</strong></td>
+    <td>Simple; no temp files for page results; <code>jq -s '.[0] + .[1].issues'</code> merges cleanly</td>
+    <td>Could stream to a temp file per page and use <code>jq --slurpfile</code>; would lower peak RAM</td>
+    <td><span class="tag tag-yellow">Medium</span> Large issue counts (&gt;~500) risk huge bash strings; unlikely in practice</td>
+  </tr>
+
+  <tr>
+    <td><strong>Per-issue detail fetch (N+1 API calls)</strong></td>
+    <td>Redmine bulk list endpoint doesn't include journal entries; a separate <code>GET /issues/:id?include=journals</code> is the only way to get last comment timestamp</td>
+    <td>Could skip last-comment timestamps entirely and use only <code>updated_on</code> from list payload — would eliminate N calls</td>
+    <td><span class="tag tag-red">High</span> O(N) HTTP calls per run; 50 issues = 100 extra requests (Redmine + GitHub)</td>
+  </tr>
+
+  <tr>
+    <td><strong>GitHub API unauthenticated</strong></td>
+    <td>PR <code>updated_at</code> from public GitHub endpoint requires no token; reduces credential surface</td>
+    <td>Authenticated GitHub API has 5 000 req/hr vs 60 req/hr unauthenticated</td>
+    <td><span class="tag tag-red">High</span> 60 req/hr rate-limit; 60 PRs = entire hourly quota</td>
+  </tr>
+
+  <tr>
+    <td><strong>ISO-8601 string comparison for "newer than last run"</strong></td>
+    <td>Bash string comparison <code>[[ "$ts" &gt; "$LAST_RUN_TS" ]]</code> is correct for well-formed ISO-8601 UTC strings (lexicographic order = chronological order)</td>
+    <td>Converting to Unix epoch via <code>date +%s</code> is more explicit but adds a <code>date</code> subprocess per comparison</td>
+    <td><span class="tag tag-yellow">Medium</span> Breaks silently if any timestamp has mixed timezone offsets (e.g. <code>+05:30</code> vs <code>Z</code>)</td>
+  </tr>
+
+  <tr>
+    <td><strong>Enriched data staged in a temp file (<code>$ENRICHED_TMP</code>)</strong></td>
+    <td>Bash can't hold complex structured data natively; temp file + <code>jq '. += [...]'</code> accumulation is reliable and inspectable</td>
+    <td>Could use a bash associative array or named pipe; far more complex for structured JSON</td>
+    <td><span class="tag tag-green">Low</span> <code>trap 'rm -f ...' EXIT</code> ensures cleanup on all exit paths</td>
+  </tr>
+
+  <tr>
+    <td><strong>PR URL custom field hardcoded as ID 21</strong></td>
+    <td>The "Pull request ID" field on tracker.ceph.com is field ID 21 — a stable upstream convention</td>
+    <td>Could search by <code>.name == "Pull request ID"</code> dynamically; more resilient to field ID changes</td>
+    <td><span class="tag tag-yellow">Medium</span> If tracker admin ever renumbers the field, PRs silently disappear from report</td>
+  </tr>
+
+  <tr>
+    <td><strong>Self-contained HTML (no CDN dependencies)</strong></td>
+    <td>Report is fully offline-readable; no external CSS/JS fetch required; CSS variables give the dark theme</td>
+    <td>Could import Tailwind or Bootstrap from CDN for faster authoring</td>
+    <td><span class="tag tag-green">Low</span> Larger HTML file; but it works in air-gapped environments</td>
+  </tr>
+
+  <tr>
+    <td><strong>Chrome binary auto-detection</strong></td>
+    <td>Handles <code>google-chrome</code>, <code>google-chrome-stable</code>, <code>chromium</code>, <code>chromium-browser</code> — covers Fedora/Debian/Ubuntu naming differences</td>
+    <td>Could require a single explicit env var <code>BROWSER</code></td>
+    <td><span class="tag tag-green">Low</span> No Firefox/Safari support; exits with error if none found</td>
+  </tr>
+</table>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<section id="data">
+<h2>3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Core Data Structures</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th>Variable</th><th>Type</th><th>Shape / Contents</th><th>Invariant</th></tr>
+  <tr>
+    <td><code>AUTH_CURL_OPTS</code></td>
+    <td>Bash indexed array</td>
+    <td><code>(-H "X-Redmine-API-Key: ...")</code> or <code>(-u "user:pass")</code></td>
+    <td>Always set before any <code>curl</code> call; splatted as <code>"${AUTH_CURL_OPTS[@]}"</code> to preserve tokens with spaces</td>
+  </tr>
+  <tr>
+    <td><code>ISSUES_JSON</code></td>
+    <td>Bash string (JSON array)</td>
+    <td><code>[{id, subject, updated_on, custom_fields:[...]}, ...]</code></td>
+    <td>Starts as <code>"[]"</code>; each page appended with <code>jq -s '.[0] + .[1].issues'</code>; never written to disk</td>
+  </tr>
+  <tr>
+    <td><code>$ENRICHED_TMP</code></td>
+    <td>Temp file (JSON array)</td>
+    <td>Array of enriched objects (see schema below); one element per open issue</td>
+    <td>Written atomically: <code>jq > .next && mv .next current</code>; <code>trap EXIT</code> removes both files</td>
+  </tr>
+  <tr>
+    <td><code>$PR_URL_FILE</code></td>
+    <td>Temp file (plain text)</td>
+    <td>One GitHub PR URL per line, in issue-iteration order</td>
+    <td>Populated only when <code>PR_NUM</code> matches <code>^[0-9]+$</code>; read into bash array via <code>mapfile -t</code></td>
+  </tr>
+  <tr>
+    <td><code>LAST_RUN_TS</code></td>
+    <td>Bash string (ISO-8601 UTC)</td>
+    <td><code>2025-06-01T14:32:00Z</code></td>
+    <td>Empty string on first run; read from <code>.last_run_ts</code>; <code>is_newer_than_last_run</code> returns false when empty</td>
+  </tr>
+  <tr>
+    <td><code>SORTED_ISSUES</code></td>
+    <td>Bash string (JSON array)</td>
+    <td>Same enriched objects, descending <code>latest_ts</code></td>
+    <td>Derived from <code>$ENRICHED_TMP</code> via <code>jq 'sort_by(.latest_ts) | reverse'</code>; read-only after creation</td>
+  </tr>
+</table>
+</div>
+
+<h3>Enriched Issue Object Schema</h3>
+<pre>
+{
+  <span class="str">"id"</span>:               <span class="str">"12345"</span>,          <span class="c">// Redmine issue ID (string)</span>
+  <span class="str">"title"</span>:            <span class="str">"Fix RGW crash"</span>,  <span class="c">// subject from Redmine</span>
+  <span class="str">"url"</span>:              <span class="str">"https://tracker.ceph.com/issues/12345"</span>,
+  <span class="str">"updated_on"</span>:       <span class="str">"2025-06-01T10:00:00Z"</span>,  <span class="c">// Redmine field</span>
+  <span class="str">"updated_on_fmt"</span>:   <span class="str">"June 1  10:00 AM UTC"</span>,
+  <span class="str">"last_comment"</span>:     <span class="str">"2025-06-02T08:15:00Z"</span>,  <span class="c">// max journal.created_on where notes != ""</span>
+  <span class="str">"last_comment_fmt"</span>: <span class="str">"June 2  8:15 AM UTC"</span>,
+  <span class="str">"pr_num"</span>:           <span class="str">"56789"</span>,          <span class="c">// custom_field id=21, empty if absent</span>
+  <span class="str">"pr_url"</span>:           <span class="str">"https://github.com/ceph/ceph/pull/56789"</span>,
+  <span class="str">"pr_ts"</span>:            <span class="str">"2025-06-03T07:00:00Z"</span>,  <span class="c">// GitHub PR updated_at</span>
+  <span class="str">"pr_ts_fmt"</span>:        <span class="str">"June 3  7:00 AM UTC"</span>,
+  <span class="str">"latest_ts"</span>:        <span class="str">"2025-06-03T07:00:00Z"</span>,  <span class="c">// max(updated_on, last_comment, pr_ts)</span>
+  <span class="str">"tracker_is_new"</span>:   <span class="kw">true</span>,             <span class="c">// updated_on or last_comment > LAST_RUN_TS</span>
+  <span class="str">"pr_is_new"</span>:        <span class="kw">true</span>,             <span class="c">// pr_ts > LAST_RUN_TS</span>
+  <span class="str">"any_is_new"</span>:       <span class="kw">true</span>              <span class="c">// tracker_is_new || pr_is_new</span>
+}
+</pre>
+
+<h3>Key Algorithms</h3>
+
+<div class="card">
+  <div class="card-title">Pagination accumulator</div>
+  <code>ISSUES_JSON=$(echo "$ISSUES_JSON $PAGE" | jq -s '.[0] + .[1].issues')</code>
+  <ul class="bullets" style="margin-top:0.5rem">
+    <li>Reads current accumulator + new page together via <code>jq -s</code> (slurp = parse two JSON docs)</li>
+    <li>Terminates when <code>PAGE_COUNT &lt; LIMIT</code> — assumes Redmine never sends a partial page mid-set unless it's the final page</li>
+    <li>No deduplication: assumes no issue appears on two pages (offset-based, stable sort on Redmine side)</li>
+  </ul>
+</div>
+
+<div class="card">
+  <div class="card-title">"latest_ts" computation (bash lexicographic max)</div>
+  <pre style="margin:0.4rem 0 0">
+LATEST_TS="$UPDATED_ON"
+[[ "$LAST_COMMENT" &gt; "$LATEST_TS" ]] &amp;&amp; LATEST_TS="$LAST_COMMENT"
+[[ "$PR_TS"       &gt; "$LATEST_TS" ]] &amp;&amp; LATEST_TS="$PR_TS"</pre>
+  <ul class="bullets" style="margin-top:0.5rem">
+    <li>Relies on ISO-8601 UTC (<code>Z</code> suffix) lexicographic ordering matching chronological ordering</li>
+    <li>Empty string sorts before any real timestamp in bash — safe: empty timestamps don't "win"</li>
+  </ul>
+</div>
+
+<div class="card">
+  <div class="card-title">Last-comment extraction (jq pipeline)</div>
+  <pre style="margin:0.4rem 0 0">
+jq -r '
+  [ .issue.journals[]?
+    | select((.notes // "") != "")
+    | .created_on ]
+  | sort | last // ""'</pre>
+  <ul class="bullets" style="margin-top:0.5rem">
+    <li><code>journals[]?</code> — tolerates missing <code>journals</code> key without error</li>
+    <li><code>select((.notes // "") != "")</code> — filters out status-only journal entries (no text comment)</li>
+    <li><code>sort | last</code> — lexicographic max of ISO-8601 timestamps; <code>// ""</code> returns empty if no comments</li>
+  </ul>
+</div>
+
+<div class="card">
+  <div class="card-title">Atomic temp-file update pattern</div>
+  <code>jq ... "$ENRICHED_TMP" &gt; "${ENRICHED_TMP}.next" &amp;&amp; mv "${ENRICHED_TMP}.next" "$ENRICHED_TMP"</code>
+  <ul class="bullets" style="margin-top:0.5rem">
+    <li>Prevents partial writes: if <code>jq</code> fails, <code>.next</code> is never promoted and <code>&amp;&amp;</code> short-circuits</li>
+    <li><code>trap 'rm -f "$PR_URL_FILE" "$ENRICHED_TMP"' EXIT</code> covers all exit paths including <code>set -e</code> triggers</li>
+  </ul>
+</div>
+
+<h3>HTML Rendering Safety</h3>
+<ul class="bullets">
+  <li><code>escape_html()</code> escapes <code>&amp; &lt; &gt; " '</code> in strict order (ampersand first to avoid double-escaping)</li>
+  <li>Applied to: <code>USERNAME</code>, <code>TITLE</code>, all <code>*_FMT</code> display strings</li>
+  <li>URLs (<code>ISSUE_URL</code>, <code>PR_URL</code>) are <strong>not</strong> escaped — they go into <code>href</code> attributes constructed by the script, not injected from untrusted sources</li>
+</ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<section id="threat">
+<h2>4 · Threat Model &amp; Adversarial Handling</h2>
+
+<div class="callout red">
+  <strong>Trust boundary:</strong> The script trusts Redmine and GitHub responses entirely. It is designed for a single authenticated developer running on their own workstation — not a multi-tenant service.
+</div>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th>Threat</th><th>Vector</th><th>Current Handling</th><th>Residual Risk</th></tr>
+
+  <tr>
+    <td><strong>Credential exposure via process list</strong></td>
+    <td>Basic auth fallback passes <code>user:pass</code> as <code>curl -u</code> argument; visible in <code>ps aux</code> briefly</td>
+    <td>API key preferred; basic auth is a documented fallback; env vars never echoed</td>
+    <td><span class="tag tag-yellow">Medium</span> — Use API key to eliminate entirely</td>
+  </tr>
+
+  <tr>
+    <td><strong>API key leaked in shell history / env dump</strong></td>
+    <td><code>CEPH_TRACKER_API_KEY</code> as env var; <code>printenv</code> or shell history exposes it</td>
+    <td>Script reads from env only; never prints the key; header value never echoed</td>
+    <td><span class="tag tag-yellow">Medium</span> — Operator must manage env hygiene; no vault integration</td>
+  </tr>
+
+  <tr>
+    <td><strong>TLS downgrade</strong></td>
+    <td>MITM forces TLS &lt; 1.2</td>
+    <td>Every <code>curl</code> call uses <code>--tlsv1.2</code>; curl rejects connection if server can't meet minimum</td>
+    <td><span class="tag tag-green">Low</span> — Effectively mitigated</td>
+  </tr>
+
+  <tr>
+    <td><strong>Malicious issue title containing HTML</strong></td>
+    <td>Attacker creates a Redmine issue with <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> in title</td>
+    <td><code>escape_html()</code> converts all five special chars; script tags rendered as literal text</td>
+    <td><span class="tag tag-green">Low</span> — XSS mitigated for title/comment fields</td>
+  </tr>
+
+  <tr>
+    <td><strong>Malicious PR URL (open redirect / URL injection)</strong></td>
+    <td>Custom field 21 contains <code>javascript:alert(1)</code> or a non-numeric value</td>
+    <td><code>PR_NUM</code> validated against <code>^[0-9]+$</code> regex before use; non-numeric values → PR skipped</td>
+    <td><span class="tag tag-green">Low</span> — URL constructed from validated integer only</td>
+  </tr>
+
+  <tr>
+    <td><strong>Malicious <code>.last_run_ts</code> file</strong></td>
+    <td>File on disk modified to future date → all issues appear stale; or to epoch → all appear new</td>
+    <td>File content only used for string comparison; no eval or command substitution on its value</td>
+    <td><span class="tag tag-green">Low</span> — Worst case: incorrect NEW badges, no code execution</td>
+  </tr>
+
+  <tr>
+    <td><strong>GitHub API rate-limit exhaustion</strong></td>
+    <td>60 unauthenticated req/hr; &gt;60 PRs in one run returns HTTP 403</td>
+    <td><code>curl -sf</code>: <code>-s</code> silent, <code>-f</code> fails on HTTP 4xx/5xx → returns <code>"{}"</code> via <code>|| echo "{}"</code>; PR timestamp silently empty</td>
+    <td><span class="tag tag-red">High</span> — PR timestamps missing; no user-visible warning</td>
+  </tr>
+
+  <tr>
+    <td><strong>Redmine returns malformed JSON</strong></td>
+    <td>Network interruption, proxy injection, server error body</td>
+    <td><code>curl -sf</code> fails fast on non-2xx; <code>jq</code> exits non-zero on invalid JSON; <code>set -e</code> propagates to script exit</td>
+    <td><span class="tag tag-green">Low</span> — Script aborts cleanly; partial HTML file not committed (write happens after all enrichment)</td>
+  </tr>
+
+  <tr>
+    <td><strong>Path traversal via <code>USERNAME</code></strong></td>
+    <td>Redmine returns <code>.user.login = "../../etc/passwd"</code></td>
+    <td>Username used in output file path: <code>${OUTPUT_DIR}/${USERNAME}-Open-Issues.html</code>; no sanitization applied</td>
+    <td><span class="tag tag-yellow">Medium</span> — Attacker-controlled Redmine server could write to arbitrary path; mitigated by trusted-server assumption</td>
+  </tr>
+
+  <tr>
+    <td><strong>Chrome binary substitution</strong></td>
+    <td><code>PATH</code> poisoned with a fake <code>google-chrome</code></td>
+    <td>Script finds first matching binary in <code>$PATH</code>; no hash verification</td>
+    <td><span class="tag tag-yellow">Medium</span> — Requires local PATH compromise; outside script's threat model</td>
+  </tr>
+</table>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<section id="failures">
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th>Failure</th><th>Trigger</th><th>Behavior</th><th>Blast Radius</th></tr>
+
+  <tr>
+    <td><strong>Auth failure on identity probe</strong></td>
+    <td>Wrong API key / wrong creds / network down</td>
+    <td><code>curl -sf</code> exits non-zero → explicit <code>echo ERROR + exit 1</code></td>
+    <td><span class="tag tag-green">Contained</span> — no output written; clean abort</td>
+  </tr>
+
+  <tr>
+    <td><strong>Pagination fetch failure mid-loop</strong></td>
+    <td>Network drop between pages</td>
+    <td><code>curl ... || { echo ERROR; exit 1; }</code> — script exits; accumulated <code>ISSUES_JSON</code> is lost (in-memory)</td>
+    <td><span class="tag tag-green">Contained</span> — no partial HTML written; no state corruption; re-run safe</td>
+  </tr>
+
+  <tr>
+    <td><strong>Per-issue detail fetch failure</strong></td>
+    <td>Network blip mid-enrich loop</td>
+    <td><code>get_last_comment_ts</code> uses <code>|| echo "{}"</code> — returns empty last_comment silently</td>
+    <td><span class="tag tag-yellow">Partial</span> — issue appears in report without last-comment timestamp; no crash</td>
+  </tr>
+
+  <tr>
+    <td><strong>GitHub rate-limit (60 req/hr)</strong></td>
+    <td>&gt;60 linked PRs, or multiple rapid runs</td>
+    <td><code>get_pr_ts</code>: <code>curl -sf ... 2>/dev/null | jq -r '.updated_at // ""'</code> → returns empty string on 403</td>
+    <td><span class="tag tag-yellow">Partial</span> — PR shown in report, timestamp blank, not flagged as NEW even if updated</td>
+  </tr>
+
+  <tr>
+    <td><strong>Zero issues</strong></td>
+    <td>All issues closed or none assigned</td>
+    <td>Enrich loop body skipped (<code>if (( TOTAL > 0 ))</code>); HTML renders "No open issues found." empty state</td>
+    <td><span class="tag tag-green">Safe</span> — clean output, no errors</td>
+  </tr>
+
+  <tr>
+    <td><strong>First run (no <code>.last_run_ts</code>)</strong></td>
+    <td>File absent</td>
+    <td><code>LAST_RUN_TS=""</code>; <code>is_newer_than_last_run</code> returns false for all items; no ***NEW*** badges</td>
+    <td><span class="tag tag-green">Safe</span> — all issues appear stale on first run (correct: no prior baseline)</td>
+  </tr>
+
+  <tr>
+    <td><strong>Missing <code>curl</code> or <code>jq</code></strong></td>
+    <td>Bare system without tools</td>
+    <td>Dep-check loop at line 37 exits with explicit message before any I/O</td>
+    <td><span class="tag tag-green">Contained</span></td>
+  </tr>
+
+  <tr>
+    <td><strong>Output dir not writable</strong></td>
+    <td><code>mkdir -p $OUTPUT_DIR</code> fails</td>
+    <td><code>set -e</code> causes immediate exit; no HTML written</td>
+    <td><span class="tag tag-green">Contained</span></td>
+  </tr>
+
+  <tr>
+    <td><strong>Disk full during HTML write</strong></td>
+    <td>Write to <code>OUTPUT_FILE</code> fails mid-stream</td>
+    <td>Script exits (set -e); <strong>partial HTML file left on disk</strong> — no atomic write protection on the output file</td>
+    <td><span class="tag tag-red">Partial write</span> — re-run overwrites; old report if prior run existed is gone</td>
+  </tr>
+
+  <tr>
+    <td><strong>Chrome not found (<code>--open-prs</code>)</strong></td>
+    <td>None of the 4 binary names exist in <code>$PATH</code></td>
+    <td>Explicit error message + <code>exit 1</code> after report is already written</td>
+    <td><span class="tag tag-green">Contained</span> — HTML report already complete before Chrome launch</td>
+  </tr>
+
+  <tr>
+    <td><strong>Timestamps with non-UTC timezone offsets</strong></td>
+    <td>Redmine/GitHub returns <code>2025-06-01T12:00:00+05:30</code></td>
+    <td>Bash string comparison breaks — <code>+05:30</code> &lt; <code>Z</code> lexicographically but could be chronologically later</td>
+    <td><span class="tag tag-yellow">Silent wrong sort</span> — issues sorted incorrectly; NEW detection may misfire</td>
+  </tr>
+
+  <tr>
+    <td><strong>Concurrent runs</strong></td>
+    <td>Two instances run simultaneously</td>
+    <td>Both write to same <code>$ENRICHED_TMP</code> path (different mktemp values) and same <code>OUTPUT_FILE</code>; no locking on <code>OUTPUT_FILE</code> or <code>TIMESTAMP_FILE</code></td>
+    <td><span class="tag tag-yellow">Race</span> — last writer wins for timestamp; report may be incomplete</td>
+  </tr>
+</table>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<section id="observability">
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<h3>Stdout Progress Signals</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th>Message</th><th>Phase</th><th>What it means</th></tr>
+  <tr><td><code>Fetching current user info...</code></td><td>4</td><td>About to call <code>/users/current.json</code></td></tr>
+  <tr><td><code>Logged in as: &lt;username&gt;</code></td><td>4</td><td>Auth succeeded; username confirmed</td></tr>
+  <tr><td><code>Fetching open issues...</code></td><td>5</td><td>Pagination loop starting</td></tr>
+  <tr><td><code>Found N open issue(s).</code></td><td>5</td><td>Total count after all pages consumed</td></tr>
+  <tr><td><code>Processing issue details and timestamps...</code></td><td>6</td><td>Per-issue enrich loop starting</td></tr>
+  <tr><td><code>Done. Report written to: &lt;path&gt;</code></td><td>8</td><td>HTML file successfully flushed to disk</td></tr>
+  <tr><td><code>Opening N PR(s) in a new Chrome window...</code></td><td>10</td><td><code>--open-prs</code> active; Chrome about to be invoked</td></tr>
+</table>
+</div>
+
+<h3>Common Failure Triage</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th>Symptom</th><th>Most Likely Cause</th><th>Diagnostic Step</th></tr>
+  <tr>
+    <td><code>ERROR: Failed to authenticate...</code></td>
+    <td>Wrong API key or expired credentials</td>
+    <td>Verify key at <code>https://tracker.ceph.com/my/account</code>; test manually: <code>curl -H "X-Redmine-API-Key: $KEY" https://tracker.ceph.com/users/current.json</code></td>
+  </tr>
+  <tr>
+    <td>PRs show no timestamp / not flagged NEW</td>
+    <td>GitHub rate-limit hit (60 req/hr unauthenticated)</td>
+    <td>Check rate limit: <code>curl -I https://api.github.com/rate_limit</code>; look for <code>X-RateLimit-Remaining: 0</code></td>
+  </tr>
+  <tr>
+    <td>ALL issues show ***NEW*** on re-run</td>
+    <td><code>.last_run_ts</code> file deleted or reset to epoch</td>
+    <td>Inspect: <code>cat ceph-tracker/.last_run_ts</code>; if empty/missing, re-run once to reset baseline</td>
+  </tr>
+  <tr>
+    <td>NO issues show ***NEW*** unexpectedly</td>
+    <td><code>.last_run_ts</code> timestamp is in the future</td>
+    <td>Check: <code>cat ceph-tracker/.last_run_ts</code>; delete file to reset baseline</td>
+  </tr>
+  <tr>
+    <td>PR field always empty even when PRs exist</td>
+    <td>Custom field ID is not 21 on this tracker instance</td>
+    <td>Inspect raw JSON: <code>curl ... /issues/&lt;ID&gt;.json | jq '.issue.custom_fields'</code>; find field with name <code>"Pull request ID"</code></td>
+  </tr>
+  <tr>
+    <td>Script hangs indefinitely</td>
+    <td>No <code>--connect-timeout</code> / <code>--max-time</code> set on curl calls</td>
+    <td>Kill; add <code>--max-time 30</code> to all curl invocations; or run with <code>timeout 300 ./ceph-tracker-issues.sh</code></td>
+  </tr>
+  <tr>
+    <td><code>ERROR: Could not find Chrome or Chromium</code></td>
+    <td>Running on headless server, or different browser</td>
+    <td>Omit <code>--open-prs</code>; open HTML file manually in any browser</td>
+  </tr>
+  <tr>
+    <td>Issues sorted incorrectly</td>
+    <td>Mixed timezone formats in timestamps</td>
+    <td>Inspect <code>SORTED_ISSUES</code>: run script, then <code>cat $ENRICHED_TMP | jq '.[].latest_ts'</code> to see raw values</td>
+  </tr>
+</table>
+</div>
+
+<h3>Quick Health Check (Manual)</h3>
+<pre>
+<span class="c"># Verify auth</span>
+curl -sf --tlsv1.2 \
+  -H "X-Redmine-API-Key: $CEPH_TRACKER_API_KEY" \
+  https://tracker.ceph.com/users/current.json | jq '.user.login'
+
+<span class="c"># Check GitHub rate limit</span>
+curl -si https://api.github.com/rate_limit \
+  | grep -E "X-RateLimit-(Limit|Remaining|Reset)"
+
+<span class="c"># Inspect last run timestamp</span>
+cat ./ceph-tracker/.last_run_ts
+
+<span class="c"># Run with debug output</span>
+bash -x ./ceph-tracker-issues.sh 2>&amp;1 | head -60
+</pre>
+
+<h3>Known Gaps &amp; Improvement Signals</h3>
+<ul class="bullets">
+  <li><span class="tag tag-red">No curl timeout</span> — add <code>--max-time 30 --connect-timeout 10</code> to all curl calls</li>
+  <li><span class="tag tag-yellow">No GitHub rate-limit warning</span> — add check of <code>X-RateLimit-Remaining</code> response header</li>
+  <li><span class="tag tag-yellow">PR field ID hardcoded</span> — extract dynamically via <code>select(.name == "Pull request ID")</code></li>
+  <li><span class="tag tag-yellow">No output file atomic write</span> — write to <code>.tmp</code> then <code>mv</code> to protect against partial writes</li>
+  <li><span class="tag tag-purple">Performance</span> — O(2N) API calls; cache PR timestamps between runs to skip unchanged issues</li>
+</ul>
+</section>
+
+<hr>
+<footer style="text-align:center; color: var(--muted); font-size: 0.82rem; margin-top: 1rem;">
+  Whiteboard Defense &mdash; <code>ceph-tracker-issues.sh</code> &mdash; Generated for technical review
+</footer>
+
+</div>
+</body>
+</html>

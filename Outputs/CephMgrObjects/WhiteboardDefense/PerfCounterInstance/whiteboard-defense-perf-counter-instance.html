@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — PerfCounterInstance</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --orange: #e3812b;
+    --purple: #bc8cff;
+    --cyan: #79c0ff;
+    --tag-bg: #21262d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 24px; color: var(--accent); margin-bottom: 4px; letter-spacing: -0.3px; }
+  h2 { font-size: 17px; color: var(--cyan); margin: 32px 0 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px; letter-spacing: 0.2px; }
+  h3 { font-size: 14px; color: var(--purple); margin: 18px 0 8px; }
+  .meta { color: var(--muted); font-size: 12px; margin-bottom: 28px; font-family: monospace; }
+  .meta span { margin-right: 18px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 13px; }
+  th {
+    background: var(--surface2);
+    color: var(--cyan);
+    text-align: left;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  td {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  tr:nth-child(even) td { background: var(--surface); }
+  tr:nth-child(odd) td { background: var(--bg); }
+
+  /* Code / SHA pills */
+  code {
+    background: var(--tag-bg);
+    color: var(--orange);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 12px;
+  }
+  .sha {
+    background: var(--tag-bg);
+    color: var(--purple);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .badge-red    { background: #3d1b1b; color: var(--red); border: 1px solid #6e2a2a; }
+  .badge-yellow { background: #2e2210; color: var(--yellow); border: 1px solid #5a420e; }
+  .badge-green  { background: #1a2e1a; color: var(--green); border: 1px solid #2a5a2a; }
+  .badge-blue   { background: #1a2540; color: var(--accent); border: 1px solid #2a4070; }
+  .badge-purple { background: #22182e; color: var(--purple); border: 1px solid #44306a; }
+  .badge-orange { background: #2e1e10; color: var(--orange); border: 1px solid #5a3a18; }
+
+  /* Callout boxes */
+  .callout {
+    border-left: 3px solid;
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 4px 4px 0;
+    font-size: 13px;
+  }
+  .callout-red    { border-color: var(--red);    background: #1c0d0d; }
+  .callout-yellow { border-color: var(--yellow); background: #1c160a; }
+  .callout-blue   { border-color: var(--accent); background: #0d1826; }
+  .callout-green  { border-color: var(--green);  background: #0d1c0d; }
+
+  /* Bullet lists */
+  ul { padding-left: 20px; margin: 6px 0 12px; }
+  li { margin-bottom: 4px; }
+  li::marker { color: var(--muted); }
+
+  /* Diagram box */
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 20px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text);
+    overflow-x: auto;
+    margin: 12px 0 18px;
+    white-space: pre;
+  }
+  .diagram .comment { color: var(--muted); }
+  .diagram .hi      { color: var(--cyan); }
+  .diagram .warn    { color: var(--yellow); }
+  .diagram .err     { color: var(--red); }
+  .diagram .ok      { color: var(--green); }
+
+  /* Section divider */
+  .section-divider { border: none; border-top: 1px solid var(--border); margin: 36px 0 0; }
+
+  /* Author chip */
+  .author { color: var(--green); font-size: 12px; }
+
+  /* Tight two-col grid */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 10px 0 18px; }
+  @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+  .card h4 { color: var(--cyan); font-size: 13px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense — <code>PerfCounterInstance</code></h1>
+<div class="meta">
+  <span>📁 <code>src/mgr/PerfCounterInstance.cc</code> · <code>src/mgr/PerfCounterInstance.h</code></span>
+  <span>🔖 HEAD <span class="sha">8681fa6e</span></span>
+  <span>📅 Logic authored 2016–2018 · extracted 2025-08-14 (<span class="sha">35f6dd06</span>)</span>
+  <span>👤 John Spray · Boris Ranto · Jan Fajerski · Max Kellermann</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+
+<p style="color:var(--muted);font-size:13px;margin-bottom:12px;">
+  A <strong style="color:var(--text)">per-counter, per-daemon ring-buffer</strong> of timestamped samples.
+  The Ceph <code>mgr</code> daemon reads perf counters from OSDs/MONs/MDSs and holds recent history for
+  Python plugin queries and the <code>DaemonServer</code> REST surface.
+</p>
+
+<div class="diagram"><span class="comment">  Ceph daemon (OSD / MON / MDS)                mgr process</span>
+  ┌─────────────────────────┐            ┌──────────────────────────────────────────┐
+  │  PerfCounters (in-proc) │            │  DaemonState                             │
+  │                         │  MSG/      │  ┌────────────────────────────────────┐  │
+  │  counter[N]             │─ reports ─▶│  │ map&lt;name, PerfCounterInstance&gt;     │  │
+  │    type: SCALAR         │            │  │                                    │  │
+  │    type: LONGRUNAVG     │            │  │  ┌──────────────────────────────┐  │  │
+  └─────────────────────────┘            │  │  │  PerfCounterInstance         │  │  │
+                                         │  │  │                              │  │  │
+                                         │  │  │  <span class="hi">SCALAR path:</span>                │  │  │
+                                         │  │  │  buffer[20] ← push(t,v)      │  │  │
+                                         │  │  │  avg_buffer  capacity=0      │  │  │
+                                         │  │  │                              │  │  │
+                                         │  │  │  <span class="hi">LONGRUNAVG path:</span>            │  │  │
+                                         │  │  │  buffer      capacity=0      │  │  │
+                                         │  │  │  avg_buffer[20]←push_avg(t,s,c)│ │  │
+                                         │  │  └──────────────────────────────┘  │  │
+                                         │  └────────────────────────────────────┘  │
+                                         │                 │                         │
+                                         │         Python plugins / REST             │
+                                         └──────────────────────────────────────────┘
+
+  <span class="warn">  avg = s / c   (c==0 is storable; caller must guard division)</span>
+  <span class="err">  get_latest_*() → buffer.back()  — UB if buffer is empty (D-2, D-3)</span></div>
+
+<h3>Lifecycle</h3>
+<ul>
+  <li><strong>Construct</strong> — <code>PerfCounterInstance(type)</code> sizes exactly one buffer to 20; the other stays at capacity 0.</li>
+  <li><strong>Write</strong> — caller invokes <code>push(t, v)</code> (scalar) or <code>push_avg(t, s, c)</code> (avg). Oldest entry is silently evicted when full.</li>
+  <li><strong>Read</strong> — consumers call <code>get_data()</code> / <code>get_data_avg()</code> for full history, or <code>get_latest_data()</code> / <code>get_latest_data_avg()</code> for the most-recent sample.</li>
+  <li><strong>No destruction logic</strong> — RAII via <code>boost::circular_buffer</code>; no explicit destructor.</li>
+</ul>
+
+<h3>Provenance — "two lives" of this code</h3>
+<div class="callout callout-blue">
+  Logic was <strong>authored</strong> in <code>src/mgr/DaemonState.h/.cc</code> (2016–2018) and <strong>extracted verbatim</strong> into its own TU by <span class="sha">35f6dd06</span> (Max Kellermann, 2025-08-14) solely to reduce header-inclusion chains. <strong>Zero logic was changed during extraction.</strong>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<hr class="section-divider">
+<h2>2 · Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <thead><tr><th>Decision</th><th>Why this?</th><th>Why not Y?</th><th>Grounding</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Single class, two <em>mutually exclusive</em> buffers</strong><br>
+          (one always capacity=0)</td>
+      <td>One abstraction handles both <code>SCALAR</code> and <code>LONGRUNAVG</code> counter types; callers pass the type flag and get the right buffer.</td>
+      <td>Two subclasses would require virtual dispatch or a variant; the codebase chose simplicity over type-safety.</td>
+      <td><span class="sha">1164ef2f</span> (Boris Ranto, 2018-05-15) — added <code>AvgDataPoint</code> and branched the constructor.</td>
+    </tr>
+    <tr>
+      <td><strong><code>boost::circular_buffer</code> with hard-coded capacity=20</strong></td>
+      <td>Fixed-size ring; O(1) push, O(1) eviction; no dynamic allocation on every update. Bounded memory per counter instance.</td>
+      <td>A <code>std::deque</code> with manual trimming works but is not bounded by design. A ring-buffer makes overflow policy explicit.</td>
+      <td><span class="sha">9501bfdd</span> (John Spray, 2016-07-26). Magic constant 20 has no documented rationale.</td>
+    </tr>
+    <tr>
+      <td><strong>Silent eviction on overflow</strong> (oldest sample dropped)</td>
+      <td>mgr needs <em>recent</em> data for dashboards; stale history is worthless. Dropping oldest preserves freshest view.</td>
+      <td>Blocking / rejecting pushes would stall reporters. An error path adds complexity with no user-visible benefit.</td>
+      <td><span class="sha">9501bfdd</span> — <code>circular_buffer::push_back</code> semantics; no overflow handler ever added.</td>
+    </tr>
+    <tr>
+      <td><strong>Const-reference returns from all accessors</strong></td>
+      <td>Zero-copy read path. Python plugin and REST code iterate large sets; copying 20 DataPoints per counter per call would be expensive.</td>
+      <td>Returning by value would be safe but wastes heap/stack with no benefit.</td>
+      <td><span class="sha">9501bfdd</span> — original <code>get_data()</code> design; extended uniformly in <span class="sha">1164ef2f</span> and <span class="sha">b421142b</span>.</td>
+    </tr>
+    <tr>
+      <td><strong>No default constructor</strong></td>
+      <td>Forces the caller to provide a type flag. A zero-initialized instance with two capacity-0 buffers would be useless and silently discard all pushes.</td>
+      <td>A default constructor + setter pattern would require a two-phase init hazard.</td>
+      <td><span class="sha">35f6dd06</span> — extraction preserved this; no default ctor was ever added.</td>
+    </tr>
+    <tr>
+      <td><strong>Extraction to separate TU (<span class="sha">35f6dd06</span>)</strong></td>
+      <td>Breaks <code>DaemonState.h</code>'s transitive pull of <code>boost/circular_buffer.hpp</code> and <code>common/perf_counters.h</code> into every includer. Compile-time dependency reduction.</td>
+      <td>Keeping it in <code>DaemonState.h</code> was simpler but bloated downstream compilation.</td>
+      <td><span class="sha">35f6dd06</span> commit message: "To reduce header dependencies."</td>
+    </tr>
+    <tr>
+      <td><strong><code>AvgDataPoint</code> stores raw <code>(s, c)</code> rather than a float average</strong></td>
+      <td>Preserves exact integer precision; deferred division means callers control rounding. Avoids FP non-determinism in storage.</td>
+      <td>Storing a <code>double</code> average would lose precision and make sum-of-averages aggregation incorrect.</td>
+      <td><span class="sha">1164ef2f</span> — fields named <code>s</code> (sum) and <code>c</code> (count); underdocumented but intentional.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<hr class="section-divider">
+<h2>3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<div class="grid2">
+  <div class="card">
+    <h4>DataPoint  <span class="badge badge-blue">SCALAR</span></h4>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Meaning</th></tr>
+      <tr><td><code>t</code></td><td><code>utime_t</code></td><td>Wall-clock timestamp of sample</td></tr>
+      <tr><td><code>v</code></td><td><code>uint64_t</code></td><td>Counter value at time t</td></tr>
+    </table>
+    <ul style="font-size:12px;margin-top:6px;">
+      <li>Inner class, <code>public:</code> members (accessed by parent)</li>
+      <li><code>v</code> unsigned — negative deltas not representable</li>
+      <li>Established: <span class="sha">9501bfdd</span></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>AvgDataPoint  <span class="badge badge-purple">LONGRUNAVG</span></h4>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Meaning</th></tr>
+      <tr><td><code>t</code></td><td><code>utime_t</code></td><td>Wall-clock timestamp</td></tr>
+      <tr><td><code>s</code></td><td><code>uint64_t</code></td><td>Running sum (numerator)</td></tr>
+      <tr><td><code>c</code></td><td><code>uint64_t</code></td><td>Event count (denominator)</td></tr>
+    </table>
+    <ul style="font-size:12px;margin-top:6px;">
+      <li>Average = <code>s / c</code>; <code>c==0</code> is valid in-storage (undef average)</li>
+      <li>Field name <code>s</code> for "sum" is underdocumented (U-5)</li>
+      <li>Established: <span class="sha">1164ef2f</span></li>
+    </ul>
+  </div>
+</div>
+
+<h3>Buffer Invariants</h3>
+<table>
+  <thead><tr><th>Invariant</th><th>SHA</th><th>Statement</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><span class="badge badge-blue">INV-1</span> Mutual exclusivity</td>
+      <td><span class="sha">1164ef2f</span></td>
+      <td>Exactly one buffer has capacity=20. The other has capacity=0. Determined at construction; never changed after.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-blue">INV-2</span> Scalar buffer</td>
+      <td><span class="sha">9501bfdd</span></td>
+      <td><code>buffer</code>: <code>boost::circular_buffer&lt;DataPoint&gt;</code>, capacity=20. On overflow, oldest entry is silently evicted.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-blue">INV-3</span> Avg buffer</td>
+      <td><span class="sha">1164ef2f</span></td>
+      <td><code>avg_buffer</code>: <code>boost::circular_buffer&lt;AvgDataPoint&gt;</code>, capacity=20. Same eviction semantics. <code>count==0</code> storable.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-blue">INV-4</span> Zero-copy reads</td>
+      <td><span class="sha">9501bfdd</span></td>
+      <td>All accessors return <code>const&</code>. No copies made.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-yellow">INV-5</span> <code>back()</code> precondition <em>(unenforced)</em></td>
+      <td><span class="sha">b421142b</span></td>
+      <td><code>get_latest_data()</code> / <code>get_latest_data_avg()</code> are only safe when the respective buffer is non-empty. No assertion exists.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-blue">INV-6</span> No default construction</td>
+      <td><span class="sha">35f6dd06</span></td>
+      <td>Type-branching constructor is the only construction path. Every instance is type-committed at birth.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Algorithm Complexity</h3>
+<table>
+  <thead><tr><th>Operation</th><th>Time</th><th>Space</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>push(t, v)</code></td><td>O(1)</td><td>O(1)</td><td>Evicts oldest if at capacity; no alloc</td></tr>
+    <tr><td><code>push_avg(t, s, c)</code></td><td>O(1)</td><td>O(1)</td><td>Same</td></tr>
+    <tr><td><code>get_data()</code></td><td>O(1)</td><td>—</td><td>Ref to internal buffer</td></tr>
+    <tr><td><code>get_latest_data()</code></td><td>O(1)</td><td>—</td><td>UB if buffer empty (D-2)</td></tr>
+    <tr><td><code>get_data_avg()</code></td><td>O(1)</td><td>—</td><td>Returns zero-cap buffer for SCALAR type</td></tr>
+    <tr><td><code>get_latest_data_avg()</code></td><td>O(1)</td><td>—</td><td>UB if avg_buffer empty (D-3)</td></tr>
+    <tr><td>Construction</td><td>O(1)</td><td>O(20)</td><td>One buffer allocated; the other is zero-cap</td></tr>
+  </tbody>
+</table>
+
+<h3>Type Discriminant — Constructor Branch</h3>
+<div class="diagram">  PerfCounterInstance(enum perfcounter_type_d type)
+  {
+    if (type & PERFCOUNTER_LONGRUNAVG)          <span class="hi">// avg path</span>
+      avg_buffer = circular_buffer&lt;AvgDataPoint&gt;(20);  <span class="comment">// buffer capacity stays 0</span>
+    else                                         <span class="hi">// scalar path (incl. type==0)</span>
+      buffer = circular_buffer&lt;DataPoint&gt;(20);   <span class="comment">// avg_buffer capacity stays 0</span>
+  };  <span class="warn">// trailing ; is legal C++ — harmless style artefact from 1164ef2f</span></div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<hr class="section-divider">
+<h2>4 · Threat Model &amp; Adversarial Handling</h2>
+
+<div class="callout callout-blue">
+  <strong>Scope:</strong> <code>PerfCounterInstance</code> lives entirely inside the <code>mgr</code> process and is written only by the mgr daemon's own internal message-handling path. It is <em>not</em> directly reachable from network input</em>. Threats come from incorrect internal callers.
+</div>
+
+<table>
+  <thead><tr><th>Actor / Scenario</th><th>Attack Vector</th><th>What Happens</th><th>Severity</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Call <code>push()</code> on a LONGRUNAVG instance</strong></td>
+      <td>Caller passes wrong <code>PerfCounterInstance</code> to <code>push()</code></td>
+      <td><code>buffer</code> has capacity=0; <code>circular_buffer::push_back</code> on a zero-cap buffer is a <strong>no-op silent discard</strong>. Data is lost; no crash, no assert.</td>
+      <td><span class="badge badge-yellow">DATA LOSS</span></td>
+    </tr>
+    <tr>
+      <td><strong>Call <code>push_avg()</code> on a SCALAR instance</strong></td>
+      <td>Symmetric to above</td>
+      <td>Same silent discard. <code>avg_buffer</code> capacity=0 → push is no-op.</td>
+      <td><span class="badge badge-yellow">DATA LOSS</span></td>
+    </tr>
+    <tr>
+      <td><strong>Call <code>get_latest_data()</code> before any <code>push()</code></strong></td>
+      <td>Race or ordering bug in caller; new instance queried before first sample arrives</td>
+      <td><code>buffer.back()</code> on empty circular_buffer → <strong>undefined behaviour</strong> (likely heap read of garbage).</td>
+      <td><span class="badge badge-red">UB / CRASH</span> (D-2)</td>
+    </tr>
+    <tr>
+      <td><strong>Call <code>get_latest_data_avg()</code> on empty or SCALAR instance</strong></td>
+      <td>Same ordering bug, or calling on wrong type</td>
+      <td><code>avg_buffer.back()</code> on empty/zero-cap buffer → <strong>undefined behaviour</strong>.</td>
+      <td><span class="badge badge-red">UB / CRASH</span> (D-3)</td>
+    </tr>
+    <tr>
+      <td><strong>Call <code>get_current()</code></strong></td>
+      <td>Any caller; private but accessible to the class itself and friends</td>
+      <td><strong>Linker error at link-time</strong> (undefined reference). No body exists in <code>.cc</code> or anywhere in the TU. (D-1)</td>
+      <td><span class="badge badge-red">LINK ERROR</span> (D-1)</td>
+    </tr>
+    <tr>
+      <td><strong>Push <code>c=0</code> into avg_buffer</strong></td>
+      <td>Daemon reports a LONGRUNAVG counter with zero events</td>
+      <td>Stored faithfully. Caller who computes <code>s/c</code> must guard for division-by-zero; no protection in this class.</td>
+      <td><span class="badge badge-yellow">CALLER RISK</span></td>
+    </tr>
+    <tr>
+      <td><strong>Overflow <code>s</code> or <code>c</code> (uint64_t wraparound)</strong></td>
+      <td>Extremely high-throughput counter running for years</td>
+      <td>Silent unsigned wraparound. Each <code>push_avg</code> receives a snapshot; whether sum wraps is a daemon-side concern, not mgr's.</td>
+      <td><span class="badge badge-blue">LOW</span></td>
+    </tr>
+    <tr>
+      <td><strong>Concurrent read+write</strong></td>
+      <td>Python plugin reads while mgr dispatch thread writes</td>
+      <td>No mutex in this class. Thread-safety is the caller's responsibility (coordinated by <code>DaemonState</code> locking).</td>
+      <td><span class="badge badge-yellow">CALLER MUST LOCK</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<hr class="section-divider">
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<h3>DIVERGED Findings (confirmed code hazards)</h3>
+<table>
+  <thead><tr><th>ID</th><th>Location</th><th>Root-cause SHA</th><th>Hazard</th><th>Blast Radius</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><span class="badge badge-red">D-1</span></td>
+      <td><code>.h:52</code><br><code>get_current()</code></td>
+      <td><span class="sha">9501bfdd</span> declared;<br><span class="sha">35f6dd06</span> did not extract body</td>
+      <td>Declaration with no definition. Any call produces a linker error.</td>
+      <td>Build failure if ever called. Currently private — only callable from within the class. No body was present in <code>DaemonState.cc</code> either; function may have been abandoned pre-2016 and never removed.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-red">D-2</span></td>
+      <td><code>.h:61</code><br><code>get_latest_data()</code></td>
+      <td><span class="sha">b421142b</span></td>
+      <td><code>buffer.back()</code> with no emptiness guard. UB on empty buffer.</td>
+      <td>Process crash or silent heap corruption in the mgr daemon. Affects any Python plugin or REST path that calls this before the first sample arrives or after construction on a LONGRUNAVG counter.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-red">D-3</span></td>
+      <td><code>.h:69</code><br><code>get_latest_data_avg()</code></td>
+      <td><span class="sha">b421142b</span></td>
+      <td><code>avg_buffer.back()</code> with no emptiness guard. UB on empty/zero-cap buffer.</td>
+      <td>Same as D-2. Also triggered on any SCALAR counter whose <code>avg_buffer</code> has capacity=0.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>UNGROUNDED Paths (undocumented design choices)</h3>
+<table>
+  <thead><tr><th>ID</th><th>Location</th><th>Risk</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><span class="badge badge-yellow">U-1</span></td>
+      <td>Constructor — capacity <code>20</code></td>
+      <td>Magic constant; no documented rationale. A very fast counter could exhaust history in &lt;1s at the poll rate. No mechanism to tune per counter type.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-yellow">U-2</span></td>
+      <td><code>push()</code> on wrong type</td>
+      <td>No assertion; silent discard when <code>buffer.capacity()==0</code>. Data loss is invisible in logs.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-yellow">U-3</span></td>
+      <td><code>push_avg()</code> on wrong type</td>
+      <td>Same as U-2 for <code>avg_buffer</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-yellow">U-4</span></td>
+      <td><code>get_data_avg()</code> on SCALAR</td>
+      <td>Returns a zero-capacity empty buffer. Callers iterating it are safe, but callers calling <code>.back()</code> on the returned ref trigger UB.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-yellow">U-5</span></td>
+      <td><code>AvgDataPoint::s</code>, <code>::c</code></td>
+      <td>Field names terse and undocumented. "s" = sum, "c" = count only inferrable from context.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Edge Cases — Quick Reference</h3>
+<table>
+  <thead><tr><th>Edge Case</th><th>Outcome</th></tr></thead>
+  <tbody>
+    <tr><td>Buffer full (20 samples) → push()</td><td>Oldest DataPoint silently evicted. No error. O(1).</td></tr>
+    <tr><td><code>push()</code> on LONGRUNAVG instance</td><td>Silent no-op (capacity=0 circular_buffer). Data gone.</td></tr>
+    <tr><td><code>get_data()</code> before any push</td><td>Returns empty buffer. Safe — caller iterates 0 elements.</td></tr>
+    <tr><td><code>get_latest_data()</code> before any push</td><td><strong>Undefined behaviour</strong> — <code>back()</code> on empty buffer. (D-2)</td></tr>
+    <tr><td><code>type == 0</code> (no flags)</td><td>Treated as scalar path; <code>buffer</code> gets capacity=20. Correct by convention.</td></tr>
+    <tr><td><code>type</code> has both SCALAR and LONGRUNAVG flags set</td><td>LONGRUNAVG branch taken (bitwise AND check). <code>avg_buffer</code> sized; <code>buffer</code> stays 0.</td></tr>
+    <tr><td><code>c == 0</code> pushed to avg_buffer</td><td>Stored faithfully. Division-by-zero deferred to caller.</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<hr class="section-divider">
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<h3>Triage: "mgr crashed / corrupted state"</h3>
+<div class="callout callout-red">
+  <strong>Suspect D-2 / D-3 first.</strong> If the crash is inside <code>boost::circular_buffer::back()</code>,
+  the buffer was empty when <code>get_latest_data()</code> or <code>get_latest_data_avg()</code> was called.
+  Check whether the counter received any <code>push()</code> calls before the read, and whether the instance
+  type matches the accessor used.
+</div>
+
+<table>
+  <thead><tr><th>Symptom</th><th>Likely Cause</th><th>Check</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>mgr crash in <code>circular_buffer::back()</code></td>
+      <td>D-2 or D-3 — <code>get_latest_data[_avg]()</code> called on empty buffer</td>
+      <td>Stack trace: is caller checking <code>!buffer.empty()</code>? Is the counter type correct for the accessor?</td>
+    </tr>
+    <tr>
+      <td>Counter metric shows all zeros / never updates</td>
+      <td>U-2 / U-3 — <code>push()</code> called on wrong-type instance (silent discard)</td>
+      <td>Verify instance was constructed with the right <code>perfcounter_type_d</code> flag. Instrument: add assert on <code>buffer.capacity() &gt; 0</code> before push.</td>
+    </tr>
+    <tr>
+      <td>Link error: undefined reference to <code>PerfCounterInstance::get_current()</code></td>
+      <td>D-1 — body was never implemented</td>
+      <td>Remove the declaration from <code>.h:52</code> or provide an implementation in <code>.cc</code>. Currently dead code; safe to remove.</td>
+    </tr>
+    <tr>
+      <td>Counter history looks stale / only last sample available</td>
+      <td>U-1 — capacity=20 may be too small for the poll frequency</td>
+      <td>Check polling interval vs. 20-sample window. History window = <code>20 × poll_interval_seconds</code>.</td>
+    </tr>
+    <tr>
+      <td>Python plugin crashes computing average</td>
+      <td>U-5 — caller computes <code>s/c</code> without guarding <code>c==0</code></td>
+      <td>Inspect plugin code for division guard. Class stores <code>c==0</code> without error.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Safe-Call Checklist (for callers)</h3>
+<ul>
+  <li>Before <code>get_latest_data()</code>: <strong>assert</strong> / check <code>!get_data().empty()</code></li>
+  <li>Before <code>get_latest_data_avg()</code>: <strong>assert</strong> / check <code>!get_data_avg().empty()</code></li>
+  <li>Before iterating <code>get_data_avg()</code>: verify the instance was constructed with <code>PERFCOUNTER_LONGRUNAVG</code></li>
+  <li>When computing average: guard against <code>c == 0</code></li>
+  <li>Concurrent access: <code>DaemonState</code>-level lock must be held; this class has no internal synchronisation</li>
+</ul>
+
+<h3>Key SHAs for Blame / Bisect</h3>
+<table>
+  <thead><tr><th>SHA</th><th>Author</th><th>Date</th><th>What changed</th></tr></thead>
+  <tbody>
+    <tr><td><span class="sha">9501bfdd7114</span></td><td class="author">John Spray</td><td>2016-07-26</td><td>Original scalar counter — <code>DataPoint</code>, <code>buffer</code>, <code>push()</code>, <code>get_data()</code>, <code>get_current()</code> decl</td></tr>
+    <tr><td><span class="sha">1164ef2f32d8</span></td><td class="author">Boris Ranto</td><td>2018-05-15</td><td>LONGRUNAVG support — <code>AvgDataPoint</code>, <code>avg_buffer</code>, <code>push_avg()</code>, type-branching constructor</td></tr>
+    <tr><td><span class="sha">b421142b1c6f</span></td><td class="author">Jan Fajerski</td><td>2018-09-07</td><td><code>get_latest_data()</code>, <code>get_latest_data_avg()</code> — <strong>introduced D-2, D-3</strong></td></tr>
+    <tr><td><span class="sha">a17349b87afd</span></td><td class="author">Max Kellermann</td><td>2025-08-12</td><td>Pre-extraction: added <code>#include "common/perf_counters.h"</code> to <code>DaemonState.h</code></td></tr>
+    <tr><td><span class="sha">35f6dd06dd0b</span></td><td class="author">Max Kellermann</td><td>2025-08-14</td><td>Extraction to own TU. Zero logic change. Created both files.</td></tr>
+  </tbody>
+</table>
+
+<div style="margin-top:36px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--muted);">
+  <strong style="color:var(--text)">Document grounding:</strong>
+  All claims derived exclusively from <code>BobOutput/Object History/PerfCounterInstance-intent.md</code>,
+  <code>blame.txt</code>, <code>functions.txt</code>, <code>commits.txt</code>, and
+  <code>diffs/35f6dd06*.diff</code>.
+  No speculative content. Rename-chain false positives (28 Clock.h commits) excluded per intent §1.3.
+  HEAD: <span class="sha">8681fa6e</span>.
+</div>
+
+</body>
+</html>

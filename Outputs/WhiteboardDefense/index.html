@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense Hub — System Architecture & Defense Navigator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-main:    #f7f8fa;
+    --bg-card:    #ffffff;
+    --border:     #e5e7eb;
+    --accent:     #3b82d4;
+    --accent-dark:#2563eb;
+    --accent-subtle: #eff6ff;
+    --text-main:  #1f2328;
+    --text-muted: #57606a;
+    --code-bg:    #f0f1f3;
+    --badge-bg:   #e2e8f0;
+    --badge-text: #334155;
+    --card-hover-border: #93c5fd;
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --card-shadow-hover: 0 4px 12px rgba(59,130,246,0.12), 0 2px 4px rgba(0,0,0,0.05);
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px; line-height: 1.6;
+    background: var(--bg-main); color: var(--text-main);
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  header {
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 24px;
+    margin-bottom: 28px;
+  }
+  .header-tag {
+    display: inline-block;
+    background: var(--accent-subtle);
+    color: var(--accent-dark);
+    font-weight: 600;
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    border: 1px solid #bfdbfe;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  h1 { font-size: 26px; font-weight: 800; color: var(--text-main); margin-bottom: 8px; letter-spacing: -0.3px; }
+  .subtitle { font-size: 14px; color: var(--text-muted); max-width: 800px; }
+  
+  .defense-quote {
+    background: var(--bg-card);
+    border-left: 4px solid var(--accent);
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 20px 0 28px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .defense-quote strong { color: var(--text-main); }
+  .defense-quote em { font-style: normal; color: #1e40af; font-weight: 500; }
+
+  /* Controls & Search */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .search-box {
+    flex: 1;
+    min-width: 260px;
+    position: relative;
+  }
+  .search-input {
+    width: 100%;
+    padding: 9px 14px 9px 34px;
+    font-size: 13.5px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    outline: none;
+    color: var(--text-main);
+    transition: border-color 0.15s ease;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-icon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .filter-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    font-size: 12px;
+    padding: 6px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-weight: 500;
+    transition: all 0.15s ease;
+  }
+  .pill:hover, .pill.active {
+    background: var(--accent);
+    color: #ffffff;
+    border-color: var(--accent);
+  }
+
+  /* Grid Layout */
+  .section-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 32px 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-badge {
+    font-size: 11px;
+    background: var(--badge-bg);
+    color: var(--badge-text);
+    padding: 2px 7px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+  }
+  .card:hover {
+    border-color: var(--card-hover-border);
+    box-shadow: var(--card-shadow-hover);
+    transform: translateY(-2px);
+  }
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .card-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-subtle);
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.35;
+    flex: 1;
+  }
+  .card-file {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 10px;
+    word-break: break-all;
+  }
+  .card-desc {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 14px;
+    flex: 1;
+  }
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 12px;
+    margin-top: auto;
+  }
+  .tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .tag-tooling { background: #e0f2fe; color: #0369a1; }
+  .tag-orchestration { background: #fef3c7; color: #92400e; }
+  .tag-history { background: #f3e8ff; color: #6b21a8; }
+  .tag-dataset { background: #dcfce7; color: #166534; }
+  .tag-gemma { background: #ffedd5; color: #c2410c; }
+
+  .card-link-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .card:hover .card-link-text { color: var(--accent-dark); text-decoration: underline; }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <span class="header-tag">Standardized Architecture Hub</span>
+    <h1>Whiteboard Defense Navigation Hub</h1>
+    <p class="subtitle">Quick-access index to comprehensive architectural defenses, threat models, algorithmic analyses, and failure playbooks for all repository tools and agents.</p>
+    
+    <div class="defense-quote">
+      <strong>The Whiteboard Defense Standard:</strong> "I should be able to pull you aside at any moment and ask you to explain any customer-facing system you've shipped. You should be able to clearly explain how it works and defend the decisions you made." — <em>1. Why X instead of Y? | 2. Adversarial actors? | 3. Exact data structures? | 4. Bottlenecks & Failure boundaries?</em>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <span class="search-icon">&#128269;</span>
+        <input type="text" id="searchInput" class="search-input" placeholder="Filter by component, script, or topic…" onkeyup="filterCards()">
+      </div>
+      <div class="filter-pills">
+        <button class="pill active" onclick="setCategory('all', this)">All (12)</button>
+        <button class="pill" onclick="setCategory('tracker', this)">Trackers & Issue Tools</button>
+        <button class="pill" onclick="setCategory('history', this)">Git History & Corpus</button>
+        <button class="pill" onclick="setCategory('orchestration', this)">Agent Orchestration</button>
+        <button class="pill" onclick="setCategory('assessment', this)">Dataset & Explorer UI</button>
+        <button class="pill" onclick="setCategory('gemma', this)">Gemma Feedback Loop</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="cardsContainer">
+    <!-- Category: Trackers & Issue Tools -->
+    <div class="category-group" data-group="tracker">
+      <div class="section-title">
+        <span>Tracker & Issue Management</span>
+        <span class="section-badge">2 Documents</span>
+      </div>
+      <div class="grid">
+        <a class="card" href="query_ceph_tracker/whiteboard-defense-tracker-search-tool.html" data-cat="tracker" data-keywords="query_ceph_tracker.py redmine search tracker html python deduplication textile">
+          <div>
+            <div class="card-header">
+              <span class="card-num">01</span>
+              <div class="card-title">Ceph Tracker Search Tool</div>
+            </div>
+            <div class="card-file">scripts/query_ceph_tracker.py</div>
+            <div class="card-desc">Redmine REST API pagination query engine with O(1) hash deduplication, regex Textile-to-HTML transpiler, and self-contained interactive report generation.</div>
+          </div>
+          <div class="card-footer">
+            <span class="tag tag-tooling">Tracker / Python</span>
+            <span class="card-link-text">Open Defense &rarr;</span>
+          </div>
+        </a>
+
+        <a class="card" href="query_ceph_tracker_sh/whiteboard-defense-tracker-shell-wrapper.html" data-cat="tracker" data-keywords="query_ceph_tracker.sh shell wrapper argument forwarding venv bash">
+          <div>
+            <div class="card-header">
+              <span class="card-num">02</span>
+              <div class="card-title">Tracker Shell Invoker Wrapper</div>
+            </div>
+            <div class="card-file">scripts/query_ceph_tracker.sh</div>
+            <div class="card-desc">Lightweight POSIX wrapper orchestrating transparent virtualenv/interpreter resolution, CLI parameter forwarding ("$@"), and environment variable handoff.</div>
+          </div>
+          <div class="card-footer">
+            <span class="tag tag-tooling">CLI Wrapper / Bash</span>
+            <span class="card-link-text">Open Defense &rarr;</span>
+          </div>
+        </a>
+
+        <a class="card" href="ceph_tracker_issues/whiteboard-defense-user-assigned-issues-fetcher.html" data-cat="tracker" data-keywords="ceph-tracker-issues.sh redmine jq curl tls basic auth api key html">
+          <div>
+            <div class="card-header">
+              <span class="card-num">05</span>
+              <div class="card-title">User Assigned Issues Fetcher</div>
+            </div>
+            <div class="card-file">ceph-tracker-issues.sh</div>
+            <div class="card-desc">Curl + JQ Redmine issue pipeline with dual API-Key / Basic Auth fallback, TLS 1.2+ validation, and automated browser tab dispatch for open pull requests.</div>
+          </div>
+          <div class="card-footer">
+            <span class="tag tag-tooling">Redmine / Shell</span>
+            <span class="card-link-text">Open Defense &rarr;</span>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Category: Agent Orchestration -->
+    <div class="category-group" data-group="orchestration">
+      <div class="section-title">
+        <span>Agent Worktree & Workspace Orchestration</span>
+        <span class="section-badge">2 Documents</span>
+      </div>
+      <div class="grid">
+        <a class="card" href="launch_bob_agents/whiteboard-defense-agent-worktree-orchestrator.html" data-cat="orchestration" data-keywords="launch-bob-agents.sh tilix worktrees dry-run local ssh multi-agent bob orchestration">
+          <div>
+            <div class="card-header">
+              <span class="card-num">04</span>
+              <div class="card-title">Multi-Agent Worktree Orchestrator</div>
+            </div>
+            <div class="card-file">launch-bob-agents.sh</div>
+            <div class="card-desc">Concurrent multi-agent runner orchestrating Tilix terminal tabs across remote SSH / local environments, worktree isolation, secure credential staging, and dry-run introspection.</div>
+          </div>
+          <div class="card-footer">
+            <span class="tag tag-orchestration">Orchestration / Bash</span>
+            <span class="card-link-text">Open Defense &rarr;</span>
+          </div>
+        </a>
+
+        <a class="card" href="launch_gemma_agents/whiteboard-defense-gemma-agent-launcher.html" data-cat="gemma" data-keywords="launch-gemma-agents.sh gemma ollama remote ssh vram batch concurrency launcher">
+          <div>
+            <div class="card-header">
+              <span class="card-num">12</span>
+              <div class="card-title">Gemma Remote Agent Suite & Launcher</div>
+            </div>
+            <div class="card-file">gemma-agents/launch-gemma-agents.sh</div>
+            <div class="card-desc">Multi-process runner coordinating local vs remote GPU/VRAM allocation on Ollama endpoints, SSH offloading, and batch test generation sessions.</div>
+          </div>
+          <div class="card-footer">
+            <span class="tag tag-gemma">Gemma / Launcher</span>
+            <span class="card-link-text">Open Defense &rarr;</span>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Category: Git History & Corpus -->
+    <div class="category-group" data-group="history">
+      <div class="section-title">
+        <span>Object History & Git Archaeology</span>
+        <span class="section-badge">3 Documents</span>
+      </div>
+      <div class="grid">
+        <a class="card" href="collect_object_history_v4/whiteboard-defense-rename-aware-history-collector.html" data-cat="history" data-keywords="collect-object-history-v4.sh git log follow ctags rename diff history">
+          <div>
+            <div class="card-header">
+              <span class="card-num">03</span>
+              <div class="card-title">Rename-Aware History Collector</div>
+            </div>
+            <div class="card-file">collect-object-history-v4.sh</div>
+            <div class="card-desc">Linearized history extractor traversing renames (`--follow`), generating ctags boundary indexes, and materializing discrete commit diffs for LLM ingestion.</div>
+          </div>
+          <div class="card-footer">
+            <span class="tag tag-history">Git Archaeology / Bash</span>
+            <span class="card-link-text">Open Defense &rarr;</span>
+          </div>
+        </a>
+
+        <a class="card" href="get_object_history/whiteboard-defense-lazy-history-fetcher.html" data-cat="history" data-keywords="get-object-history.sh lazy scp cache trap cleanup history fetcher">
+          <div>
+            <div class="card-header">
+              <span class="card-num">06</span>
+              <div class="card-title">Lazy Object History Fetcher</div>
+            </div>
+            <div class="card-file">get-object-history.sh</div>
+            <div class="card-desc">On-demand remote corpus fetcher with local cache verification, POSIX trap cleanup lifecycle guarantees, and granular symbol filtering.</div>
+          </div>
+          <div class="card-footer">
+            <span class="tag tag-history">Corpus Fetcher / Bash</span>
+            <span class="card-link-text">Open Defense &rarr;</span>
+          </div>
+        </a>
+
+        <a class="card" href="sync_object_history/whiteboard-defense-corpus-synchronizer.html" data-cat="history" data-keywords="sync-object-history.sh rsync delta-transfer ssh intent corpus dry-run">
+          <div>
+            <div class="card-header">
+              <span class="card-num">07</span>
+              <div class="card-title">Corpus Synchronizer (Rsync)</div>
+            </div>
+            <div class="card-file">sync-object-history.sh</div>
+            <div class="card-desc">High-speed incremental rsync transport over SSH with checksum validation, intent artifact synchronization (`--intent`), and dry-run preview.</div>
+          </div>
+          <div class="card-footer">
+            <span class="tag tag-history">Synchronization / Shell</span>
+            <span class="card-link-text">Open Defense &rarr;</span>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Category: Dataset & Explorer UI -->
+    <div class="category-group" data-group="assessment">
+      <div class="section-title">
+        <span>Intent Parsing, Dataset Aggregation & Interactive UI</span>
+        <span class="section-badge">3 Documents</span>
+      </div>
+      <div class="grid">
+        <a class="card" href="parse_data/whiteboard-defense-intent-markdown-parser.html" data-cat="assessment" data-keywords="parse_data.py regex markdown json diverged ungrounded overcautious parser">
+          <div>
+            <div class="card-header">
+              <span class="card-num">08</span>
+              <div class="card-title">Intent Markdown Parser</div>
+            </div>
+            <div class="card-file">parse_data.py</div>
+            <div class="card-desc">Regex state machine extracting function invariants, status tags (DIVERGED, UNGROUNDED, OVERCAUTIOUS), and structured JSON contract schemas.</div>
+          </div>
+          <div class="card-footer">
+            <span class="tag tag-dataset">Parsing / Python</span>
+            <span class="card-link-text">Open Defense &rarr;</span>
+          </div>
+        </a>
+
+        <a class="card" href="build_dataset/whiteboard-defense-assessment-dataset-builder.html" data-cat="assessment" data-keywords="build_dataset.py dataset json line range caching html compilation">
+          <div>
+            <div class="card-header">
+              <span class="card-num">09</span>
+              <div class="card-title">Assessment Dataset Builder</div>
+            </div>
+            <div class="card-file">build_dataset.py</div>
+            <div class="card-desc">Aggregation compiler unifying parsed intents, line-range source code extraction heuristics, caching dictionaries, and monolithic dataset.json packaging.</div>
+          </div>
+          <div class="card-footer">
+            <span class="tag tag-dataset">Dataset / Python</span>
+            <span class="card-link-text">Open Defense &rarr;</span>
+          </div>
+        </a>
+
+        <a class="card" href="generate_html/whiteboard-defense-html-assessment-explorer.html" data-cat="assessment" data-keywords="generate_html.py html interactive explorer ui client-side zero-dependency">
+          <div>
+            <div class="card-header">
+              <span class="card-num">10</span>
+              <div class="card-title">Assessment Explorer HTML Generator</div>
+            </div>
+            <div class="card-file">generate_html.py</div>
+            <div class="card-desc">Zero-dependency compiler embedding JSON dataset directly into an interactive single-page app with client-side searching and collapsible diffs.</div>
+          </div>
+          <div class="card-footer">
+            <span class="tag tag-dataset">UI Generator / Python</span>
+            <span class="card-link-text">Open Defense &rarr;</span>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Category: Gemma Feedback Loop -->
+    <div class="category-group" data-group="gemma">
+      <div class="section-title">
+        <span>Autonomous LLM Test Generation</span>
+        <span class="section-badge">1 Document</span>
+      </div>
+      <div class="grid">
+        <a class="card" href="generate_tests_gemma/whiteboard-defense-gemma-pytest-feedback-loop.html" data-cat="gemma" data-keywords="generate_tests.py gemma ollama pytest feedback loop code extraction error correction">
+          <div>
+            <div class="card-header">
+              <span class="card-num">11</span>
+              <div class="card-title">Gemma Pytest Feedback Loop</div>
+            </div>
+            <div class="card-file">gemma-agents/generate_tests.py</div>
+            <div class="card-desc">Iterative test synthesis engine querying local Ollama models, capturing pytest execution stderr/tracebacks, and performing automated code self-correction loops.</div>
+          </div>
+          <div class="card-footer">
+            <span class="tag tag-gemma">Autonomous Agent / Python</span>
+            <span class="card-link-text">Open Defense &rarr;</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    Made with IBM Bob &bull; Whiteboard Defense Architecture Repository Index
+  </footer>
+</div>
+
+<script>
+  function filterCards() {
+    const input = document.getElementById('searchInput').value.toLowerCase();
+    const cards = document.querySelectorAll('.card');
+    const groups = document.querySelectorAll('.category-group');
+
+    cards.forEach(card => {
+      const text = (card.innerText + " " + (card.getAttribute('data-keywords') || '')).toLowerCase();
+      if (text.includes(input)) {
+        card.style.display = 'flex';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    // Hide section headers if all cards inside are hidden
+    groups.forEach(group => {
+      const visibleCards = group.querySelectorAll('.card[style="display: flex;"]');
+      const allCards = group.querySelectorAll('.card');
+      const hasVisible = Array.from(allCards).some(c => c.style.display !== 'none');
+      group.style.display = hasVisible ? 'block' : 'none';
+    });
+  }
+
+  function setCategory(category, element) {
+    document.querySelectorAll('.filter-pills .pill').forEach(p => p.classList.remove('active'));
+    element.classList.add('active');
+
+    const groups = document.querySelectorAll('.category-group');
+    groups.forEach(group => {
+      if (category === 'all' || group.getAttribute('data-group') === category) {
+        group.style.display = 'block';
+      } else {
+        group.style.display = 'none';
+      }
+    });
+
+    // Clear search filter when changing category
+    document.getElementById('searchInput').value = '';
+    document.querySelectorAll('.card').forEach(c => c.style.display = 'flex');
+  }
+</script>
+
+</body>
+</html>

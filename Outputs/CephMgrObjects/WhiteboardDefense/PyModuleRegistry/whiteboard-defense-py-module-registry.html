@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — PyModuleRegistry</title>
+<style>
+  :root {
+    --bg:       #0d1117;
+    --surface:  #161b22;
+    --border:   #30363d;
+    --accent:   #58a6ff;
+    --warn:     #f0883e;
+    --danger:   #f85149;
+    --ok:       #3fb950;
+    --muted:    #8b949e;
+    --text:     #e6edf3;
+    --code-bg:  #1f2937;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 28px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  h2 {
+    font-size: 18px; font-weight: 700; color: var(--accent);
+    margin: 40px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  h3 { font-size: 14px; font-weight: 700; color: var(--warn); margin: 20px 0 8px; }
+  p  { margin: 8px 0; color: var(--text); }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th {
+    background: var(--surface);
+    color: var(--accent);
+    text-align: left;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  td {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #0e1319; }
+  tr:hover td { background: #1a2332; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .badge-ok      { background: #1a3a22; color: var(--ok);     border: 1px solid var(--ok); }
+  .badge-warn    { background: #3d2810; color: var(--warn);   border: 1px solid var(--warn); }
+  .badge-danger  { background: #3d1012; color: var(--danger); border: 1px solid var(--danger); }
+  .badge-muted   { background: #1c2128; color: var(--muted);  border: 1px solid var(--border); }
+  .badge-blue    { background: #0d2040; color: var(--accent);  border: 1px solid var(--accent); }
+
+  /* Code */
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: #79c0ff;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #c9d1d9;
+    margin: 12px 0;
+  }
+
+  /* Bullet lists */
+  ul { margin: 8px 0 8px 20px; }
+  li { margin: 4px 0; }
+  ul.tight li { margin: 2px 0; }
+
+  /* SHA ref */
+  .sha {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* Callout boxes */
+  .callout {
+    border-left: 3px solid;
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 4px 4px 0;
+    font-size: 13px;
+  }
+  .callout-warn   { border-color: var(--warn);   background: #1e1508; }
+  .callout-danger { border-color: var(--danger);  background: #1e0a0a; }
+  .callout-ok     { border-color: var(--ok);      background: #0d1f12; }
+  .callout-info   { border-color: var(--accent);  background: #0a1628; }
+
+  /* Section divider */
+  .section-number {
+    display: inline-block;
+    background: var(--accent);
+    color: #0d1117;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    margin-right: 8px;
+  }
+
+  /* Flow diagram */
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .diagram svg { display: block; }
+
+  /* Grid layout for paired sections */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 12px 0;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+  }
+  .card h3 { margin-top: 0; }
+
+  @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<h1>PyModuleRegistry</h1>
+<div class="subtitle">
+  <code>src/mgr/PyModuleRegistry.cc</code> · <code>src/mgr/PyModuleRegistry.h</code> &nbsp;|&nbsp;
+  Corpus: 99 non-merge commits (2017-08-14 → 2026-06-01) &nbsp;|&nbsp;
+  Head: <span class="sha">8681fa6e</span> &nbsp;|&nbsp;
+  Whiteboard Defense Document
+</div>
+
+
+<!-- ===== SECTION 1: ARCHITECTURE ===== -->
+<h2><span class="section-number">1</span>High-Level Architecture &amp; Mental Model</h2>
+
+<p>
+  <code>PyModuleRegistry</code> is the <strong>single owner</strong> of the CPython interpreter lifecycle and
+  every <code>PyModule</code> object in the mgr daemon. It acts as a switchboard between the mgr's two
+  operational personas — <em>standby</em> and <em>active</em> — and the set of Python modules
+  discovered on disk.
+</p>
+
+<h3>Ownership &amp; Relationships</h3>
+<div class="diagram">
+<pre>
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  MgrDaemon / MgrStandby                                              │
+  │                                                                      │
+  │  calls: init() ──► standby_start() ──► active_start() ──► …        │
+  └──────────────────────────┬───────────────────────────────────────────┘
+                             │ owns
+                             ▼
+  ┌───────────────────────────────────────────────────────────────────┐
+  │  PyModuleRegistry                                                 │
+  │                                                                   │
+  │  modules: map&lt;string, PyModuleRef&gt;  ◄── loaded once in init()    │
+  │  standby_modules: unique_ptr&lt;StandbyPyModules&gt;  (0 or 1)        │
+  │  active_modules:  unique_ptr&lt;ActivePyModules&gt;   (0 or 1)        │
+  │  module_config:   ModuleConfig { map + lock }                    │
+  │  clients:         multimap&lt;string, entity_addrvec_t&gt;             │
+  │  thread_monitor:  unique_ptr&lt;ThreadMonitor&gt;                      │
+  │                                                                   │
+  │  lock: ceph::mutex  ← guards modules/standby/active/clients      │
+  └───────────────────────────────────────────────────────────────────┘
+         │                       │
+         ▼ (start/stop)          ▼ (start/stop)
+  ┌─────────────────┐    ┌──────────────────────┐
+  │ StandbyPyModules│    │  ActivePyModules      │
+  │ (optional, 0/1) │    │  (optional, 0/1)      │
+  └─────────────────┘    └──────────────────────┘
+         │                       │
+         ▼ one per module        ▼ one per module
+  ┌──────────────┐        ┌──────────────────┐
+  │ PyModule     │  ×N    │ ActivePyModule    │  ×N
+  └──────────────┘        └──────────────────┘
+</pre>
+</div>
+
+<h3>Lifecycle State Machine</h3>
+<div class="diagram">
+<pre>
+   process start
+       │
+       ▼
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  [UNINITIALIZED]                                                 │
+  │  Constructor: thread_monitor constructed                         │
+  └────────────────────────┬─────────────────────────────────────────┘
+                           │  init()
+                           │  ├─ PyConfig / Py_InitializeFromConfig
+                           │  ├─ Register ceph_module (always) + ceph_logger (if daemonize)
+                           │  ├─ Merge mgr_module_path into PYTHONPATH
+                           │  ├─ Drop GIL → save pMainThreadState
+                           │  ├─ thread_monitor->start_monitoring()
+                           │  └─ probe_modules() → load each PyModule
+                           ▼
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  [INITIALIZED]  modules map populated, interpreter live          │
+  └──────┬─────────────────────────────────────────────────────────┬─┘
+         │ handle_mgr_map(epoch=0)                                  │
+         │ sets enabled + always_on flags on each PyModule          │
+         │                                                          │
+         ▼ standby_start()                                          ▼ active_start()
+  ┌──────────────────────┐                                  ┌───────────────────────┐
+  │  [STANDBY]           │     active_start()               │  [ACTIVE]             │
+  │  StandbyPyModules    │ ─────────────────────────────►   │  (shuts down standby  │
+  │  running             │  (shuts down standby first)      │   first if needed)    │
+  └──────────────────────┘                                  │  ActivePyModules      │
+                                                            │  running              │
+                                                            └───────────────────────┘
+
+  Key invariants (enforced by ceph_assert):
+  • active_modules == nullptr before standby_start()
+  • standby_modules == nullptr before standby_start()
+  • active_modules == nullptr before active_start()
+  • mgr_map.epoch > 0 before either _start()
+</pre>
+</div>
+
+<h3>init() Sequence Detail</h3>
+<div class="diagram">
+<pre>
+  init()
+   ├─ lock_guard(lock)
+   ├─ PyConfig_Init(&amp;cfg)
+   ├─ BOOST_SCOPE_EXIT_ALL: PyConfig_Clear(&amp;cfg)   [always runs, 4cf9b36c]
+   ├─ cfg.parse_argv = 0
+   ├─ cfg.configure_c_stdio = 0
+   ├─ cfg.install_signal_handlers = 0
+   ├─ cfg.pathconfig_warnings = 0
+   ├─ cfg.safe_path = 0             [Python ≥ 3.11 only, 4cf9b36c]
+   ├─ PyImport_AppendInittab("ceph_logger", ...)   [only if daemonize, 410ce76f]
+   ├─ PyImport_AppendInittab("ceph_module", ...)   [always]
+   ├─ merge mgr_module_path + env PYTHONPATH → cfg.pythonpath_env  [51a5774a]
+   ├─ Py_InitializeFromConfig(&amp;cfg)  [aborts on failure, 4cf9b36c]
+   ├─ pMainThreadState = PyEval_SaveThread()
+   ├─ ceph_assert(pMainThreadState != nullptr)  [ab23c506]
+   ├─ thread_monitor->start_monitoring()  [95a90f7d]
+   └─ for name in probe_modules(mgr_module_path):
+        mod = PyModule(name)
+        mod->load()   [non-fatal if fails; mod still inserted, 7c80548d]
+        modules[name] = mod
+</pre>
+</div>
+
+<!-- ===== SECTION 2: DECISIONS ===== -->
+<h2><span class="section-number">2</span>Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Decision: Why X?</th>
+      <th>Alternative (Y)</th>
+      <th>Rationale &amp; SHA</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Modules discovered from disk (<code>probe_modules</code>) not from <code>MgrMap.modules</code></strong></td>
+      <td>Only load modules the mon says are enabled</td>
+      <td>All modules must be loaded early so their command definitions can be registered before a MgrMap arrives. Commands exposed to the CLI are static metadata. <span class="sha">6a8da7ca</span> (2017-11-16)</td>
+    </tr>
+    <tr>
+      <td><strong><code>init()</code> decoupled from <code>MgrMap</code> — takes no map argument</strong></td>
+      <td>Pass the map to <code>init()</code></td>
+      <td>Registry must start Python interpreter before the mon connection is up. <code>init()</code> is called at daemon start; the map arrives later via <code>handle_mgr_map()</code>. <span class="sha">810369b0</span> (2018-02-05)</td>
+    </tr>
+    <tr>
+      <td><strong>Failed modules are kept in <code>modules</code> map</strong></td>
+      <td>Remove failed modules from the map</td>
+      <td>The error must be reportable via <code>get_health_checks()</code>. Removing failed modules would silently drop them from health reporting. <span class="sha">7c80548d</span> (2018-03-15)</td>
+    </tr>
+    <tr>
+      <td><strong><code>active_start()</code> gates on <code>is_loaded()</code>, not <code>get_can_run()</code></strong></td>
+      <td>Skip modules that report <code>can_run=false</code></td>
+      <td>Modules must be allowed to start even when <code>can_run=false</code> so they can self-report their dependency problems via their own health checks. <span class="sha">cf5ef59b</span> (2018-04-23)</td>
+    </tr>
+    <tr>
+      <td><strong><code>standby_start()</code> gates on <code>is_enabled() &amp;&amp; get_can_run()</code></strong></td>
+      <td>Start all loaded modules in standby too</td>
+      <td>Standby modules are optional/lightweight. Only those that can actually run and have a standby class are started. Always-on modules that fail this check are cluster-log-reported. <span class="sha">cf292dfa</span> (2018-07-16)</td>
+    </tr>
+    <tr>
+      <td><strong>Modules started in a <code>Finisher</code> thread, not inline</strong></td>
+      <td>Start modules synchronously in <code>active_start()</code></td>
+      <td>Module start can call back into the mgr OSD map or KV store, creating lock-cycle deadlocks if done inline. Finisher decouples startup from the dispatch thread. <span class="sha">f22347db</span> (2019-01-24)</td>
+    </tr>
+    <tr>
+      <td><strong><code>PyConfig</code> / <code>Py_InitializeFromConfig</code> instead of deprecated <code>Py_SetProgramName</code> + <code>Py_InitializeEx</code></strong></td>
+      <td>Continue using the deprecated pre-3.12 init API</td>
+      <td>Python 3.12 removed the old API. <code>PyConfig</code> also gives explicit control over signal handlers, C stdio, and argv parsing. <span class="sha">4cf9b36c</span> (2024-02-03)</td>
+    </tr>
+    <tr>
+      <td><strong><code>PYTHONPATH</code> merged via <code>PyConfig.pythonpath_env</code> before interpreter init</strong></td>
+      <td>Manually call <code>sys.path.insert()</code> post-init</td>
+      <td>Setting <code>pythonpath_env</code> before <code>Py_InitializeFromConfig</code> means the interpreter sees the correct path from the first import. Post-init manipulation is fragile and order-dependent. <span class="sha">51a5774a</span> (2024-02-03)</td>
+    </tr>
+    <tr>
+      <td><strong><code>ceph_logger</code> only registered when <code>daemonize=true</code></strong></td>
+      <td>Always register <code>ceph_logger</code></td>
+      <td>In unit-test / non-daemonized contexts, the logger conflicts with Python's own stdout. <span class="sha">410ce76f</span> (2018-02-08)</td>
+    </tr>
+    <tr>
+      <td><strong><code>std::filesystem::directory_iterator</code> instead of POSIX <code>opendir</code></strong></td>
+      <td>Keep POSIX <code>opendir</code></td>
+      <td>Modern C++17 cross-platform path handling; eliminates manual <code>closedir</code> RAII. However, it silently dropped the original error-tolerant behaviour (see §5). <span class="sha">40d06ce6</span> (2020-04-30)</td>
+    </tr>
+    <tr>
+      <td><strong><code>force_disabled_modules</code> explicitly checked and skipped in <code>active_start()</code></strong></td>
+      <td>Rely on the <code>enabled</code> flag alone</td>
+      <td>Operator can force-disable an always-on module at runtime via the mon. The force-disable path is orthogonal to the normal enabled/disabled path and needs an explicit bypass. <span class="sha">9962772</span> (2024-07-19)</td>
+    </tr>
+    <tr>
+      <td><strong>No <code>Py_Finalize()</code> on shutdown — rely on process exit</strong></td>
+      <td>Clean Python shutdown via <code>Py_Finalize()</code></td>
+      <td><code>Py_Finalize()</code> with extension modules is dangerous (deadlocks, crashes on cleanup). The removed <code>shutdown()</code> function embodied this rationale; after <span class="sha">dd9f9e26</span> (2023-11-02) the mgr just exits on SIGTERM.</td>
+    </tr>
+    <tr>
+      <td><strong>Config values are <em>not</em> logged (key only)</strong></td>
+      <td>Log full key=value for debugging</td>
+      <td>Module config can store cluster credentials and user secrets. <span class="sha">19000fad</span> (2020-12-03) intentionally suppressed value logging with a commented-out line as a visible reminder.</td>
+    </tr>
+    <tr>
+      <td><strong>Two separate locks: outer <code>lock</code> and <code>module_config.lock</code></strong></td>
+      <td>Single lock for all state</td>
+      <td><code>handle_config()</code> can be called concurrently while <code>active_start()</code> holds the outer lock. Fine-grained locking avoids deadlock on the config path. <span class="sha">3193d40d</span> (2018-02-16)</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<!-- ===== SECTION 3: DATA STRUCTURES ===== -->
+<h2><span class="section-number">3</span>Data Structures, Algorithms &amp; Invariants</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Structure</th>
+      <th>Type</th>
+      <th>Why This Type</th>
+      <th>Key Invariant</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>modules</code></td>
+      <td><code>map&lt;string, PyModuleRef&gt;</code></td>
+      <td>Keyed by module name; stable iteration order; lookup by name is the dominant access pattern</td>
+      <td>Populated once in <code>init()</code>, never cleared. Contains <em>all</em> discovered modules, including load failures. Never modified after <code>init()</code>.</td>
+    </tr>
+    <tr>
+      <td><code>standby_modules</code></td>
+      <td><code>unique_ptr&lt;StandbyPyModules&gt;</code></td>
+      <td>Exclusive ownership; null = not running. Avoids shared ownership complexity.</td>
+      <td>Non-null only between <code>standby_start()</code> and the next <code>active_start()</code>. Never non-null simultaneously with <code>active_modules</code>.</td>
+    </tr>
+    <tr>
+      <td><code>active_modules</code></td>
+      <td><code>unique_ptr&lt;ActivePyModules&gt;</code></td>
+      <td>Same rationale. Null-check is cheap and unambiguous.</td>
+      <td>Non-null only after <code>active_start()</code>. All callthrough functions with <code>ceph_assert(active_modules)</code> enforce this (<span class="sha">ab23c506</span>).</td>
+    </tr>
+    <tr>
+      <td><code>module_config.config</code></td>
+      <td><code>map&lt;string, string&gt;</code></td>
+      <td>Simple KV store; config keys are arbitrary strings. Map provides O(log n) lookup and ordered iteration.</td>
+      <td>Protected exclusively by <code>module_config.lock</code> (not outer <code>lock</code>). Empty value = deletion. <span class="sha">3193d40d</span></td>
+    </tr>
+    <tr>
+      <td><code>clients</code></td>
+      <td><code>multimap&lt;string, entity_addrvec_t&gt;</code></td>
+      <td>A module can register multiple client addresses (e.g., CephFS mounts). Multimap allows one name → many addrs naturally.</td>
+      <td>Protected by outer <code>lock</code>. <code>unregister_client</code> exits on first match (<span class="sha">12375a4c</span> fixed prior endless-loop bug).</td>
+    </tr>
+    <tr>
+      <td><code>probe_modules()</code> result</td>
+      <td><code>vector&lt;string&gt;</code></td>
+      <td>Changed from <code>set&lt;string&gt;</code> (<span class="sha">7d2964bf</span>). Vector is cheaper for a one-shot iteration that never needs set semantics.</td>
+      <td>Used only during <code>init()</code>; discarded afterward.</td>
+    </tr>
+    <tr>
+      <td><code>pMainThreadState</code></td>
+      <td><code>PyThreadState *</code></td>
+      <td>CPython requires saving the main thread state to re-acquire the GIL from C threads. This pointer is the re-entry point.</td>
+      <td>Set once in <code>init()</code>, never reset. <code>ceph_assert(pMainThreadState != nullptr)</code> after <code>PyEval_SaveThread()</code> (<span class="sha">ab23c506</span>).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Key Invariants Table</h3>
+<table>
+  <thead>
+    <tr><th>Invariant</th><th>Enforced By</th><th>SHA</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>active_modules == nullptr</code> before any <code>_start()</code></td>
+      <td><code>ceph_assert</code></td>
+      <td class="sha">ab23c506</td>
+    </tr>
+    <tr>
+      <td><code>standby_modules == nullptr</code> before <code>standby_start()</code></td>
+      <td><code>ceph_assert</code></td>
+      <td class="sha">ab23c506</td>
+    </tr>
+    <tr>
+      <td><code>mgr_map.epoch &gt; 0</code> before <code>_start()</code></td>
+      <td><code>ceph_assert</code></td>
+      <td class="sha">810369b0</td>
+    </tr>
+    <tr>
+      <td><code>active_modules != nullptr</code> before active callthroughs</td>
+      <td><code>ceph_assert(active_modules)</code> in each callthrough</td>
+      <td class="sha">ab23c506</td>
+    </tr>
+    <tr>
+      <td>Modules never removed from <code>modules</code> map after <code>init()</code></td>
+      <td>Convention / no <code>erase()</code> call after <code>init()</code></td>
+      <td class="sha">6a8da7ca</td>
+    </tr>
+    <tr>
+      <td><code>PyImport_AppendInittab</code> called before <code>Py_InitializeFromConfig</code></td>
+      <td>Code ordering within <code>init()</code> block</td>
+      <td class="sha">4cf9b36c</td>
+    </tr>
+    <tr>
+      <td>Config values never logged</td>
+      <td>Convention (commented-out line visible reminder)</td>
+      <td class="sha">19000fad</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<!-- ===== SECTION 4: THREAT MODEL ===== -->
+<h2><span class="section-number">4</span>Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Threat / Adversarial Input</th>
+      <th>What Happens</th>
+      <th>Hardness</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Malicious module on disk</strong> — a Python file in <code>mgr_module_path</code> crafted to execute arbitrary code on import</td>
+      <td><code>probe_modules()</code> will find it; <code>PyModule::load()</code> will import it, executing the module-level code. The Python interpreter runs as the mgr daemon's OS user.</td>
+      <td><span class="badge badge-danger">NO PROTECTION</span> — the mgr daemon inherently trusts <code>mgr_module_path</code>. Mitigation is filesystem-level permissions on that directory.</td>
+    </tr>
+    <tr>
+      <td><strong>Module registers a command with a clashing name</strong></td>
+      <td><code>get_py_commands()</code> collects all commands from all modules and returns them all. Duplicate resolution happens upstream in <code>MonClient</code> command dispatch, not in the registry.</td>
+      <td><span class="badge badge-warn">LOW PROTECTION</span> — no deduplication or conflict detection in the registry.</td>
+    </tr>
+    <tr>
+      <td><strong>Operator issues <code>handle_command</code> before active modules are running</strong></td>
+      <td>Returns <code>-EAGAIN</code> immediately with an explanatory message. <span class="sha">834bc279</span></td>
+      <td><span class="badge badge-ok">SAFE</span></td>
+    </tr>
+    <tr>
+      <td><strong>Module floods <code>register_client</code> with many addresses</strong></td>
+      <td>Each call takes <code>lock</code> and inserts into the <code>clients</code> multimap. No cap on entries. A misbehaving module could grow the multimap unboundedly.</td>
+      <td><span class="badge badge-warn">UNBOUNDED</span> — no size limit on <code>clients</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Race: <code>handle_command</code> called during <code>active_start()</code> shutdown</strong></td>
+      <td><code>handle_command</code> reads <code>active_modules</code> without holding <code>lock</code>. TOCTOU exists: pointer could be nulled by <code>active_start</code>'s standby-shutdown path between the null-check and the dereference.</td>
+      <td><span class="badge badge-warn">TOCTOU — UNGROUNDED</span> (see §5). In practice, standby→active transition is serialised by mgr's dispatch thread.</td>
+    </tr>
+    <tr>
+      <td><strong>Attacker can enumerate module config keys</strong></td>
+      <td><code>handle_config</code> logs the key (not value) at dout(10). Config keys themselves may be sensitive (e.g., encode module names + option paths).</td>
+      <td><span class="badge badge-muted">LOW RISK</span> — dout(10) not visible without debug logging enabled.</td>
+    </tr>
+    <tr>
+      <td><strong><code>should_notify(name)</code> called with unknown module name</strong></td>
+      <td><code>modules.at(name)</code> throws <code>std::out_of_range</code>, which propagates uncaught unless the caller handles it.</td>
+      <td><span class="badge badge-warn">THROW — UNGROUNDED</span> — caller must ensure name is in the map. Inconsistent with <code>get_module()</code> which uses safe <code>find()</code>.</td>
+    </tr>
+    <tr>
+      <td><strong><code>mgr_module_path</code> does not exist</strong></td>
+      <td><code>probe_modules()</code> throws <code>std::filesystem::filesystem_error</code> (uncaught). Daemon crashes at startup.</td>
+      <td><span class="badge badge-danger">CRASH — UNGROUNDED</span> — original POSIX <code>opendir</code> silently returned empty. See §5.</td>
+    </tr>
+    <tr>
+      <td><strong>Module disabled in <code>mgr_disabled_modules</code> but still present on disk</strong></td>
+      <td>Filtered by <code>probe_modules()</code> before even being loaded. Module never enters the <code>modules</code> map. <span class="sha">067adbf9</span></td>
+      <td><span class="badge badge-ok">SAFE</span></td>
+    </tr>
+    <tr>
+      <td><strong>Always-on module force-disabled by operator via mon</strong></td>
+      <td>Set as <code>force_disabled</code> in <code>MgrMap</code>. <code>active_start()</code> explicitly skips it (<span class="sha">9962772</span>). Not reported as an error in health checks.</td>
+      <td><span class="badge badge-ok">SAFE</span></td>
+    </tr>
+    <tr>
+      <td><strong>Python module hangs during <code>serve()</code></strong></td>
+      <td><code>ThreadMonitor</code> (started after GIL drop, <span class="sha">95a90f7d</span>) detects hung threads and reports them. Shutdown relies on module co-operation; a truly hung module blocks daemon shutdown.</td>
+      <td><span class="badge badge-warn">PARTIAL</span> — detection exists; forced kill is process-level only.</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<!-- ===== SECTION 5: FAILURE MODES ===== -->
+<h2><span class="section-number">5</span>Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<div class="grid-2">
+  <div class="card">
+    <h3>🔴 Fatal (daemon abort)</h3>
+    <ul class="tight">
+      <li><code>PyConfig_SetString</code> / <code>Py_InitializeFromConfig</code> fails → <code>ceph_assertf</code> aborts. <span class="sha">4cf9b36c</span></li>
+      <li><code>pMainThreadState == nullptr</code> after <code>PyEval_SaveThread()</code> → <code>ceph_assert</code>. <span class="sha">ab23c506</span></li>
+      <li><code>active_start()</code> / <code>standby_start()</code> called with preconditions violated → <code>ceph_assert</code>. <span class="sha">ab23c506</span></li>
+      <li><code>PyImport_ImportModule("site")</code> returns null in <code>get_site_packages()</code> → <code>ceph_assert</code>. <span class="sha">ab23c506</span></li>
+      <li><code>mgr_module_path</code> missing/unreadable → <code>std::filesystem::filesystem_error</code> thrown uncaught from <code>probe_modules()</code>.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>🟡 Non-Fatal (degraded service)</h3>
+    <ul class="tight">
+      <li><code>mod->load()</code> fails → module inserted with <code>!is_loaded()</code>; reported via <code>MGR_MODULE_ERROR</code> health check. <span class="sha">7c80548d</span></li>
+      <li>No modules found at all → cluster log error only, daemon continues. <span class="sha">67a47951</span></li>
+      <li>Always-on module won't run in standby → cluster log error, daemon continues. <span class="sha">cf292dfa</span></li>
+      <li>Module stuck in <code>pending_modules</code> past expiry → <code>MGR_MODULE_ERROR</code> health check. <span class="sha">bf25a08c</span></li>
+      <li>Active module fails at runtime (non-always-on) → surfaced via <code>MGR_MODULE_ERROR</code>; other modules unaffected. <span class="sha">d9a47181</span></li>
+    </ul>
+  </div>
+</div>
+
+<h3>Known Divergences &amp; Ungrounded Risks</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Finding</th>
+      <th>Location</th>
+      <th>Risk</th>
+      <th>Class</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Comment says "because of <code>!can_run</code>" but gate checks <code>is_loaded()</code></td>
+      <td><code>.cc:242–243</code></td>
+      <td>Misleading comment only — correct behavior, stale comment. Introduced when <span class="sha">cf5ef59b</span> changed the gate but not the comment.</td>
+      <td><span class="badge badge-muted">DIVERGED (cosmetic)</span></td>
+    </tr>
+    <tr>
+      <td><code>upgrade_config</code> declared in header, implementation deleted in <span class="sha">70e99e76</span></td>
+      <td><code>.h:138–140</code></td>
+      <td>Dead declaration. If any call site compiles against it, linker will error. No call sites found. Should be removed.</td>
+      <td><span class="badge badge-warn">DIVERGED (dead decl)</span></td>
+    </tr>
+    <tr>
+      <td>Missing <code>ceph_assert(active_modules)</code> in <code>check_all_modules_started()</code></td>
+      <td><code>.cc:514–516</code></td>
+      <td>Null dereference if called before <code>active_start()</code>. Call site (<code>Mgr::background_init</code>) guarantees ordering, but it's not self-enforced. <span class="sha">cbd1726f</span></td>
+      <td><span class="badge badge-warn">DIVERGED</span></td>
+    </tr>
+    <tr>
+      <td>Missing <code>ceph_assert(active_modules)</code> in <code>get_pending_modules()</code></td>
+      <td><code>.h:279–281</code></td>
+      <td>Same risk as above. Added by <span class="sha">68221661</span> without following the <span class="sha">ab23c506</span> pattern.</td>
+      <td><span class="badge badge-warn">DIVERGED</span></td>
+    </tr>
+    <tr>
+      <td><code>probe_modules()</code> — no try/catch around <code>fs::directory_iterator</code></td>
+      <td><code>.cc:329–350</code></td>
+      <td>Bad <code>mgr_module_path</code> → uncaught <code>filesystem_error</code> → daemon crash. Original <code>opendir</code> silently returned empty. Regression introduced by <span class="sha">40d06ce6</span>.</td>
+      <td><span class="badge badge-danger">UNGROUNDED (crash)</span></td>
+    </tr>
+    <tr>
+      <td><code>handle_command()</code> accesses <code>active_modules</code> without <code>lock</code></td>
+      <td><code>.cc:352–368</code></td>
+      <td>TOCTOU: pointer can be nulled between check and dereference during standby→active transition. Safe in practice due to single-threaded dispatch, but undocumented. <span class="sha">834bc279</span></td>
+      <td><span class="badge badge-warn">UNGROUNDED</span></td>
+    </tr>
+    <tr>
+      <td><code>should_notify()</code> uses <code>modules.at()</code> — throws on unknown name</td>
+      <td><code>.h:222–225</code></td>
+      <td>Exception propagates to caller. Caller must guarantee name is valid. Inconsistent with <code>get_module()</code>'s safe <code>find()</code>. <span class="sha">ee4e3ecd</span></td>
+      <td><span class="badge badge-warn">UNGROUNDED</span></td>
+    </tr>
+    <tr>
+      <td><code>have_standby_modules()</code> / <code>is_standby_running()</code> read <code>standby_modules</code> without <code>lock</code></td>
+      <td><code>.h:132–134</code>, <code>.h:151</code></td>
+      <td>Concurrent null-check read. In practice, callers run in the mgr's single-threaded dispatch context, but not formally protected.</td>
+      <td><span class="badge badge-warn">UNGROUNDED</span></td>
+    </tr>
+    <tr>
+      <td><code>get_site_packages()</code> is compiled but never called — dead code</td>
+      <td><code>.cc:263–327</code></td>
+      <td>Site packages now injected via <code>PyConfig.pythonpath_env</code>. Function is an artifact of <span class="sha">51a5774a</span> refactor. No runtime risk; compile-time bloat only.</td>
+      <td><span class="badge badge-muted">OVERCAUTIOUS (dead)</span></td>
+    </tr>
+    <tr>
+      <td>Destructor does not call <code>Py_Finalize()</code>; rationale comment removed with <span class="sha">dd9f9e26</span></td>
+      <td><code>.h:124–126</code></td>
+      <td>Intentional: <code>Py_Finalize()</code> with extension modules is unsafe. Process exit handles cleanup. Rationale no longer in code.</td>
+      <td><span class="badge badge-muted">OVERCAUTIOUS (doc gap)</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Blast Radius Summary</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Failure</th>
+      <th>Blast Radius</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Python interpreter fails to init</td>
+      <td><strong>Daemon crash</strong> — all mgr functionality lost</td>
+    </tr>
+    <tr>
+      <td>Single module fails to load</td>
+      <td><strong>That module only</strong> — health check warns; all other modules unaffected</td>
+    </tr>
+    <tr>
+      <td>Single module fails at runtime (non-always-on)</td>
+      <td><strong>That module only</strong> — <code>MGR_MODULE_ERROR</code> health check; other modules continue</td>
+    </tr>
+    <tr>
+      <td>Always-on module fails at runtime</td>
+      <td><strong>That module + MGR_MODULE_ERROR ERR health check</strong> — triggers operator alert</td>
+    </tr>
+    <tr>
+      <td><code>probe_modules()</code> crashes (bad path)</td>
+      <td><strong>Daemon crash at startup</strong></td>
+    </tr>
+    <tr>
+      <td>Module hangs in <code>serve()</code></td>
+      <td><strong>That module thread hangs</strong> — ThreadMonitor detects; other modules unaffected; daemon shutdown may block</td>
+    </tr>
+    <tr>
+      <td><code>standby_modules</code>/<code>active_modules</code> started in wrong order</td>
+      <td><strong>Daemon abort</strong> via <code>ceph_assert</code> — immediate, loud failure</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<!-- ===== SECTION 6: OBSERVABILITY ===== -->
+<h2><span class="section-number">6</span>Observability &amp; Triage Playbook</h2>
+
+<h3>Health Checks Emitted</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Check Code</th>
+      <th>Severity</th>
+      <th>Condition</th>
+      <th>Detail</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>MGR_MODULE_DEPENDENCY</code></td>
+      <td><span class="badge badge-warn">WARN</span></td>
+      <td>Module is enabled but <code>can_run=false</code> (missing Python dependency)</td>
+      <td>Lists affected module names. <span class="sha">d9a47181</span></td>
+    </tr>
+    <tr>
+      <td><code>MGR_MODULE_ERROR</code></td>
+      <td><span class="badge badge-danger">ERR</span></td>
+      <td>Module enabled but <code>!loaded</code>; or failed at runtime with <code>can_run=true</code>; or always-on module not found in active set; or pending past expiry timeout</td>
+      <td>Lists affected module names with per-module error detail. <span class="sha">d9a47181</span>, <span class="sha">4a7aca77</span>, <span class="sha">bf25a08c</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Cluster Log Messages</h3>
+<table>
+  <thead>
+    <tr><th>Condition</th><th>Log Level</th><th>SHA</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>No modules found at <code>mgr_module_path</code></td>
+      <td><code>clog-&gt;error()</code></td>
+      <td class="sha">67a47951</td>
+    </tr>
+    <tr>
+      <td>One or more modules failed to load</td>
+      <td><code>clog-&gt;error()</code></td>
+      <td class="sha">9718896c</td>
+    </tr>
+    <tr>
+      <td>Always-on module has standby class but cannot run in standby</td>
+      <td><code>clog-&gt;error()</code></td>
+      <td class="sha">cf292dfa</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Triage Playbook</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>First Check</th>
+      <th>Second Check</th>
+      <th>Likely Cause</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>MGR_MODULE_DEPENDENCY</code> WARN</td>
+      <td><code>ceph health detail</code> — which module?</td>
+      <td><code>ceph module ls</code> — check <code>enabled_by_mgr</code> / <code>can_run</code></td>
+      <td>Missing Python package for that module. Install it on all mgr hosts.</td>
+    </tr>
+    <tr>
+      <td><code>MGR_MODULE_ERROR</code> ERR</td>
+      <td><code>ceph health detail</code> — module name + error string</td>
+      <td><code>ceph log last 100</code> — look for cluster log errors at daemon start</td>
+      <td>Module load failure (bad Python), runtime exception, or always-on module missing on disk.</td>
+    </tr>
+    <tr>
+      <td>Module command returns <code>-EAGAIN</code></td>
+      <td><code>ceph mgr stat</code> — is an active mgr elected?</td>
+      <td>Check <code>active_modules</code> is not null (i.e., active mgr is processing Python modules)</td>
+      <td>Command arrived before <code>active_start()</code> completed. Retry. <span class="sha">834bc279</span></td>
+    </tr>
+    <tr>
+      <td>mgr daemon crashes at startup with filesystem exception</td>
+      <td>Check <code>mgr_module_path</code> config value</td>
+      <td>Verify path exists and is readable by the ceph-mgr user</td>
+      <td><code>probe_modules()</code> throws on bad path (UNGROUNDED regression, <span class="sha">40d06ce6</span>)</td>
+    </tr>
+    <tr>
+      <td>mgr daemon crashes with <code>ceph_assert</code> failure</td>
+      <td>Check assert message — which precondition?</td>
+      <td>Look for double-start or out-of-order lifecycle calls in mgr orchestration</td>
+      <td>Lifecycle invariant violated: <code>active_start</code>/<code>standby_start</code> called in wrong order or without prior <code>handle_mgr_map()</code>.</td>
+    </tr>
+    <tr>
+      <td>Module appears in <code>pending_modules</code> for &gt; expiry timeout</td>
+      <td><code>ceph tell mgr mgr_status</code> — shows pending modules</td>
+      <td>Check mgr log for finisher thread errors for that module</td>
+      <td>Module's <code>serve()</code> is blocking finisher startup. May be hung on I/O or lock. ThreadMonitor should detect. <span class="sha">bf25a08c</span>, <span class="sha">cbd1726f</span></td>
+    </tr>
+    <tr>
+      <td>Module config update silently lost</td>
+      <td>Check that config key name matches exactly (case-sensitive)</td>
+      <td>Verify <code>handle_config()</code> received the update — dout(10) logs key name only</td>
+      <td>Config key store notification may not have fired; or empty-value path (deletion) fired unexpectedly. <span class="sha">3193d40d</span></td>
+    </tr>
+    <tr>
+      <td>Module stuck on shutdown / daemon won't exit</td>
+      <td>Check ThreadMonitor logs for stuck thread reports</td>
+      <td>Send SIGKILL if SIGTERM doesn't work — no <code>Py_Finalize()</code> path exists</td>
+      <td>Module's <code>serve()</code> loop or GIL-holding code not respecting the stop signal. <span class="sha">dd9f9e26</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Key Config Knobs</h3>
+<table>
+  <thead>
+    <tr><th>Config Key</th><th>Effect</th><th>SHA</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>mgr_module_path</code></td>
+      <td>Directory scanned by <code>probe_modules()</code>. Must exist and be readable.</td>
+      <td class="sha">9718896c</td>
+    </tr>
+    <tr>
+      <td><code>mgr_disabled_modules</code></td>
+      <td>Comma-separated list of module names to skip entirely at load time.</td>
+      <td class="sha">067adbf9</td>
+    </tr>
+    <tr>
+      <td><code>daemonize</code></td>
+      <td>Controls whether <code>ceph_logger</code> is registered as a Python builtin module.</td>
+      <td class="sha">410ce76f</td>
+    </tr>
+    <tr>
+      <td><code>mgr_module_load_expiration</code></td>
+      <td>Time after which a pending module is flagged as failed in health checks.</td>
+      <td class="sha">bf25a08c</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout callout-info" style="margin-top:24px;">
+  <strong>Bottom line:</strong>
+  <code>PyModuleRegistry</code> is the sole gatekeeper for Python in the mgr. Its design trades strict
+  safety (no dynamic load/unload, failed modules kept in map, module start in finisher threads) for
+  observability and fault isolation. The main production risks are: (1) a bad <code>mgr_module_path</code>
+  crashes the daemon instead of logging an error, and (2) the <code>check_all_modules_started</code> /
+  <code>get_pending_modules</code> callthroughs lack the <code>ceph_assert(active_modules)</code> guard
+  that all other callthroughs enforce.
+</div>
+
+<p style="color:var(--muted); font-size:12px; margin-top:32px; border-top: 1px solid var(--border); padding-top:12px;">
+  Generated from corpus: 99 commits, 2017-08-14 → 2026-06-01 · Head <span class="sha">8681fa6e</span> ·
+  Sources: <code>PyModuleRegistry-intent.md</code> + <code>BobOutput/Object History/v4/PyModuleRegistry/</code>
+</p>
+
+</body>
+</html>

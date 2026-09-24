@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — DaemonPerfCounters</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222536;
+    --border: #2e3250;
+    --accent: #5b8dee;
+    --accent2: #7ecfb3;
+    --warn: #e8a84c;
+    --danger: #e05c6a;
+    --text: #d4d8f0;
+    --muted: #7a80a0;
+    --code-bg: #12151f;
+    --mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.8rem; color: var(--accent); margin-bottom: 4px; }
+  h2 {
+    font-size: 1.1rem; color: var(--accent2); text-transform: uppercase;
+    letter-spacing: 0.08em; margin: 36px 0 12px;
+    border-bottom: 1px solid var(--border); padding-bottom: 6px;
+  }
+  h3 { font-size: 0.95rem; color: var(--accent); margin: 20px 0 8px; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 28px; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 0.72rem; font-family: var(--mono); font-weight: 600;
+  }
+  .badge-green  { background: #1e3a2f; color: var(--accent2); border: 1px solid #2e5a47; }
+  .badge-yellow { background: #3a2e10; color: var(--warn);    border: 1px solid #5a4820; }
+  .badge-red    { background: #3a1018; color: var(--danger);  border: 1px solid #5a2030; }
+  .badge-blue   { background: #0d1f40; color: var(--accent);  border: 1px solid #1a3060; }
+  .badge-gray   { background: #1e2030; color: var(--muted);   border: 1px solid var(--border); }
+
+  /* TABLES */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.88rem; }
+  th {
+    background: var(--surface2); color: var(--accent2); text-align: left;
+    padding: 8px 12px; font-weight: 600; border: 1px solid var(--border);
+    font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  td { padding: 8px 12px; border: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: var(--surface); }
+  tr:nth-child(odd)  td { background: var(--bg); }
+  td.label { color: var(--accent); font-weight: 600; white-space: nowrap; }
+  td.mono  { font-family: var(--mono); font-size: 0.82rem; color: var(--accent2); }
+  td.warn  { color: var(--warn); }
+  td.danger { color: var(--danger); }
+
+  /* CODE */
+  code {
+    font-family: var(--mono); background: var(--code-bg);
+    border: 1px solid var(--border); padding: 1px 5px;
+    border-radius: 3px; font-size: 0.82rem; color: var(--accent2);
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border);
+    padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    font-family: var(--mono); font-size: 0.82rem; line-height: 1.5;
+    color: var(--text); margin: 12px 0;
+  }
+  pre .c  { color: var(--muted); }
+  pre .kw { color: #c792ea; }
+  pre .fn { color: #82aaff; }
+  pre .st { color: #c3e88d; }
+  pre .ty { color: var(--accent2); }
+  pre .nu { color: var(--warn); }
+
+  /* LISTS */
+  ul { padding-left: 20px; margin: 8px 0; }
+  li { margin: 3px 0; }
+
+  /* FLOW DIAGRAM */
+  .flow {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px 24px; margin: 16px 0;
+    font-family: var(--mono); font-size: 0.82rem; line-height: 1.8;
+    overflow-x: auto;
+  }
+  .flow .box {
+    display: inline-block; border: 1px solid var(--accent);
+    padding: 3px 10px; border-radius: 4px; color: var(--accent);
+    background: #0d1f40;
+  }
+  .flow .box2 {
+    display: inline-block; border: 1px solid var(--accent2);
+    padding: 3px 10px; border-radius: 4px; color: var(--accent2);
+    background: #0d2a22;
+  }
+  .flow .box3 {
+    display: inline-block; border: 1px solid var(--warn);
+    padding: 3px 10px; border-radius: 4px; color: var(--warn);
+    background: #2a1e04;
+  }
+  .flow .arr { color: var(--muted); padding: 0 6px; }
+  .flow .label { color: var(--muted); font-size: 0.75rem; }
+
+  /* CALLOUT */
+  .callout {
+    border-left: 3px solid; border-radius: 0 6px 6px 0;
+    padding: 10px 14px; margin: 12px 0; font-size: 0.88rem;
+  }
+  .callout-warn   { border-color: var(--warn);   background: #1e1800; }
+  .callout-danger { border-color: var(--danger);  background: #1a0c10; }
+  .callout-info   { border-color: var(--accent);  background: #080f20; }
+  .callout-ok     { border-color: var(--accent2); background: #081810; }
+  .callout b { color: inherit; }
+
+  /* SHA pills */
+  .sha {
+    font-family: var(--mono); font-size: 0.75rem;
+    background: #161b30; color: #8899cc;
+    border: 1px solid #2a3060; padding: 1px 6px; border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  /* Section separator */
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 12px 0; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 14px 16px;
+  }
+  .card h4 { color: var(--accent2); font-size: 0.85rem; margin-bottom: 8px; }
+  .card ul { padding-left: 16px; }
+  .card li  { font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ HEADER -->
+<h1>Whiteboard Defense</h1>
+<div class="subtitle">
+  <strong style="color:var(--text)">DaemonPerfCounters</strong>
+  &nbsp;·&nbsp;
+  <code>src/mgr/DaemonPerfCounters.cc</code> / <code>.h</code>
+  &nbsp;·&nbsp;
+  Ceph Manager — per-daemon perf counter pipeline
+  &nbsp;·&nbsp;
+  <span class="sha">HEAD: 8681fa6</span>
+  &nbsp;·&nbsp;
+  History: 2016-06-30 → 2025-10-02
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ S1: ARCHITECTURE -->
+<h2>1 — High-Level Architecture &amp; Mental Model</h2>
+
+<h3>Role in the Manager</h3>
+<ul>
+  <li>One <code>DaemonPerfCounters</code> object lives inside each <code>DaemonState</code> — it is the <strong>per-daemon counter store</strong> for the manager.</li>
+  <li>It receives incoming <code>MMgrReport</code> messages (one per daemon heartbeat) and keeps a rolling time-series of recent counter values.</li>
+  <li>It does <em>not</em> handle locking, persistence, or serialisation — all of that is the caller's responsibility (DaemonStateIndex).</li>
+</ul>
+
+<h3>Data Flow</h3>
+<div class="flow">
+  <div>
+    <span class="box">Daemon (osd/mon/mds/rgw…)</span>
+    <span class="arr">──── MMgrReport (packed binary + declare_types + undeclare_types) ────▶</span>
+    <span class="box">MgrServer.handle_report()</span>
+  </div>
+  <div style="padding-left:4em; color:var(--muted)">│ locks DaemonState</div>
+  <div style="padding-left:4em;">
+    <span class="arr">▼</span>
+  </div>
+  <div style="padding-left:4em;">
+    <span class="box2">DaemonPerfCounters::update(report)</span>
+  </div>
+  <div style="padding-left:6em; color:var(--muted)">│</div>
+  <div style="padding-left:6em;">
+    ├─ load declare_types → <span class="box2">shared PerfCounterTypes&amp; types</span>
+  </div>
+  <div style="padding-left:6em;">
+    ├─ track per-session membership → <span class="box2">MgrSession::declared_types (set&lt;string&gt;)</span>
+  </div>
+  <div style="padding-left:6em;">
+    ├─ erase undeclare_types from session set
+  </div>
+  <div style="padding-left:6em;">
+    └─ DECODE packed binary, for each path in session set:
+  </div>
+  <div style="padding-left:8em;">
+    ├─ lazy-insert <span class="box2">instances[path]</span> if absent
+  </div>
+  <div style="padding-left:8em;">
+    ├─ LONGRUNAVG → <span class="box3">push_avg(now, val, avgcount)</span>
+  </div>
+  <div style="padding-left:8em;">
+    └─ else → <span class="box2">push(now, val)</span>
+  </div>
+  <div style="margin-top:10px;">
+    <span class="box">DaemonServer::handle_open()</span>
+    <span class="arr">──── on new session ────▶</span>
+    <span class="box2">DaemonPerfCounters::clear()</span>
+    <span class="arr">── wipes instances only</span>
+  </div>
+</div>
+
+<h3>Ownership Model</h3>
+<table>
+  <tr><th>Field</th><th>Owner</th><th>Lifetime</th><th>Notes</th></tr>
+  <tr>
+    <td class="mono">PerfCounterTypes&amp; types</td>
+    <td>DaemonStateIndex (shared)</td>
+    <td>Process lifetime</td>
+    <td>Non-owning reference. All daemons of any type populate the same global type registry.</td>
+  </tr>
+  <tr>
+    <td class="mono">instances (map&lt;string, PerfCounterInstance&gt;)</td>
+    <td>This class</td>
+    <td>Until <code>clear()</code> or destructor</td>
+    <td>Owns the rolling ring-buffer per counter path.</td>
+  </tr>
+  <tr>
+    <td class="mono">MgrSession::declared_types (set&lt;string&gt;)</td>
+    <td>MgrSession</td>
+    <td>Per-connection</td>
+    <td>NOT owned here. Migrated out in <span class="sha">dc415f1ae09a</span> to fix RGW cross-session bleed.</td>
+  </tr>
+</table>
+
+<h3>File Lineage</h3>
+<table>
+  <tr><th>File</th><th>SHA</th><th>Event</th></tr>
+  <tr><td><code>DaemonMetadata.h/.cc</code></td><td class="mono"><span class="sha">ac30e6cee2b2</span></td><td>Initial creation (John Spray, 2016-06-30)</td></tr>
+  <tr><td><code>DaemonState.h/.cc</code></td><td class="mono"><span class="sha">d9dfb436ea58</span></td><td>Rename only (2016-07-03)</td></tr>
+  <tr><td><code>DaemonPerfCounters.h/.cc</code></td><td class="mono"><span class="sha">35f6dd06dd0b</span></td><td>Extracted verbatim; header-dep reduction (2025-08-14)</td></tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════ S2: DECISIONS -->
+<h2>2 — Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <tr>
+    <th style="width:22%">Decision</th>
+    <th style="width:22%">Alternative</th>
+    <th style="width:33%">Rationale (commit-grounded)</th>
+    <th style="width:23%">Cost / Trade-off</th>
+  </tr>
+  <tr>
+    <td class="label">Shared <code>PerfCounterTypes&amp;</code> (global registry)</td>
+    <td>Per-daemon type map</td>
+    <td>Avoids duplicating type metadata for every daemon instance. Type paths are identical across all OSDs/MDSs; sharing is correct.</td>
+    <td>Any caller can pollute the shared map. Duplicate declare silently no-ops (<code>std::map::insert</code> semantics). No eviction.</td>
+  </tr>
+  <tr>
+    <td class="label"><code>declared_types</code> lives in <code>MgrSession</code>, not here</td>
+    <td>Owned <code>set&lt;string&gt;</code> in this class</td>
+    <td><span class="sha">dc415f1ae09a</span> (tracker #21197): Multiple RGW daemons share a name; their sessions opened concurrently. One session's declared set was bleeding into another's decode loop, causing wrong types to be decoded.</td>
+    <td><code>update()</code> must retrieve the session from the connection on every call via <code>get_priv()</code>. Creates a <code>static_cast</code> coupling to <code>MgrSession</code>.</td>
+  </tr>
+  <tr>
+    <td class="label">Lazy instance creation in decode loop</td>
+    <td>Eager insert on declaration (<span class="sha">1164ef2f32d8</span>)</td>
+    <td><span class="sha">5b6037aeb43a</span> (tracker #36244): Eager insert caused crash when a concurrent session called <code>clear()</code> between declaration and decode, making <code>instances.at()</code> throw <code>out_of_range</code>.</td>
+    <td>Slightly more branching per decode iteration. Correct guard comment preserved in code.</td>
+  </tr>
+  <tr>
+    <td class="label">Ring buffer (<code>boost::circular_buffer&lt;DataPoint&gt;(20)</code>) per instance</td>
+    <td>Single current value</td>
+    <td><span class="sha">9501bfdd7114</span>: "store some counter history." Manager needs time-series to answer rate/sparkline queries; a single scalar discards history.</td>
+    <td>Fixed 20-slot window. Old history silently evicted. No configurable depth.</td>
+  </tr>
+  <tr>
+    <td class="label"><code>clear()</code> wipes only <code>instances</code></td>
+    <td>Also clearing <code>declared_types</code></td>
+    <td>Pre-<span class="sha">dc415f1ae09a</span>, <code>clear()</code> cleared both. After migration, <code>declared_types</code> belongs to <code>MgrSession</code> and its lifetime follows the session, not the counter store.</td>
+    <td>If a caller calls <code>clear()</code> and then reads without a new <code>update()</code>, <code>instances</code> is empty but the new session will lazily recreate them on the next report.</td>
+  </tr>
+  <tr>
+    <td class="label"><code>const MMgrReport&amp;</code> (pass-by-ref)</td>
+    <td>Raw pointer <code>MMgrReport*</code></td>
+    <td><span class="sha">9b6aa95ff401</span>: Semantic cleanup — the function never modifies the report. Pointer signature implied ownership or nullability neither of which is true.</td>
+    <td>None; purely a correctness improvement.</td>
+  </tr>
+  <tr>
+    <td class="label">Out-of-line ctor/dtor (header forward-declares <code>PerfCounterType</code>)</td>
+    <td>Inline in header</td>
+    <td><span class="sha">d2d4c7d3f865</span> / <span class="sha">35f6dd06dd0b</span>: Moving <code>MMgrReport.h</code> include to the <code>.cc</code> file required the full <code>PerfCounterType</code> definition to be unavailable in the header. Out-of-line dtor prevents incomplete-type instantiation of the map.</td>
+    <td>Slightly more verbosity; enables faster recompilation by breaking include chains.</td>
+  </tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════ S3: DATA STRUCTURES -->
+<h2>3 — Data Structures, Algorithms &amp; Invariants</h2>
+
+<div class="two-col">
+  <div class="card">
+    <h4>instances — <code>std::map&lt;string, PerfCounterInstance&gt;</code></h4>
+    <ul>
+      <li>Key: counter path string (e.g. <code>"osd.op_r"</code>)</li>
+      <li>Value: <code>PerfCounterInstance</code> — wraps two ring buffers:
+        <ul>
+          <li><code>buffer</code>: <code>circular_buffer&lt;DataPoint&gt;(20)</code> — for plain counters/gauges</li>
+          <li><code>avg_buffer</code>: <code>circular_buffer&lt;AvgDataPoint&gt;</code> — for <code>LONGRUNAVG</code></li>
+        </ul>
+      </li>
+      <li>Created lazily on first decode for the path (not at declaration time)</li>
+      <li>Wiped entirely by <code>clear()</code></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>types — <code>PerfCounterTypes&amp;</code> (<code>std::map&lt;string, PerfCounterType&gt;</code>)</h4>
+    <ul>
+      <li>Shared reference into <code>DaemonStateIndex</code></li>
+      <li>Populated by <code>update()</code> via <code>types.insert(make_pair(t.path, t))</code></li>
+      <li>Duplicate insert is a silent no-op — first writer wins</li>
+      <li>Types are <em>never removed</em> from this map, even on undeclare</li>
+      <li>Used in decode loop: <code>types.at(t_path)</code> — safe because <code>t_path ∈ session→declared_types ⊆ types</code></li>
+    </ul>
+  </div>
+</div>
+
+<h3>Counter vs. Gauge vs. LONGRUNAVG Semantics</h3>
+<table>
+  <tr><th>Type flag</th><th>Wire encoding</th><th>Storage call</th><th>Buffer used</th></tr>
+  <tr>
+    <td><code>PERFCOUNTER_COUNTER</code></td>
+    <td><code>val</code> (u64)</td>
+    <td><code>push(now, val)</code></td>
+    <td><code>DataPoint</code> ring buffer (size 20)</td>
+  </tr>
+  <tr>
+    <td><code>PERFCOUNTER_GAUGE</code></td>
+    <td><code>val</code> (u64)</td>
+    <td><code>push(now, val)</code></td>
+    <td><code>DataPoint</code> ring buffer (size 20)</td>
+  </tr>
+  <tr>
+    <td><code>PERFCOUNTER_LONGRUNAVG</code></td>
+    <td><code>val</code>, <code>avgcount</code>, <code>avgcount2</code> (3× u64)</td>
+    <td><code>push_avg(now, val, avgcount)</code></td>
+    <td><code>AvgDataPoint</code> ring buffer</td>
+  </tr>
+</table>
+
+<div class="callout callout-warn">
+  <b>⚠ UNGROUNDED: <code>avgcount2</code></b><br>
+  Decoded from the wire at line 74 (since <span class="sha">ac30e6cee2b2</span>, 2016-06-30) but <strong>never passed to <code>push_avg</code> or stored</strong>.
+  <span class="sha">1164ef2f32d8</span> added <code>push_avg</code> and removed the TODO comment, but did not pass <code>avgcount2</code>.
+  The variable exists solely to advance the buffer pointer — its semantic purpose is undocumented and unimplemented.
+  No commit in the full 14-commit history explains what it was supposed to provide.
+</div>
+
+<h3>Decode Algorithm (update loop)</h3>
+<pre>
+<span class="kw">for</span> (t_path : session→declared_types) {
+    &amp;t = types.<span class="fn">at</span>(t_path);            <span class="c">// safe: declared ⊆ types</span>
+
+    <span class="c">// Lazy create — concurrent clear() may have wiped instances</span>
+    it = instances.<span class="fn">find</span>(t_path);       <span class="c">// 5b6037aeb43a</span>
+    <span class="kw">if</span> (it == instances.<span class="fn">end</span>())
+        it = instances.<span class="fn">insert</span>({t_path, t.type}).<span class="fn">first</span>;
+
+    <span class="fn">decode</span>(val, p);
+    <span class="kw">if</span> (t.type &amp; PERFCOUNTER_LONGRUNAVG) {
+        <span class="fn">decode</span>(avgcount, p);
+        <span class="fn">decode</span>(avgcount2, p);           <span class="c">// consumed but DISCARDED</span>
+        it→second.<span class="fn">push_avg</span>(now, val, avgcount);
+    } <span class="kw">else</span> {
+        it→second.<span class="fn">push</span>(now, val);
+    }
+}
+</pre>
+
+<h3>Invariants</h3>
+<table>
+  <tr><th>#</th><th>Invariant</th><th>Established</th></tr>
+  <tr>
+    <td>I-1</td>
+    <td><code>session→declared_types ⊆ types</code> — every path in the session set has a valid type entry. Guaranteed because the declare loop inserts into <code>types</code> before inserting the path into <code>session→declared_types</code>.</td>
+    <td><span class="sha">ac30e6cee2b2</span></td>
+  </tr>
+  <tr>
+    <td>I-2</td>
+    <td>The packed byte stream has exactly one value per path in <code>session→declared_types</code> (plus avgcount/avgcount2 for LONGRUNAVG paths). Breaking this causes <code>DECODE_FINISH</code> to throw.</td>
+    <td><span class="sha">ac30e6cee2b2</span></td>
+  </tr>
+  <tr>
+    <td>I-3</td>
+    <td><code>declared_types</code> is NOT owned by this class. <code>clear()</code> must not touch it.</td>
+    <td><span class="sha">dc415f1ae09a</span></td>
+  </tr>
+  <tr>
+    <td>I-4</td>
+    <td>An instance for <code>t_path</code> may not exist at decode time even if the path is in the session set (concurrent <code>clear()</code>). Always use lazy find-or-insert, never <code>at()</code>.</td>
+    <td><span class="sha">5b6037aeb43a</span></td>
+  </tr>
+  <tr>
+    <td>I-5</td>
+    <td><code>types</code> is never purged. Undeclared type paths are removed from <code>session→declared_types</code> only, leaving the type definition in the global registry.</td>
+    <td><span class="sha">a46690c6230b</span></td>
+  </tr>
+  <tr>
+    <td>I-6</td>
+    <td>The session pointer is kept alive for the duration of <code>update()</code> by holding the <code>intrusive_ptr priv</code> in a local variable.</td>
+    <td><span class="sha">72883956c26f</span></td>
+  </tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════ S4: THREAT MODEL -->
+<h2>4 — Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <tr>
+    <th style="width:28%">Actor / Scenario</th>
+    <th style="width:32%">What Happens</th>
+    <th style="width:20%">Blast Radius</th>
+    <th style="width:20%">Mitigated?</th>
+  </tr>
+  <tr>
+    <td class="label">Daemon sends malformed packed binary (truncated / wrong field count)</td>
+    <td><code>DECODE_FINISH(p)</code> detects overrun or underrun and throws a C++ exception. The exception propagates up to <code>handle_report()</code>.</td>
+    <td>Single report dropped. Connection may be closed depending on caller error handling.</td>
+    <td><span class="badge badge-yellow">Partial</span> — exception is thrown but the original TODO ("handle badly encoded things without asserting out") was removed without being replaced by graceful recovery.</td>
+  </tr>
+  <tr>
+    <td class="label">Daemon floods declare_types with novel paths</td>
+    <td>Every new path inserts unconditionally into the shared <code>types</code> map and the session set. No limit enforced.</td>
+    <td>Shared <code>types</code> map grows without bound across all daemon connections. Memory pressure on manager process.</td>
+    <td><span class="badge badge-red">No</span> — no path count limit at this layer.</td>
+  </tr>
+  <tr>
+    <td class="label">Daemon re-declares an existing path with different metadata</td>
+    <td><code>types.insert(make_pair(t.path, t))</code> is a no-op if the key already exists — first-writer wins.</td>
+    <td>Silent discard of new metadata. No log warning. A rogue daemon cannot overwrite an already-seen type definition.</td>
+    <td><span class="badge badge-green">Benign</span> — accidental protection; not a deliberate security gate.</td>
+  </tr>
+  <tr>
+    <td class="label">Two RGW daemons share the same name, race on open</td>
+    <td><span class="sha">dc415f1ae09a</span>: <code>declared_types</code> is per-session, so each connection has its own type membership set. One session's types cannot bleed into another's decode loop.</td>
+    <td>Isolation is correct at the session level. Both sessions share the <em>same</em> <code>instances</code> map (same <code>DaemonState</code> object), so their counter values intermix.</td>
+    <td><span class="badge badge-yellow">Partial</span> — type isolation fixed; instance isolation acknowledged as "not prevented yet" in code comment.</td>
+  </tr>
+  <tr>
+    <td class="label">Session B calls <code>clear()</code> while session A is mid-<code>update()</code></td>
+    <td>Session A's decode loop encounters a missing <code>instances</code> entry. The lazy find-or-insert at <span class="sha">5b6037aeb43a</span> recreates it.</td>
+    <td>A few data points may be silently discarded (the just-cleared entries). No crash.</td>
+    <td><span class="badge badge-green">Crash fixed</span> — data loss is possible but accepted.</td>
+  </tr>
+  <tr>
+    <td class="label">Session pointer <code>get_priv()</code> returns null (daemon disconnects mid-flight)</td>
+    <td><code>static_cast&lt;MgrSession*&gt;(priv.get())</code> would be a null pointer dereference. <code>session→declared_types</code> access would crash.</td>
+    <td>Manager crash (SIGSEGV).</td>
+    <td><span class="badge badge-red">Not guarded</span> — no null check. Relies on the assumption that the connection always has a valid session when a report arrives.</td>
+  </tr>
+  <tr>
+    <td class="label">Daemon sends undeclare for a path it never declared</td>
+    <td><code>session→declared_types.erase(t)</code> on a non-existent key is a no-op for <code>std::set</code>.</td>
+    <td>None.</td>
+    <td><span class="badge badge-green">Harmless</span></td>
+  </tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════ S5: FAILURE MODES -->
+<h2>5 — Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<table>
+  <tr>
+    <th style="width:28%">Failure</th>
+    <th style="width:32%">Root Cause</th>
+    <th style="width:20%">Observable Symptom</th>
+    <th style="width:20%">Blast Radius</th>
+  </tr>
+  <tr>
+    <td class="label">Decode exception on malformed packed data</td>
+    <td>Wire encoding out of sync with <code>session→declared_types</code>. Can happen if a daemon is restarted mid-session and old schema state persists.</td>
+    <td>Exception thrown from <code>update()</code>. Counter history silently stale until next successful report.</td>
+    <td>Single daemon's counters frozen. Manager remains up.</td>
+  </tr>
+  <tr>
+    <td class="label"><code>types.at(t_path)</code> throws <code>out_of_range</code></td>
+    <td>Path in <code>session→declared_types</code> but not in shared <code>types</code>. Should be impossible by invariant I-1 but could occur if the shared map was externally modified.</td>
+    <td>Uncaught exception from decode loop.</td>
+    <td>Manager crash in pathological cases.</td>
+  </tr>
+  <tr>
+    <td class="label">Counter history silently capped at 20 points</td>
+    <td>Ring buffer is hardcoded to 20. High-frequency reporters or slow polling consumers will lose history.</td>
+    <td>Sparklines / rate queries span at most 20 samples. No overflow warning.</td>
+    <td>Silent data loss. Only affects historical queries, not current value.</td>
+  </tr>
+  <tr>
+    <td class="label"><code>avgcount2</code> silently discarded</td>
+    <td>Variable decoded to advance wire pointer but never stored. Intent undocumented. Bug since <span class="sha">ac30e6cee2b2</span>, unresolved through <span class="sha">1164ef2f32d8</span>.</td>
+    <td>Any metric that depends on <code>avgcount2</code> (e.g. stddev of a running average) is unavailable via the manager's perf counter API.</td>
+    <td>Incomplete avg statistics. No crash, no error log.</td>
+  </tr>
+  <tr>
+    <td class="label">Shared <code>types</code> map unbounded growth</td>
+    <td>Types are only added, never removed. Even after all reporting daemons exit, stale type definitions accumulate.</td>
+    <td>Manager memory grows proportionally to lifetime unique counter paths.</td>
+    <td>Memory leak on long-lived managers with high daemon churn.</td>
+  </tr>
+  <tr>
+    <td class="label">Concurrent <code>clear()</code> drops data silently</td>
+    <td>One session opens for a named daemon, calling <code>clear()</code> and wiping entries a concurrent session just wrote.</td>
+    <td>Counter gaps in time-series. Acknowledged in code comment (<span class="sha">5b6037aeb43a</span>).</td>
+    <td>Per-daemon data gap. No crash. Affects all consumers reading that daemon's counters.</td>
+  </tr>
+  <tr>
+    <td class="label">Clock skew between <code>ceph_clock_now()</code> calls</td>
+    <td>Timestamp is captured once per <code>update()</code> call at the start (<span class="sha">750ad8340c82</span>). All counters in one report share the same timestamp.</td>
+    <td>All counters in a single report appear at an identical timestamp. High-resolution ordering within a report is lost.</td>
+    <td>Acceptable; sub-report ordering is not a stated requirement.</td>
+  </tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════ S6: OBSERVABILITY -->
+<h2>6 — Observability &amp; Triage Playbook</h2>
+
+<h3>Available Debug Signal</h3>
+<table>
+  <tr><th>Signal</th><th>Location</th><th>What it tells you</th></tr>
+  <tr>
+    <td><code>dout(20)</code> log line</td>
+    <td><code>DaemonPerfCounters.cc:34–37</code></td>
+    <td>Per-report: how many types declared/undeclared, total shared type count, and packed byte length. The primary window into update activity.</td>
+  </tr>
+  <tr>
+    <td><code>ceph tell mgr.* perf dump</code></td>
+    <td>Manager admin socket</td>
+    <td>Exposes <code>instances</code> contents for all daemons. Stale/empty output = <code>clear()</code> was called but no subsequent <code>update()</code> succeeded.</td>
+  </tr>
+  <tr>
+    <td>Manager log <code>ceph_subsys_mgr</code></td>
+    <td>Enabled with <code>debug_mgr = 20/20</code></td>
+    <td>Full decode activity. Look for absent declare/undeclare lines for a daemon = no reports arriving.</td>
+  </tr>
+</table>
+
+<h3>Triage Runbook</h3>
+
+<div class="callout callout-info">
+  <b>Symptom: Counter history is empty / stale for a specific daemon</b><br>
+  1. Check manager log for <code>dout(20)</code> lines from that daemon — is <code>update()</code> being called?<br>
+  2. If called: check whether <code>declare_types.size()</code> == 0 on every report (daemon never re-declared after reconnect).<br>
+  3. If not called: daemon not sending <code>MMgrReport</code>. Check daemon-side <code>perf dump</code> and its mgr connection state.<br>
+  4. If called with non-zero declare and still empty: suspect concurrent <code>clear()</code> from a competing session for the same daemon name.
+</div>
+
+<div class="callout callout-warn">
+  <b>Symptom: Manager crash / exception in update()</b><br>
+  1. Stack trace will show <code>DECODE_FINISH</code> or <code>types.at()</code>.<br>
+  2. <code>DECODE_FINISH</code>: packed data length mismatch — daemon protocol version skew or daemon sent wrong counter count for its declared set. Check daemon version.<br>
+  3. <code>types.at()</code>: invariant I-1 broken — path in session set but not in shared types. Should not happen; implies external map corruption or a code path that inserts to session set without inserting to types.
+</div>
+
+<div class="callout callout-warn">
+  <b>Symptom: LONGRUNAVG metrics showing wrong averages</b><br>
+  <code>avgcount2</code> is decoded from wire but silently discarded (<span class="sha">ac30e6cee2b2</span>, never fixed). Any metric needing <code>avgcount2</code> (second-moment / stddev of running avg) is incorrect.
+  This is a known gap — no commit in the full 9-year history resolved it.
+</div>
+
+<div class="callout callout-info">
+  <b>Symptom: Manager memory growing without bound</b><br>
+  Shared <code>types</code> map never shrinks. On clusters with high daemon churn (ephemeral RGW workers, test daemons), type paths accumulate permanently.
+  Mitigation: restart manager (resets <code>DaemonStateIndex</code>).
+</div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════ QUICK REF -->
+<h2>Quick Reference — Key Commits</h2>
+
+<table>
+  <tr><th>SHA</th><th>Author</th><th>Date</th><th>What changed</th></tr>
+  <tr><td class="mono"><span class="sha">ac30e6cee2b2</span></td><td>John Spray</td><td>2016-06-30</td><td>Initial creation as <code>DaemonMetadata</code>. Core update loop, packed decode, avgcount2 (ungrounded from day 1)</td></tr>
+  <tr><td class="mono"><span class="sha">9501bfdd7114</span></td><td>John Spray</td><td>2016-07-26</td><td>Ring buffer (size 20) + timestamps. <code>clear()</code> added.</td></tr>
+  <tr><td class="mono"><span class="sha">a46690c6230b</span></td><td>Sage Weil</td><td>2017-03-10</td><td>Undeclare loop — counter removal from session set.</td></tr>
+  <tr><td class="mono"><span class="sha">dc415f1ae09a</span></td><td>John Spray</td><td>2017-09-23</td><td><strong>declared_types → MgrSession.</strong> Fixes RGW cross-session type bleed (#21197).</td></tr>
+  <tr><td class="mono"><span class="sha">1164ef2f32d8</span></td><td>Boris Ranto</td><td>2018-05-15</td><td>LONGRUNAVG: <code>push_avg</code>, <code>AvgDataPoint</code>. Removed TODO but left avgcount2 unused.</td></tr>
+  <tr><td class="mono"><span class="sha">72883956c26f</span></td><td>Kefu Chai</td><td>2018-05-29</td><td>Two-step session retrieval — keeps <code>intrusive_ptr</code> alive for duration of update.</td></tr>
+  <tr><td class="mono"><span class="sha">5b6037aeb43a</span></td><td>Mykola Golub</td><td>2018-12-13</td><td><strong>Lazy instance creation.</strong> Fixes crash from concurrent clear (#36244).</td></tr>
+  <tr><td class="mono"><span class="sha">9b6aa95ff401</span></td><td>Kefu Chai</td><td>2019-04-15</td><td><code>update(MMgrReport*)</code> → <code>update(const MMgrReport&amp;)</code>.</td></tr>
+  <tr><td class="mono"><span class="sha">35f6dd06dd0b</span></td><td>Max Kellermann</td><td>2025-08-14</td><td>Extract to <code>DaemonPerfCounters.h/.cc</code>. Verbatim refactor, no behavior change.</td></tr>
+</table>
+
+<div style="margin-top:32px; font-size:0.78rem; color:var(--muted); border-top:1px solid var(--border); padding-top:12px;">
+  Generated from corpus HEAD <code>8681fa6ebac2</code> · Combined history 2016-06-30 → 2025-10-02 · 14 behavioral commits across DaemonPerfCounters / DaemonState lineage
+</div>
+
+</body>
+</html>

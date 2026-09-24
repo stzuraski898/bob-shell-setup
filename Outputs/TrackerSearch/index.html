@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ceph Tracker Search Results</title>
+<style>
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    background: #f7f8fa;
+    color: #1f2328;
+  }
+  .page { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  a { color: #3b82d4; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header {
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 16px;
+    margin-bottom: 28px;
+  }
+  header h1 { font-size: 20px; font-weight: 700; }
+  header .subtitle { color: #57606a; font-size: 13px; margin-top: 4px; }
+  .badge {
+    display: inline-block;
+    font-size: 11px; padding: 1px 7px; border-radius: 10px;
+    white-space: nowrap; font-weight: 500;
+  }
+  .badge-new      { background: #dbeafe; color: #1d4ed8; }
+  .badge-progress { background: #fef9c3; color: #854d0e; }
+  .badge-resolved { background: #dcfce7; color: #166534; }
+  .badge-rejected { background: #fee2e2; color: #991b1b; }
+  .badge-other    { background: #f3f4f6; color: #374151; }
+  .pri-urgent { background: #fee2e2; color: #991b1b; }
+  .pri-high   { background: #ffedd5; color: #9a3412; }
+  .pri-normal { background: #f3f4f6; color: #374151; }
+  .pri-low    { background: #f0fdf4; color: #166534; }
+  footer {
+    margin-top: 48px; padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+    text-align: center; font-size: 12px; color: #57606a;
+  }
+
+  .summary-bar {
+    display: flex; gap: 24px; flex-wrap: wrap;
+    background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 6px; padding: 12px 16px; margin-bottom: 28px;
+    font-size: 13px; color: #57606a;
+  }
+  .summary-bar strong { color: #1f2328; }
+  section { margin-bottom: 36px; }
+  .section-title {
+    font-size: 15px; font-weight: 600; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px;
+    border-left: 3px solid #3b82d4; padding-left: 10px;
+  }
+  .section-title em { font-style: normal; color: #3b82d4; }
+  .result-count {
+    font-size: 12px; font-weight: 400;
+    background: #e5e7eb; color: #57606a;
+    border-radius: 10px; padding: 1px 8px;
+  }
+  .card {
+    background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 6px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .card:hover { border-color: #3b82d4; }
+  .card-header {
+    display: flex; flex-wrap: wrap; align-items: baseline;
+    gap: 8px; margin-bottom: 6px;
+  }
+  .issue-num {
+    font-weight: 700; color: #3b82d4; white-space: nowrap; font-size: 13px;
+  }
+  .issue-subject { flex: 1; font-weight: 600; font-size: 14px; color: #1f2328; }
+  .issue-subject:hover { color: #3b82d4; }
+  .card-meta {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    font-size: 12px; color: #57606a; margin-bottom: 4px;
+  }
+  .card-meta strong { color: #1f2328; }
+  .matched-searches {
+    font-size: 11px; color: #57606a; font-style: italic; margin-top: 2px;
+  }
+  .no-results { color: #57606a; font-style: italic; padding: 6px 0; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Ceph Tracker Search Results</h1>
+    <div class="subtitle">tracker.ceph.com &mdash; generated 2026-09-22 21:13 UTC</div>
+  </header>
+
+  <div class="summary-bar">
+    <span>Searches run: <strong>8</strong></span>
+    <span>Unique issues: <strong>5</strong></span>
+    <span>Total matches (with duplicates): <strong>6</strong></span>
+  </div>
+
+  
+  <section>
+    <h2 class="section-title">
+      <em>life_expectancy</em>
+      <span class="result-count">4 result(s)</span>
+    </h2>
+    
+    <div class="card">
+      <div class="card-header">
+        <a class="issue-num" href="issue_61146.html">#61146</a>
+        <a class="issue-subject" href="issue_61146.html">crash: File &quot;mgr/diskprediction_local/module.py&quot;, in predict_life_expectancy: result = self._predict_life_expectancy(devid)</a>
+        <span class="badge badge-new">New</span>
+        <span class="badge pri-normal">Normal</span>
+      </div>
+      <div class="card-meta">
+        <span>Type: <strong>Bug</strong></span>
+        <span>Author: <strong>Telemetry Bot</strong></span>
+        <span>Assignee: <strong>unassigned</strong></span>
+        <span>Created: <strong>2023-05-15</strong></span>
+        <span>Updated: <strong>2023-05-15</strong></span>
+      </div>
+      <div class="matched-searches">Matched: life_expectancy</div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <a class="issue-num" href="issue_60129.html">#60129</a>
+        <a class="issue-subject" href="issue_60129.html">crash: File &quot;mgr/diskprediction_local/module.py&quot;, in predict_all_devices: result = self._predict_life_expectancy(devInfo[&#x27;devid&#x27;])</a>
+        <span class="badge badge-new">New</span>
+        <span class="badge pri-normal">Normal</span>
+      </div>
+      <div class="card-meta">
+        <span>Type: <strong>Bug</strong></span>
+        <span>Author: <strong>Telemetry Bot</strong></span>
+        <span>Assignee: <strong>unassigned</strong></span>
+        <span>Created: <strong>2023-05-15</strong></span>
+        <span>Updated: <strong>2023-05-15</strong></span>
+      </div>
+      <div class="matched-searches">Matched: life_expectancy</div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <a class="issue-num" href="issue_59835.html">#59835</a>
+        <a class="issue-subject" href="issue_59835.html">crash: File &quot;mgr/diskprediction_local/module.py&quot;, in predict_all_devices: result = self._predict_life_expectancy(devInfo[&#x27;devid&#x27;])</a>
+        <span class="badge badge-new">New</span>
+        <span class="badge pri-normal">Normal</span>
+      </div>
+      <div class="card-meta">
+        <span>Type: <strong>Bug</strong></span>
+        <span>Author: <strong>Telemetry Bot</strong></span>
+        <span>Assignee: <strong>unassigned</strong></span>
+        <span>Created: <strong>2023-05-15</strong></span>
+        <span>Updated: <strong>2023-05-15</strong></span>
+      </div>
+      <div class="matched-searches">Matched: life_expectancy</div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <a class="issue-num" href="issue_56874.html">#56874</a>
+        <a class="issue-subject" href="issue_56874.html">crash: File &quot;mgr/diskprediction_local/module.py&quot;, in predict_all_devices: result = self._predict_life_expectancy(devInfo[&#x27;devid&#x27;])</a>
+        <span class="badge badge-new">New</span>
+        <span class="badge pri-normal">Normal</span>
+      </div>
+      <div class="card-meta">
+        <span>Type: <strong>Bug</strong></span>
+        <span>Author: <strong>Telemetry Bot</strong></span>
+        <span>Assignee: <strong>unassigned</strong></span>
+        <span>Created: <strong>2022-07-28</strong></span>
+        <span>Updated: <strong>2022-07-28</strong></span>
+      </div>
+      <div class="matched-searches">Matched: life_expectancy</div>
+    </div>
+  </section>
+  <section>
+    <h2 class="section-title">
+      <em>set-life-expectancy</em>
+      <span class="result-count">0 result(s)</span>
+    </h2>
+    <p class="no-results">No matching issues found.</p>
+  </section>
+  <section>
+    <h2 class="section-title">
+      <em>DeviceState life expectancy</em>
+      <span class="result-count">1 result(s)</span>
+    </h2>
+    
+    <div class="card">
+      <div class="card-header">
+        <a class="issue-num" href="issue_80660.html">#80660</a>
+        <a class="issue-subject" href="issue_80660.html">mgr: missing validation for inverted life expectancy ranges in DeviceState and CLI command handlers</a>
+        <span class="badge badge-new">New</span>
+        <span class="badge pri-normal">Normal</span>
+      </div>
+      <div class="card-meta">
+        <span>Type: <strong>Bug</strong></span>
+        <span>Author: <strong>Steven Zuraski</strong></span>
+        <span>Assignee: <strong>Steven Zuraski</strong></span>
+        <span>Created: <strong>2026-09-18</strong></span>
+        <span>Updated: <strong>2026-09-18</strong></span>
+      </div>
+      <div class="matched-searches">Matched: DeviceState life expectancy, inverted range life expectancy</div>
+    </div>
+  </section>
+  <section>
+    <h2 class="section-title">
+      <em>set_life_expectancy</em>
+      <span class="result-count">0 result(s)</span>
+    </h2>
+    <p class="no-results">No matching issues found.</p>
+  </section>
+  <section>
+    <h2 class="section-title">
+      <em>get_life_expectancy_str</em>
+      <span class="result-count">0 result(s)</span>
+    </h2>
+    <p class="no-results">No matching issues found.</p>
+  </section>
+  <section>
+    <h2 class="section-title">
+      <em>DaemonServer life expectancy</em>
+      <span class="result-count">0 result(s)</span>
+    </h2>
+    <p class="no-results">No matching issues found.</p>
+  </section>
+  <section>
+    <h2 class="section-title">
+      <em>utime_t underflow</em>
+      <span class="result-count">0 result(s)</span>
+    </h2>
+    <p class="no-results">No matching issues found.</p>
+  </section>
+  <section>
+    <h2 class="section-title">
+      <em>inverted range life expectancy</em>
+      <span class="result-count">1 result(s)</span>
+    </h2>
+    
+    <div class="card">
+      <div class="card-header">
+        <a class="issue-num" href="issue_80660.html">#80660</a>
+        <a class="issue-subject" href="issue_80660.html">mgr: missing validation for inverted life expectancy ranges in DeviceState and CLI command handlers</a>
+        <span class="badge badge-new">New</span>
+        <span class="badge pri-normal">Normal</span>
+      </div>
+      <div class="card-meta">
+        <span>Type: <strong>Bug</strong></span>
+        <span>Author: <strong>Steven Zuraski</strong></span>
+        <span>Assignee: <strong>Steven Zuraski</strong></span>
+        <span>Created: <strong>2026-09-18</strong></span>
+        <span>Updated: <strong>2026-09-18</strong></span>
+      </div>
+      <div class="matched-searches">Matched: DeviceState life expectancy, inverted range life expectancy</div>
+    </div>
+  </section>
+
+  <footer>Made with IBM Bob &mdash; generated 2026-09-22 21:13 UTC</footer>
+</div>
+</body>
+</html>

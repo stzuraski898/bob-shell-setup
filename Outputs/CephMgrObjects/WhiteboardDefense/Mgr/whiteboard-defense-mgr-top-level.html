@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — Mgr (src/mgr/Mgr.cc, Mgr.h)</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --accent2: #f78166;
+    --accent3: #56d364;
+    --accent4: #e3b341;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --danger: #f85149;
+    --warn: #d29922;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Liberation Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 28px; color: var(--accent); margin-bottom: 4px; }
+  h2 {
+    font-size: 18px;
+    color: var(--accent);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 6px;
+    margin: 32px 0 14px;
+  }
+  h3 { font-size: 14px; color: var(--accent4); margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-right: 6px;
+  }
+  .badge-blue   { background: #1f4e8c; color: #79c0ff; }
+  .badge-green  { background: #1a4731; color: #56d364; }
+  .badge-red    { background: #4a1111; color: #f85149; }
+  .badge-yellow { background: #3d2e00; color: #e3b341; }
+  .badge-gray   { background: #21262d; color: #8b949e; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px;
+    font-size: 13px;
+  }
+  th {
+    background: var(--surface2);
+    color: var(--accent4);
+    text-align: left;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: var(--surface); }
+  tr:hover td { background: var(--surface2); }
+
+  ul, ol { padding-left: 20px; margin: 6px 0; }
+  li { margin: 3px 0; }
+
+  code {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+    background: var(--surface2);
+    color: var(--accent3);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    overflow-x: auto;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 10px 0;
+    color: var(--text);
+  }
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--surface);
+    padding: 10px 14px;
+    border-radius: 0 4px 4px 0;
+    margin: 10px 0;
+    font-size: 13px;
+  }
+  .callout.warn { border-color: var(--warn); }
+  .callout.danger { border-color: var(--danger); }
+  .callout.green { border-color: var(--accent3); }
+
+  .sha { font-family: monospace; font-size: 11px; color: var(--muted); }
+  .flow-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 12px 0;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .section-summary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    font-size: 13px;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 20px; display: inline-block; min-width: 280px; }
+  .toc li { margin: 4px 0; }
+  .toc a { color: var(--muted); font-size: 13px; }
+  .toc a:hover { color: var(--accent); }
+  .fn-table td:first-child { font-family: monospace; font-size: 12px; color: var(--accent3); white-space: nowrap; }
+  .diverged { color: var(--danger); font-weight: bold; }
+  .ok { color: var(--accent3); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+</style>
+</head>
+<body>
+
+<h1>🛡️ Whiteboard Defense — <code>Mgr</code></h1>
+<div class="subtitle">
+  <code>src/mgr/Mgr.cc</code> · <code>src/mgr/Mgr.h</code> &nbsp;|&nbsp;
+  Corpus HEAD: <span class="sha">8681fa6ebac2</span> &nbsp;|&nbsp;
+  105 commits · 19 functions · Assessment: 2026-09-11
+</div>
+
+<div class="toc">
+  <strong style="color:var(--accent4)">Contents</strong>
+  <ol>
+    <li><a href="#s1">High-Level Architecture &amp; Mental Model</a></li>
+    <li><a href="#s2">Architectural Decisions &amp; Trade-offs</a></li>
+    <li><a href="#s3">Data Structures, Algorithms &amp; Invariants</a></li>
+    <li><a href="#s4">Threat Model &amp; Adversarial Handling</a></li>
+    <li><a href="#s5">Failure Modes, Edge Cases &amp; Blast Radius</a></li>
+    <li><a href="#s6">Observability &amp; Triage Playbook</a></li>
+  </ol>
+</div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="s1">1. High-Level Architecture &amp; Mental Model</h2>
+
+<div class="section-summary">
+  <strong>What is Mgr?</strong><br>
+  <code>Mgr</code> is the active Ceph Manager daemon instance — the brain that coordinates cluster state monitoring, daemon metadata, cluster map ingestion, KV config synchronisation with monitors, and Python module execution.
+  It is owned and lifecycle-managed by <code>MgrStandby</code>. It implements <code>Dispatcher</code> to receive Ceph messages from the messenger layer.
+</div>
+
+<h3>Ownership &amp; Lifetime</h3>
+<div class="flow-diagram">  MgrStandby
+      │ constructs Mgr (injects: MonClient, Messenger, Objecter, PyModuleRegistry)
+      │ calls background_init(completion)
+      ▼
+  Mgr::background_init()
+      │  lock held; asserts !initializing && !initialized
+      │  sets initializing=true, records initialization_start_time
+      │  starts finisher thread
+      │  queues: init() → check_all_modules_started() → completion->complete(0)
+      ▼                              (on finisher thread)
+  Mgr::init()
+      │ registers SIGINT/SIGTERM → handle_mgr_signal (one-shot, _exit(0))
+      │ checks mon FEATURE_PACIFIC → kv subscription vs load_store() fallback
+      │ subscribes: log-info, mgrdigest, fsmap, servicemap [+ kv:* if Pacific]
+      │ waits for OSDMap epoch ≥ last_failure_osd_epoch  (prior mgr blocklisted)
+      │ server.init() — binds DaemonServer port → exit(1) on failure
+      │ load_all_metadata()  (MDS / OSD / Mon from mon via ceph_assert r==0)
+      │ cond_wait: fsmap, mgrdigest
+      │ [pre-Pacific only] load_store() → pre_init_store
+      │ init device state from pre_init_store["device/"]
+      │ py_module_registry->active_start(pre_init_store, ...)
+      │ register admin socket: "mgr_status"
+      │ [WITH_LIBCEPHSQLITE] sqlite3_open_v2 + cephsqlite_setcct
+      ▼
+  check_all_modules_started()           ← may spin until pending_modules empty
+      │ (under lock) initializing=false, initialized=true
+      │ completion->complete(0)          ← MgrStandby sends active beacon
+      ▼
+  RUNNING STATE — ms_dispatch2() routes messages to handlers
+      │  MSG_MGR_DIGEST     → handle_mgr_digest  (health, pg, mon_status updates)
+      │  CEPH_MSG_MON_MAP   → handle_mon_map + notify_all("mon_map")
+      │  CEPH_MSG_FS_MAP    → handle_fs_map  + notify_all("fs_map")
+      │  CEPH_MSG_OSD_MAP   → handle_osd_map + notify_all("osd_map")
+      │  MSG_SERVICE_MAP    → handle_service_map
+      │  MSG_LOG            → handle_log  (forward each entry to py modules)
+      │  MSG_KV_DATA        → update_kv_data (Pacific) / pre_init_store (pre-init)
+      ▼
+  Mgr::shutdown()          (called by MgrStandby or unit tests)
+      │ unregister admin socket commands (if initialized)
+      │ finisher.wait_for_empty() + finisher.stop()
+      │ server.shutdown()   → stops DaemonServer + OpHistory thread
+</div>
+
+<h3>Component Relationships</h3>
+<table>
+  <tr><th>Component</th><th>Role</th><th>Owned by Mgr?</th></tr>
+  <tr><td><code>DaemonServer server</code></td><td>Listens for daemon reports (MMgrReport); manages per-daemon sessions</td><td>Yes — value member</td></tr>
+  <tr><td><code>ClusterState cluster_state</code></td><td>Caches OSDMap, FSMap, MgrMap, ServiceMap, PGMap</td><td>Yes — value member</td></tr>
+  <tr><td><code>DaemonStateIndex daemon_state</code></td><td>In-memory index of daemon metadata, keyed by DaemonKey</td><td>Yes — value member</td></tr>
+  <tr><td><code>PyModuleRegistry *py_module_registry</code></td><td>Manages Python module load/start/notify lifecycle</td><td>No — injected reference</td></tr>
+  <tr><td><code>MonClient *monc</code></td><td>Mon connection, subscriptions, command dispatch</td><td>No — injected reference</td></tr>
+  <tr><td><code>Objecter *objecter</code></td><td>Handles incremental OSDMap decode &amp; RADOS I/O</td><td>No — injected reference</td></tr>
+  <tr><td><code>Messenger *client_messenger</code></td><td>Network layer</td><td>No — injected reference</td></tr>
+  <tr><td><code>Finisher finisher</code></td><td>Single background thread; serialises init and completion contexts</td><td>Yes — value member</td></tr>
+  <tr><td><code>ceph::mutex lock</code></td><td>Guard for all internal Mgr state</td><td>Yes — value member</td></tr>
+</table>
+
+<h3>Initialisation State Machine</h3>
+<div class="flow-diagram">  ┌─────────────────────────────────────────────────────────────────┐
+  │  uninitialized                                                  │
+  │  initialized=false, initializing=false                          │
+  │  initialization_start_time = zero                               │
+  └───────────────────────┬─────────────────────────────────────────┘
+                          │ background_init()
+                          ▼
+  ┌─────────────────────────────────────────────────────────────────┐
+  │  initializing                                                   │
+  │  initializing=true, initialized=false                           │
+  │  initialization_start_time set (coarse_mono_clock)              │
+  │  finisher running; init() executing on finisher thread          │
+  └───────────────────────┬──────────────────────────┬──────────────┘
+                          │ all modules started       │ exceeded_initialization_expiration()
+                          ▼                          ▼
+  ┌──────────────────────────────┐   ┌───────────────────────────────┐
+  │  initialized                 │   │  force-initialized (timeout)  │
+  │  initialized=true            │   │  initialized=true             │
+  │  initializing=false          │   │  initializing=false           │
+  │  initialization_start_time=0 │   │  initialization_start_time=0  │
+  └──────────────────────────────┘   └───────────────────────────────┘
+         Both states: is_initialized()==true → MgrStandby sends active beacon</div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="s2">2. Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <tr>
+    <th style="width:28%">Decision / "Why X instead of Y?"</th>
+    <th style="width:38%">Rationale</th>
+    <th style="width:34%">Key Commit(s)</th>
+  </tr>
+  <tr>
+    <td><strong>Async background init (<code>background_init</code> + <code>Finisher</code>) instead of blocking sync init</strong></td>
+    <td>Prevents blocking the caller (<code>MgrStandby</code>'s messenger thread) during lengthy map subscriptions and metadata loads. <code>completion</code> callback fires only after all Python modules are confirmed started, avoiding a premature active beacon.</td>
+    <td><span class="sha">7845f8d757ad</span> (background init), <span class="sha">e0e87da6529d</span> (completion callback), <span class="sha">cbd1726fde08</span> (module-start barrier)</td>
+  </tr>
+  <tr>
+    <td><strong><code>_exit(0)</code> on SIGINT/SIGTERM instead of graceful Python shutdown</strong></td>
+    <td>Python module teardown deadlocked reliably (tracker #42744, #42981). Monitor blocklists the mgr's RADOS clients on failover, so graceful client-side cleanup is unnecessary. Forced exit is the correct tradeoff.</td>
+    <td><span class="sha">3363a1001c7b</span></td>
+  </tr>
+  <tr>
+    <td><strong>Pacific KV push subscription (<code>kv:mgr/</code>, <code>kv:device/</code>, <code>kv:config/</code>) instead of polling <code>config-key ls</code> + per-key <code>get</code></strong></td>
+    <td>Polling required O(n) synchronous mon commands at startup. KV subscription delivers incremental push updates. Pre-Pacific monitors fall back to <code>load_store()</code> bulk scan. Pre-init updates staged in <code>pre_init_store</code> until <code>active_start()</code>.</td>
+    <td><span class="sha">edf1ea2f5092</span></td>
+  </tr>
+  <tr>
+    <td><strong>Wait for OSDMap epoch ≥ <code>last_failure_osd_epoch</code> before accepting daemon reports</strong></td>
+    <td>Ensures the OSDMap containing the previous mgr instance's blocklist entry has propagated to the new mgr before it opens <code>DaemonServer</code>. Without this, a zombie prior-mgr could still reach RADOS objects.</td>
+    <td><span class="sha">f2986a4400bb</span></td>
+  </tr>
+  <tr>
+    <td><strong>CRUSH physical hostname override for OSDs, not reported container hostname</strong></td>
+    <td>In Rook/containerised deployments, OSD pods report container hostnames; CRUSH records the real physical host. <code>ceph device ls</code> was showing pod names. Override with CRUSH host in all three metadata paths. Falls back to reported hostname if CRUSH has no mapping.</td>
+    <td><span class="sha">dcd9c5bac5e2</span> (override), <span class="sha">ec5988807024</span> (fallback)</td>
+  </tr>
+  <tr>
+    <td><strong>Clear <code>daemon_health_metrics</code> for down+out OSDs instead of removing from <code>DaemonStateIndex</code></strong></td>
+    <td>Removing down+out OSDs broke Prometheus exporter and stat output (<code>ceph osd pool stats</code>). Daemon state must persist; only health metrics are stale when an OSD is down and out.</td>
+    <td><span class="sha">3072b113242e</span> (removed), <span class="sha">282558cf4027</span> (reverted — clear instead)</td>
+  </tr>
+  <tr>
+    <td><strong>Process map internally <em>before</em> notifying Python modules</strong></td>
+    <td>Prior ordering notified modules with stale map data; modules might call back into <code>ClusterState</code> and read the old map before the update was applied. Handler-then-notify is the correct invariant.</td>
+    <td><span class="sha">190f37978f72</span></td>
+  </tr>
+  <tr>
+    <td><strong><code>MetadataUpdate::notify_updating(key)</code> in constructor, not at call site</strong></td>
+    <td>Multiple call sites dispatched <code>MetadataUpdate</code>; without constructor-side registration, two concurrent fetches for the same daemon were possible.</td>
+    <td><span class="sha">3eaf1516ebbf</span></td>
+  </tr>
+  <tr>
+    <td><strong>Resolve CRUSH host <em>outside</em> <code>state-&gt;lock</code></strong></td>
+    <td><code>crush_hostname_for_osd</code> calls <code>with_osdmap()</code> which acquires <code>Objecter::rwlock</code>. Acquiring that under <code>state-&gt;lock</code> would violate the global lock ordering and risk deadlock.</td>
+    <td><span class="sha">dcd9c5bac5e2</span> (code comment)</td>
+  </tr>
+  <tr>
+    <td><strong>Sleep ~3×<code>mgr_tick_period</code> on pre-Pacific startup</strong></td>
+    <td>Pre-Pacific monitors require multiple beacon exchanges before module option overrides propagate. Without the sleep, early active start would race against undelivered config options.</td>
+    <td><span class="sha">b356fd0a8c65</span></td>
+  </tr>
+  <tr>
+    <td><strong>Owned services injected from <code>MgrStandby</code> instead of self-allocated</strong></td>
+    <td>Original design allocated <code>MonClient</code>, <code>Objecter</code>, <code>Messenger</code> in the constructor. Refactored to inject them so standby/active lifecycles could be managed externally and resources shared between standby/active transitions.</td>
+    <td><span class="sha">7845f8d757ad</span>, <span class="sha">6c10417f7ed3</span></td>
+  </tr>
+  <tr>
+    <td><strong>Explicit <code>shutdown()</code> method instead of relying on destructor order</strong></td>
+    <td>Unit test teardown found that <code>DaemonServer</code>'s <code>OpHistory</code> background thread accessed <code>op_tracker</code> members after destruction began (tracker #76334). Explicit ordered shutdown stops the thread before member destructors run.</td>
+    <td><span class="sha">fd4d4ce58b86</span>, <span class="sha">75b6149b294e</span></td>
+  </tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="s3">3. Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Core Data Structures</h3>
+<table class="fn-table">
+  <tr><th>Member</th><th>Type</th><th>Purpose &amp; Invariants</th></tr>
+  <tr>
+    <td><code>lock</code></td>
+    <td><code>ceph::mutex</code></td>
+    <td>Guards all mutable Mgr state. Must be held before accessing <code>initialized</code>, <code>initializing</code>, <code>daemon_state</code>, map handlers. Dropped across blocking mon-command waits and re-acquired. Invariant: <em>never</em> acquire under <code>state-&gt;lock</code> + <code>Objecter::rwlock</code>.</td>
+  </tr>
+  <tr>
+    <td><code>daemon_state</code></td>
+    <td><code>DaemonStateIndex</code></td>
+    <td>Hash-index of daemon metadata keyed by <code>DaemonKey{type, name}</code>. Supports: <code>insert</code>, <code>get</code>, <code>exists</code>, <code>cull</code>, <code>notify_updating</code>, <code>is_updating</code>, <code>clear_updating</code>, <code>update_metadata</code>. "updating" set prevents duplicate concurrent metadata fetches.</td>
+  </tr>
+  <tr>
+    <td><code>cluster_state</code></td>
+    <td><code>ClusterState</code></td>
+    <td>Caches current OSDMap, FSMap, MgrMap, ServiceMap. Accessed via scoped callbacks (<code>with_osdmap()</code>, <code>with_monmap()</code>) — never return raw pointers.</td>
+  </tr>
+  <tr>
+    <td><code>pre_init_store</code></td>
+    <td><code>std::map&lt;string, string&gt;</code></td>
+    <td>Staging area for KV push data arriving before <code>active_start()</code>. Pacific: updated by <code>MSG_KV_DATA</code> handler. Pre-Pacific: populated by <code>load_store()</code>. Handed to <code>py_module_registry-&gt;active_start()</code> at module launch. Keyed on full config-key path.</td>
+  </tr>
+  <tr>
+    <td><code>initialized</code> / <code>initializing</code></td>
+    <td><code>bool</code></td>
+    <td>State machine flags guarded by <code>lock</code>. Only <code>check_all_modules_started()</code> (or timeout path) transitions <code>initializing→initialized</code>. <code>is_initialized()</code> drives <code>MgrStandby::send_beacon()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>initialization_start_time</code></td>
+    <td><code>ceph::coarse_mono_clock::time_point</code></td>
+    <td>Zero until <code>background_init()</code>; set to <code>now()</code>. Used by <code>exceeded_initialization_expiration()</code> to detect hung module startup. Reset to zero when initialization completes (either path).</td>
+  </tr>
+  <tr>
+    <td><code>digest_received</code></td>
+    <td><code>bool</code></td>
+    <td>One-shot flag; set <code>true</code> by first <code>handle_mgr_digest()</code> arrival. Guards <code>digest_cond</code> wait in <code>init()</code>. Once true, never reset.</td>
+  </tr>
+  <tr>
+    <td><code>finisher</code></td>
+    <td><code>Finisher</code></td>
+    <td>Single-threaded queue serialising the init path and completion callbacks. Prevents concurrent execution of <code>init()</code> with message dispatch callbacks without additional locking.</td>
+  </tr>
+  <tr>
+    <td><code>fs_map_cond</code> / <code>digest_cond</code></td>
+    <td><code>ceph::condition_variable</code></td>
+    <td>Condition variables for startup synchronisation. <code>fs_map_cond</code> signaled by <code>handle_fs_map()</code>; <code>digest_cond</code> by <code>handle_mgr_digest()</code>. Both waited under <code>lock</code> in <code>init()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>MetadataUpdate</code></td>
+    <td><code>Context</code> subclass</td>
+    <td>Completion for async mon-command metadata fetches. Constructor calls <code>daemon_state.notify_updating(key)</code> immediately (dedup guard). <code>finish(r)</code>: validates JSON, resolves CRUSH host outside locks, updates <code>DaemonStateIndex</code>. <code>defaults</code> map injects synthetic fields for legacy daemons.</td>
+  </tr>
+</table>
+
+<h3>Lock Ordering (Global)</h3>
+<div class="callout warn">
+  <strong>Critical ordering rule:</strong> Never acquire <code>Objecter::rwlock</code> while holding <code>DaemonState::lock</code> (or any sub-lock). The CRUSH hostname lookup via <code>with_osdmap()</code> acquires <code>Objecter::rwlock</code> — always resolve CRUSH host <em>before</em> taking <code>state-&gt;lock</code>.
+  <br><br>
+  Lock hierarchy (outer → inner):<br>
+  <code>Mgr::lock</code> &gt; <code>DaemonState::lock</code> &nbsp;|&nbsp; <code>Objecter::rwlock</code> is acquired independently (not nested under DaemonState::lock)
+</div>
+
+<h3>Key Algorithms</h3>
+<ul>
+  <li><strong>OSD join detection:</strong> In <code>handle_osd_map()</code>, triggers <code>MetadataUpdate</code> when <code>osd_map.get_up_from(osd_id) == osd_map.get_epoch()</code> (newly joined) or when no existing daemon state exists. (<span class="sha">73078cf73c3a</span>)</li>
+  <li><strong>Daemon culling:</strong> Collects all currently-known OSD/MDS/Mon names into <code>names_exist</code> set, then calls <code>daemon_state.cull(type, names_exist)</code> to prune stale entries. Called in <code>handle_osd_map</code>, <code>handle_fs_map</code>, <code>handle_mon_map</code>.</li>
+  <li><strong>Pre-init KV staging:</strong> Full vs incremental <code>MSG_KV_DATA</code> — full update clears matching prefix range from <code>pre_init_store</code> before inserting; incremental applies deltas (set/delete per key).</li>
+  <li><strong>Metadata defaults injection:</strong> <code>MetadataUpdate::set_default(k, v)</code> pre-registers key/value pairs. In <code>finish()</code>, any key absent from the mon response is filled from <code>defaults</code>. Used for legacy MDS <code>addr</code> field. (<span class="sha">8ce30bc4cd23</span>)</li>
+  <li><strong>Module-start barrier:</strong> <code>check_all_modules_started()</code> spins on <code>pending_modules</code> emptiness before setting <code>initialized=true</code>. Prevents advertising active status when modules are still loading. (<span class="sha">cbd1726fde08</span>)</li>
+</ul>
+
+<h3>Established Invariants</h3>
+<table>
+  <tr><th>Invariant</th><th>Enforced by</th></tr>
+  <tr><td><code>is_updating(key)</code> is true from MetadataUpdate construction to <code>clear_updating(key)</code> in <code>finish()</code></td><td><span class="sha">3eaf1516ebbf</span></td></tr>
+  <tr><td>Map handlers execute <em>before</em> Python module <code>notify_all()</code> for all message types</td><td><span class="sha">190f37978f72</span></td></tr>
+  <tr><td><code>initialized</code> is set only after all Python modules confirmed started (or timeout)</td><td><span class="sha">cbd1726fde08</span>, <span class="sha">bf25a08cc58c</span></td></tr>
+  <tr><td>OSD hostname in <code>DaemonStateIndex</code> is CRUSH physical host when available</td><td><span class="sha">dcd9c5bac5e2</span>, <span class="sha">ec5988807024</span></td></tr>
+  <tr><td>Mon metadata command dispatch happens <em>outside</em> <code>with_monmap()</code> callback (avoid MonClient lock recursion)</td><td><span class="sha">c037f4cb5d74</span></td></tr>
+  <tr><td><code>load_store()</code> asserts <code>ceph_mutex_is_locked_by_me(lock)</code> and drops/re-acquires lock across mon waits</td><td><span class="sha">c93dc8849145</span></td></tr>
+  <tr><td>MetadataUpdate: invalid JSON, non-object JSON, or missing <code>"hostname"</code> → skip (log + return, no partial state)</td><td><span class="sha">92b2fe9e653f</span>, <span class="sha">3c333f359964</span></td></tr>
+</table>
+
+<h3>Known Divergence (Bug)</h3>
+<div class="callout danger">
+  <strong>DIVERGED: <code>load_all_metadata()</code> MDS loop</strong> — In the MDS loop at
+  <code>Mgr.cc:495-508</code>, metadata is emitted via <code>dm-&gt;metadata.emplace(key, val)</code>
+  directly instead of calling <code>dm-&gt;set_metadata(m)</code>.
+  Commit <span class="sha">67b5d3e343c5</span> established that <code>set_metadata()</code> must be used
+  to populate parsed fields (e.g. device IDs). OSD and Mon loops use <code>set_metadata()</code> correctly.
+  Result: MDS daemon device IDs may not be populated in <code>DaemonStateIndex</code> at startup.
+</div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="s4">4. Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <tr>
+    <th style="width:26%">Actor / Scenario</th>
+    <th style="width:38%">What Mgr Does</th>
+    <th style="width:36%">Gaps / Residual Risk</th>
+  </tr>
+  <tr>
+    <td><strong>Malicious or buggy Python module hangs in <code>serve()</code></strong></td>
+    <td><code>exceeded_initialization_expiration()</code> fires after <code>mgr_module_load_expiration</code> ms. Forces <code>initialized=true</code> so the beacon is sent and the cluster unblocks. Module is force-initialized, not killed.</td>
+    <td>The hung module thread continues running. It may consume CPU and may issue broken RPCs. No sandboxing. (<span class="sha">bf25a08cc58c</span>)</td>
+  </tr>
+  <tr>
+    <td><strong>Python module deadlock on shutdown (SIGTERM/SIGINT)</strong></td>
+    <td><code>handle_mgr_signal()</code> calls <code>_exit(0)</code> immediately. No Python teardown attempted. Monitor blocklists all RADOS clients.</td>
+    <td>In-flight Python operations are unceremoniously killed. Any non-flushed RADOS writes by modules are lost. Acceptable because blocklisting ensures consistency.</td>
+  </tr>
+  <tr>
+    <td><strong>Daemon sends invalid / malformed metadata JSON</strong></td>
+    <td><code>MetadataUpdate::finish()</code> validates JSON parse success and that root is <code>json_spirit::obj_type</code>. Logs error and returns without updating state. <code>clear_updating()</code> is called unconditionally so the daemon can be retried.</td>
+    <td>A daemon that persistently sends bad JSON will be retried on every OSDMap / FSMap epoch until it sends valid data. No circuit breaker / blackhole for such daemons.</td>
+  </tr>
+  <tr>
+    <td><strong>Daemon sends metadata without <code>"hostname"</code></strong></td>
+    <td>Entry skipped with a log notice. No state update occurs. <code>clear_updating()</code> still called.</td>
+    <td>Daemon is perpetually absent from <code>DaemonStateIndex</code>. All Python module metrics for that daemon will be missing.</td>
+  </tr>
+  <tr>
+    <td><strong>Unknown daemon type in MetadataUpdate (<code>key.type</code> not in {mds, osd, mgr, mon})</strong></td>
+    <td><code>ceph_abort()</code> — immediate process crash.</td>
+    <td>Hard invariant: any future daemon type must be added to the type list or abort is triggered. This is an intentional tripwire.</td>
+  </tr>
+  <tr>
+    <td><strong>Zombie prior-mgr instance still running after failover</strong></td>
+    <td>New mgr waits for OSDMap epoch ≥ <code>last_failure_osd_epoch</code> before opening <code>DaemonServer</code>. That OSDMap contains the prior mgr's blocklist entry, evicting its RADOS/MDS sessions.</td>
+    <td>Race window between blocklist propagation and new mgr accepting work is bounded by OSDMap propagation latency, not eliminated.</td>
+  </tr>
+  <tr>
+    <td><strong>Mon returns error on <code>config-key ls</code> during <code>load_store()</code></strong></td>
+    <td><code>ceph_assert(cmd.r == 0)</code> — process abort. Individual <code>config-key get</code> failures are tolerated (skip key).</td>
+    <td>A transient mon disconnect during startup crashes the mgr. No retry logic for the listing command.</td>
+  </tr>
+  <tr>
+    <td><strong>Admin socket command with unknown <code>admin_command</code></strong></td>
+    <td>Returns <code>-ENOSYS</code>. Malformed arguments return <code>-EINVAL</code> (via <code>bad_cmd_get</code> exception catch).</td>
+    <td>No privilege elevation risk — admin socket access requires local root/sudo anyway.</td>
+  </tr>
+  <tr>
+    <td><strong><code>DaemonServer.init()</code> fails (bind error)</strong></td>
+    <td>Logs error and calls <code>exit(1)</code> — lets systemd restart the process.</td>
+    <td>No attempt at port retry or alternative port. Single failure mode for the whole mgr process.</td>
+  </tr>
+  <tr>
+    <td><strong>Containerised OSD reporting pod hostname instead of physical host</strong></td>
+    <td>CRUSH physical hostname lookup overrides reported hostname in all three metadata paths. Falls back to reported hostname if OSD not in CRUSH or CRUSH map unavailable.</td>
+    <td>Only OSDs are overridden; MDS/Mon container hostnames are NOT corrected. If CRUSH map is incomplete, some OSDs get pod hostnames.</td>
+  </tr>
+  <tr>
+    <td><strong>Racing config-key deletion during <code>load_store()</code></strong></td>
+    <td>Individual <code>config-key get</code> failure tolerated: key is skipped rather than aborting or inserting stale data. (<span class="sha">615a6562bc6a</span>)</td>
+    <td>Deleted key silently absent from initial store — modules start without that config value.</td>
+  </tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="s5">5. Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<h3>Startup Failures</h3>
+<table>
+  <tr><th>Failure</th><th>Behaviour</th><th>Blast Radius</th></tr>
+  <tr>
+    <td><code>server.init()</code> bind failure</td>
+    <td><code>exit(1)</code> — process terminates, systemd restarts</td>
+    <td>Total mgr loss until restart; standby may promote. Port conflict blocks all restarts.</td>
+  </tr>
+  <tr>
+    <td>FSMap or MgrDigest never arrives</td>
+    <td><code>init()</code> blocks indefinitely in condition variable wait; mgr never signals active beacon</td>
+    <td>Mgr remains non-active indefinitely; cluster operates with degraded mgr. Standby promotion will also block.</td>
+  </tr>
+  <tr>
+    <td>Python module hangs in <code>serve()</code></td>
+    <td>Active beacon delayed until <code>mgr_module_load_expiration</code>. Module commands unavailable during delay.</td>
+    <td>Cluster commands fail with ENOTSUP for that module's command set until timeout or module starts.</td>
+  </tr>
+  <tr>
+    <td><code>sqlite3_open_v2</code> or <code>cephsqlite_setcct</code> failure (WITH_LIBCEPHSQLITE)</td>
+    <td><code>ceph_abort()</code></td>
+    <td>Total mgr process crash. Will restart but same abort if SQLite init conditions persist.</td>
+  </tr>
+  <tr>
+    <td>All metadata mon commands fail (<code>r != 0</code>) during <code>load_all_metadata()</code></td>
+    <td><code>ceph_assert(r == 0)</code> — process abort</td>
+    <td>Mgr crashes on startup. Will keep crashing if mon is unresponsive.</td>
+  </tr>
+</table>
+
+<h3>Runtime Failures</h3>
+<table>
+  <tr><th>Failure</th><th>Behaviour</th><th>Blast Radius</th></tr>
+  <tr>
+    <td>MDS metadata loop in <code>load_all_metadata()</code> uses direct map assignment instead of <code>set_metadata()</code></td>
+    <td>Device IDs not extracted from MDS metadata at startup. DeviceStateIndex may be incomplete for MDS-hosted devices.</td>
+    <td>MDS device tracking broken at startup; may recover when <code>MetadataUpdate</code> runs asynchronously on FSMap update.</td>
+  </tr>
+  <tr>
+    <td>Python module notified of map before internal state updated (<em>fixed</em> by <span class="sha">190f37978f72</span>)</td>
+    <td>Fixed. Handler runs before <code>notify_all()</code>.</td>
+    <td>N/A (resolved)</td>
+  </tr>
+  <tr>
+    <td>TODO: <code>//no users: py_module_registry-&gt;notify_all("service_map", "")</code></td>
+    <td>Service map updates are NOT pushed to Python modules via <code>notify_all</code>. Comment left as dead code at line 703.</td>
+    <td>Python modules that subscribe to <code>service_map</code> events silently never receive them.</td>
+  </tr>
+  <tr>
+    <td>TODO: FSMap daemon_state population race (line 762)</td>
+    <td>Python modules can read the new FSMap before <code>daemon_state</code> is updated with new MDS metadata. Commented as known.</td>
+    <td>Python modules may see an MDS in FSMap that has no corresponding daemon state entry transiently.</td>
+  </tr>
+  <tr>
+    <td>OSD destroyed while update in flight (<code>is_updating == true</code>)</td>
+    <td><code>handle_osd_map()</code> skips the OSD. Cull happens via <code>daemon_state.cull()</code> after OSD disappears from OSDMap.</td>
+    <td>Stale in-flight <code>MetadataUpdate</code> completion will attempt to insert/update state for a destroyed OSD. <code>daemon_state.clear_updating()</code> still called unconditionally so index stays consistent.</td>
+  </tr>
+  <tr>
+    <td>Multiple concurrent <code>background_init()</code> calls</td>
+    <td>Guarded by <code>ceph_assert(!initializing &amp;&amp; !initialized)</code> under lock. Second call aborts.</td>
+    <td>Process crash (intended hard invariant).</td>
+  </tr>
+</table>
+
+<h3>Shutdown Ordering</h3>
+<div class="callout">
+  Correct shutdown sequence (established <span class="sha">75b6149b294e</span>):
+  <ol style="margin-top:6px">
+    <li>Unregister admin socket commands (if initialized)</li>
+    <li><code>finisher.wait_for_empty()</code> — drain pending init/completion contexts</li>
+    <li><code>finisher.stop()</code> — stop finisher thread</li>
+    <li><code>server.shutdown()</code> — stop <code>DaemonServer</code> + OpHistory thread</li>
+  </ol>
+  <strong>Wrong order risk:</strong> If <code>server.shutdown()</code> runs after member destruction begins, the OpHistory background thread accesses freed memory → SEGFAULT / "pure virtual method called".
+</div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="s6">6. Observability &amp; Triage Playbook</h2>
+
+<h3>Admin Socket</h3>
+<table>
+  <tr><th>Command</th><th>What it tells you</th></tr>
+  <tr>
+    <td><code>ceph tell mgr.&lt;id&gt; mgr_status</code></td>
+    <td>
+      Returns: <code>mgrmap_epoch</code> (current MgrMap epoch),
+      <code>initialized</code> (bool — is active beacon being sent?),
+      <code>pending_modules</code> (list of modules still starting up).<br>
+      <strong>If <code>initialized=false</code>:</strong> mgr is blocked in module startup. Check <code>pending_modules</code>.<br>
+      <strong>If <code>pending_modules</code> non-empty:</strong> specific modules hung in <code>serve()</code>.
+    </td>
+  </tr>
+</table>
+
+<h3>Log Signals</h3>
+<table>
+  <tr><th>Log Pattern</th><th>What it means</th></tr>
+  <tr><td><code>Waiting for new OSDMap (e=N) that may blacklist prior active</code></td><td>Normal startup — waiting for prior mgr blocklist. If stuck here, mon may be lagging.</td></tr>
+  <tr><td><code>waiting for FSMap...</code> / <code>waiting for MgrDigest...</code></td><td>Normal startup map sync. If stuck for &gt;60s, check mon connectivity and subscription state.</td></tr>
+  <tr><td><code>loading config-key data from pre-pacific mon cluster</code></td><td>Mixed or pre-Pacific monitor cluster — using slow O(n) config-key scan.</td></tr>
+  <tr><td><code>Skipping incomplete metadata entry</code></td><td>Daemon reported metadata without <code>hostname</code>. Daemon entry absent from DaemonStateIndex.</td></tr>
+  <tr><td><code>cannot derive CRUSH hostname for osd.N</code></td><td>OSD not in CRUSH map or map unavailable — falling back to reported container hostname.</td></tr>
+  <tr><td><code>Initialize server fail: ...</code> → process exit</td><td><code>DaemonServer</code> failed to bind. Port conflict or permission issue.</td></tr>
+  <tr><td><code>*** Got signal SIGTERM ***</code> → immediate exit</td><td>Signal handler fired. Process exiting via <code>_exit(0)</code>. No cleanup.</td></tr>
+  <tr><td><code>osd.N joined cluster at eN</code> (dout level 4)</td><td>New OSD joined; async metadata fetch dispatched.</td></tr>
+  <tr><td><code>modules not all started</code> (from check_all_modules_started)</td><td>Module startup poll still pending. <code>initialized</code> will be delayed.</td></tr>
+</table>
+
+<h3>Triage Scenarios</h3>
+<table>
+  <tr><th>Symptom</th><th>Investigation Steps</th></tr>
+  <tr>
+    <td>Module command fails: <em>"Module 'X' is not enabled/loaded"</em> after mgr restart</td>
+    <td>
+      1. <code>ceph tell mgr.&lt;id&gt; mgr_status</code> → check <code>pending_modules</code><br>
+      2. If module in pending: check mgr log for that module's thread — likely hung in <code>serve()</code><br>
+      3. Check <code>mgr_module_load_expiration</code> config — timeout may need increasing<br>
+      4. Root cause: bottleneck in module <code>serve()</code> (see <span class="sha">cbd1726fde08</span>)
+    </td>
+  </tr>
+  <tr>
+    <td><code>ceph device ls</code> showing pod/container names instead of physical hosts</td>
+    <td>
+      1. Verify CRUSH map has <code>host</code> bucket entries for OSDs: <code>ceph osd crush tree</code><br>
+      2. Check mgr log for <code>"cannot derive CRUSH hostname"</code><br>
+      3. May require triggering metadata refresh: <code>ceph tell osd.N ping</code> or wait for OSD restart<br>
+      4. Root fix: <span class="sha">dcd9c5bac5e2</span> — ensure OSD is in CRUSH hierarchy
+    </td>
+  </tr>
+  <tr>
+    <td>Mgr stuck in startup; <code>ceph status</code> shows no active mgr</td>
+    <td>
+      1. Check log for last printed wait message (FSMap? MgrDigest? OSDMap epoch?)<br>
+      2. If blocked on OSDMap epoch: prior mgr blocklist propagation issue — check mon logs<br>
+      3. If blocked on FSMap/MgrDigest: check mon connectivity and subscriptions<br>
+      4. If blocked in module start: see module triage above
+    </td>
+  </tr>
+  <tr>
+    <td>Prometheus / stat output missing down+out OSD metrics</td>
+    <td>
+      1. Check if OSD was removed from daemon state (old behaviour from <span class="sha">3072b113242e</span>)<br>
+      2. Current code (<span class="sha">282558cf4027</span>) only clears <code>daemon_health_metrics</code>, preserves state<br>
+      3. If OSD truly absent from DaemonStateIndex: trigger metadata refresh or check cull logic
+    </td>
+  </tr>
+  <tr>
+    <td>Mgr crashes repeatedly on startup with <code>ceph_abort</code></td>
+    <td>
+      1. Check for SQLite init failure (WITH_LIBCEPHSQLITE build)<br>
+      2. Check for metadata mon command returning error (<code>config-key ls</code> failure)<br>
+      3. Check for unknown daemon type in MetadataUpdate (would require code change or corrupt mon data)
+    </td>
+  </tr>
+  <tr>
+    <td>OpHistory thread crash / SEGFAULT in unit tests</td>
+    <td>
+      1. Confirm <code>Mgr::shutdown()</code> is called before <code>Mgr</code> object destruction<br>
+      2. Verify <code>DaemonServer::shutdown()</code> stops <code>OpHistory</code> thread before destructors run<br>
+      3. Root cause: <span class="sha">fd4d4ce58b86</span>, <span class="sha">75b6149b294e</span> — ensure proper lifecycle
+    </td>
+  </tr>
+</table>
+
+<h3>Key Config Knobs</h3>
+<table>
+  <tr><th>Config</th><th>Effect</th></tr>
+  <tr><td><code>mgr_module_load_expiration</code> (ms)</td><td>Timeout before force-activating the mgr despite hung modules. Default triggers health warning then force-init.</td></tr>
+  <tr><td><code>mgr_tick_period</code> (seconds)</td><td>Beacon interval. Pre-Pacific startup sleep = ~3× this value.</td></tr>
+  <tr><td><code>mgr_module_load_delay</code> (ms, dev-only)</td><td>Inject artificial module load delay for testing <span class="sha">cbd1726fde08</span> module-barrier logic.</td></tr>
+  <tr><td><code>mgr_module_load_delay_name</code></td><td>Which module to delay in testing.</td></tr>
+</table>
+
+<hr>
+<div style="color:var(--muted); font-size:11px; text-align:center; margin-top:24px;">
+  Whiteboard Defense · Mgr · src/mgr/Mgr.cc + Mgr.h · Corpus HEAD: 8681fa6ebac2 · Generated: 2026-09-11 · 105 commits · 19 functions
+</div>
+
+</body>
+</html>

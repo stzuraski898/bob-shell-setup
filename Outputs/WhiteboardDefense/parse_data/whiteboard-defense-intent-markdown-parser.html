@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — parse_data.py (Intent Markdown Parser)</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --orange: #db6d28;
+    --purple: #bc8cff;
+    --muted: #8b949e;
+    --text: #e6edf3;
+    --code-bg: #1f2428;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.7rem; color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: 12px; margin-bottom: 8px; }
+  h2 { font-size: 1.15rem; color: var(--accent); margin: 36px 0 12px; padding: 6px 12px; background: var(--surface); border-left: 3px solid var(--accent); border-radius: 4px; }
+  h3 { font-size: 0.95rem; color: var(--yellow); margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  p { margin: 8px 0; color: var(--text); }
+  ul { padding-left: 20px; margin: 6px 0; }
+  li { margin: 4px 0; }
+  code {
+    background: var(--code-bg);
+    color: #79c0ff;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 0.82em;
+    line-height: 1.5;
+    margin: 10px 0;
+    color: #cdd9e5;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 0.87em;
+  }
+  th {
+    background: var(--surface);
+    color: var(--accent);
+    text-align: left;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.8em;
+  }
+  td {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #111519; }
+  tr:hover td { background: #1c2128; }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.78em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    font-family: monospace;
+  }
+  .tag-red    { background: #3d1a1a; color: var(--red); border: 1px solid #6e2020; }
+  .tag-yellow { background: #2d2008; color: var(--yellow); border: 1px solid #5a3e0a; }
+  .tag-green  { background: #0d2818; color: var(--green); border: 1px solid #1a5c34; }
+  .tag-blue   { background: #0d1f3c; color: var(--accent); border: 1px solid #1a3d78; }
+  .tag-purple { background: #1f1230; color: var(--purple); border: 1px solid #4a2580; }
+  .tag-orange { background: #2d1800; color: var(--orange); border: 1px solid #6e3c00; }
+  .tag-muted  { background: #1c2128; color: var(--muted); border: 1px solid var(--border); }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .meta-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+  }
+  .meta-card .label { font-size: 0.72em; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .meta-card .value { font-size: 1em; color: var(--text); font-weight: 600; margin-top: 2px; }
+  .callout {
+    border-left: 3px solid var(--yellow);
+    background: #1e1c0a;
+    padding: 10px 16px;
+    border-radius: 4px;
+    margin: 12px 0;
+    font-size: 0.88em;
+  }
+  .callout.danger { border-color: var(--red); background: #1e0a0a; }
+  .callout.info   { border-color: var(--accent); background: #0a1520; }
+  .flow {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    font-family: monospace;
+    font-size: 0.82em;
+    line-height: 1.8;
+    overflow-x: auto;
+    margin: 12px 0;
+  }
+  .flow .arrow { color: var(--muted); }
+  .flow .box { color: var(--accent); }
+  .flow .note { color: var(--yellow); font-style: italic; }
+  .flow .cond { color: var(--green); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+  .subtitle { color: var(--muted); font-size: 0.88em; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense: <code>parse_data.py</code></h1>
+<p class="subtitle">Intent Markdown Parser &amp; JSON Serialisation Pipeline &nbsp;·&nbsp; <code>build_data()</code> entry point</p>
+
+<div class="meta-grid">
+  <div class="meta-card"><div class="label">File</div><div class="value">parse_data.py</div></div>
+  <div class="meta-card"><div class="label">Entry Point</div><div class="value">build_data()</div></div>
+  <div class="meta-card"><div class="label">Output</div><div class="value">parsed_intents.json</div></div>
+  <div class="meta-card"><div class="label">Input Glob</div><div class="value">Outputs/Intents/*-intent.md</div></div>
+  <div class="meta-card"><div class="label">Return Type</div><div class="value">list[dict]</div></div>
+  <div class="meta-card"><div class="label">Side Effects</div><div class="value">Read-only (as lib); writes JSON when __main__</div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+
+<div class="flow">
+<span class="box">Inputs/Intents/*-intent.md</span>  (one file per C++ object)
+<br>
+<span class="arrow">          │  glob + sort (alphabetical)</span>
+<br>
+<span class="arrow">          ▼</span>
+<br>
+<span class="box">┌─────────────────────────────────────────────────────────────────┐</span>
+<br>
+<span class="box">│  for each .md file                                              │</span>
+<br>
+<span class="box">│                                                                 │</span>
+<br>
+<span class="box">│  1. Extract metadata  (regex: HEAD SHA, date, commits)          │</span>
+<br>
+<span class="box">│     Fallback for commits → reads commits.txt if count == 0      │</span>
+<br>
+<span class="box">│                                                                 │</span>
+<br>
+<span class="box">│  2. Extract source files  (functions.txt pipe-delimited)        │</span>
+<br>
+<span class="box">│                                                                 │</span>
+<br>
+<span class="box">│  3. Section candidate scan                                      │</span>
+<br>
+<span class="box">│     • Collect H2 (##) and H3 (###) headings                     │</span>
+<br>
+<span class="box">│     • Filter out non-function headings via exclusion table      │</span>
+<br>
+<span class="box">│     • Select level: H2 wins if |H2| ≥ |H3| and |H2| > 0        │</span>
+<br>
+<span class="box">│                                                                 │</span>
+<br>
+<span class="box">│  4. Per-function section parse                                  │</span>
+<br>
+<span class="box">│     • Slice lines[start:next_heading]                           │</span>
+<br>
+<span class="box">│     • Regex scan for **TAG** bold markers                       │</span>
+<br>
+<span class="box">│     • Assign worst-severity status                              │</span>
+<br>
+<span class="box">│     • Extract LOC references from first 300 chars               │</span>
+<br>
+<span class="box">│                                                                 │</span>
+<br>
+<span class="box">│  5. Aggregate per-object totals                                 │</span>
+<br>
+<span class="box">└─────────────────────────────────────────────────────────────────┘</span>
+<br>
+<span class="arrow">          │</span>
+<br>
+<span class="arrow">          ▼</span>
+<br>
+<span class="box">list[ObjectDict]  →  parsed_intents.json  (pretty-printed, indent=2)</span>
+<br>
+<br>
+<span class="note">  Side-car reads: Outputs/Object History/v4/{obj}/commits.txt</span>
+<br>
+<span class="note">                  Outputs/Object History/v4/{obj}/functions.txt</span>
+</div>
+
+<h3>Key Phases</h3>
+<table>
+  <tr><th>#</th><th>Phase</th><th>Mechanism</th><th>Output</th></tr>
+  <tr><td>1</td><td>Discovery</td><td><code>glob("Outputs/Intents/*-intent.md")</code> sorted</td><td>ordered file list</td></tr>
+  <tr><td>2</td><td>Metadata</td><td>3× regex on raw text; commits.txt fallback</td><td><code>head_sha, date, commits_count</code></td></tr>
+  <tr><td>3</td><td>Source file dedup</td><td><code>functions.txt</code> pipe-split, <code>set()</code></td><td><code>src_files: list[str]</code> sorted</td></tr>
+  <tr><td>4</td><td>Heading scan</td><td>Line iteration, <code>line.startswith("## "/"### ")</code></td><td><code>candidates: list[tuple]</code></td></tr>
+  <tr><td>5</td><td>Level selection</td><td><code>len(h2_c) ≥ len(h3_c) and len(h2_c) > 0</code></td><td>chosen_candidates</td></tr>
+  <tr><td>6</td><td>Section slicing</td><td><code>lines[start : next_heading_idx]</code></td><td><code>fn_text: str</code></td></tr>
+  <tr><td>7</td><td>Tag classification</td><td><code>re.findall(**TAG**)</code> + severity precedence</td><td><code>status, counts</code></td></tr>
+  <tr><td>8</td><td>Serialisation</td><td><code>json.dump(results, out, indent=2)</code></td><td><code>parsed_intents.json</code></td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>2 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Top-Level Return Shape</h3>
+<pre>list[
+  {
+    "object":         str,          # basename without "-intent.md"
+    "head_sha":       str,          # 40-char hex (default fallback hard-coded)
+    "date":           str,          # free-form string from markdown header
+    "commits":        int,
+    "source_files":   list[str],    # sorted, deduplicated
+    "function_count": int,
+    "functions":      list[FunctionDict],
+    "totals": {
+      "diverged":      int,
+      "ungrounded":    int,
+      "overcautious":  int,
+      "concern":       int,
+      "clean":         int,
+      "with_concerns": int
+    }
+  }
+]</pre>
+
+<h3>FunctionDict Shape</h3>
+<pre>{
+  "id":           str,          # "{object}_{1-based index}"
+  "title":        str,          # heading text stripped of ` * backtick/asterisk
+  "status":       str,          # "CLEAN" | "DIVERGED" | "UNGROUNDED" | "OVERCAUTIOUS" | "CONCERN"
+  "counts": {
+    "diverged":     int,        # DIVERGED + DEFECT + HAZARD tags + **Divergence:** field
+    "ungrounded":   int,        # UNGROUNDED tags
+    "overcautious": int,        # OVERCAUTIOUS tags
+    "concern":      int         # CONCERN + GAP + RISK + MISSING tags
+  },
+  "locs":         list[str],    # e.g. ["src/mgr/Foo.cc:123"]  (first 300 chars only)
+  "raw_markdown": str           # verbatim markdown slice for that section
+}</pre>
+
+<h3>Status Severity Precedence (strict total order)</h3>
+<table>
+  <tr><th>Priority</th><th>Status</th><th>Trigger Tags</th><th>Colour</th></tr>
+  <tr><td>1 (highest)</td><td><span class="tag tag-red">DIVERGED</span></td><td><code>DIVERGED</code>, <code>DEFECT</code>, <code>HAZARD</code> or <code>**Divergence:** &lt;word containing DIVERGE&gt;</code></td><td>Red</td></tr>
+  <tr><td>2</td><td><span class="tag tag-yellow">UNGROUNDED</span></td><td><code>UNGROUNDED</code></td><td>Yellow</td></tr>
+  <tr><td>3</td><td><span class="tag tag-purple">OVERCAUTIOUS</span></td><td><code>OVERCAUTIOUS</code></td><td>Purple</td></tr>
+  <tr><td>4</td><td><span class="tag tag-orange">CONCERN</span></td><td><code>CONCERN</code>, <code>GAP</code>, <code>RISK</code>, <code>MISSING</code></td><td>Orange</td></tr>
+  <tr><td>5 (lowest)</td><td><span class="tag tag-green">CLEAN</span></td><td>No tags matched</td><td>Green</td></tr>
+</table>
+<div class="callout">
+  <strong>Invariant:</strong> Status is assigned by the worst single tag present. Counts accumulate independently (a function with 3 DIVERGED + 2 UNGROUNDED tags gets <code>status=DIVERGED</code>, but <code>counts.ungrounded=2</code> is still recorded — not zeroed out).
+</div>
+
+<h3>Heading-Level Selection Algorithm</h3>
+<pre>chosen = h2_candidates  if  len(h2) >= len(h3)  AND  len(h2) > 0
+       = h3_candidates  otherwise
+       = all_candidates if both sets empty</pre>
+<div class="callout info">
+  Rationale: some intent files use <code>##</code> for functions, others use <code>###</code> under a class-level <code>##</code> header. The algorithm picks whichever level has more candidates (favouring H2 on a tie). This is heuristic-based, not schema-enforced.
+</div>
+
+<h3>Candidate Tuple Layout</h3>
+<pre>(level: int, line_idx: int, raw_line: str, clean_title: str)</pre>
+<ul>
+  <li><code>level</code> — 2 or 3 (heading depth)</li>
+  <li><code>line_idx</code> — 0-based index into <code>lines[]</code></li>
+  <li><code>raw_line</code> — original markdown line (unused after candidate list built)</li>
+  <li><code>clean_title</code> — markdown formatting stripped via <code>re.sub(r"[`*]", "", title)</code></li>
+</ul>
+
+<h3>Non-Function Header Exclusion Table</h3>
+<p>A <code>set[str]</code> of 44 lowercase sentinel values guards H2 exclusion. H3 exclusion uses an inline list of 23 prefixes. Matching logic:</p>
+<pre># H2 check (non_func_titles set):
+clean_lower.startswith(x) OR clean_lower == x
+
+# Additional H2 guard (positional prefixes):
+startswith("class:") | startswith("1.") | ... | startswith("5.")
+
+# H3 check (inline list):
+clean_lower.startswith(x) OR clean_lower == x</pre>
+<div class="callout danger">
+  <strong>Known gap:</strong> The H2 and H3 exclusion lists are maintained separately and have grown organically. A new intent template section name that isn't in either list will silently be treated as a function.
+</div>
+
+<h3>commits.txt Fallback</h3>
+<pre>path: Outputs/Object History/v4/{obj}/commits.txt
+trigger: commits_count == 0 after regex
+count: non-empty lines (strip + bool)</pre>
+<p>Note: comment lines (<code># ...</code>) count toward total because there is no <code>startswith("#")</code> guard in the fallback counter — unlike the <code>functions.txt</code> reader which does skip comment lines.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>3 · Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <tr><th>Decision</th><th>What Was Done</th><th>Why Not Y?</th><th>Consequence</th></tr>
+  <tr>
+    <td>Line-split then index</td>
+    <td><code>text.split("\n")</code> once; all heading detection and slicing operates on <code>lines[]</code></td>
+    <td>Streaming / regex on raw string would lose line numbers needed for slice boundaries</td>
+    <td>Entire file in memory; fine for ~500–2000 line intent docs</td>
+  </tr>
+  <tr>
+    <td>Heuristic level selection (H2 vs H3)</td>
+    <td>Choose whichever heading level has more candidates</td>
+    <td>Fixed schema would break existing intent files that use either convention</td>
+    <td>Misclassification if a file has exactly equal H2/H3 counts (H2 wins on tie)</td>
+  </tr>
+  <tr>
+    <td>Bold <code>**TAG**</code> regex scanning</td>
+    <td><code>re.findall(r"\*\*(TAG)\*\*", fn_text)</code></td>
+    <td>YAML front-matter or structured fields would require a different authoring format</td>
+    <td>Tags must be exactly <code>**WORD**</code>; partial bold or lower-case are silently missed</td>
+  </tr>
+  <tr>
+    <td>Worst-severity wins for <code>status</code></td>
+    <td>First non-zero count in precedence order sets status</td>
+    <td>Average / aggregate scoring would obscure single critical findings</td>
+    <td>A function with 10 CLEAN + 1 DIVERGED is labelled DIVERGED — conservative, intentional</td>
+  </tr>
+  <tr>
+    <td>Hard-coded fallback SHA</td>
+    <td><code>head_sha = "8681fa6e..."</code> as default before regex</td>
+    <td>Leaving it empty/None risks downstream consumers breaking on missing SHA</td>
+    <td>Silently produces wrong SHA if regex fails; no warning emitted</td>
+  </tr>
+  <tr>
+    <td>LOC extraction limited to <code>fn_text[:300]</code></td>
+    <td>Only the first 300 chars of a section are scanned for source locations</td>
+    <td>Full-text scan would return every inline code citation, not just the canonical "Introduced at" metadata header</td>
+    <td>LOC refs appearing after the preamble block are missed</td>
+  </tr>
+  <tr>
+    <td>Raw markdown stored in each function record</td>
+    <td><code>"raw_markdown": fn_text</code> in every FunctionDict</td>
+    <td>Keeping only parsed fields saves memory/disk but loses rendering capability for downstream HTML generators</td>
+    <td><code>parsed_intents.json</code> can be large; each intent file's full text is duplicated as per-section slices</td>
+  </tr>
+  <tr>
+    <td>No schema validation on input markdown</td>
+    <td>All parsing is best-effort; missing metadata fields produce empty strings / 0</td>
+    <td>Strict validation would require a formal intent-file schema, which doesn't exist yet</td>
+    <td>Malformed or unexpected intent formats degrade silently</td>
+  </tr>
+  <tr>
+    <td>Re-derive object name from filename</td>
+    <td><code>os.path.basename(f).replace("-intent.md", "")</code></td>
+    <td>Could embed a canonical name in the markdown header; would require parsing coordination</td>
+    <td>Filename must match the expected <code>NAME-intent.md</code> convention exactly</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>4 · Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <tr><th>Actor / Input</th><th>Attack / Unexpected Behaviour</th><th>Current Handling</th><th>Risk Level</th></tr>
+  <tr>
+    <td>Malicious markdown author</td>
+    <td>Inject a heading that looks like a function but isn't (e.g. <code>## Summary</code>) — missing from exclusion table</td>
+    <td>Treated as a function; gets <code>status=CLEAN</code>, inflates function counts</td>
+    <td><span class="tag tag-yellow">MEDIUM</span></td>
+  </tr>
+  <tr>
+    <td>Malicious markdown author</td>
+    <td>Insert <code>**DIVERGED**</code> inside a code fence or quote block to artificially poison a CLEAN function</td>
+    <td>Regex has no code-fence / blockquote awareness; tag is counted regardless of context</td>
+    <td><span class="tag tag-yellow">MEDIUM</span></td>
+  </tr>
+  <tr>
+    <td>Crafted file path</td>
+    <td>A file named <code>../../etc/passwd-intent.md</code> placed in the intents directory</td>
+    <td><code>glob</code> restricts to <code>Outputs/Intents/</code>; <code>os.path.basename</code> strips path. Reads only within glob pattern. No write back to that path.</td>
+    <td><span class="tag tag-green">LOW</span></td>
+  </tr>
+  <tr>
+    <td>Huge intent file</td>
+    <td>Multi-MB markdown file (pathological doc)</td>
+    <td>Entire file read into memory at once; <code>text.split("\n")</code> produces a large list. No size guard. Could cause OOM on very large files.</td>
+    <td><span class="tag tag-yellow">MEDIUM</span></td>
+  </tr>
+  <tr>
+    <td>Corrupt functions.txt</td>
+    <td>Lines with no <code>|</code> separator, or <code>parts[1]</code> missing</td>
+    <td><code>len(parts) >= 2</code> guard skips malformed lines safely</td>
+    <td><span class="tag tag-green">LOW</span></td>
+  </tr>
+  <tr>
+    <td>commits.txt comment injection</td>
+    <td>Many <code># comment</code> lines inflate commit count (no skip guard in fallback)</td>
+    <td>Comment lines ARE counted in the fallback path (bug). Non-empty lines including <code>#</code> lines count.</td>
+    <td><span class="tag tag-yellow">MEDIUM</span></td>
+  </tr>
+  <tr>
+    <td>Duplicate heading titles</td>
+    <td>Two functions with identical <code>## FunctionName</code> headings in one file</td>
+    <td>Both become separate FunctionDict entries; <code>id</code> is index-based so they differ. No dedup or warning.</td>
+    <td><span class="tag tag-muted">INFO</span></td>
+  </tr>
+  <tr>
+    <td>Unicode / BOM in markdown</td>
+    <td>Non-ASCII characters in function titles or invisible BOM at file start</td>
+    <td>Files opened with <code>encoding="utf-8"</code>. BOM would appear in first heading title; no explicit strip. <code>functions.txt</code> opened without explicit encoding (platform default).</td>
+    <td><span class="tag tag-yellow">MEDIUM</span></td>
+  </tr>
+  <tr>
+    <td>JSON output path collision</td>
+    <td>Another process writes <code>parsed_intents.json</code> concurrently</td>
+    <td>No locking; plain <code>open("parsed_intents.json", "w")</code>. Last writer wins. Not a concern in single-process batch use.</td>
+    <td><span class="tag tag-green">LOW</span> (batch tool)</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<table>
+  <tr><th>Failure Mode</th><th>Root Cause</th><th>Symptom</th><th>Blast Radius</th></tr>
+  <tr>
+    <td>Wrong heading level chosen</td>
+    <td>Mixed H2/H3 doc where counts happen to be equal; or H3-only doc with one exclusion hit</td>
+    <td>Function count wrong; sections mis-sliced; tags from wrong sections aggregated</td>
+    <td>Single object corrupted in output JSON; silently wrong</td>
+  </tr>
+  <tr>
+    <td>Exclusion table miss</td>
+    <td>New section type added to intent template not added to <code>non_func_titles</code></td>
+    <td>Ghost "function" records with inflated function counts and misleading CLEAN status</td>
+    <td>All objects using the new template section have wrong function counts</td>
+  </tr>
+  <tr>
+    <td>Metadata regex fails</td>
+    <td>Intent file uses different header keyword (e.g. "SHA:" instead of "HEAD SHA:")</td>
+    <td><code>head_sha</code> silently falls back to hard-coded default <code>8681fa6e...</code>; no error</td>
+    <td>Incorrect SHA in all downstream consumers for that object; no alert</td>
+  </tr>
+  <tr>
+    <td>commits.txt fallback overcounts</td>
+    <td>Comment lines (<code># ...</code>) not filtered in fallback</td>
+    <td><code>commits</code> field inflated by typically 3–4 header comments per file</td>
+    <td>Cosmetic data quality issue; stats dashboards show inflated commit counts</td>
+  </tr>
+  <tr>
+    <td><code>functions.txt</code> absent</td>
+    <td>Object history not collected yet for that object</td>
+    <td><code>src_files = []</code> — silently empty, no error or warning</td>
+    <td>Source file associations missing in JSON; only affects display</td>
+  </tr>
+  <tr>
+    <td>No candidates found</td>
+    <td>Intent file has no recognized function headings at either H2 or H3</td>
+    <td><code>chosen_candidates = []</code> (after fallback to <code>candidates</code> which is also empty); <code>functions = []</code>; object still emitted with <code>function_count=0</code></td>
+    <td>Object appears in JSON as empty shell; totals all zero</td>
+  </tr>
+  <tr>
+    <td>Empty intent file</td>
+    <td>Agent produced a blank or stub file</td>
+    <td>All metadata regex miss, commits=0, fallback checked, function list empty, object still added to results</td>
+    <td>Garbage object in output; no crash</td>
+  </tr>
+  <tr>
+    <td>LOC regex finds wrong locations</td>
+    <td>The pattern <code>\.cc:\d+</code> or <code>\.h:\d+</code> is very broad — matches any inline code citation</td>
+    <td>Unrelated file references captured in <code>locs[]</code></td>
+    <td>Stale or wrong source anchors in downstream HTML viewers</td>
+  </tr>
+  <tr>
+    <td>Tag in code fence counted</td>
+    <td>No fence-awareness in <code>re.findall</code></td>
+    <td>A code sample showing <code>**DIVERGED**</code> inflates diverged count</td>
+    <td>Function gets wrong (worse) status; over-reporting of findings</td>
+  </tr>
+  <tr>
+    <td>Very large output JSON</td>
+    <td><code>raw_markdown</code> stored per function (~all text duplicated as slices)</td>
+    <td>File size proportional to sum of all intent markdown; no streaming</td>
+    <td>Slow downstream loads; potential issues with in-browser JSON parsing at scale</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<h3>Built-in Output (stdout when run as __main__)</h3>
+<pre>Objects parsed: N
+ActivePyModule             | Funcs: 23 | Div:  2 | Ung:  4 | Over:  1 | Clean: 16
+...
+============================================================
+Grand Total: N Objects | M Functions
+DIVERGED: X | UNGROUNDED: Y | OVERCAUTIOUS: Z | CLEAN: W</pre>
+
+<h3>Triage: Unexpected Function Count</h3>
+<ul>
+  <li>Run <code>python parse_data.py</code>, compare <code>Funcs:</code> against manual <code>grep -c "^## " file.md</code></li>
+  <li>If counts diverge: check whether new section names need adding to <code>non_func_titles</code> or H3 exclusion list</li>
+  <li>Inspect <code>chosen_candidates</code> by adding a <code>print</code> for the object in question</li>
+</ul>
+
+<h3>Triage: Wrong SHA / Date / Commits</h3>
+<ul>
+  <li>Grep the intent file header manually: <code>grep -i "HEAD SHA\|Corpus HEAD" file.md</code></li>
+  <li>If the keyword variant doesn't match the regex, update the alternation in <code>re.search(r"\b(?:HEAD SHA|Corpus HEAD)[:\s*\`]+...")</code></li>
+  <li>Commits fallback: check if <code>commits.txt</code> exists under <code>Outputs/Object History/v4/{obj}/</code>; verify comment lines aren't dominating the count</li>
+</ul>
+
+<h3>Triage: Status Wrong (DIVERGED when should be CLEAN)</h3>
+<ul>
+  <li>Search the raw section: <code>grep -n "\*\*DIVERGED\*\*\|\*\*DEFECT\*\*\|\*\*HAZARD\*\*" file.md</code></li>
+  <li>Check if matching tag is inside a code fence (```) — if so, this is the known tag-in-fence bug</li>
+  <li>Check the <code>**Divergence:**</code> field: <code>grep -i "Divergence:" file.md</code></li>
+</ul>
+
+<h3>Triage: Missing Source Files</h3>
+<ul>
+  <li>Check <code>Outputs/Object History/v4/{obj}/functions.txt</code> exists and has pipe-delimited lines</li>
+  <li>Verify format: <code>qualified_name | file.cc:linenum</code></li>
+</ul>
+
+<h3>Key Regex Inventory</h3>
+<table>
+  <tr><th>Purpose</th><th>Pattern</th><th>Flag</th></tr>
+  <tr><td>HEAD SHA</td><td><code>\b(?:HEAD SHA|Corpus HEAD)[:\s*`]+([a-f0-9]{8,40})</code></td><td>re.I</td></tr>
+  <tr><td>Date</td><td><code>\b(?:Generated|Assessment date|Corpus collected at)[:\s*`]+([^\n\r`]+)</code></td><td>re.I</td></tr>
+  <tr><td>Commits</td><td><code>\b(?:Total non-merge commits|Commits analysed|Total commits)[:\s*`]+([0-9]+)</code></td><td>re.I</td></tr>
+  <tr><td>Status tags</td><td><code>\*\*(UNGROUNDED|DIVERGED|OVERCAUTIOUS|DEFECT|HAZARD|CONCERN|GAP|RISK|MISSING|CORRECT|SOUND|SATISFIES|OK)\*\*</code></td><td>none</td></tr>
+  <tr><td>Divergence field</td><td><code>\*\*Divergence:\*\*\s*([A-Za-z0-9_]+)</code></td><td>none</td></tr>
+  <tr><td>LOC refs</td><td><code>(?:src/mgr/[A-Za-z0-9_.]+(?:\.cc|\.h)?:\d+|[A-Za-z0-9_]+\.(?:cc|h):\d+|\.cc:\d+|\.h:\d+)</code></td><td>none (first 300 chars)</td></tr>
+  <tr><td>Heading cleanup</td><td><code>[`*]</code></td><td>none (re.sub)</td></tr>
+</table>
+
+<hr>
+
+<div class="callout info">
+  <strong>Bottom line for whiteboard:</strong> <code>parse_data.py</code> is a single-pass, best-effort markdown ETL tool. It globs intent files, applies layered heuristics (exclusion tables → level selection → bold-tag regex) to extract per-function status records, and serialises to JSON. Its correctness depends entirely on intent files following the expected markdown conventions. Failures are always silent — wrong data, never crashes.
+</div>
+
+<p style="margin-top:32px;color:var(--muted);font-size:0.78em;">Generated by Bob · Whiteboard Defense Standard · parse_data.py</p>
+</body>
+</html>

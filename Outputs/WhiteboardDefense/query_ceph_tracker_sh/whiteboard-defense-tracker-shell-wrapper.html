@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Whiteboard Defense — query_ceph_tracker.sh</title>
+  <style>
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --border:   #2e3245;
+      --accent:   #5b8dee;
+      --warn:     #e8a838;
+      --danger:   #e05c5c;
+      --ok:       #4caf7d;
+      --text:     #d4d8f0;
+      --muted:    #7a7f9a;
+      --mono:     'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.65;
+      padding: 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.7rem; color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: .5rem; margin-bottom: .4rem; }
+    h2 { font-size: 1.15rem; color: var(--accent); margin: 2.2rem 0 .7rem; text-transform: uppercase; letter-spacing: .08em; }
+    h3 { font-size: .95rem; color: var(--warn); margin: 1.2rem 0 .4rem; }
+    .meta { color: var(--muted); font-size: .82rem; margin-bottom: 2rem; }
+    .meta span { margin-right: 1.4rem; }
+    /* ── cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.1rem 1.3rem;
+      margin-bottom: 1rem;
+    }
+    /* ── code ── */
+    code, pre {
+      font-family: var(--mono);
+      font-size: .82rem;
+      background: #111420;
+      border-radius: 4px;
+    }
+    code { padding: .1em .35em; color: #a9c4f5; }
+    pre {
+      padding: .9rem 1rem;
+      overflow-x: auto;
+      color: #c5d0f5;
+      border: 1px solid var(--border);
+      margin: .6rem 0;
+    }
+    /* ── tables ── */
+    table { width: 100%; border-collapse: collapse; margin: .5rem 0; }
+    th {
+      background: #222641;
+      color: var(--accent);
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: .55rem .8rem;
+      text-align: left;
+      border-bottom: 2px solid var(--accent);
+    }
+    td {
+      padding: .5rem .8rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1f2335; }
+    /* ── badges ── */
+    .badge {
+      display: inline-block;
+      padding: .15em .55em;
+      border-radius: 3px;
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .b-ok     { background: #1e3a2e; color: var(--ok); }
+    .b-warn   { background: #3a2c12; color: var(--warn); }
+    .b-danger { background: #3a1a1a; color: var(--danger); }
+    .b-info   { background: #1a2440; color: var(--accent); }
+    /* ── flow diagram ── */
+    .flow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: .3rem;
+      padding: .8rem 0;
+      font-family: var(--mono);
+      font-size: .8rem;
+    }
+    .node {
+      background: #222641;
+      border: 1px solid var(--accent);
+      border-radius: 5px;
+      padding: .35rem .7rem;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .node.entry { border-color: var(--ok); color: var(--ok); }
+    .node.danger { border-color: var(--danger); color: var(--danger); }
+    .node.warn  { border-color: var(--warn); color: var(--warn); }
+    .arrow { color: var(--muted); font-size: 1rem; }
+    ul { padding-left: 1.4rem; }
+    ul li { margin: .28rem 0; }
+    .tight li { margin: .1rem 0; }
+    .pill-row { display: flex; gap: .5rem; flex-wrap: wrap; margin: .4rem 0; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } .flow { font-size: .7rem; } }
+    .section-label {
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      margin-bottom: .3rem;
+    }
+    .invariant { border-left: 3px solid var(--ok); padding-left: .7rem; }
+    .risk-row td:first-child { font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════  HEADER  ═══════════════════════════ -->
+<h1>Whiteboard Defense</h1>
+<p class="meta">
+  <span>📄 <strong>scripts/query_ceph_tracker.sh</strong></span>
+  <span>🔧 Shell wrapper + inline Python</span>
+  <span>🌐 Redmine REST API (tracker.ceph.com)</span>
+  <span>🎯 One-shot issue search tool</span>
+</p>
+
+<!-- ═══════════════════  1. HIGH-LEVEL ARCHITECTURE  ═══════════════ -->
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+
+<div class="card">
+  <p class="section-label">What it does in one sentence</p>
+  <p>A self-contained Bash script that URL-encodes a search term, fires a single <strong>Redmine REST API</strong> call to <code>tracker.ceph.com</code>, and pretty-prints all matching issues (up to 25) using an <strong>inline heredoc Python script</strong> piped over stdin.</p>
+</div>
+
+<div class="card">
+  <p class="section-label">Execution flow</p>
+  <div class="flow">
+    <div class="node entry">User invokes<br><code>./query_ceph_tracker.sh [term]</code></div>
+    <div class="arrow">→</div>
+    <div class="node">Bash resolves arg<br><code>${1:-life_expectancy}</code></div>
+    <div class="arrow">→</div>
+    <div class="node warn">python3 URL-encodes<br><code>urllib.parse.quote()</code></div>
+    <div class="arrow">→</div>
+    <div class="node">curl -sf<br>GET /issues.json?subject=~{enc}&amp;limit=25&amp;status_id=*</div>
+    <div class="arrow">→</div>
+    <div class="node warn">python3 JSON parse<br><code>total_count</code> extraction</div>
+    <div class="arrow">→</div>
+    <div class="node warn">python3 heredoc<br>formats each issue</div>
+    <div class="arrow">→</div>
+    <div class="node entry">stdout:<br>formatted list</div>
+  </div>
+</div>
+
+<div class="card">
+  <p class="section-label">Component inventory</p>
+  <table>
+    <tr><th>Component</th><th>Role</th><th>Invocation</th></tr>
+    <tr>
+      <td><code>bash</code> (shebang: <code>/usr/bin/env bash</code>)</td>
+      <td>Orchestrator — arg parsing, variable assignment, pipeline glue</td>
+      <td>Process entry point</td>
+    </tr>
+    <tr>
+      <td><code>python3</code> (inline <code>-c</code>)</td>
+      <td>URL-encode <code>SEARCH_TERM</code> via <code>urllib.parse.quote()</code></td>
+      <td>Subprocess — stdout captured to <code>ENCODED</code></td>
+    </tr>
+    <tr>
+      <td><code>curl -sf</code></td>
+      <td>HTTP GET to Redmine JSON API; <code>-s</code> silent, <code>-f</code> fail on HTTP error</td>
+      <td>Subprocess — stdout captured to <code>RESPONSE</code></td>
+    </tr>
+    <tr>
+      <td><code>python3 -c</code> (total count)</td>
+      <td>Parses <code>RESPONSE</code> JSON; prints <code>total_count</code></td>
+      <td>Subprocess — <code>RESPONSE</code> piped via stdin</td>
+    </tr>
+    <tr>
+      <td><code>python3</code> heredoc (<code>PYEOF</code>)</td>
+      <td>Full issue formatter — iterates <code>issues[]</code>, prints structured lines</td>
+      <td>Subprocess — <code>RESPONSE</code> piped via stdin</td>
+    </tr>
+  </table>
+</div>
+
+<div class="card">
+  <p class="section-label">Argument forwarding mechanic</p>
+  <p>The script uses <strong>positional default substitution</strong>, <em>not</em> <code>"$@"</code> forwarding:</p>
+  <pre>SEARCH_TERM="${1:-life_expectancy}"    # only $1 is consumed; all other positional args are silently dropped</pre>
+  <ul>
+    <li><code>$1</code> — the search string (optional; defaults to <code>life_expectancy</code>)</li>
+    <li><code>$2</code> and beyond — <strong>ignored</strong>; no error, no forwarding</li>
+    <li>The value is then shell-interpolated into a Python <code>-c</code> one-liner for URL encoding (see security §4)</li>
+  </ul>
+</div>
+
+<div class="card">
+  <p class="section-label">Python interpreter resolution</p>
+  <pre>#!/usr/bin/env bash          # bash from PATH
+python3 -c "..."             # python3 from PATH — no version pin, no venv</pre>
+  <ul>
+    <li><code>env</code> lookup used for both bash and python3 — relies entirely on the user's <code>$PATH</code></li>
+    <li>No <code>PYTHONPATH</code> manipulation, no virtual-environment activation — only stdlib (<code>urllib.parse</code>, <code>json</code>, <code>sys</code>)</li>
+    <li>Stdlib-only import set means any Python 3.x installation works without dependency installation</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════  2. ARCHITECTURAL DECISIONS  ═══════════════ -->
+<h2>2 · Architectural Decisions &amp; Trade-offs</h2>
+
+<div class="card">
+  <table>
+    <tr><th>Decision</th><th>Why this, not that</th><th>Trade-off accepted</th></tr>
+    <tr>
+      <td><strong>Bash + inline Python</strong> (not pure Bash or pure Python)</td>
+      <td>Bash excels at orchestrating subprocesses and pipelines; Python handles URL-encoding and JSON parsing — both without third-party deps</td>
+      <td>Two runtimes required; no single-binary distribution</td>
+    </tr>
+    <tr>
+      <td><strong>Heredoc inline script</strong> (<code>&lt;&lt;'PYEOF'</code>) instead of a separate <code>.py</code> file</td>
+      <td>Keeps the tool as a single deployable file; zero auxiliary file management</td>
+      <td>Larger script, harder to unit-test the Python logic in isolation</td>
+    </tr>
+    <tr>
+      <td><strong><code>curl -sf</code></strong> instead of <code>wget</code> or <code>requests</code></td>
+      <td><code>curl</code> is ubiquitous on Linux/macOS; <code>-f</code> maps HTTP ≥400 to a non-zero exit, which <code>set -e</code> then catches</td>
+      <td>HTTPS certificate validation is on by default (secure); no progress noise (<code>-s</code>)</td>
+    </tr>
+    <tr>
+      <td><strong>Redmine <code>subject=~{term}</code> query</strong> (not full-text search)</td>
+      <td>Redmine's <code>~</code> operator does substring match on the <em>subject</em> field — simple, predictable, no auth required</td>
+      <td>Only matches issue titles, not descriptions or comments; misses body-only mentions</td>
+    </tr>
+    <tr>
+      <td><strong>Hard limit of 25</strong> results per request</td>
+      <td>Redmine's documented maximum per page; prevents unbounded response size</td>
+      <td>Silent truncation if total_count &gt; 25; no pagination</td>
+    </tr>
+    <tr>
+      <td><strong>No authentication header</strong></td>
+      <td><code>tracker.ceph.com</code> exposes read-only issue data publicly; no API key needed for this query</td>
+      <td>Cannot access private/restricted projects; no per-user rate-limit token</td>
+    </tr>
+    <tr>
+      <td><strong><code>set -euo pipefail</code></strong></td>
+      <td>Fail-fast on any unset variable or non-zero exit in the pipeline — prevents silent data corruption from partial failures</td>
+      <td>Any unexpected non-zero (e.g. curl HTTP 4xx, network timeout) aborts with no user-friendly message</td>
+    </tr>
+    <tr>
+      <td><strong>Default term <code>life_expectancy</code></strong></td>
+      <td>Domain-specific: tool was authored for investigating Ceph OSD device life-expectancy validation bugs</td>
+      <td>Default is useful for the original author; may confuse reuse in other contexts</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ═══════════════════  3. DATA STRUCTURES & INVARIANTS  ══════════ -->
+<h2>3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<div class="two-col">
+  <div class="card">
+    <h3>Redmine JSON response shape</h3>
+    <pre>{
+  "issues": [
+    {
+      "id":         &lt;int&gt;,
+      "subject":    &lt;str&gt;,
+      "status":     {"name": &lt;str&gt;},
+      "priority":   {"name": &lt;str&gt;},
+      "tracker":    {"name": &lt;str&gt;},
+      "updated_on": "YYYY-MM-DDTHH:MM:SSZ"
+    },
+    ...
+  ],
+  "total_count": &lt;int&gt;,
+  "offset": 0,
+  "limit":  25
+}</pre>
+    <ul class="tight">
+      <li>Nested objects for <code>status</code>, <code>priority</code>, <code>tracker</code> — Python accesses via <code>.get("name", "?")</code> with sentinel fallback</li>
+      <li><code>updated_on</code> sliced to <code>[:10]</code> — truncates ISO-8601 to <code>YYYY-MM-DD</code> without <code>datetime</code> parsing</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Shell variable set</h3>
+    <table>
+      <tr><th>Variable</th><th>Type</th><th>Source</th></tr>
+      <tr><td><code>BASE_URL</code></td><td>String (constant)</td><td>Hardcoded</td></tr>
+      <tr><td><code>SEARCH_TERM</code></td><td>String</td><td><code>$1</code> or default</td></tr>
+      <tr><td><code>ENCODED</code></td><td>String</td><td>python3 stdout</td></tr>
+      <tr><td><code>RESPONSE</code></td><td>String (JSON blob)</td><td>curl stdout</td></tr>
+      <tr><td><code>TOTAL</code></td><td>String (int-like)</td><td>python3 stdout</td></tr>
+    </table>
+    <p style="margin-top:.5rem;color:var(--muted);font-size:.8rem;">All variables are plain shell strings. No arrays, no associative maps.</p>
+  </div>
+</div>
+
+<div class="card">
+  <p class="section-label">Key invariants</p>
+  <ul class="invariant">
+    <li><strong>INV-1:</strong> <code>RESPONSE</code> is parsed twice — once for <code>total_count</code>, once for the issue list. Both parses receive the same immutable string; no mutation between reads.</li>
+    <li><strong>INV-2:</strong> The heredoc delimiter is <code>'PYEOF'</code> (single-quoted) — Bash performs <strong>no variable expansion</strong> inside the Python block; the Python code is passed verbatim.</li>
+    <li><strong>INV-3:</strong> <code>set -u</code> guarantees <code>ENCODED</code>, <code>RESPONSE</code>, and <code>TOTAL</code> are assigned before use; any failed subprocess assignment aborts the script.</li>
+    <li><strong>INV-4:</strong> <code>curl -f</code> maps HTTP ≥400 → exit 22; combined with <code>set -e</code> this means a 404 or 503 aborts before Python ever sees a non-JSON payload.</li>
+    <li><strong>INV-5:</strong> Result count is bounded at 25 per the <code>limit=25</code> query parameter. <code>total_count</code> may exceed 25 — only the first page is displayed.</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════  4. THREAT MODEL  ══════════════════════════ -->
+<h2>4 · Threat Model &amp; Adversarial Handling</h2>
+
+<div class="card">
+  <table class="risk-row">
+    <tr><th>Attack Vector</th><th>Severity</th><th>What happens</th><th>Mitigation / Gap</th></tr>
+    <tr>
+      <td>Shell injection via <code>$1</code></td>
+      <td><span class="badge b-danger">HIGH</span></td>
+      <td><code>SEARCH_TERM</code> is embedded into a <code>python3 -c "..."</code> string with double-quotes. An input like <code>"); import os; os.system('id'</code> would break out of the Python string literal and execute arbitrary code in a subprocess.</td>
+      <td><strong>No sanitization.</strong> Mitigated only by the fact this is a local developer tool, not a server-side script. A malicious caller controlling <code>$1</code> can achieve <strong>arbitrary command execution</strong>.</td>
+    </tr>
+    <tr>
+      <td>Malicious/malformed API response (JSON injection)</td>
+      <td><span class="badge b-warn">MEDIUM</span></td>
+      <td>Python's <code>json.load()</code> raises <code>ValueError</code> on malformed JSON. With <code>set -e</code>, this aborts the script. A crafted response with extremely large payloads could exhaust memory.</td>
+      <td><code>json.load()</code> is safe against injection into Python logic. Memory exhaustion is theoretical — Redmine's own API paginates at 25.</td>
+    </tr>
+    <tr>
+      <td>Malicious Redmine server / MITM</td>
+      <td><span class="badge b-warn">MEDIUM</span></td>
+      <td>curl uses system CA bundle for TLS verification by default. A compromised CA or MITM could serve forged data.</td>
+      <td>curl validates certificates by default (<code>--insecure</code> is <strong>not</strong> used). No <code>--cacert</code> pinning, so relies on system trust store.</td>
+    </tr>
+    <tr>
+      <td>Unquoted URL construction</td>
+      <td><span class="badge b-warn">MEDIUM</span></td>
+      <td>The curl URL is built via Bash string interpolation of <code>${ENCODED}</code>. If URL-encoding fails and <code>ENCODED</code> contains spaces or special chars, the URL could be malformed.</td>
+      <td>URL-encoding is the <em>purpose</em> of the Python step — output should be percent-encoded and safe. But if <code>python3</code> itself errors, <code>set -e</code> catches it before curl runs.</td>
+    </tr>
+    <tr>
+      <td>PATH manipulation (malicious python3/curl)</td>
+      <td><span class="badge b-info">LOW</span></td>
+      <td>Script uses <code>env</code> lookup for bash and bare <code>python3</code>/<code>curl</code> names. A compromised <code>$PATH</code> entry could shadow these binaries.</td>
+      <td>Standard risk for any <code>env</code>-based script. Acceptable for a local dev tool; unacceptable for a CI/CD or privileged context.</td>
+    </tr>
+    <tr>
+      <td>Denial of service via slow API</td>
+      <td><span class="badge b-info">LOW</span></td>
+      <td>No <code>--max-time</code> or <code>--connect-timeout</code> set on curl. A stalled connection blocks the shell indefinitely.</td>
+      <td><strong>No timeout guard.</strong> Terminal interrupt (Ctrl+C) is the only escape.</td>
+    </tr>
+  </table>
+</div>
+
+<div class="card">
+  <p class="section-label">Critical shell injection illustration</p>
+  <pre># Dangerous: $SEARCH_TERM is interpolated into a double-quoted Python -c string
+ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${SEARCH_TERM}'))")
+#                                                                      ^^^^^^^^^^^^^^^^
+#  An attacker-controlled value breaks the Python string and injects code.
+
+# Safe alternative:
+ENCODED=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" -- "$SEARCH_TERM")</pre>
+  <p style="margin-top:.5rem;color:var(--muted);font-size:.82rem;">Passing the term as <code>sys.argv[1]</code> isolates it from the Python interpreter's eval surface entirely.</p>
+</div>
+
+<!-- ═══════════════════  5. FAILURE MODES  ══════════════════════════ -->
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<div class="card">
+  <table>
+    <tr><th>Failure</th><th>Trigger</th><th>Behaviour</th><th>Blast Radius</th></tr>
+    <tr>
+      <td><code>python3</code> not found</td>
+      <td>Python not in <code>$PATH</code></td>
+      <td><code>set -e</code> fires at URL-encoding step; script exits with error from bash</td>
+      <td>🟡 Script aborts early; no network call made</td>
+    </tr>
+    <tr>
+      <td><code>curl</code> not found</td>
+      <td>curl not installed</td>
+      <td><code>set -e</code> fires; aborts after URL-encoding</td>
+      <td>🟡 Script aborts; no data fetched</td>
+    </tr>
+    <tr>
+      <td>Network unreachable</td>
+      <td>No internet / DNS failure</td>
+      <td>curl returns non-zero; <code>set -e</code> aborts; <code>RESPONSE</code> unset</td>
+      <td>🟡 Clean abort; no partial output</td>
+    </tr>
+    <tr>
+      <td>HTTP 4xx/5xx from Redmine</td>
+      <td>API down, rate-limited, endpoint changed</td>
+      <td><code>curl -f</code> exits 22; <code>set -e</code> kills script before Python sees empty body</td>
+      <td>🟡 Clean abort; user sees no output and no error message (silent fail)</td>
+    </tr>
+    <tr>
+      <td>Zero results</td>
+      <td>Search term matches nothing</td>
+      <td>Python heredoc prints <code>"No issues found."</code> and <code>sys.exit(0)</code></td>
+      <td>🟢 Handled gracefully; exit 0</td>
+    </tr>
+    <tr>
+      <td>Result count &gt; 25</td>
+      <td>Popular search term</td>
+      <td>Only first 25 issues shown; <code>total_count</code> is printed so user knows truncation occurred</td>
+      <td>🟡 Silent truncation of results; no pagination</td>
+    </tr>
+    <tr>
+      <td>Missing JSON fields in response</td>
+      <td>API schema change / partial response</td>
+      <td><code>.get("name", "?")</code> fallback returns <code>"?"</code> sentinel; script continues</td>
+      <td>🟢 Degraded output, not crash</td>
+    </tr>
+    <tr>
+      <td>Malformed JSON in <code>RESPONSE</code></td>
+      <td>API returns HTML error page, partial body</td>
+      <td><code>json.load()</code> raises <code>ValueError</code>; Python exits non-zero; <code>set -e</code> kills Bash</td>
+      <td>🟡 Aborts with Python traceback on stderr — reveals script internals</td>
+    </tr>
+    <tr>
+      <td>Special chars in search term</td>
+      <td>User passes <code>"life &amp; death"</code></td>
+      <td>URL-encoding handles it correctly — but the shell injection risk (§4) is triggered first</td>
+      <td>🔴 Potential code execution for adversarial input</td>
+    </tr>
+    <tr>
+      <td>No timeout on curl</td>
+      <td>Slow/stalled connection</td>
+      <td>Script hangs indefinitely; no watchdog</td>
+      <td>🟡 Process hangs; user must Ctrl+C</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ═══════════════════  6. OBSERVABILITY & TRIAGE  ════════════════ -->
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<div class="card">
+  <p class="section-label">What the script emits (all to stdout)</p>
+  <pre>=== Searching tracker.ceph.com for: 'life_expectancy' ===
+
+Total matching issues: 7
+---
+  #63274  [Resolved    ] [Normal  ] ceph osd set-life-expectancy truncates to 0
+           Type: Bug  |  Updated: 2024-03-11
+           URL : https://tracker.ceph.com/issues/63274
+
+  ...</pre>
+  <ul class="tight">
+    <li>No structured logging — all output is human-readable text to stdout</li>
+    <li>Errors (Python exceptions, curl non-zero) go to <strong>stderr</strong> implicitly</li>
+    <li>No log file, no timestamps, no exit-code documentation</li>
+  </ul>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <h3>Triage: script exits immediately with no output</h3>
+    <ul>
+      <li>Run with <code>bash -x</code> to trace each step</li>
+      <li>Check <code>python3 --version</code> and <code>curl --version</code></li>
+      <li>Run the curl command manually with <code>-v</code> to inspect HTTP status</li>
+      <li>Check network connectivity: <code>curl -v https://tracker.ceph.com</code></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Triage: "Total: 0" but issues should exist</h3>
+    <ul>
+      <li>The <code>subject=~</code> filter only matches <em>issue titles</em> — try a broader/shorter term</li>
+      <li>Verify the Redmine endpoint directly in a browser: <code>tracker.ceph.com/issues.json?subject=~life_expectancy&amp;limit=25&amp;status_id=*</code></li>
+      <li>Check if the API endpoint or Redmine version changed (path format shift)</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Triage: Python ValueError / JSON decode error</h3>
+    <ul>
+      <li>Redmine may be returning an HTML error page — check raw curl output</li>
+      <li>Rate limiting may return a non-JSON body</li>
+      <li>Workaround: remove <code>-s</code> from curl to see headers + body</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Triage: only 25 results but need more</h3>
+    <ul>
+      <li>Script shows <code>total_count</code> so you know truncation occurred</li>
+      <li>Add <code>&amp;offset=25</code> to the curl URL manually for page 2</li>
+      <li>No built-in pagination — must extend script or use Redmine web UI</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <p class="section-label">Quick debug invocation</p>
+  <pre># Full trace mode
+bash -x ./query_ceph_tracker.sh "set-life-expectancy"
+
+# Test URL-encoding step in isolation
+python3 -c "import urllib.parse; print(urllib.parse.quote('set-life-expectancy'))"
+
+# Test raw API response
+curl -s "https://tracker.ceph.com/issues.json?subject=~set-life-expectancy&limit=25&status_id=*" | python3 -m json.tool | head -40
+
+# Check exit code
+echo $?</pre>
+</div>
+
+<!-- ═══════════════════  SUMMARY CARD  ══════════════════════════════ -->
+<hr />
+<div class="card">
+  <p class="section-label">One-page recall — key facts for whiteboard defense</p>
+  <div class="two-col">
+    <ul>
+      <li><strong>Pattern:</strong> Shell orchestrator + inline Python for encoding/parsing</li>
+      <li><strong>Networking:</strong> Single <code>curl -sf</code> GET; HTTPS; no auth; no timeout</li>
+      <li><strong>Arg handling:</strong> <code>${1:-life_expectancy}</code> — only <code>$1</code> consumed, no <code>"$@"</code></li>
+      <li><strong>Python resolve:</strong> <code>python3</code> from <code>$PATH</code>; stdlib-only</li>
+      <li><strong>Heredoc:</strong> <code>&lt;&lt;'PYEOF'</code> single-quoted — no Bash expansion inside</li>
+    </ul>
+    <ul>
+      <li><strong>Hard limit:</strong> 25 results (Redmine max); silent truncation</li>
+      <li><strong>Safety net:</strong> <code>set -euo pipefail</code> + <code>curl -f</code> = fail-fast</li>
+      <li><strong>Biggest risk:</strong> Shell injection via <code>$1</code> interpolated into <code>python3 -c "..."</code></li>
+      <li><strong>Missing:</strong> No pagination, no curl timeout, no error messages to user</li>
+      <li><strong>Scope:</strong> Local developer tool — not suitable for CI/CD or untrusted input</li>
+    </ul>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — MgrClient</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2d3148;
+    --accent: #4f8ef7;
+    --accent2: #f7a24f;
+    --accent3: #4fd98e;
+    --danger: #e05c5c;
+    --warn: #e0b84f;
+    --muted: #8891aa;
+    --text: #d8ddf0;
+    --code-bg: #141722;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.8rem; color: var(--accent); margin-bottom: 0.25rem; }
+  h2 { font-size: 1.2rem; color: var(--accent2); margin: 2rem 0 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  h3 { font-size: 1rem; color: var(--accent3); margin: 1.2rem 0 0.5rem; }
+  h4 { font-size: 0.9rem; color: var(--muted); margin: 0.8rem 0 0.3rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .meta { color: var(--muted); font-size: 0.82rem; margin-bottom: 1.5rem; }
+  .meta span { margin-right: 1.5rem; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0 1.5rem; font-size: 0.84rem; }
+  th { background: var(--surface); color: var(--accent); text-align: left; padding: 0.5rem 0.75rem; border: 1px solid var(--border); font-weight: 600; letter-spacing: 0.03em; }
+  td { padding: 0.45rem 0.75rem; border: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: #12151f; }
+  tr:nth-child(odd) td { background: var(--bg); }
+  code { background: var(--code-bg); color: #a8d8ff; padding: 0.1em 0.35em; border-radius: 3px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.82em; }
+  .sha { font-family: monospace; font-size: 0.78em; color: #7a8fc4; background: var(--code-bg); padding: 0.1em 0.3em; border-radius: 3px; }
+  ul { list-style: none; padding: 0; }
+  ul li { padding: 0.2rem 0 0.2rem 1.2rem; position: relative; }
+  ul li::before { content: "▸"; position: absolute; left: 0; color: var(--accent); }
+  .tag { display: inline-block; font-size: 0.72em; font-weight: 700; padding: 0.1em 0.5em; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 0.4em; vertical-align: middle; }
+  .tag-diverged { background: #6e1a1a; color: #ff9999; }
+  .tag-ungrounded { background: #5a4a00; color: #ffe566; }
+  .tag-bug { background: #6e1a1a; color: #ff9999; }
+  .tag-ok { background: #1a3a26; color: #66ffaa; }
+  .tag-warn { background: #4a3500; color: #ffcc44; }
+  .tag-fatal { background: #7a0000; color: #ffaaaa; }
+  .badge-row { margin: 0.4rem 0; }
+  .flow-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.2rem 1.5rem;
+    margin: 1rem 0;
+    font-family: monospace;
+    font-size: 0.82em;
+    line-height: 1.9;
+    color: var(--text);
+    overflow-x: auto;
+  }
+  .flow-box .c1 { color: var(--accent); }
+  .flow-box .c2 { color: var(--accent3); }
+  .flow-box .c3 { color: var(--accent2); }
+  .flow-box .cm { color: var(--muted); }
+  .callout {
+    border-left: 3px solid var(--accent2);
+    background: #1e1a10;
+    padding: 0.6rem 1rem;
+    margin: 0.8rem 0;
+    font-size: 0.85rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .callout.danger { border-color: var(--danger); background: #1e1010; }
+  .callout.ok { border-color: var(--accent3); background: #101e14; }
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1rem 1.5rem; margin-bottom: 2rem; display: inline-block; }
+  .toc ol { padding-left: 1.5rem; }
+  .toc li { padding: 0.15rem 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+  .section { margin-bottom: 2rem; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+  .inline-pill { display: inline-block; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0.1em 0.6em; font-size: 0.78em; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense: <code>MgrClient</code></h1>
+<div class="meta">
+  <span>📁 <code>src/mgr/MgrClient.cc</code> / <code>src/mgr/MgrClient.h</code></span>
+  <span>📅 2016-06-30 → 2026-07-23</span>
+  <span>📝 108 non-merge commits</span>
+  <span>🔖 HEAD: <span class="sha">8681fa6ebac2</span></span>
+</div>
+
+<nav class="toc">
+  <strong style="color:var(--text)">Sections</strong>
+  <ol>
+    <li><a href="#arch">Architecture &amp; Mental Model</a></li>
+    <li><a href="#decisions">Architectural Decisions &amp; Trade-offs</a></li>
+    <li><a href="#datastructs">Data Structures, Algorithms &amp; Invariants</a></li>
+    <li><a href="#threat">Threat Model &amp; Adversarial Handling</a></li>
+    <li><a href="#failures">Failure Modes, Edge Cases &amp; Blast Radius</a></li>
+    <li><a href="#observability">Observability &amp; Triage Playbook</a></li>
+  </ol>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="arch">
+<h2>1. Architecture &amp; Mental Model</h2>
+
+<h3>One-Line Summary</h3>
+<p><code>MgrClient</code> is a <strong>Messenger <code>Dispatcher</code> subclass</strong> that every Ceph daemon (OSD, MDS, MON, RGW, RBD mirror, plus external service daemons) embeds to maintain a single long-lived TCP session to the active ceph-mgr, report perf counters and daemon status on a timed cycle, and submit/receive management commands.</p>
+
+<h3>Roles Handled by One Class</h3>
+<ul>
+  <li><strong>Session Manager</strong> — owns the single <code>MgrSessionState</code> (connection + declared-counter set); tears down and rebuilds on failover.</li>
+  <li><strong>Periodic Reporter</strong> — fires <code>_send_stats()</code> every <code>stats_period</code> seconds via <code>SafeTimer</code>; sends <code>MMgrReport</code> (perf counters + status + health + config delta) and <code>MPGStats</code> (OSD only).</li>
+  <li><strong>Command Bus</strong> — queues <code>start_command</code> / <code>start_tell_command</code> in <code>CommandTable&lt;MgrCommand&gt;</code>; sends <code>MMgrCommand</code> (octopus+) or legacy <code>MCommand</code>; routes replies back to callers.</li>
+  <li><strong>Service Daemon Registry</strong> — lets non-core services call <code>service_daemon_register()</code> to appear in the mgr's ServiceMap.</li>
+  <li><strong>MON Metadata Updater</strong> — <code>update_daemon_metadata()</code> + <code>_send_update()</code> path for MONs that need to push metadata post-session-open.</li>
+</ul>
+
+<h3>Message Flow Diagram</h3>
+<div class="flow-box">
+<span class="cm">┌──────────────────────────────────────────────────────────────────────┐</span><br>
+<span class="cm">│  Calling daemon (OSD / MDS / MON / service daemon)                   │</span><br>
+<span class="cm">└───────────────────┬──────────────────────────────────────────────────┘</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c1">│ init() → shutdown()</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c1">│ start_command / start_tell_command</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c1">│ service_daemon_register / update_*</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+<span class="cm">┌──────────────────────────────────────────────────────────────────────┐</span><br>
+<span class="cm">│                      <span class="c2">MgrClient  (lock: ceph::mutex)</span>                   │</span><br>
+<span class="cm">│                                                                      │</span><br>
+<span class="cm">│  SafeTimer ──► _send_stats()                                        │</span><br>
+<span class="cm">│                  ├─ _send_report()  ──► MMgrReport  (perf+status)   │</span><br>
+<span class="cm">│                  └─ _send_pgstats() ──► MPGStats     (OSD only)     │</span><br>
+<span class="cm">│                                                                      │</span><br>
+<span class="cm">│  CommandTable&lt;MgrCommand&gt; ──►  MMgrCommand (oct+) / MCommand (old)  │</span><br>
+<span class="cm">│                                                                      │</span><br>
+<span class="cm">│  ms_dispatch2() ◄──────── MSG_MGR_MAP / MSG_MGR_CONFIGURE           │</span><br>
+<span class="cm">│                 ◄──────── MSG_MGR_CLOSE  (service daemon ack)        │</span><br>
+<span class="cm">│                 ◄──────── MSG_COMMAND_REPLY / MSG_MGR_COMMAND_REPLY  │</span><br>
+<span class="cm">│                                                                      │</span><br>
+<span class="cm">│  ms_handle_reset() ──► reconnect()                                  │</span><br>
+<span class="cm">└──────────────────────────────────────────────────────────────────────┘</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c3">│  Messenger (async)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+<span class="cm">┌──────────────────────────────────────────────────────────────────────┐</span><br>
+<span class="cm">│                       Active ceph-mgr daemon                         │</span><br>
+<span class="cm">└──────────────────────────────────────────────────────────────────────┘</span>
+</div>
+
+<h3>Lifecycle State Machine</h3>
+<div class="flow-box">
+[CREATED] ──init()──► [INITIALIZED] ──handle_mgr_map()──► [CONNECTING]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[SESSION_ACTIVE] &lt;──ms_handle_reset()──┐<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;shutdown() ─────────────────────────►[DEAD]<br>
+<span class="cm">  dead=true blocks ms_dispatch2; init() is required to re-use after shutdown</span>
+</div>
+
+<h3>Concurrency Model</h3>
+<ul>
+  <li>Single <code>ceph::mutex lock</code> protects all mutable state. All methods that touch shared state assert <code>ceph_mutex_is_locked_by_me(lock)</code>.</li>
+  <li><code>SafeTimer</code> fires callbacks <strong>under lock</strong> — timer lambda and <code>_send_stats()</code> require no re-acquisition.</li>
+  <li><code>ms_dispatch2()</code> is called from the Messenger thread pool — acquires <code>lock</code> at entry.</li>
+  <li>Public API (<code>start_command</code>, <code>send_pgstats</code>, etc.) all acquire <code>lock</code> on entry.</li>
+  <li><code>reconnect()</code> is <em>lock-must-be-held</em> (private); asserted with <code>ceph_assert(ceph_mutex_is_locked_by_me(lock))</code>. <span class="sha">c93dc8849145</span></li>
+</ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="decisions">
+<h2>2. Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <thead>
+    <tr><th>Decision</th><th>What was chosen</th><th>Why not Y?</th><th>Commit(s)</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Single session, not connection pool</strong></td>
+      <td><code>unique_ptr&lt;MgrSessionState&gt;</code>; one active mgr connection at a time</td>
+      <td>Mgr is a HA singleton — only one active mgr exists. A pool would waste resources and complicate failover bookkeeping.</td>
+      <td><span class="sha">4d1989dc229a</span></td>
+    </tr>
+    <tr>
+      <td><strong>Connect throttling via <code>last_connect_attempt</code> + SafeTimer</strong></td>
+      <td>At most 1 connect per <code>mgr_connect_retry_interval</code>; deferred via <code>connect_retry_callback</code></td>
+      <td>Un-throttled reconnect after mgr failover would cause a thundering-herd storm (all OSDs hitting simultaneously). SafeTimer is already lock-associated — no extra thread needed.</td>
+      <td><span class="sha">d902e5b76ed5</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>fsid</code> as tell-command signal in <code>MCommand</code></strong></td>
+      <td>Tell commands populate <code>monmap-&gt;fsid</code> in the message; CLI commands leave it null/zeroed</td>
+      <td>Feature bits couldn't be used: a new client talking to an old mgr doesn't yet know if the mgr supports <code>MMgrCommand</code>. The <code>fsid</code> field was previously unused — repurposing it is backward-compatible.</td>
+      <td><span class="sha">6f35d2835268</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>MMgrCommand</code> for octopus+, <code>MCommand</code> for older</strong></td>
+      <td>Dispatch gated on <code>HAVE_FEATURE(map.active_mgr_features, SERVER_OCTOPUS)</code></td>
+      <td>Dedicated mgr command message type allows the mgr to distinguish CLI vs. tell without the <code>fsid</code> hack. Legacy path kept for rolling upgrades.</td>
+      <td><span class="sha">0019005e87a0</span></td>
+    </tr>
+    <tr>
+      <td><strong>Command queue instead of immediate failure when no session</strong></td>
+      <td>Commands enqueued in <code>CommandTable</code>; sent on next <code>reconnect()</code></td>
+      <td>Original code returned <code>-ENOENT</code> immediately. That broke callers that submitted commands during startup before the mgr was known. Queueing provides transparent retry. <span class="tag tag-ok">6ff0857974ea</span></td>
+      <td><span class="sha">6ff0857974ea</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>mgr_optional</code> mode / <code>-EACCES</code> on epoch==0</strong></td>
+      <td>If <code>mgr_optional &amp;&amp; map.epoch == 0</code>: return <code>-EACCES</code> immediately</td>
+      <td>Pre-luminous clusters may never have a mgr. Blocking or queueing forever would deadlock. The gate is only active when <code>mgr_optional</code> is explicitly set.</td>
+      <td><span class="sha">bae47183c262</span></td>
+    </tr>
+    <tr>
+      <td><strong>MMgrClose handshake on service daemon shutdown</strong></td>
+      <td>Shutdown sends <code>MMgrClose</code>, waits up to <code>mgr_client_service_daemon_unregister_timeout</code> for mgr ack</td>
+      <td>Without the handshake, the daemon's entry in ServiceMap would linger until the mgr's health-check kicked it out, causing stale health warnings.</td>
+      <td><span class="sha">082a700ac80a</span></td>
+    </tr>
+    <tr>
+      <td><strong>Abandon in-flight commands on premature shutdown</strong></td>
+      <td><code>command_table.clear()</code> without invoking callbacks</td>
+      <td>Originally asserted <code>command_table.empty()</code> — triggered on Ctrl-C. Silent drop is correct: the process is exiting. Callers must not depend on callbacks being invoked during shutdown.</td>
+      <td><span class="sha">8ca982f403b0</span></td>
+    </tr>
+    <tr>
+      <td><strong>Perf counter undeclare on session reconnect / disappearance / threshold drop</strong></td>
+      <td><code>session-&gt;declared</code> set; diff against PerfCountersCollection each cycle; undeclare removed/below-threshold counters</td>
+      <td>Accumulating stale declarations on the mgr side would bloat its state. Undeclare messages allow the mgr to clean up without a full session reset.</td>
+      <td><span class="sha">a46690c6230b</span>, <span class="sha">88163749b572</span></td>
+    </tr>
+    <tr>
+      <td><strong>Config: full snapshot on open, delta on each report</strong></td>
+      <td><code>_send_open()</code> calls <code>get_config_bl(0, ...)</code>; <code>_send_report()</code> calls <code>get_config_bl(last_config_bl_version, ...)</code></td>
+      <td>The mgr needs a complete config view when a new session starts. Sending the full config on every report would be wasteful for large configs — deltas keep the wire format small.</td>
+      <td><span class="sha">d8450574cf48</span>, <span class="sha">8e2a30068acc</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>dead</code> flag to guard post-shutdown dispatches</strong></td>
+      <td><code>bool dead = false</code>; set at top of <code>shutdown()</code>; checked first in <code>ms_dispatch2()</code></td>
+      <td>The Messenger may deliver messages after <code>shutdown()</code> (e.g., a queued <code>MMgrMap</code>) before the Messenger itself stops. Without the flag, this would trigger a new session on a shutting-down daemon.</td>
+      <td><span class="sha">7fd618c28895</span></td>
+    </tr>
+    <tr>
+      <td><strong>Late-register path for <code>CEPH_ENTITY_TYPE_CLIENT</code> only</strong></td>
+      <td><code>service_daemon_register()</code>: if <code>mytype == CLIENT &amp;&amp; session</code> → call <code>_send_open()</code> immediately</td>
+      <td>Non-CLIENT types (OSD, MDS) already send <code>MMgrOpen</code> unconditionally in <code>reconnect()</code>. The late-register path only applies to pure-client messengers (e.g., RBD mirror) that need to register as service daemons after connection. An earlier commit inverted the condition and was fixed within a week. <span class="tag tag-bug">fc60989bf7a7</span> → <span class="sha">13198b133fad</span></td>
+      <td><span class="sha">13198b133fad</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>update_daemon_metadata</code> does NOT set <code>service_daemon=true</code></strong></td>
+      <td>Only sets identity fields and calls <code>_send_update()</code> (MON path). Service daemon registration remains separate.</td>
+      <td>MONs need to push metadata to the mgr but are NOT service daemons in the ServiceMap sense. Mixing the two paths caused a tracker issue (ceph#55322). <span class="sha">6540937a6d18</span> explicitly removed the <code>service_daemon=true</code> assignment.</td>
+      <td><span class="sha">6540937a6d18</span></td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="datastructs">
+<h2>3. Data Structures, Algorithms &amp; Invariants</h2>
+
+<div class="two-col">
+<div>
+<h3>Core Members</h3>
+<table>
+  <thead><tr><th>Member</th><th>Type</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><code>map</code></td><td><code>MgrMap</code></td><td>Latest mgr map from monitor. <code>epoch==0</code> means no map yet.</td></tr>
+    <tr><td><code>session</code></td><td><code>unique_ptr&lt;MgrSessionState&gt;</code></td><td>Holds active connection (<code>con</code>) + <code>set&lt;string&gt; declared</code> (perf counter paths declared to mgr). Null = no session.</td></tr>
+    <tr><td><code>command_table</code></td><td><code>CommandTable&lt;MgrCommand&gt;</code></td><td>Pending commands keyed by <code>ceph_tid_t</code>. Both queued (no session) and in-flight commands live here until reply or shutdown.</td></tr>
+    <tr><td><code>MgrCommand</code></td><td>extends <code>CommandOp</code></td><td>Adds <code>string name</code> (target mgr daemon name for tell), <code>bool tell</code> flag, and <code>multi_target_id</code>.</td></tr>
+    <tr><td><code>lock</code></td><td><code>ceph::mutex</code></td><td>Single coarse lock. All public methods and <code>ms_dispatch2</code> acquire at entry.</td></tr>
+    <tr><td><code>report_callback</code></td><td><code>Context*</code></td><td>Handle to the current SafeTimer event for <code>_send_stats()</code>. Stored so it can be cancelled on session teardown.</td></tr>
+    <tr><td><code>connect_retry_callback</code></td><td><code>Context*</code></td><td>Pending SafeTimer retry for throttled reconnect. Cancelled on shutdown and on successful connect.</td></tr>
+    <tr><td><code>last_connect_attempt</code></td><td><code>utime_t</code></td><td>Timestamp of last connect; compared against <code>mgr_connect_retry_interval</code> to enforce throttle.</td></tr>
+    <tr><td><code>dead</code></td><td><code>bool</code></td><td>Set by <code>shutdown()</code>; checked first in <code>ms_dispatch2()</code>. Cleared only by <code>init()</code>.</td></tr>
+    <tr><td><code>initialized</code></td><td><code>bool</code></td><td>Set by <code>init()</code>; never cleared. Guards MDS connection gating.</td></tr>
+    <tr><td><code>stats_period</code></td><td><code>uint32_t</code></td><td>Report interval in seconds from <code>MMgrConfigure</code>. <code>0</code> = reporting disabled. Set to <code>0</code> on session teardown.</td></tr>
+    <tr><td><code>stats_threshold</code></td><td><code>uint32_t</code></td><td>Minimum adjusted priority for a counter to be included in reports.</td></tr>
+    <tr><td><code>daemon_dirty_status</code></td><td><code>bool</code></td><td>Dirty flag: daemon status map changed; cleared after <code>_send_report()</code>.</td></tr>
+    <tr><td><code>task_dirty_status</code></td><td><code>bool</code></td><td>Dirty flag: task status map changed. Also set on reconnect to force resend.</td></tr>
+    <tr><td><code>need_metadata_update</code></td><td><code>bool = true</code></td><td>One-shot flag for MON metadata push via <code>_send_update()</code>.</td></tr>
+    <tr><td><code>last_config_bl_version</code></td><td><code>uint64_t</code></td><td>Config version sent in last report; enables delta encoding.</td></tr>
+    <tr><td><code>shutdown_cond</code></td><td><code>ceph::condition_variable</code></td><td>Signalled by <code>handle_mgr_close()</code> to unblock <code>shutdown()</code>'s timed wait.</td></tr>
+  </tbody>
+</table>
+</div>
+<div>
+<h3>Perf Counter Report Algorithm (per cycle)</h3>
+<div class="flow-box" style="font-size:0.78em">
+<span class="c1">_send_report()</span> — called under lock:<br><br>
+1. Snapshot PerfCountersCollection via <code>with_counters(cb)</code><br>
+2. For each counter path in snapshot:<br>
+&nbsp;&nbsp; <span class="c2">include_counter</span> = adjusted_priority ≥ stats_threshold<br>
+3. <span class="c3">Undeclare pass:</span><br>
+&nbsp;&nbsp; a. Paths in <code>session-&gt;declared</code> NOT in snapshot → undeclare<br>
+&nbsp;&nbsp; b. Paths in snapshot failing <code>include_counter</code> → undeclare<br>
+4. <span class="c3">Declare pass:</span><br>
+&nbsp;&nbsp; Paths passing <code>include_counter</code> NOT in <code>declared</code> → declare + add header<br>
+5. Encode counter VALUES into <code>report-&gt;packed</code> (<code>ENCODE_START(1,1,...)</code>)<br>
+6. Append daemon_status if <code>daemon_dirty_status</code><br>
+7. Append task_status if <code>task_dirty_status</code><br>
+8. <code>std::move(daemon_health_metrics)</code> — always sent<br>
+9. Config delta: <code>get_config_bl(last_config_bl_version, ...)</code><br>
+10. MetricReportMessage (OSD/MDS perf queries) if callback set
+</div>
+
+<h3>Key Invariants</h3>
+<ul>
+  <li><strong>Lock before state</strong>: all paths touching <code>session</code>, <code>command_table</code>, <code>map</code>, dirty flags require lock.</li>
+  <li><strong><code>reconnect()</code> requires lock held</strong>: asserted via <code>ceph_assert(ceph_mutex_is_locked_by_me(lock))</code>. <span class="sha">c93dc8849145</span></li>
+  <li><strong><code>stats_period = 0</code> on teardown</strong>: prevents orphaned timer reschedule after session destroyed. <span class="sha">e3104862b84e</span></li>
+  <li><strong><code>report_callback</code> cancelled before session reset</strong>: prevents double-send on reconnect. <span class="sha">1643a7fc6074</span></li>
+  <li><strong><code>dead</code> set before any other shutdown action</strong>: ensures concurrent <code>ms_dispatch2</code> sees it under lock. <span class="sha">7fd618c28895</span></li>
+  <li><strong><code>session-&gt;con-&gt;mark_down()</code> before <code>session.reset()</code></strong>: drains in-flight messages before releasing state. <span class="sha">eb5c02df634b</span></li>
+  <li><strong>Callbacks abandoned on shutdown</strong>: <code>command_table.clear()</code> does NOT invoke <code>on_finish</code>. Callers must tolerate silent drop. <span class="sha">8ca982f403b0</span></li>
+  <li><strong>Wire encoding version frozen at 1</strong>: <code>ENCODE_START(1, 1, report-&gt;packed)</code> — never updated since initial commit. <span class="sha">88442d2391ad</span></li>
+</ul>
+</div>
+</div>
+
+<h3>Message Types Summary</h3>
+<table>
+  <thead><tr><th>Direction</th><th>Message</th><th>Trigger</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>→ mgr</td><td><code>MMgrOpen</code></td><td><code>reconnect()</code> / late-register</td><td>Carries full config snapshot, daemon metadata, service identity</td></tr>
+    <tr><td>→ mgr</td><td><code>MMgrUpdate</code></td><td><code>_send_update()</code> for MON metadata</td><td>Post-session metadata push; no ServiceMap registration</td></tr>
+    <tr><td>→ mgr</td><td><code>MMgrReport</code></td><td><code>_send_report()</code> every <code>stats_period</code> sec</td><td>Perf counters (declares + undeclares + encoded values) + status + health + config delta</td></tr>
+    <tr><td>→ mgr</td><td><code>MPGStats</code></td><td><code>_send_pgstats()</code></td><td>OSD only; via <code>pgstats_cb</code></td></tr>
+    <tr><td>→ mgr</td><td><code>MMgrCommand</code></td><td><code>start_command()</code> on octopus+ mgr</td><td>fsid = null (not a tell)</td></tr>
+    <tr><td>→ mgr</td><td><code>MCommand</code></td><td><code>start_command()</code> pre-octopus OR tell</td><td>fsid populated iff tell command</td></tr>
+    <tr><td>→ mgr</td><td><code>MMgrClose</code></td><td><code>shutdown()</code> when service daemon + MIMIC+</td><td>Triggers <code>handle_mgr_close</code> ack path</td></tr>
+    <tr><td>← mgr</td><td><code>MMgrMap</code></td><td>Monitor broadcast</td><td>Triggers <code>reconnect()</code> if address changed</td></tr>
+    <tr><td>← mgr</td><td><code>MMgrConfigure</code></td><td>Mgr sets reporting params</td><td>Sets <code>stats_period</code>, <code>stats_threshold</code>, perf queries</td></tr>
+    <tr><td>← mgr</td><td><code>MMgrClose</code></td><td>Mgr acks service daemon removal</td><td>Signals <code>shutdown_cond</code></td></tr>
+    <tr><td>← mgr</td><td><code>MCommandReply</code> / <code>MMgrCommandReply</code></td><td>Command completed</td><td>Source must be <code>CEPH_ENTITY_TYPE_MGR</code> or silently dropped</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="threat">
+<h2>4. Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <thead><tr><th>Actor / Scenario</th><th>Attack Vector</th><th>Defense</th><th>Residual Risk</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Rogue MGR impersonator</strong></td>
+      <td>Sends <code>MCommandReply</code> / <code>MMgrCommandReply</code> from a non-MGR entity</td>
+      <td><code>m-&gt;get_source().type() == CEPH_ENTITY_TYPE_MGR</code> check in <code>ms_dispatch2()</code>; non-MGR source returns <code>false</code> (message unhandled). <span class="sha">0019005e87a0</span></td>
+      <td>Relies on Messenger-layer authentication (CephX). If CephX is bypassed, source type can be spoofed.</td>
+    </tr>
+    <tr>
+      <td><strong>Post-shutdown message delivery</strong></td>
+      <td>Messenger delivers <code>MMgrMap</code> after <code>shutdown()</code> has been called</td>
+      <td><code>dead</code> flag checked as <strong>first action</strong> in <code>ms_dispatch2()</code> under lock. Returns <code>false</code> immediately. <span class="sha">7fd618c28895</span></td>
+      <td>None — <code>dead</code> is set before any other shutdown action and read under lock.</td>
+    </tr>
+    <tr>
+      <td><strong>Malicious / stale <code>MMgrConfigure</code></strong></td>
+      <td>Sends <code>stats_period = 0</code> to disable reporting, or huge threshold to drop all counters</td>
+      <td><code>!session</code> guard (returns early if no session). <code>stats_period = 0</code> disables timer but is a legitimate mgr operation. No min/max range check on params.</td>
+      <td><span class="tag tag-warn">Moderate</span> — a compromised mgr can silence a daemon's metrics. No client-side range validation.</td>
+    </tr>
+    <tr>
+      <td><strong>Reconnect storm (mgr failover)</strong></td>
+      <td>Simultaneous reconnect from thousands of OSDs</td>
+      <td>Per-client throttle: max 1 connect per <code>mgr_connect_retry_interval</code> (default 1s). <span class="sha">d902e5b76ed5</span></td>
+      <td><span class="tag tag-ok">Mitigated</span> — jitter is inherent (timer fires are offset per daemon); no explicit jitter added.</td>
+    </tr>
+    <tr>
+      <td><strong>Unknown <code>ConfigPayload</code> variant</strong></td>
+      <td>Mgr sends a <code>MetricConfigMessage</code> with a future/unknown payload type</td>
+      <td><code>handle_config_payload(const UnknownConfigPayload&amp;)</code> calls <code>ceph_abort()</code>. Intentional — a protocol mismatch at this level is a hard error.</td>
+      <td><span class="tag tag-warn">Crash on unknown</span> — no graceful degradation; process aborts. Acceptable for intra-cluster protocol.</td>
+    </tr>
+    <tr>
+      <td><strong>Tell command to wrong/dead mgr</strong></td>
+      <td>Client calls <code>start_tell_command("mgr.x", ...)</code> while <code>mgr.y</code> is active</td>
+      <td>On <code>reconnect()</code>: commands where <code>op.name != map.active_name</code> are cancelled with <code>-ENXIO</code>. <span class="sha">1fb103da34ba</span></td>
+      <td><span class="tag tag-diverged">BUG</span> — <code>f82ab1cbf242</code> moves <code>name</code> into <code>op.name</code> before the send-condition check; the local <code>name</code> is empty, so the check always passes and the command is sent immediately to the wrong mgr. Cancelled on <em>next</em> reconnect only.</td>
+    </tr>
+    <tr>
+      <td><strong>Service daemon status without registration</strong></td>
+      <td>Caller invokes <code>service_daemon_update_status()</code> before <code>service_daemon_register()</code></td>
+      <td>No guard — <code>daemon_dirty_status = true</code> is set unconditionally. Status will be included in <code>MMgrReport</code> but mgr may ignore it if the daemon is not in ServiceMap.</td>
+      <td><span class="tag tag-ungrounded">UNGROUNDED</span> — no commit documents this is intentional.</td>
+    </tr>
+    <tr>
+      <td><strong>Rapid <code>service_daemon_register()</code> calls</strong></td>
+      <td>Two threads both call <code>service_daemon_register()</code> concurrently</td>
+      <td>Lock acquired at entry; <code>return -EEXIST</code> if <code>service_daemon</code> already true. Safe. <span class="sha">97cfc3cb694e</span></td>
+      <td>None.</td>
+    </tr>
+    <tr>
+      <td><strong>Null-char injection in PerfCounter log output</strong></td>
+      <td>PerfCounter path contains <code>\0</code> (intentional delimiter) causing log truncation / binary injection</td>
+      <td><code>format_counter_path()</code> replaces all <code>\0</code> with spaces before logging. Only affects log output; wire encoding unaffected. <span class="sha">24662ab60e65</span></td>
+      <td>None for logging; wire format still carries raw paths.</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="failures">
+<h2>5. Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<h3>Failure Catalogue</h3>
+
+<table>
+  <thead><tr><th>Failure</th><th>Symptom</th><th>Blast Radius</th><th>Recovery</th><th>Commit / Note</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>MGR goes away (active fails over)</strong></td>
+      <td><code>ms_handle_reset()</code> fires → <code>reconnect()</code> called → connect throttled → new session on next MMgrMap</td>
+      <td>Perf metrics gap = failover time + <code>mgr_connect_retry_interval</code>. Commands queued.</td>
+      <td>Automatic on next MMgrMap delivery.</td>
+      <td><span class="sha">f7a9a6f656bb</span>, <span class="sha">d902e5b76ed5</span></td>
+    </tr>
+    <tr>
+      <td><strong>No MGR in cluster (pre-luminous / mgr_optional)</strong></td>
+      <td>MMgrMap never arrives; <code>map.epoch == 0</code></td>
+      <td><code>start_command</code> / <code>start_tell_command</code> return <code>-EACCES</code> immediately if <code>mgr_optional</code> set. Otherwise commands queue indefinitely.</td>
+      <td>Manual: start a mgr daemon. Commands held in <code>CommandTable</code> (no memory bound).</td>
+      <td><span class="sha">bae47183c262</span></td>
+    </tr>
+    <tr>
+      <td><strong>MGR repeatedly rejects connection (refused)</strong></td>
+      <td><code>ms_handle_refused()</code> is a <strong>no-op</strong></td>
+      <td>No reconnect triggered on refused. Client appears stuck — will not retry until next MMgrMap or connection reset.</td>
+      <td>Passive: waits for reset event. Active: deploy mgr.</td>
+      <td><span class="sha">58dd3db0be62</span> — "do nothing for now" comment since 2016. <span class="tag tag-warn">Unaddressed</span></td>
+    </tr>
+    <tr>
+      <td><strong>Service daemon shutdown with no running MGR</strong></td>
+      <td><code>session &amp;&amp; session-&gt;con</code> check passes but MGR is gone → MMgrClose sent but no reply</td>
+      <td>Blocks up to <code>mgr_client_service_daemon_unregister_timeout</code> (default 1s). Stale ServiceMap entry lingers.</td>
+      <td>Timeout-based: best-effort. Daemon eventually exits. <span class="sha">082a700ac80a</span></td>
+      <td>Documented as "best-effort" in commit message.</td>
+    </tr>
+    <tr>
+      <td><strong>Ctrl-C / premature shutdown with pending commands</strong></td>
+      <td><code>shutdown()</code> calls <code>command_table.clear()</code> without invoking <code>on_finish</code> callbacks</td>
+      <td>Callers never get their completion callback. If callers hold resources waiting for the callback, those resources leak.</td>
+      <td>None — intentional contract. Callers must not depend on callbacks during shutdown. <span class="sha">8ca982f403b0</span></td>
+      <td><span class="tag tag-warn">Caller contract</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>start_tell_command</code> send-condition bug</strong> <span class="tag tag-diverged">DIVERGED</span></td>
+      <td><code>op.name = std::move(name)</code> at cc:559; local <code>name</code> is moved-from (empty) → condition <code>name.size() == 0</code> always true → tell command immediately sent to whatever mgr is connected, regardless of target</td>
+      <td>Tell command intended for <code>mgr.x</code> is sent to currently-connected <code>mgr.y</code>. Mgr <code>y</code> will reject or misroute it. On next reconnect, <code>command_table</code> erase fires with <code>-ENXIO</code> — caller gets error, not data.</td>
+      <td>Code fix: check <code>op.name.size() == 0 || map.active_name == op.name</code> (use <code>op.name</code> not moved-from local).</td>
+      <td><span class="sha">f82ab1cbf242</span> introduced regression</td>
+    </tr>
+    <tr>
+      <td><strong><code>is_initialized()</code> stale after shutdown</strong></td>
+      <td><code>initialized</code> never cleared by <code>shutdown()</code>; <code>is_initialized()</code> returns <code>true</code> even after shutdown</td>
+      <td>MDS callers gating subscription logic on <code>is_initialized()</code> may attempt operations on a dead client.</td>
+      <td>None — must re-verify with <code>!dead</code> check separately.</td>
+      <td><span class="sha">e765f2d53344</span></td>
+    </tr>
+    <tr>
+      <td><strong>Wire encoding frozen at version 1</strong></td>
+      <td><code>ENCODE_START(1, 1, report-&gt;packed)</code> in <code>_send_report()</code></td>
+      <td>Future additions to the packed encoding require a version bump or are silently ignored by older mgrs. No immediate failure.</td>
+      <td>Protocol change requires coordinated ENCODE_START bump.</td>
+      <td><span class="sha">88442d2391ad</span> — unchanged since initial commit</td>
+    </tr>
+    <tr>
+      <td><strong>handle_mgr_close does not tear down local session</strong></td>
+      <td>MGR sends <code>MMgrClose</code> (ack); client sets <code>service_daemon=false</code> and signals <code>shutdown_cond</code> but does NOT reset <code>session</code></td>
+      <td>Stale connection object persists. If MGR does not subsequently send a new <code>MMgrMap</code>, client may attempt to send reports on a dead connection.</td>
+      <td>Next <code>MMgrMap</code> triggers <code>reconnect()</code> and fixes state.</td>
+      <td><span class="tag tag-ungrounded">UNGROUNDED</span> — asymmetry not documented</td>
+    </tr>
+    <tr>
+      <td><strong>Unbounded <code>CommandTable</code> growth</strong></td>
+      <td>Caller submits many commands while no mgr session exists; <code>CommandTable</code> grows without bound</td>
+      <td>Each entry holds <code>bufferlist inbl</code> + <code>vector&lt;string&gt; cmd</code>. Large uploads will consume memory.</td>
+      <td>No limit enforced. Mitigation: callers should timeout their own command submissions.</td>
+      <td>No commit addresses this.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout danger">
+<strong>Known Regression (f82ab1cbf242, 2025-08-12):</strong>
+In <code>start_tell_command()</code>, <code>name</code> is moved into <code>op.name</code> before the dispatch check.
+The check <code>name.size() == 0 || ...</code> always evaluates true (moved-from string is empty),
+so tell commands targeting a non-active mgr are immediately sent to the wrong connection.
+The <code>-ENXIO</code> cancel fires on the <em>next</em> reconnect, not at send time.
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="observability">
+<h2>6. Observability &amp; Triage Playbook</h2>
+
+<h3>Log Levels &amp; Key Messages</h3>
+<table>
+  <thead><tr><th>dout level</th><th>Message / Prefix</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>4</td><td><code>mgrc reconnect ... Starting new session with</code></td><td>New connection being established to active mgr addr</td></tr>
+    <tr><td>4</td><td><code>mgrc reconnect ... No active mgr available yet</code></td><td><code>map.get_available()</code> = false; no active mgr known</td></tr>
+    <tr><td>4</td><td><code>mgrc reconnect ... waiting to retry connect until</code></td><td>Throttle active; retry scheduled</td></tr>
+    <tr><td>5</td><td><code>mgrc start_command ... no mgr session, waiting</code></td><td>Command enqueued; session will send on connect</td></tr>
+    <tr><td>5</td><td><code>mgrc start_tell_command ... not active mgr, waiting</code></td><td>Tell target ≠ active mgr (or no session)</td></tr>
+    <tr><td>10</td><td><code>mgrc shutdown ... closing mgr session</code></td><td>Service daemon MMgrClose handshake initiated</td></tr>
+    <tr><td>10</td><td><code>mgrc ms_handle_reset</code></td><td>Connection dropped; reconnect triggered if session matches</td></tr>
+    <tr><td>20</td><td><code>mgrc ms_dispatch2 ... dead=true</code></td><td>Message received after shutdown; silently dropped</td></tr>
+    <tr><td>30</td><td><code>mgrc ms_dispatch2 ... unhandled message</code></td><td>Unknown message type; default case hit</td></tr>
+  </tbody>
+</table>
+
+<h3>Triage Scenarios</h3>
+
+<h4>Scenario A: Daemon shows no metrics in ceph dashboard</h4>
+<ul>
+  <li>Check <code>stats_period</code> — was <code>MMgrConfigure</code> received? If 0, the mgr has disabled reporting for this daemon.</li>
+  <li>Check for a live session: look for <code>Starting new session with</code> at level 4.</li>
+  <li>Check if <code>stats_threshold</code> is too high — counters below priority threshold are silently undeclared.</li>
+  <li>Verify <code>initialized == true</code> (MDS only) — <code>init()</code> must have been called.</li>
+</ul>
+
+<h4>Scenario B: Commands to mgr hang indefinitely</h4>
+<ul>
+  <li>Check <code>map.epoch</code> in daemon state — if 0 and <code>!mgr_optional</code>, commands queue forever (no session will ever be created without a map).</li>
+  <li>If <code>mgr_optional = true</code>, <code>map.epoch == 0</code> returns <code>-EACCES</code> immediately — caller may be suppressing errors.</li>
+  <li>Check <code>connect_retry_callback</code> presence — daemon may be in throttle backoff.</li>
+  <li>Check if <code>dead = true</code> — <code>shutdown()</code> was called; <code>command_table.clear()</code> silently dropped the command.</li>
+</ul>
+
+<h4>Scenario C: Service daemon persists in <code>ceph status</code> after process exit</h4>
+<ul>
+  <li>Process exited without a live mgr session — <code>MMgrClose</code> not sent, ServiceMap entry lingers.</li>
+  <li>MGR will eventually expire the entry via health-check timeout.</li>
+  <li>Force-remove via <code>ceph service rm &lt;service&gt; &lt;daemon&gt;</code>.</li>
+</ul>
+
+<h4>Scenario D: Tell command returns <code>-ENXIO</code> unexpectedly</h4>
+<ul>
+  <li>Likely: target mgr name ≠ active mgr at time of reconnect. The command was queued; on reconnect, the target was deemed wrong and cancelled.</li>
+  <li>Also possible (regression <span class="sha">f82ab1cbf242</span>): tell was sent immediately to the wrong mgr; mgr rejected it; on next reconnect the stale entry is erased with <code>-ENXIO</code>.</li>
+</ul>
+
+<h4>Scenario E: OSD crash with <code>ceph_abort()</code> in <code>handle_config_payload</code></h4>
+<ul>
+  <li>Mgr sent a <code>MetricConfigMessage</code> with an <code>UnknownConfigPayload</code> variant — indicates version skew between daemon and mgr.</li>
+  <li>Only occurs when <code>metric_config_message</code> branch is taken in <code>handle_mgr_configure()</code>.</li>
+  <li>Fix: ensure mgr and OSD are on compatible versions.</li>
+</ul>
+
+<h3>Useful Telemetry Points</h3>
+<table>
+  <thead><tr><th>What to check</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td>Is MgrClient connected?</td><td><code>ceph --admin-daemon /path/osd.0.asok status</code> → look for mgr session fields</td></tr>
+    <tr><td>Pending command count</td><td>admin socket dump or enable <code>debug mgr = 20</code> at runtime</td></tr>
+    <tr><td>Report interval active?</td><td><code>ceph config get osd mgr_stats_period</code> — if 0, reporting is disabled cluster-wide</td></tr>
+    <tr><td>Reconnect throttle</td><td><code>ceph config get osd mgr_connect_retry_interval</code></td></tr>
+    <tr><td>Service daemon unregister timeout</td><td><code>ceph config get osd mgr_client_service_daemon_unregister_timeout</code></td></tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+<strong>Quick mental model for on-call:</strong> MgrClient is a stateful, lock-protected proxy to the active mgr. When in doubt, the answer is "it queues and retries on reconnect." The only permanent failures are: shutdown (dead=true), mgr_optional with epoch=0 (-EACCES), and the tell-command regression (f82ab1cbf242) which sends to the wrong mgr.
+</div>
+
+</section>
+
+<hr>
+<p style="color:var(--muted); font-size:0.78rem; text-align:center">
+  Generated from intent artefact (MgrClient-intent.md) + git corpus v4 · HEAD <span class="sha">8681fa6ebac2</span> · 108 commits · 2016-06-30 – 2026-07-23
+</p>
+
+</body>
+</html>

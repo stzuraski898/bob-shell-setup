@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Whiteboard Defense — launch-bob-agents.sh</title>
+<style>
+  :root {
+    --bg:       #0d1117;
+    --surface:  #161b22;
+    --border:   #30363d;
+    --accent:   #58a6ff;
+    --accent2:  #3fb950;
+    --warn:     #d29922;
+    --danger:   #f85149;
+    --muted:    #8b949e;
+    --text:     #e6edf3;
+    --code-bg:  #1e2430;
+    --head-bg:  #21262d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.9rem; color: var(--accent); margin-bottom: 6px; }
+  h2 { font-size: 1.2rem; color: var(--accent); margin: 36px 0 12px;
+       padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 0.97rem; color: var(--accent2); margin: 20px 0 8px; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; }
+  p  { margin-bottom: 10px; color: var(--text); }
+  ul, ol { padding-left: 20px; margin-bottom: 10px; }
+  li { margin-bottom: 4px; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.82rem;
+    color: #79c0ff;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: #c9d1d9;
+    margin-bottom: 12px;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; color: inherit; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 0.82rem;
+  }
+  thead th {
+    background: var(--head-bg);
+    color: var(--accent);
+    padding: 9px 12px;
+    text-align: left;
+    border: 1px solid var(--border);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--text);
+  }
+  tbody tr:nth-child(even) td { background: #111820; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-crit  { background: #4d1a1a; color: var(--danger);  border: 1px solid var(--danger); }
+  .badge-high  { background: #3d2a0a; color: #e3a03c;        border: 1px solid #e3a03c; }
+  .badge-med   { background: #2d2d0a; color: var(--warn);    border: 1px solid var(--warn); }
+  .badge-low   { background: #0d2a1a; color: var(--accent2); border: 1px solid var(--accent2); }
+  .badge-ok    { background: #0d2a1a; color: var(--accent2); border: 1px solid var(--accent2); }
+  .badge-vuln  { background: #4d1a1a; color: var(--danger);  border: 1px solid var(--danger); }
+  .callout {
+    border-left: 3px solid var(--warn);
+    background: #1e1c10;
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 14px;
+    font-size: 0.83rem;
+  }
+  .callout.info   { border-color: var(--accent);  background: #0d1820; }
+  .callout.ok     { border-color: var(--accent2); background: #0d1e14; }
+  .callout.danger { border-color: var(--danger);  background: #1e0d0d; }
+  .section-number {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+  }
+  .ascii-diagram {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 0.76rem;
+    line-height: 1.4;
+    color: #79c0ff;
+    white-space: pre;
+  }
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+         padding: 14px 18px; margin-bottom: 28px; display: inline-block; min-width: 340px; }
+  .toc h3 { margin-top: 0; color: var(--muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: .06em; }
+  .toc ol  { padding-left: 18px; }
+  .toc li  { font-size: 0.83rem; margin-bottom: 4px; }
+  .toc a   { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .kv { display: grid; grid-template-columns: 200px 1fr; gap: 3px 10px; font-size: 0.82rem; margin-bottom: 12px; }
+  .kv .k { color: var(--muted); }
+  .kv .v { color: var(--text); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+  small { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>⬜ Whiteboard Defense</h1>
+<p class="subtitle">
+  <code>launch-bob-agents.sh</code> &nbsp;·&nbsp;
+  Multi-Agent Tilix Orchestrator &nbsp;·&nbsp;
+  Local + SSH Remote Modes &nbsp;·&nbsp;
+  Directory-based Prompt Loading &amp; Frontmatter Parsing
+</p>
+
+<div class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#s1">High-Level Architecture &amp; Mental Model</a></li>
+    <li><a href="#s2">Architectural Decisions &amp; Trade-offs</a></li>
+    <li><a href="#s3">Data Structures, Algorithms &amp; Invariants</a></li>
+    <li><a href="#s4">Threat Model &amp; Adversarial Handling</a></li>
+    <li><a href="#s5">Failure Modes, Edge Cases &amp; Blast Radius</a></li>
+    <li><a href="#s6">Observability &amp; Triage Playbook</a></li>
+  </ol>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<h2 id="s1"><span class="section-number">1</span> High-Level Architecture &amp; Mental Model</h2>
+
+<h3>One-Line Summary</h3>
+<p>
+  A Bash launcher that reads a structured prompt source (directory of <code>.md</code> files or a legacy file),
+  generates ephemeral per-agent wrapper scripts, optionally syncs reference material to a remote host over SSH,
+  then opens one <strong>Tilix terminal tab per agent</strong> — each landing in its own
+  <code>git worktree</code> and running an isolated <code>bob run</code> or <code>bob chat</code> session.
+</p>
+
+<h3>Runtime Topology</h3>
+<div class="diagram">
+<div class="ascii-diagram">
+LOCAL WORKSTATION
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│  launch-bob-agents.sh                                                            │
+│                                                                                  │
+│  [1] Validate BOBSHELL_API_KEY (exit 1 if unset, unless --dry-run)               │
+│  [2] Parse CLI flags: --local | --no-worktrees | --dry-run | --instructions &lt;P&gt;  │
+│  [3] Route instruction loader                                                    │
+│        INSTRUCTIONS_PATH is a DIRECTORY ──▶  load_from_directory()               │
+│          • find -maxdepth 1 -name '*.md' | sort (lexicographic, null-safe)       │
+│          • Per-file YAML frontmatter parser (--- ... --- block)                  │
+│          • tracker: key extracted; body accumulated line-by-line                 │
+│        INSTRUCTIONS_PATH is a FILE      ──▶  load_from_file()                   │
+│          • Format B detected (^## N. or ```markdown) ──▶ section-delimiter mode  │
+│          • Else Format A: URL / prompt / blank-line pairs                        │
+│  [4] AGENT_COUNT = max(1, len(prompt[]))                                         │
+│  [5] (remote only) rsync -az --delete Inputs/ ──SSH──▶ sockeni07:~/bob-shell-inputs/
+│  [6] for i in 1..N: generate_agent_script(i) ──▶ /tmp/bob-agent-N.sh            │
+│          • Heredoc with ${VAR@Q} quoting; API key as env var inside script       │
+│          • local:  write directly, chmod 700                                     │
+│          • remote: ssh "cat > /tmp/… && chmod +x"  (two SSH round-trips/agent)  │
+│  [7] tilix --action=app-new-window  (agent 1, sleep 2 for DBus registration)    │
+│      tilix --action=app-new-session (agents 2..N, sleep 0.5 between each)       │
+│  [8] wait  (all background Tilix invocations)                                    │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                     SSH (OpenSSH / TLS) │  (remote mode only)
+                                         ▼
+REMOTE HOST: sockeni07
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│  /tmp/bob-agent-N.sh  (ephemeral, overwritten each run)                          │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │  #!/usr/bin/env bash                                                       │  │
+│  │  export BOBSHELL_API_KEY='&lt;key&gt;'        ← env injection, not CLI arg      │  │
+│  │  cd /home/szuraski/ceph-agent-N         ← worktree dir (or MAIN_DIR)      │  │
+│  │  bob run --max-turns 10000 -w ~/        ← with tracker URL + prompt body  │  │
+│  │    OR                                                                      │  │
+│  │  bob chat -w ~/                         ← fallback: no prompt loaded      │  │
+│  │  git -C /home/szuraski/ceph-agent-N checkout agent/N  ← branch reset      │  │
+│  │  exec bash                              ← keeps PTY tab alive             │  │
+│  └────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                  │
+│  Git Worktrees (shared object store: ~/ceph/.git)                                │
+│  ~/ceph-agent-1  branch: agent/1 ──┐                                            │
+│  ~/ceph-agent-2  branch: agent/2 ──┤──▶  ~/ceph/.git  (shared pack/objects)    │
+│  ~/ceph-agent-N  branch: agent/N ──┘                                            │
+└──────────────────────────────────────────────────────────────────────────────────┘
+
+TILIX WINDOW  (DBus IPC: com.gexperts.Tilix)
+┌──────────────────────────────────────────────────────────────────┐
+│  [ Tab 1 ]  [ Tab 2 ]  [ Tab 3 ]  …  [ Tab N ]                  │
+│   agent-1    agent-2    agent-3         agent-N                  │
+│    PTY         PTY        PTY             PTY                    │
+│  ssh -t …   ssh -t …   ssh -t …       ssh -t …  (remote)        │
+│  bash /tmp/bob-agent-N.sh                                        │
+└──────────────────────────────────────────────────────────────────┘
+</div>
+</div>
+
+<h3>Directory-based Prompt Loading (Preferred Path)</h3>
+<div class="diagram">
+<div class="ascii-diagram">
+Inputs/Prompts/history-assessment/
+├── 01-DaemonKey.md        ← frontmatter: tracker: https://tracker.ceph.com/12345
+├── 02-MgrCap.md           ← frontmatter: tracker: none
+├── 03-ClusterState.md     ← no frontmatter block (url defaults to "none")
+│
+↓  load_from_directory() per-file state machine:
+│
+│  first_fence=1  ─── see "---" ──▶  in_frontmatter=1, first_fence=0
+│  in_frontmatter=1 ─ see "---" ──▶  frontmatter_done=1, in_frontmatter=0
+│  in_frontmatter=1 ─ match "^tracker: (.*)" ──▶  url = stripped value
+│  frontmatter_done ─ accumulate body lines (skip leading blanks)
+│  EOF ─ sed-trim trailing whitespace; push (url, body) to parallel arrays
+│
+↓  Sorted output (lexicographic filename order controls agent assignment)
+tracker_url[0] = "https://tracker.ceph.com/12345"    prompt[0] = "…01 body…"
+tracker_url[1] = "none"                               prompt[1] = "…02 body…"
+tracker_url[2] = "none"                               prompt[2] = "…03 body…"
+</div>
+</div>
+
+<h3>Key Invariants</h3>
+<ul>
+  <li><strong>One worktree per agent</strong> — no two agents share a working directory or branch when worktrees enabled.</li>
+  <li><strong>All scripts staged before any Tilix tab opens</strong> — agent_scripts[] fully populated in one loop, then Tilix launched.</li>
+  <li><strong>API key never in argv</strong> — injected via <code>export</code> inside the heredoc; invisible to <code>ps aux</code>.</li>
+  <li><strong>Tab stays open on any bob failure</strong> — <code>exec bash</code> replaces the runner process, preserving PTY.</li>
+  <li><strong><code>--dry-run</code> is completely side-effect-free</strong> — no SSH, no file writes, no Tilix invocations; exits at line 291.</li>
+  <li><strong>Minimum 1 agent</strong> — even with no instruction file, <code>AGENT_COUNT = max(1, 0) = 1</code> opens an interactive <code>bob chat</code> tab.</li>
+  <li><strong>Filename ordering controls agent assignment</strong> — <code>find … -name '*.md' | sort -z</code> is lexicographic; numeric prefixes (<code>01-</code>, <code>02-</code>) give deterministic launch order.</li>
+</ul>
+
+<hr>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<h2 id="s2"><span class="section-number">2</span> Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Decision</th>
+      <th>Alternative Considered</th>
+      <th>Why This Choice</th>
+      <th>Cost / Risk</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Directory of <code>.md</code> files as instruction source</strong> (preferred)</td>
+      <td>Single monolithic instruction file</td>
+      <td>One file per agent = easy add/remove/reorder. YAML frontmatter in each file keeps tracker URL co-located with its prompt. Filename prefix (<code>01-</code>) provides explicit ordering without a separate manifest.</td>
+      <td>Requires <code>find</code> + <code>sort</code>; parser state machine per-file adds complexity. Non-<code>.md</code> files silently ignored (by design).</td>
+    </tr>
+    <tr>
+      <td><strong>YAML-style frontmatter parsing in pure Bash</strong></td>
+      <td>Require a YAML tool (<code>yq</code>, <code>python3 -c</code>)</td>
+      <td>Zero external dependencies. Script must run on any machine with Bash ≥ 4.4. The frontmatter schema is intentionally minimal (only <code>tracker:</code> key recognized).</td>
+      <td>Parser is hand-rolled: only parses <code>tracker:</code>; other keys silently ignored. No multi-line YAML values, arrays, or anchors. Misformed frontmatter (e.g., trailing space before <code>---</code>) passes through to body.</td>
+    </tr>
+    <tr>
+      <td><strong>Legacy file formats preserved</strong> (Format A: 2-line pairs; Format B: <code>## N.</code> sections)</td>
+      <td>Drop legacy; require directory format only</td>
+      <td>Backward compatibility with existing <code>bob-instructions</code> hand-authored files and Whiteboard Defense prompt outputs from other pipeline scripts.</td>
+      <td>Format B detection is a heuristic regex (<code>^## [0-9]+\. </code> or <code>```markdown</code>) — could misfire on markdown files with those patterns outside of Format B intent.</td>
+    </tr>
+    <tr>
+      <td><strong>Git worktrees</strong> (<code>~/ceph-agent-N</code> per agent)</td>
+      <td>N full git clones or single shared repo</td>
+      <td>Shared object store — no multi-GB history duplication. Agents can commit, stage, and switch files concurrently without <code>.git/index.lock</code> collisions. Branch isolation is enforced by Git itself.</td>
+      <td>Shared <code>.git</code>: a <code>git gc</code> on the primary repo can transiently block all worktrees. Git enforces that one branch can only be checked out in one worktree at a time.</td>
+    </tr>
+    <tr>
+      <td><strong>Tilix multi-tab via DBus</strong></td>
+      <td><code>tmux</code> / headless daemons / <code>screen</code></td>
+      <td>Human-in-the-loop: developer sees live agent reasoning, diffs, and compiler output in adjacent tabs. Full interactive PTY retained for manual intervention. Visual UX is the primary use case.</td>
+      <td>Requires graphical session + Tilix installed. Fails entirely in headless/CI. DBus window registration has a timing dependency (addressed with a 2s sleep heuristic).</td>
+    </tr>
+    <tr>
+      <td><strong>Two-phase script staging</strong> (<code>cat &gt; /tmp/bob-agent-N.sh</code> → <code>ssh -t … bash /tmp/…</code>)</td>
+      <td>Single <code>ssh -t host "export KEY=…; bob run …"</code></td>
+      <td>Eliminates multilevel nested quoting across local heredoc → SSH → remote shell layers. Keeps the interactive PTY channel clean — no initialization output corrupts the TTY. The staging channel (non-interactive) and execution channel (interactive PTY) are cleanly separated.</td>
+      <td>Cleartext API key in <code>/tmp</code> between staging and execution. Two SSH round-trips per agent instead of one.</td>
+    </tr>
+    <tr>
+      <td><strong>API key via <code>BOBSHELL_API_KEY</code> env var</strong></td>
+      <td>OAuth web flow / SSH port-forward / CLI arg / <code>.env</code> file</td>
+      <td>Remote server has no browser for web flows. Port-forwarding adds operational complexity and latency. Env var is invisible in process argument lists (<code>ps aux</code>, <code>/proc/PID/cmdline</code>).</td>
+      <td>Key lives in cleartext inside <code>/tmp/bob-agent-N.sh</code> until the remote shell reads and executes the export. World-readable if <code>chmod +x</code> only (remote mode gap — see §4).</td>
+    </tr>
+    <tr>
+      <td><strong><code>${VAR@Q}</code> shell quoting operator</strong> for all heredoc interpolations</td>
+      <td>Manual <code>sed</code>/regex escaping, <code>printf '%q'</code></td>
+      <td>Native Bash 4.4+ operator; produces minimal POSIX-safe single-quoted literals that handle all metacharacters (<code>;</code> <code>|</code> <code>`</code> <code>$()</code> <code>'</code> embedded newlines) without custom logic.</td>
+      <td>Requires Bash ≥ 4.4. Not portable to <code>/bin/sh</code> or RHEL 6 / macOS pre-Catalina default shells.</td>
+    </tr>
+    <tr>
+      <td><strong><code>exec bash</code> fallback</strong> at end of runner script</td>
+      <td>Exit → auto-close terminal tab</td>
+      <td>Tab stays alive after <code>bob run</code> completes or crashes; developer retains full shell access to inspect working tree state, logs, and git status without reopening a connection.</td>
+      <td>Abandoned tabs hold open SSH connections and consume memory indefinitely until manually closed. Not a problem for small N, but accumulates with repeated runs.</td>
+    </tr>
+    <tr>
+      <td><strong><code>rsync -az --delete</code></strong> for remote input sync</td>
+      <td><code>scp</code> / manual copy / pre-existing remote files</td>
+      <td>Idempotent and incremental — only transmits changed files. <code>--delete</code> keeps remote <code>bob-shell-inputs/</code> in exact lockstep with local <code>Inputs/</code> so agents never read stale guide files.</td>
+      <td><code>--delete</code> silently removes remote files not present locally. A typo in <code>REMOTE_INPUTS_DIR</code> could delete unexpected data. Path is always derived from <code>WORKSPACE_ROOT</code> (not user-controlled), limiting blast radius.</td>
+    </tr>
+    <tr>
+      <td><strong><code>--no-worktrees</code> flag</strong></td>
+      <td>Always require worktrees</td>
+      <td>Supports read-only, exploratory, or interactive use cases where multiple agents don't need write isolation (e.g., querying history, generating docs). Reduces setup overhead for single-agent runs.</td>
+      <td>All agents share <code>MAIN_DIR</code> — concurrent git mutations from multiple agents will collide. Caller's responsibility to use this flag only for safe workloads.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<h2 id="s3"><span class="section-number">3</span> Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>In-Memory State — Bash Parallel Arrays</h3>
+<table>
+  <thead>
+    <tr><th>Variable</th><th>Type</th><th>Contents</th><th>Invariant</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>tracker_url[]</code></td>
+      <td>Bash indexed array (<code>declare -a</code>)</td>
+      <td>Tracker URL per agent entry (e.g. <code>https://tracker.ceph.com/issues/12345</code>), or the literal string <code>"none"</code> when absent or explicitly set to none.</td>
+      <td><code>len(tracker_url) == len(prompt)</code> — arrays grown together in lockstep via <code>tracker_url+=(…)</code> and <code>prompt+=(…)</code> in the same conditional path.</td>
+    </tr>
+    <tr>
+      <td><code>prompt[]</code></td>
+      <td>Bash indexed array (<code>declare -a</code>)</td>
+      <td>Full prompt string for agent at index <em>i</em>. May be multi-line (directory/.md, Format B); single-line (Format A).</td>
+      <td>Index <em>i</em> → agent <em>i+1</em>. If <code>idx ≥ len(prompt)</code>, the agent falls back to interactive <code>bob chat</code> (no prompt assigned).</td>
+    </tr>
+    <tr>
+      <td><code>agent_scripts[]</code></td>
+      <td>Bash indexed array (<code>declare -a</code>)</td>
+      <td>Absolute paths of staged wrapper scripts: <code>["/tmp/bob-agent-1.sh", …, "/tmp/bob-agent-N.sh"]</code>.</td>
+      <td>Populated in a single <code>for</code> loop before any Tilix invocation. Length always equals <code>AGENT_COUNT</code>.</td>
+    </tr>
+    <tr>
+      <td><code>AGENT_COUNT</code></td>
+      <td>Integer scalar</td>
+      <td><code>max(1, ${#prompt[@]})</code></td>
+      <td>Minimum of 1. Guarantees a useful run even with empty/missing instructions (opens one interactive <code>bob chat</code> tab).</td>
+    </tr>
+    <tr>
+      <td><code>IS_LOCAL</code> / <code>USE_WORKTREES</code> / <code>DRY_RUN</code></td>
+      <td>Boolean integer (0/1)</td>
+      <td>Mode flags derived from CLI args at parse time.</td>
+      <td>Set once; never mutated after the argument parsing loop. Checked as conditions throughout.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Algorithm: Directory Loader (<code>load_from_directory</code>)</h3>
+<div class="diagram">
+<div class="ascii-diagram">
+Input: directory path
+Step 1: find -maxdepth 1 -name '*.md' -print0 | sort -z
+         → null-delimited sorted list → files[] (handles spaces in filenames)
+
+Step 2: for each file in files[]:
+  Initialize: url="none", body="", in_frontmatter=0, frontmatter_done=0, first_fence=1
+
+  Per-line state machine:
+  ┌───────────────────────────────────────────────────────────────────────┐
+  │  State: BEFORE_FRONTMATTER (frontmatter_done=0, first_fence=1)        │
+  │    line == "---"  →  in_frontmatter=1, first_fence=0  (enter FM)     │
+  │    line != "---"  →  treat as body line directly                      │
+  │                                                                       │
+  │  State: IN_FRONTMATTER (in_frontmatter=1)                             │
+  │    line == "---"  →  frontmatter_done=1, in_frontmatter=0  (exit FM) │
+  │    line matches "^tracker: (.*)"  →  strip quotes → url = value       │
+  │                       [[ -n val && val != "none" ]] guards assignment  │
+  │    any other line  →  ignored (future keys extensible)                │
+  │                                                                       │
+  │  State: BODY (frontmatter_done=1 or first_fence never triggered)      │
+  │    empty line AND body==""  →  skip (strip leading blanks from body)  │
+  │    non-empty line           →  body += line                           │
+  └───────────────────────────────────────────────────────────────────────┘
+
+  Post-loop: body = sed trim trailing whitespace
+  Guard: [[ -n "$body" ]] → push (url, body); else warn and skip
+
+Output: parallel arrays tracker_url[] and prompt[] populated
+</div>
+</div>
+
+<h3>Algorithm: File Loader — Format A (2-line pairs)</h3>
+<div class="diagram">
+<div class="ascii-diagram">
+States: EXPECT_URL → EXPECT_PROMPT → EXPECT_URL  (cycle)
+
+  EXPECT_URL:
+    empty line    →  EXPECT_URL  (url reset to "")
+    non-empty     →  EXPECT_PROMPT  (url = line)
+
+  EXPECT_PROMPT:
+    empty line    →  EXPECT_URL  (orphan URL discarded, url="")
+    non-empty     →  PUSH(url, line) → EXPECT_URL  (url="")
+
+EOF: IFS= read -r line || [[ -n "$line" ]]  → captures no-trailing-newline final line
+</div>
+</div>
+
+<h3>Algorithm: File Loader — Format B (Section Delimiter)</h3>
+<p><strong>Detection trigger:</strong> file contains <code>^## [0-9]+\. </code> OR <code>```markdown</code></p>
+<ul>
+  <li><code>## N. &lt;title&gt;</code> — starts new entry; title captured as <code>current_url</code>; flushes previous entry if any.</li>
+  <li>Body lines accumulate into <code>current_entry</code> (newline-joined string).</li>
+  <li><code>---</code> on its own line — flushes current entry to arrays.</li>
+  <li>Backtick fences (<code>```</code> / <code>```markdown</code>) — stripped (not added to body).</li>
+  <li>EOF — flushes any open (unflushed by <code>---</code>) section.</li>
+</ul>
+
+<h3>Script Generation: <code>generate_agent_script(n)</code></h3>
+<pre><code># Pseudocode — reflects actual logic in generate_agent_script()
+
+if USE_WORKTREES:
+    dir = MAIN_DIR + "-agent-" + n          # ~/ceph-agent-N  (or ~/Projects/ceph-agent-N local)
+    git_checkout_cmd = "git -C ${dir@Q} checkout agent/N"
+else:
+    dir = MAIN_DIR                           # single repo, no isolation
+
+if idx < len(prompt):
+    bob_prompt = tracker_url[idx] + " " + prompt[idx]  # if url != "none"
+              OR prompt[idx]                            # if url == "none"
+    bob_cmd = "bob run --max-turns 10000 -w ${WORKSPACE_ROOT@Q} -- ${bob_prompt@Q}"
+else:
+    bob_cmd = "bob chat -w ${WORKSPACE_ROOT@Q}"
+
+# Heredoc written to /tmp/bob-agent-N.sh (local: direct; remote: via ssh "cat >")
+#!/usr/bin/env bash
+export BOBSHELL_API_KEY=${API_KEY@Q}
+cd ${dir@Q}
+${bob_cmd}
+${git_checkout_cmd}      # empty string when USE_WORKTREES=0
+exec bash</code></pre>
+
+<div class="callout ok">
+  <strong>Shell safety:</strong> Every user-controlled value interpolated into the heredoc uses
+  <code>${VAR@Q}</code> (Bash 4.4+ parameter transformation). Produces minimal single-quoted literals
+  that handle embedded single-quotes, newlines, semicolons, backticks, and all other shell metacharacters
+  — no custom escaping logic, no regex-based sanitization.
+</div>
+
+<div class="callout info">
+  <strong>Tracker URL construction:</strong> When <code>tracker_url[idx]</code> is not <code>"none"</code>
+  and non-empty, it is prepended to the prompt body separated by a space:
+  <code>"https://tracker.ceph.com/issues/12345 Fix the OSD crash…"</code>. This is the entire string
+  passed as the <code>bob run -- '…'</code> argument.
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<h2 id="s4"><span class="section-number">4</span> Threat Model &amp; Adversarial Handling</h2>
+
+<h3>Trust Boundaries</h3>
+<div class="diagram">
+<div class="ascii-diagram">
+[FULLY TRUSTED]          [SEMI-TRUSTED INPUT]           [SECURE CHANNEL]    [LOWER TRUST]
+Local workstation   ←→   Inputs/Prompts/*.md             ── SSH/TLS ──▶     Remote /tmp/
+(operator shell env)     (may contain tracker text from                      (multi-user
+                          public Redmine issues or                            Linux host,
+                          user-authored markdown)                             sockeni07)
+        ↑
+  BOBSHELL_API_KEY
+  (env, not file)
+</div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Threat</th>
+      <th>Severity</th>
+      <th>Attack Path</th>
+      <th>Mitigation in Code</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <strong>Command injection via prompt or tracker text</strong><br>
+        <small>Malicious instruction file content:<br>
+        <code>tracker: https://…; rm -rf ~; #</code><br>
+        or multi-line prompt with shell metacharacters</small>
+      </td>
+      <td><span class="badge badge-crit">CRITICAL</span></td>
+      <td>Prompt/tracker value written into heredoc → sourced by remote bash. Without quoting, semicolons, backticks, <code>$()</code> execute as commands.</td>
+      <td><code>${bob_prompt@Q}</code>, <code>${dir@Q}</code>, <code>${bob_cmd}</code> (which itself uses <code>${bob_prompt@Q}</code>) applied to all user-controlled strings before heredoc interpolation. Bash produces safe single-quoted literals neutralizing all shell metacharacters.</td>
+      <td><span class="badge badge-ok">PROTECTED</span></td>
+    </tr>
+    <tr>
+      <td>
+        <strong>API key exposure via world-readable <code>/tmp</code> script (remote)</strong><br>
+        <small>Another user on <code>sockeni07</code> reads <code>/tmp/bob-agent-N.sh</code>,
+        which contains <code>export BOBSHELL_API_KEY='…'</code></small>
+      </td>
+      <td><span class="badge badge-high">HIGH</span></td>
+      <td>Remote write: <code>ssh "cat &gt; /tmp/bob-agent-N.sh &amp;&amp; chmod +x"</code><br>
+        Default umask on many Linux systems = <code>022</code> → file mode <code>0755</code> (world-readable/executable).</td>
+      <td>
+        Local mode applies <code>chmod 700</code> (correct).<br>
+        <strong>Remote mode uses only <code>chmod +x</code> — no explicit permission restriction.</strong><br>
+        <em>Recommended fix:</em> replace with:<br>
+        <code>ssh host "install -m 700 /dev/stdin /tmp/bob-agent-N.sh"</code><br>
+        or stage to <code>~/.cache/bob/agents/</code> (user-owned, not world-accessible).
+      </td>
+      <td><span class="badge badge-vuln">OPEN VULNERABILITY</span></td>
+    </tr>
+    <tr>
+      <td>
+        <strong>API key in process argv (<code>ps aux</code>)</strong><br>
+        <small>Key visible to other users in process table</small>
+      </td>
+      <td><span class="badge badge-med">MEDIUM</span></td>
+      <td>If key were a CLI argument to <code>bob run</code>, it would appear in <code>/proc/PID/cmdline</code> and <code>ps aux</code>.</td>
+      <td>Key is always passed via <code>export BOBSHELL_API_KEY=…</code> inside the wrapper script — it lives in the process environment, not argv. Not visible to <code>ps aux</code>.</td>
+      <td><span class="badge badge-ok">PROTECTED</span></td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Frontmatter injection</strong><br>
+        <small>Attacker places a <code>.md</code> file with a crafted frontmatter
+        that overflows into the body via malformed <code>---</code> delimiters</small>
+      </td>
+      <td><span class="badge badge-med">MEDIUM</span></td>
+      <td>If frontmatter closing <code>---</code> is absent, the parser stays in <code>in_frontmatter=1</code> and consumes all remaining lines as key–value pairs. Only <code>tracker:</code> is acted on; other lines are silently ignored. Body becomes empty → file is skipped with a warning.</td>
+      <td>Empty-body guard: <code>[[ -n "$body" ]]</code> before pushing to arrays. Worst case: agent is skipped, not injected. The <code>tracker</code> value itself is passed through <code>${VAR@Q}</code> at runtime — injection into the shell command is blocked regardless.</td>
+      <td><span class="badge badge-ok">CONTAINED</span></td>
+    </tr>
+    <tr>
+      <td>
+        <strong><code>rsync --delete</code> misdirected sync</strong><br>
+        <small><code>REMOTE_INPUTS_DIR</code> points to wrong path; rsync wipes critical remote files</small>
+      </td>
+      <td><span class="badge badge-med">MEDIUM</span></td>
+      <td><code>REMOTE_INPUTS_DIR="${WORKSPACE_ROOT}/bob-shell-inputs"</code>. If <code>WORKSPACE_ROOT</code> were corrupted, the path could become dangerous.</td>
+      <td><code>WORKSPACE_ROOT</code> is derived from hardcoded defaults or <code>--local</code> flag logic only — it is not user-supplied via CLI. Cannot be set to an arbitrary path by a flag. Path is always a subdirectory of the workspace root.</td>
+      <td><span class="badge badge-ok">CONTROLLED</span></td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Git branch collision between worktrees</strong><br>
+        <small>Two agents attempt to check out the same branch</small>
+      </td>
+      <td><span class="badge badge-low">LOW</span></td>
+      <td>Git enforces single-checkout invariant: a branch already checked out in one worktree cannot be checked out in another — returns <code>fatal: 'branch' is already checked out</code>.</td>
+      <td>Agent <em>N</em> is deterministically bound to <code>agent/N</code> in <code>ceph-agent-N</code>. No dynamic branch selection. Collision requires deliberate misconfiguration of the worktree layout.</td>
+      <td><span class="badge badge-ok">MITIGATED</span></td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Stale <code>/tmp</code> scripts from crashed prior run</strong><br>
+        <small>Old scripts contain a rotated/invalidated key or stale prompt</small>
+      </td>
+      <td><span class="badge badge-low">LOW</span></td>
+      <td>Prior run left <code>/tmp/bob-agent-N.sh</code> with old contents.</td>
+      <td>Scripts are unconditionally overwritten on every run — <code>cat &gt; /path</code> truncates and rewrites. No state persists between runs from these files.</td>
+      <td><span class="badge badge-ok">PROTECTED</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<h2 id="s5"><span class="section-number">5</span> Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<h3>Failure Flow Diagram</h3>
+<div class="diagram">
+<div class="ascii-diagram">
+START
+  │
+  ▼
+[1] BOBSHELL_API_KEY unset AND --dry-run=0?
+      YES ──▶ exit 1 (stderr hint: export BOBSHELL_API_KEY=…)
+              Blast: ZERO — no network, no file ops
+      NO  ──▶ continue
+  │
+  ▼
+[2] --instructions path evaluation
+      Not found  ──▶ warn to stderr; AGENT_COUNT = 1; single "bob chat" tab
+      Directory  ──▶ load_from_directory() → may warn on empty dir or empty-body files
+      File       ──▶ load_from_file()
+
+[2a] Directory: zero *.md files found
+      ──▶ warn "no *.md files in dir"; prompt[] stays empty; AGENT_COUNT = 1; bob chat
+
+[2b] Directory: file with no body (e.g. frontmatter only, no text below ---)
+      ──▶ warn "has no prompt body — skipping"; that agent slot dropped
+
+[2c] File Format A: odd line count / orphan URL (URL with no following prompt line)
+      ──▶ orphan URL silently discarded; AGENT_COUNT reduced to valid pairs
+
+[2d] File Format B: section opened, no closing --- before EOF
+      ──▶ EOF flush fires — section pushed normally; no data lost
+  │
+  ▼
+[3] rsync Inputs/ → sockeni07  (remote mode only)
+      SSH/network failure  ──▶ set -e aborts entire script
+                               Blast: clean — zero tabs opened, no partial state
+  │
+  ▼
+[4] generate_agent_script(1..N) loop
+      Remote SSH write fails (auth, disk full)  ──▶ set -e aborts
+      Blast: partial /tmp/bob-agent-*.sh files may remain on remote
+      Local chmod 700 applies; remote chmod +x only (umask-dependent permissions)
+  │
+  ▼
+[5] tilix --action=app-new-window (agent 1)
+      sleep 2  (DBus window registration heuristic)
+      Tilix not installed / no DISPLAY  ──▶ exit 127 — no agents launched
+      DBus timeout (>2s under load)     ──▶ agents 2..N open as separate windows
+  │
+  ▼
+[6] tilix --action=app-new-session (agents 2..N, 0.5s staggered)
+      Each call is a separate background process (&)
+      Session attach fails  ──▶ independent window (cosmetic only; agent still runs)
+  │
+  ▼
+[7] bob-agent-N.sh executes in PTY
+      cd to missing worktree  ──▶ script may continue (no set -e in runner!)
+                                  but bob run/chat fails; exec bash still fires
+      bob run OOM / crash     ──▶ runner continues to git checkout + exec bash
+      git checkout agent/N fails  ──▶ exec bash still executes
+      exec bash               ──▶ tab stays open; developer sees full error context
+</div>
+</div>
+
+<h3>Failure Matrix</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Failure Mode</th>
+      <th>Root Cause</th>
+      <th>Blast Radius</th>
+      <th>Containment / Recovery</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Missing <code>BOBSHELL_API_KEY</code></strong></td>
+      <td>New shell session; env var not exported</td>
+      <td>Zero — exits before any network or file ops</td>
+      <td>Stderr hint printed. <code>export BOBSHELL_API_KEY="…"</code> then re-run.</td>
+    </tr>
+    <tr>
+      <td><strong>Empty instructions directory</strong> (no <code>.md</code> files)</td>
+      <td>Wrong path; files not yet created</td>
+      <td>1 interactive <code>bob chat</code> tab opens. Warning to stderr. No crash.</td>
+      <td>Graceful degradation. Check path with <code>--dry-run</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Prompt file has empty body</strong> (frontmatter only, no content after <code>---</code>)</td>
+      <td>Authoring mistake; incomplete prompt file</td>
+      <td>That agent slot is skipped (warning to stderr). Other agents unaffected.</td>
+      <td>Warning identifies exact file. Add prompt body below the closing <code>---</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Malformed instructions file</strong> (orphan URL, odd line count — Format A)</td>
+      <td>Missing blank-line separator; trailing URL without prompt</td>
+      <td>Orphan URL discarded. AGENT_COUNT reduced to valid pairs. No crash.</td>
+      <td>Use <code>--dry-run</code> to inspect parsed entries before launch.</td>
+    </tr>
+    <tr>
+      <td><strong>Missing remote worktrees</strong> (<code>~/ceph-agent-N</code> absent)</td>
+      <td><code>setup-worktrees.sh</code> not run on remote</td>
+      <td>That agent's tab: <code>cd: no such file</code>; script continues; bob fails; <code>exec bash</code> drops to home shell. Other agents unaffected.</td>
+      <td>Tab stays open with visible error. Run <code>setup-worktrees.sh</code> on <code>sockeni07</code>. Re-run launcher.</td>
+    </tr>
+    <tr>
+      <td><strong>SSH auth / VPN / network failure</strong></td>
+      <td>Expired key, VPN down, host unreachable</td>
+      <td><code>set -e</code> aborts at <code>rsync</code> or first SSH staging call. Zero Tilix tabs opened.</td>
+      <td>Clean fail-fast. Fix connectivity. Re-run.</td>
+    </tr>
+    <tr>
+      <td><strong>Tilix DBus race condition</strong></td>
+      <td>System load; Tilix takes &gt; 2.0s to register on DBus</td>
+      <td>Agents 2..N open as separate windows. Cosmetic only — all agents execute correctly.</td>
+      <td>Increase <code>sleep 2</code> to <code>sleep 4</code>. Close orphan windows. Re-run remaining agents.</td>
+    </tr>
+    <tr>
+      <td><strong>Tilix not installed / headless environment</strong></td>
+      <td>Missing binary or no <code>DISPLAY</code> / <code>WAYLAND_DISPLAY</code></td>
+      <td>All Tilix calls fail. No agents launched.</td>
+      <td>Not designed for headless/CI. Use <code>tmux</code>/<code>screen</code> variant. Manually run <code>bash /tmp/bob-agent-N.sh</code> in any terminal.</td>
+    </tr>
+    <tr>
+      <td><strong><code>/tmp</code> disk exhaustion on remote</strong></td>
+      <td>Root filesystem full</td>
+      <td>Wrapper script write fails → <code>set -e</code> aborts → partial scripts may remain</td>
+      <td>Scripts are &lt;1 KB each — extremely unlikely to trigger. Cleanup: <code>rm /tmp/bob-agent-*.sh</code></td>
+    </tr>
+    <tr>
+      <td><strong>Bob OOM / crash during run</strong></td>
+      <td>Agent consumes excessive memory on remote host</td>
+      <td>Individual agent's PTY exits <code>bob run</code>. Git branch reset + <code>exec bash</code> fire. Other tabs unaffected.</td>
+      <td>Per-process isolation via separate PTY sessions. Emergency: <code>pkill -u szuraski -f 'bob run'</code></td>
+    </tr>
+    <tr>
+      <td><strong><code>--no-worktrees</code> + multiple write agents</strong></td>
+      <td>All agents share <code>MAIN_DIR</code>; concurrent git mutations</td>
+      <td>Agents will collide on Git working tree state (concurrent <code>git add/commit/checkout</code>). Data corruption risk.</td>
+      <td>Flag is intentionally available but dangerous with N&gt;1 write agents. Safe only for read-only or single-agent workloads. Use with caution; document in runbook.</td>
+    </tr>
+    <tr>
+      <td><strong>Wrong <code>--instructions</code> path</strong></td>
+      <td>Typo or wrong CWD at invocation</td>
+      <td>Warning to stderr; fallback to 1 <code>bob chat</code> tab. No crash.</td>
+      <td>Run <code>--dry-run</code> to confirm source type and parsed agents before launching.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<h2 id="s6"><span class="section-number">6</span> Observability &amp; Triage Playbook</h2>
+
+<h3>Pre-Launch Checklist</h3>
+<ol>
+  <li>Verify API key is set: <code>echo "Key set: ${BOBSHELL_API_KEY:+yes}"</code></li>
+  <li>Audit launch plan (zero side effects): <code>./launch-bob-agents.sh --dry-run --instructions Inputs/Prompts/history-assessment/</code></li>
+  <li>Confirm SSH reachability: <code>ssh szuraski@sockeni07 hostname</code></li>
+  <li>Confirm worktrees exist: <code>ssh szuraski@sockeni07 "ls -d ~/ceph-agent-*"</code></li>
+  <li>Confirm <code>Inputs/</code> directory is present locally (rsync source): <code>ls Inputs/</code></li>
+</ol>
+
+<h3>Dry-Run Output Interpretation</h3>
+<pre><code>$ ./launch-bob-agents.sh --dry-run --instructions Inputs/Prompts/history-assessment/
+
+============================================================
+ DRY RUN: Agent Orchestration Plan
+============================================================
+ Mode:             Remote (szuraski@sockeni07)
+ Worktrees:        Enabled (agent-1..N)
+ Instructions:     Inputs/Prompts/history-assessment/
+ Source type:      Directory (per-agent .md files)      ← NEW: directory mode
+ Total Agents:     5
+ Workspace Root:   /home/szuraski
+ Main Directory:   /home/szuraski/ceph
+ Inputs Sync:      …/Inputs/ -> szuraski@sockeni07:~/bob-shell-inputs/
+============================================================
+
+------------------------------------------------------------
+ Agent #1
+------------------------------------------------------------
+ Working Dir: /home/szuraski/ceph-agent-1
+ Branch:      agent/1
+ Tracker:     https://tracker.ceph.com/issues/12345
+ Prompt:      Fix the DaemonKey serialization bug…       ← first 120 chars
+ Command:     bob run --max-turns 10000 -w '~/' -- 'https://… Fix the …'</code></pre>
+
+<h3>During Execution — Local Diagnostics</h3>
+<pre><code># Confirm Tilix is registered on DBus
+ps aux | grep tilix
+gdbus introspect --session --dest com.gexperts.Tilix \
+  --object-path /com/gexperts/Tilix/windows/1 2>/dev/null | head -5
+
+# List staged wrapper scripts on remote
+ssh szuraski@sockeni07 "ls -la /tmp/bob-agent-*.sh"
+
+# Test one agent manually (bypasses Tilix entirely)
+ssh -t szuraski@sockeni07 bash /tmp/bob-agent-1.sh
+
+# Inspect a generated script (check quoting / key presence)
+ssh szuraski@sockeni07 "cat /tmp/bob-agent-1.sh"</code></pre>
+
+<h3>Remote Agent Health</h3>
+<pre><code># All running bob processes on remote
+ssh szuraski@sockeni07 "ps aux | grep -E 'bob (run|chat)'"
+
+# Worktree branch states
+ssh szuraski@sockeni07 'for i in {1..8}; do
+  echo -n "agent-$i: "
+  git -C ~/ceph-agent-$i branch --show-current 2>/dev/null || echo "(missing)"
+done'
+
+# Dirty working tree check (flag agents with uncommitted changes)
+ssh szuraski@sockeni07 'for i in {1..8}; do
+  s=$(git -C ~/ceph-agent-$i status --short 2>/dev/null)
+  [[ -n "$s" ]] && echo "DIRTY agent-$i:" && echo "$s"
+done'
+
+# Verify synced reference files are present
+ssh szuraski@sockeni07 "ls -la ~/bob-shell-inputs/"</code></pre>
+
+<h3>Emergency Teardown</h3>
+<pre><code># Kill all bob processes for this user
+ssh szuraski@sockeni07 "pkill -u szuraski -f 'bob run'; pkill -u szuraski -f 'bob chat'"
+
+# Clean up /tmp wrapper scripts (also removes stale API key copies)
+ssh szuraski@sockeni07 "rm -f /tmp/bob-agent-*.sh"
+
+# Hard-reset all worktrees to their agent branches
+ssh szuraski@sockeni07 'for n in {1..8}; do
+  d="/home/szuraski/ceph-agent-$n"
+  [[ -d "$d" ]] && git -C "$d" clean -fd && git -C "$d" checkout -f "agent/$n"
+done'</code></pre>
+
+<h3>Failure Symptom Quick Reference</h3>
+<table>
+  <thead>
+    <tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Error: BOBSHELL_API_KEY is not set</code></td>
+      <td>Env var missing from current shell</td>
+      <td><code>export BOBSHELL_API_KEY="…"</code> then re-run.</td>
+    </tr>
+    <tr>
+      <td>All tabs open as separate Tilix windows</td>
+      <td>DBus race — Tilix window not registered within 2s</td>
+      <td>Increase <code>sleep 2</code> → <code>sleep 4</code>. Close orphan windows. Re-run.</td>
+    </tr>
+    <tr>
+      <td><code>cd: /home/szuraski/ceph-agent-N: No such file</code></td>
+      <td>Worktrees not set up on remote host</td>
+      <td>Run <code>setup-worktrees.sh</code> on <code>sockeni07</code>. Verify with <code>ls -d ~/ceph-agent-*</code>.</td>
+    </tr>
+    <tr>
+      <td><code>Warning: no *.md files found in ${dir}</code></td>
+      <td>Wrong <code>--instructions</code> path; directory empty</td>
+      <td>Check path with <code>--dry-run</code>. Verify <code>ls Inputs/Prompts/&lt;dir&gt;/*.md</code>.</td>
+    </tr>
+    <tr>
+      <td><code>Warning: ${f} has no prompt body — skipping</code></td>
+      <td><code>.md</code> file has only frontmatter, no body text</td>
+      <td>Add prompt content below the closing <code>---</code> in the file. Check with <code>--dry-run</code>.</td>
+    </tr>
+    <tr>
+      <td>Agent N runs old/wrong prompt</td>
+      <td>Stale instructions; wrong <code>--instructions</code> path; file ordering</td>
+      <td>Run <code>--dry-run</code> to confirm <code>prompt[N-1]</code>. Check filename prefixes (e.g. <code>01-</code>, <code>02-</code>).</td>
+    </tr>
+    <tr>
+      <td>All agents run in same directory (no isolation)</td>
+      <td><code>--no-worktrees</code> passed inadvertently</td>
+      <td>Remove flag. Verify with <code>--dry-run</code> (shows "Working Dir" per agent).</td>
+    </tr>
+    <tr>
+      <td>Bob exits immediately with auth error on remote</td>
+      <td>API key invalid, expired, or contains embedded quotes</td>
+      <td>Test key locally: <code>BOBSHELL_API_KEY=… bob chat</code>. Check for stray quotes in key value.</td>
+    </tr>
+    <tr>
+      <td><code>rsync: change_dir … failed</code></td>
+      <td><code>Inputs/</code> missing from script directory; wrong CWD</td>
+      <td>Run from repo root. Verify <code>ls Inputs/</code> exists alongside the script.</td>
+    </tr>
+    <tr>
+      <td>tracker URL appears in prompt body (Format A file)</td>
+      <td>Using directory-format <code>.md</code> file as <code>--instructions</code> file (not directory)</td>
+      <td>Pass the parent <em>directory</em>, not the individual file: <code>--instructions Inputs/Prompts/history-assessment/</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+<p style="color:var(--muted); font-size:0.78rem; text-align:center; margin-top:24px;">
+  Generated from <code>launch-bob-agents.sh</code> source analysis (all 389 lines) &nbsp;·&nbsp;
+  All claims grounded in actual code, line references, and structural invariants &nbsp;·&nbsp;
+  Whiteboard Defense Standard
+</p>
+
+</body>
+</html>

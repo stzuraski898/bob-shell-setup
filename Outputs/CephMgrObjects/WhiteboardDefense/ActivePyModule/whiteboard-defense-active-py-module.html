@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense: ActivePyModule</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --orange: #e3b341;
+    --purple: #bc8cff;
+    --cyan: #79c0ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 26px; color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: 12px; margin-bottom: 4px; }
+  h2 { font-size: 18px; color: var(--cyan); margin: 32px 0 12px; border-left: 3px solid var(--accent); padding-left: 10px; }
+  h3 { font-size: 14px; color: var(--orange); margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .meta { color: var(--text-dim); font-size: 12px; margin-bottom: 24px; }
+  .meta span { margin-right: 24px; }
+  .meta code { background: var(--surface2); padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th { background: var(--surface2); color: var(--cyan); font-weight: 600; text-align: left;
+       padding: 8px 12px; border: 1px solid var(--border); }
+  td { padding: 7px 12px; border: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: var(--surface); }
+  tr:nth-child(odd) td { background: var(--bg); }
+
+  ul { margin: 6px 0 6px 20px; }
+  li { margin: 3px 0; }
+  code { background: var(--surface2); padding: 1px 5px; border-radius: 3px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; color: var(--purple); }
+  .sha { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; color: var(--text-dim); background: var(--surface2); padding: 1px 5px; border-radius: 3px; }
+  .ok   { color: var(--green); font-weight: 700; }
+  .warn { color: var(--yellow); font-weight: 700; }
+  .bad  { color: var(--red); font-weight: 700; }
+  .note { background: var(--surface2); border-left: 3px solid var(--yellow); padding: 8px 12px; margin: 10px 0; border-radius: 0 4px 4px 0; font-size: 13px; }
+  .fixme { background: #2d1a00; border-left: 3px solid var(--orange); padding: 8px 12px; margin: 10px 0; border-radius: 0 4px 4px 0; font-size: 13px; }
+
+  /* Flow diagram */
+  .diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 20px;
+             font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; overflow-x: auto; line-height: 1.5; }
+  .diagram .box  { color: var(--accent); }
+  .diagram .arr  { color: var(--text-dim); }
+  .diagram .note-d { color: var(--yellow); }
+  .diagram .dead { color: var(--red); }
+  .diagram .ok-d  { color: var(--green); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 12px 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
+  .card h3 { margin-top: 0; }
+
+  .triage-step { background: var(--surface2); border-radius: 4px; padding: 8px 12px; margin: 6px 0; font-size: 13px; }
+  .triage-step strong { color: var(--orange); }
+
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 700; margin-left: 6px; }
+  .badge-green { background: #1a3a1a; color: var(--green); border: 1px solid var(--green); }
+  .badge-red   { background: #3a1a1a; color: var(--red);   border: 1px solid var(--red); }
+  .badge-yellow{ background: #3a2a00; color: var(--yellow); border: 1px solid var(--yellow); }
+  .badge-blue  { background: #0a1f3a; color: var(--accent); border: 1px solid var(--accent); }
+
+  section { margin-bottom: 40px; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense: <code>ActivePyModule</code></h1>
+<div class="meta">
+  <span>Files: <code>src/mgr/ActivePyModule.cc</code> &nbsp; <code>src/mgr/ActivePyModule.h</code></span>
+  <span>Corpus HEAD: <span class="sha">8681fa6e</span></span>
+  <span>Commits analyzed: 60</span>
+  <span>Functions: 23</span>
+  <span>Renamed from: <code>src/mgr/MgrPyModule.cc</code> <span class="sha">ac30e6ce</span> → <span class="sha">70d45a6b</span></span>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<section>
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+
+<h3>What is it?</h3>
+<p><code>ActivePyModule</code> is the <strong>active-side adapter</strong> between the Ceph Manager daemon and a single running Python plugin. It extends <code>PyModuleRunner</code> (added <span class="sha">df879732</span>) and owns:</p>
+<ul>
+  <li>The Python class <em>instance</em> (<code>pClassInstance</code>) — created by <code>load()</code>, destroyed by the runner</li>
+  <li>A per-module <code>Finisher</code> thread — command execution queue (added <span class="sha">46de6431</span>)</li>
+  <li>A per-module <code>health_check_map_t</code> — last set of health checks published by the plugin</li>
+  <li>A per-module <code>uri</code> — optional service endpoint string</li>
+  <li>Transient command-dispatch state: <code>m_session</code> / <code>m_command_perms</code> — live only during <code>handle_command()</code></li>
+</ul>
+
+<h3>Lifecycle Flow</h3>
+<div class="diagram">
+<span class="box">PyModuleRegistry</span>
+       │  constructs ActivePyModule(PyModuleRef, clog, monitor)
+       │  [per-module Finisher thread starts  <span class="sha">46de6431</span>]
+       ↓
+<span class="box">ActivePyModule::load(ActivePyModules*)</span>
+       │  acquires module GIL via Gil(pMyThreadState)
+       │  builds 3-arg constructor: (module_name, py_modules capsule, this capsule)
+       │  calls PyObject_CallObject(pClass, pArgs)
+       │  → success: pClassInstance set, returns 0
+       │  → failure: returns -EINVAL, crash dump via handle_pyerror()
+       ↓
+<span class="ok-d">── RUNNING ──────────────────────────────────────────────────────────────────</span>
+       │
+       ├──[cluster event]──→ <span class="box">notify(type, id)</span>
+       │                       is_dead()? → cancel silently   <span class="sha">40c4b9ac</span>
+       │                       Gil(pMyThreadState, true)
+       │                       CallMethod("notify", "(ss)", type, id)
+       │                       success → Py_DECREF + record latency   <span class="sha">95a90f7d</span>
+       │                       failure → derr + handle_pyerror()
+       │                       <span class="note-d">FIXME: broken module not auto-unloaded   <span class="sha">ac30e6ce</span></span>
+       │
+       ├──[cluster log]────→ <span class="box">notify_clog(LogEntry)</span>
+       │                       same dead-check / GIL / error pattern
+       │                       serializes LogEntry via PyFormatter → "(sN)" "clog"
+       │
+       ├──[config change]──→ <span class="box">config_notify()</span>
+       │                       calls Python "_config_notify"   <span class="sha">25b99dde</span>
+       │
+       ├──[CLI command]────→ <span class="box">handle_command(module_cmd, session, cmdmap, inbuf, ds, ss)</span>
+       │                       install m_session + m_command_perms
+       │                       call "_handle_command"   <span class="sha">a5e9eb01</span>
+       │                       clear m_session + m_command_perms
+       │                       decode 3-tuple (rc, display, status)   <span class="sha">af8c2ce4</span>
+       │                       record cmd latency   <span class="sha">95a90f7d</span>
+       │                         └── during call, module can call is_authorized()
+       │                               m_session == nullptr → false (fail closed)   <span class="sha">282c31c3</span>
+       │
+       ├──[inter-module]───→ <span class="box">method_exists(name)</span> → bool
+       │                     <span class="box">dispatch_remote(method, pickled_args, pickled_kwargs, err, crash_dump)</span>
+       │                       pickle.loads(args) + pickle.loads(kwargs)   <span class="sha">f69069e1</span>
+       │                       assert method exists (caller precondition)
+       │                       PyObject_Call → pickle.dumps(ret) → bytes
+       │                       NotImplementedError → no crash dump, debug log   <span class="sha">18c4e08c</span> <span class="sha">42c4dfb4</span>
+       │
+       ├──[health report]──→ <span class="box">set_health_checks(map&amp;&amp;)</span> → bool (changed?)   <span class="sha">3068c429</span>
+       │                     <span class="box">get_health_checks(map*)</span> → merge into aggregate
+       │                       is_dead()? → cancel   <span class="sha">40c4b9ac</span>
+       │
+       └──[module serves]──→ <span class="box">set_uri(string)</span> / <span class="box">get_uri()</span> → string_view   <span class="sha">9d47b164</span>
+<span class="dead">── SHUTDOWN ─────────────────────────────────────────────────────────────────</span>
+       PyModuleRunner sets is_dead()
+       All future callbacks cancelled at is_dead() guard
+       Py_EndInterpreter deliberately NOT called (thread-safety)   <span class="sha">df879732</span>
+       Py_Finalize() cleans up at process exit
+</div>
+
+</section>
+<hr>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<section>
+<h2>2 · Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:30%">Decision</th><th style="width:35%">Why this over the alternative</th><th style="width:35%">Grounding commit</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Inherit <code>PyModuleRunner</code></strong> instead of owning Python state directly</td>
+      <td>Active and standby modules originally duplicated interpreter lifetime, GIL management, and <code>serve()</code>/<code>shutdown()</code>. Extracting to <code>PyModuleRunner</code> removed the duplication and made both paths identical for Python lifecycle management.</td>
+      <td><span class="sha">df879732</span> — "cut down duplication between active+standby"</td>
+    </tr>
+    <tr>
+      <td><strong>Pickle-serialized cross-interpreter dispatch</strong> instead of passing raw <code>PyObject*</code></td>
+      <td>The original code passed CPython objects directly between subinterpreters. A comment in the code acknowledged this relied on a shared GIL/allocator and explicitly noted a TODO for PEP 554. <span class="sha">f69069e1</span> replaced it with <code>pickle.loads</code>/<code>pickle.dumps</code> to properly cross interpreter boundaries.</td>
+      <td><span class="sha">f69069e1</span> — "serialize python objects sent between subinterpreters via remote"</td>
+    </tr>
+    <tr>
+      <td><strong>Per-module <code>Finisher</code> thread</strong> instead of shared finisher</td>
+      <td>A single shared finisher serialized command execution across all modules. A slow or blocked module command would starve all other modules. Per-module finisher gives each plugin its own bounded-15-char thread (<code>m-fin-{module}</code>), providing isolation and independently observable queues.</td>
+      <td><span class="sha">46de6431</span> — "Add one finisher thread per module" (Fixes tracker #51177)</td>
+    </tr>
+    <tr>
+      <td><strong>Transient <code>m_session</code>/<code>m_command_perms</code></strong> instead of passing session into <code>is_authorized()</code></td>
+      <td>Python cannot hold a C++ pointer across frames; capability check must be callable from Python without crossing the C/Python boundary again. Installing session state before the call and clearing it after creates a narrow, deterministic window accessible via <code>is_authorized()</code>.</td>
+      <td><span class="sha">282c31c3</span> — "python modules can now perform authorization tests"</td>
+    </tr>
+    <tr>
+      <td><strong>Rename hook to <code>_config_notify</code></strong> (private) instead of <code>config_notify</code></td>
+      <td>Configuration updates replaced explicit per-module logging CLI commands. Renaming to the underscore-prefixed form signals that this is an internal infrastructure hook, not a user-overridable public method.</td>
+      <td><span class="sha">25b99dde</span> — "remove CLI commands to manage modules' logging"</td>
+    </tr>
+    <tr>
+      <td><strong><code>set_health_checks</code> returns <code>bool</code></strong> (changed?) instead of <code>void</code></td>
+      <td>Health reports were only sent on periodic beacon. By detecting change at the setter, the manager can trigger an immediate monitor report, eliminating the beacon-delay window during which a fresh health failure would be invisible.</td>
+      <td><span class="sha">3068c429</span> — "report health check changes immediately"</td>
+    </tr>
+    <tr>
+      <td><strong>Do <em>not</em> call <code>Py_EndInterpreter()</code></strong> on shutdown</td>
+      <td>If a module (e.g. CherryPy) leaves a background Python thread sleeping, <code>Py_EndInterpreter()</code> aborts with "not the last thread". The comment at <span class="sha">df879732</span> explicitly documents this decision: rely on <code>Py_Finalize()</code> at process exit instead.</td>
+      <td><span class="sha">df879732</span> — destructor comment block</td>
+    </tr>
+    <tr>
+      <td><strong><code>NotImplementedError</code> ≠ crash dump</strong></td>
+      <td>Optional-interface probing via <code>dispatch_remote()</code> produces <code>NotImplementedError</code> for methods a module simply hasn't implemented. Original behavior generated a crash dump and error-level log for every probe, pinning <code>RECENT_MGR_MODULE_CRASH</code> permanently. Now: fill <code>err</code>, set <code>crash_dump=false</code>, log at debug.</td>
+      <td><span class="sha">18c4e08c</span> + <span class="sha">42c4dfb4</span> — Fixes tracker #79106</td>
+    </tr>
+    <tr>
+      <td><strong><code>get_uri()</code> returns <code>std::string_view</code></strong></td>
+      <td>The URI is set once by the module during <code>serve()</code> and read frequently for status reporting. Returning a view avoids an allocation on every read. The caller must not outlive the <code>ActivePyModule</code>.</td>
+      <td><span class="sha">9d47b164</span> — "return std::string_view instead of std::string copy"</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+<hr>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<section>
+<h2>3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<div class="grid2">
+  <div class="card">
+    <h3>Key State (Header)</h3>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Semantics</th></tr>
+      <tr><td><code>pClassInstance</code></td><td><code>PyObject*</code></td><td>Owned Python plugin instance. Null before <code>load()</code>.</td></tr>
+      <tr><td><code>health_checks</code></td><td><code>health_check_map_t</code><br><small>= <code>map&lt;string,health_check_t&gt;</code></small></td><td>Latest checks from module. Replaced atomically on each <code>set_health_checks()</code>. Merged O(k log n) into aggregate.</td></tr>
+      <tr><td><code>uri</code></td><td><code>std::string</code></td><td>Optional service URI. Empty until module calls <code>set_uri()</code>.</td></tr>
+      <tr><td><code>m_session</code></td><td><code>const MgrSession*</code></td><td>Non-null only during <code>handle_command()</code>. Fail-closed: null → <code>is_authorized()</code> returns false.</td></tr>
+      <tr><td><code>m_command_perms</code></td><td><code>std::string</code></td><td>Permission string of active command (e.g. <code>"rw"</code>). Cleared after <code>handle_command()</code>.</td></tr>
+      <tr><td><code>finisher</code></td><td><code>Finisher</code></td><td>Per-module command queue. Thread name ≤ 15 chars: <code>m-fin-{module}</code>.</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>Complexity</h3>
+    <table>
+      <tr><th>Operation</th><th>Complexity</th><th>Notes</th></tr>
+      <tr><td><code>load()</code></td><td>O(1)</td><td>Single Python constructor call</td></tr>
+      <tr><td><code>notify()</code></td><td>O(1)</td><td>Single method call; latency recorded in µs</td></tr>
+      <tr><td><code>handle_command()</code></td><td>O(M)</td><td>M = command map size for marshalling</td></tr>
+      <tr><td><code>set_health_checks()</code></td><td>O(k log k)</td><td>k = check count; comparison before move</td></tr>
+      <tr><td><code>get_health_checks()</code></td><td>O(k log n)</td><td>Merge into aggregate of n checks</td></tr>
+      <tr><td><code>dispatch_remote()</code></td><td>O(S)</td><td>S = serialized payload size; two pickle round-trips</td></tr>
+      <tr><td><code>method_exists()</code></td><td>O(1)</td><td>Dict lookup in Python instance <code>__dict__</code></td></tr>
+      <tr><td><code>is_authorized()</code></td><td>O(C)</td><td>C = capability string complexity</td></tr>
+    </table>
+  </div>
+</div>
+
+<h3>Invariants</h3>
+<table>
+  <thead><tr><th>Invariant</th><th>Enforced By</th><th>Commit</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>pClassInstance != nullptr</code> when any call is made (post-load)</td>
+      <td><code>ceph_assert</code> in <code>notify()</code>, <code>notify_clog()</code></td>
+      <td><span class="sha">ab23c506</span></td>
+    </tr>
+    <tr>
+      <td><code>is_dead()</code> guard cancels all callbacks before Python entry</td>
+      <td>Early-return in <code>notify()</code>, <code>notify_clog()</code>, <code>config_notify()</code>, <code>get_health_checks()</code></td>
+      <td><span class="sha">40c4b9ac</span></td>
+    </tr>
+    <tr>
+      <td><code>m_session == nullptr</code> outside <code>handle_command()</code></td>
+      <td>Cleared unconditionally after <code>_handle_command</code> returns</td>
+      <td><span class="sha">282c31c3</span></td>
+    </tr>
+    <tr>
+      <td>Command result is a 3-tuple (rc, display, status)</td>
+      <td>Tuple size check; wrong size → -EINVAL</td>
+      <td><span class="sha">af8c2ce4</span></td>
+    </tr>
+    <tr>
+      <td><code>err != nullptr</code> for <code>dispatch_remote()</code></td>
+      <td><code>ceph_assert(err != nullptr)</code></td>
+      <td><span class="sha">f02316ad</span></td>
+    </tr>
+    <tr>
+      <td>Bound method must exist before <code>dispatch_remote()</code> calls it</td>
+      <td><code>ceph_assert(boundMethod != nullptr)</code> — caller must call <code>method_exists()</code> first</td>
+      <td><span class="sha">f02316ad</span>, <span class="sha">ab23c506</span></td>
+    </tr>
+    <tr>
+      <td>Python constructor receives exactly 3 args: (name, py_modules capsule, this capsule)</td>
+      <td><code>PyTuple_Pack(3, ...)</code>; references decremented after call</td>
+      <td><span class="sha">563878ba</span>, <span class="sha">2005ce83</span></td>
+    </tr>
+    <tr>
+      <td><code>NotImplementedError</code> does not trigger crash dump</td>
+      <td><code>crash_dump = !PyErr_ExceptionMatches(PyExc_NotImplementedError)</code></td>
+      <td><span class="sha">18c4e08c</span>, <span class="sha">42c4dfb4</span></td>
+    </tr>
+    <tr>
+      <td>GIL acquired via per-module thread state, not global state</td>
+      <td><code>Gil gil(py_module-&gt;pMyThreadState, true)</code> in all Python-calling paths</td>
+      <td><span class="sha">6a8da7ca</span></td>
+    </tr>
+  </tbody>
+</table>
+</section>
+<hr>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<section>
+<h2>4 · Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <thead><tr><th style="width:28%">Actor / Scenario</th><th style="width:36%">What could go wrong</th><th style="width:36%">Mitigation</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><span class="bad">Malicious/buggy Python module</span> — raises exception in <code>notify()</code></td>
+      <td>Python exception would escape to C++, causing undefined behavior or crash</td>
+      <td><code>PyObject_CallMethod</code> returns null; caught in <code>if (pValue == NULL)</code>; logged via <code>handle_pyerror()</code>; C++ call returns cleanly. No exception propagates. <span class="sha">3d3ee4bf</span></td>
+    </tr>
+    <tr>
+      <td><span class="bad">Module returns malformed command result</span> — not a 3-tuple</td>
+      <td>C++ code would try to index an object of unknown type/size, crashing or returning garbage</td>
+      <td>Explicit <code>PyTuple_Size(pResult) != 3</code> check → logs error, returns <code>-EINVAL</code>, clears display output. <span class="sha">af8c2ce4</span></td>
+    </tr>
+    <tr>
+      <td><span class="bad">Module calls <code>is_authorized()</code> outside a command context</span></td>
+      <td>Stale or null session pointer; access to wrong session's capabilities</td>
+      <td><code>m_session == nullptr</code> → immediate <code>return false</code>. Fail-closed by design. <span class="sha">282c31c3</span></td>
+    </tr>
+    <tr>
+      <td><span class="bad">Caller invokes <code>dispatch_remote()</code> with malformed pickle bytes</span></td>
+      <td><code>pickle.loads</code> raises; could propagate across interpreter boundary</td>
+      <td>Load failure captured: <code>err</code> filled, logged, <code>std::nullopt</code> returned. Already-decoded <code>args</code> released if <code>kwargs</code> load fails (no leak). <span class="sha">f69069e1</span>, <span class="sha">8ae44f6a</span></td>
+    </tr>
+    <tr>
+      <td><span class="bad">Race: callback arrives after module shutdown</span></td>
+      <td>Use-after-free: <code>pClassInstance</code> already destroyed; GIL acquired on freed thread state</td>
+      <td><code>is_dead()</code> checked at entry to every callback path. Returns immediately without touching Python state. <span class="sha">40c4b9ac</span> (Fixes tracker #42744)</td>
+    </tr>
+    <tr>
+      <td><span class="bad">Module floods health checks</span> with frequent identical updates</td>
+      <td>Unnecessary monitor reports triggered on every <code>set_health_checks()</code></td>
+      <td><code>bool changed = health_checks != c</code> before move; report triggered only when map differs. Comment notes equality could be made smarter. <span class="sha">3068c429</span></td>
+    </tr>
+    <tr>
+      <td><span class="bad">Module leaves background Python threads running on shutdown</span></td>
+      <td><code>Py_EndInterpreter()</code> aborts with "not the last thread" — process crash</td>
+      <td>Deliberate design: <code>Py_EndInterpreter()</code> is never called. Thread cleanup deferred to <code>Py_Finalize()</code> at process exit. <span class="sha">df879732</span></td>
+    </tr>
+    <tr>
+      <td><span class="warn">Module calls <code>dispatch_remote()</code> on unimplemented interface method</span></td>
+      <td>Original code: crash dump + error log per call → pinned <code>RECENT_MGR_MODULE_CRASH</code> permanently; ~5,760 crash records/day (tracker #79106)</td>
+      <td><code>PyErr_ExceptionMatches(PyExc_NotImplementedError)</code> → sets <code>crash_dump=false</code>, logs at debug. Error still returned to caller. <span class="sha">18c4e08c</span>, <span class="sha">42c4dfb4</span></td>
+    </tr>
+    <tr>
+      <td><span class="warn">Module constructor passes null <code>py_modules</code></span></td>
+      <td>Null dereference in <code>load()</code> when creating capsule</td>
+      <td><code>ceph_assert(py_modules)</code> at entry — aborts with diagnostics rather than silent UB. <span class="sha">ab23c506</span></td>
+    </tr>
+    <tr>
+      <td><span class="warn">Module takes too long in <code>notify()</code> or command handler</span></td>
+      <td>Blocks the finisher/notify thread; stalls other notifications or commands for that module</td>
+      <td>Per-module finisher isolates a slow module from others. Latency visible in <code>perf dump</code> counters: <code>notify_avg_usec</code>, <code>cmd_avg_usec</code>. <span class="sha">46de6431</span>, <span class="sha">95a90f7d</span></td>
+    </tr>
+  </tbody>
+</table>
+</section>
+<hr>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<section>
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<div class="fixme">
+  <strong>⚠ Known Open FIXME (never resolved):</strong> If a Python exception fires in <code>notify()</code> or <code>notify_clog()</code>, the code logs it but the module keeps running with broken state. A hook to auto-unload misbehaving modules was mentioned in the original commit <span class="sha">ac30e6ce</span> (2016) and the comment is still in the source at lines 85–88. <em>Blast radius: silent data loss — module receives no more events but stays loaded.</em>
+</div>
+
+<table>
+  <thead><tr><th style="width:26%">Failure Mode</th><th style="width:20%">Trigger</th><th style="width:18%">Return / Effect</th><th style="width:36%">Blast Radius</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Python constructor fails (import error, bad init)</td>
+      <td><code>load()</code> → null <code>pClassInstance</code></td>
+      <td><code>-EINVAL</code> + crash dump</td>
+      <td>Module never active. Manager continues with other modules.</td>
+    </tr>
+    <tr>
+      <td><code>notify()</code> Python exception</td>
+      <td>Module raises in <code>notify()</code> handler</td>
+      <td><code>void</code> — silently logged</td>
+      <td>Module stays loaded but no further error recovery. Missing notification may desync module state from cluster state permanently.</td>
+    </tr>
+    <tr>
+      <td><code>handle_command()</code> Python exception</td>
+      <td>Module raises in <code>_handle_command</code></td>
+      <td><code>-EINVAL</code>, status stream filled with traceback</td>
+      <td>Command fails. Module stays active. Next command can succeed.</td>
+    </tr>
+    <tr>
+      <td><code>dispatch_remote()</code> pickle failure</td>
+      <td>Unpicklable argument or return type</td>
+      <td><code>std::nullopt</code> + <code>err</code> set</td>
+      <td>Inter-module call fails. Caller module receives error string. No crash.</td>
+    </tr>
+    <tr>
+      <td><code>dispatch_remote()</code> called without <code>method_exists()</code> preflight</td>
+      <td>Caller skips existence check</td>
+      <td><code>ceph_assert</code> abort — process crash</td>
+      <td>Full mgr process abort. Entire ceph-mgr restarts. <em>Caller contract violation.</em></td>
+    </tr>
+    <tr>
+      <td>Health check comparison equality false-positive</td>
+      <td>Two semantically identical maps that differ in map order</td>
+      <td>Extra monitor report sent</td>
+      <td>Unnecessary but harmless monitor traffic. Comment notes potential improvement. <span class="sha">3068c429</span></td>
+    </tr>
+    <tr>
+      <td>Module command result not a 3-tuple</td>
+      <td>Module returns wrong type from <code>_handle_command</code></td>
+      <td><code>-EINVAL</code></td>
+      <td>Command fails with diagnostic. Module stays active.</td>
+    </tr>
+    <tr>
+      <td><code>get_uri()</code> view used after module destroyed</td>
+      <td>Caller caches <code>string_view</code> beyond module lifetime</td>
+      <td>Dangling pointer / UB</td>
+      <td>Caller bug. No protection in <code>ActivePyModule</code>. Callers must not outlive the object.</td>
+    </tr>
+    <tr>
+      <td>Slow module blocks its finisher thread indefinitely</td>
+      <td>Long-running Python command handler (e.g. network I/O without timeout)</td>
+      <td>Queue backpressure; other commands to same module queue up</td>
+      <td>Only affects that module's commands. Other modules unaffected. Visible via <code>cmd_avg_usec</code> and finisher queue depth.</td>
+    </tr>
+    <tr>
+      <td>Module leaves background threads alive at shutdown</td>
+      <td>CherryPy, asyncio, or custom threads not joined on <code>shutdown()</code></td>
+      <td>No abort (by design)</td>
+      <td>Threads linger until <code>Py_Finalize()</code>. Memory/file descriptors not reclaimed at module unload time.</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+<hr>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<section>
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<h3>Performance Counters (added <span class="sha">95a90f7d</span>)</h3>
+<p>All counters exposed under <code>ceph daemon mgr.&lt;id&gt; perf dump</code> → key <code>mgr_module_&lt;name&gt;</code>:</p>
+<table>
+  <thead><tr><th>Counter</th><th>Type</th><th>Signals</th></tr></thead>
+  <tbody>
+    <tr><td><code>notify_avg_usec</code></td><td>avg (avgcount + sum)</td><td>Python plugin slow in <code>notify()</code> handler</td></tr>
+    <tr><td><code>cmd_avg_usec</code></td><td>avg</td><td>Python plugin slow in command handler</td></tr>
+    <tr><td><code>serve_avg_usec</code></td><td>avg</td><td>Long-running <code>serve()</code> iterations</td></tr>
+    <tr><td><code>alive</code></td><td>gauge (0/1)</td><td>0 = module exited or crashed</td></tr>
+    <tr><td><code>cpu_usage</code></td><td>gauge</td><td>Per-module CPU %</td></tr>
+    <tr><td><code>mem_rss_current</code></td><td>gauge bytes</td><td>Memory growth leak detection</td></tr>
+  </tbody>
+</table>
+
+<h3>Log Signals</h3>
+<table>
+  <thead><tr><th>Log pattern</th><th>Meaning</th><th>Action</th></tr></thead>
+  <tbody>
+    <tr><td><code>cancelling notify &lt;type&gt; &lt;id&gt;</code></td><td>Module already dead; callback arrived after shutdown</td><td>Normal during teardown. Repeated in steady state → module crashed.</td></tr>
+    <tr><td><code>Failed to construct class in '&lt;name&gt;'</code></td><td><code>load()</code> failed; Python constructor raised</td><td>Check Python import errors; crash dump generated.</td></tr>
+    <tr><td><code>&lt;name&gt;.notify:</code> followed by traceback</td><td>Python exception in <code>notify()</code></td><td>Module is live but broken. Consider disabling module.</td></tr>
+    <tr><td><code>Module not instantiated</code></td><td><code>handle_command()</code> called before <code>load()</code></td><td>Race condition in mgr startup. Check module loading order.</td></tr>
+    <tr><td><code>Failed to deserialize (pickle.loads) args</code></td><td>Caller sent unpicklable bytes to <code>dispatch_remote()</code></td><td>Bug in calling module's <code>remote()</code> usage.</td></tr>
+    <tr><td><code>Remote method threw exception</code> at <em>debug</em> level</td><td><code>NotImplementedError</code> from probing optional interface</td><td>Normal probing behavior; no action needed.</td></tr>
+    <tr><td><code>Remote method threw exception</code> at <em>error</em> level</td><td>Real exception from <code>dispatch_remote()</code></td><td>Inspect traceback in error message. May indicate broken inter-module API.</td></tr>
+  </tbody>
+</table>
+
+<h3>Triage Steps for Common Issues</h3>
+
+<div class="triage-step">
+  <strong>Issue: mgr module appears loaded but commands return -EINVAL / "Module not instantiated"</strong><br>
+  1. Check <code>ceph mgr module ls</code> — is module in "on" list?<br>
+  2. Search mgr log for <code>"Failed to construct class in '&lt;name&gt;'"</code> — Python import/constructor failure.<br>
+  3. Look for crash dump under <code>crash ls</code> — crash generated by <code>handle_pyerror(true, ...)</code>.
+</div>
+
+<div class="triage-step">
+  <strong>Issue: Health checks from module not visible / stale</strong><br>
+  1. Check <code>alive</code> perf counter — if 0, module has exited.<br>
+  2. If <code>is_dead()</code> is true, <code>get_health_checks()</code> silently returns without merging.<br>
+  3. Verify module is calling <code>set_health_checks()</code> — if map is unchanged, <code>set_health_checks()</code> returns false and no monitor report is triggered.
+</div>
+
+<div class="triage-step">
+  <strong>Issue: Inter-module <code>remote()</code> calls failing with crash dumps</strong><br>
+  1. Check if the exception is <code>NotImplementedError</code> — after <span class="sha">18c4e08c</span>/<span class="sha">42c4dfb4</span> this must NOT generate a crash dump.<br>
+  2. If crash dumps are still generated on <code>NotImplementedError</code>, check mgr version is ≥ <span class="sha">18c4e08c</span>.<br>
+  3. For real exceptions, the traceback is in <code>*err</code> returned to the calling module.
+</div>
+
+<div class="triage-step">
+  <strong>Issue: Command handler runs slowly / queues backing up</strong><br>
+  1. <code>ceph daemon mgr.&lt;id&gt; perf dump | jq '.mgr_module_&lt;name&gt;.cmd_avg_usec'</code><br>
+  2. Thread name <code>m-fin-&lt;module&gt;</code> in stack traces is the per-module finisher — check if it's stuck.<br>
+  3. Module's Python command handler is the bottleneck — no C++ fix available; must fix Python code.
+</div>
+
+<div class="triage-step">
+  <strong>Issue: Authorization check always returns false for a valid session</strong><br>
+  1. <code>is_authorized()</code> was called outside a <code>handle_command()</code> dispatch — <code>m_session == nullptr</code> → always false.<br>
+  2. Verify the Python module is calling <code>self.is_authorized()</code> from within <code>handle_command()</code>, not from a background thread or <code>serve()</code>.
+</div>
+
+</section>
+
+<hr>
+<div style="color: var(--text-dim); font-size: 11px; text-align: right; margin-top: 8px;">
+  Generated from corpus HEAD <span class="sha">8681fa6e</span> · Intent assessment date 2026-09-11 · 60 commits · 23 functions · 0 DIVERGED
+</div>
+
+</body>
+</html>

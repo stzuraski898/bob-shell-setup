@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — generate_html.py</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg-card: #161b22; --bg-subtle: #21262d;
+    --border: #30363d; --border-light: #484f58;
+    --text: #c9d1d9; --text-bright: #f0f6fc; --text-muted: #8b949e;
+    --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+    --yellow: #d29922; --purple: #bc8cff; --orange: #f0883e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    font-size: 14px; line-height: 1.6; padding: 40px;
+    max-width: 1200px; margin: 0 auto;
+  }
+  h1 { font-size: 28px; color: var(--text-bright); margin-bottom: 6px; }
+  h2 { font-size: 18px; color: var(--text-bright); margin: 40px 0 14px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  h3 { font-size: 15px; color: var(--accent); margin: 24px 0 10px; }
+  p  { margin-bottom: 12px; }
+  code {
+    background: var(--bg-subtle); padding: 2px 6px; border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; color: var(--orange);
+  }
+  pre {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; overflow-x: auto; margin: 16px 0; font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text);
+    line-height: 1.5;
+  }
+  table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden; margin-bottom: 24px;
+  }
+  th {
+    background: var(--bg-subtle); padding: 10px 16px; text-align: left;
+    font-size: 11px; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #1c2128; }
+  ul { padding-left: 20px; margin-bottom: 12px; }
+  li { margin-bottom: 5px; }
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 12px;
+    font-size: 11px; font-weight: 700;
+  }
+  .tag-red    { background: rgba(248,81,73,0.15); color: var(--red);    border: 1px solid var(--red); }
+  .tag-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); border: 1px solid var(--yellow); }
+  .tag-green  { background: rgba(63,185,80,0.15); color: var(--green);  border: 1px solid var(--green); }
+  .tag-blue   { background: rgba(88,166,255,0.12); color: var(--accent); border: 1px solid var(--accent); }
+  .tag-purple { background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid var(--purple); }
+  .meta { font-size: 12px; color: var(--text-muted); margin-bottom: 28px; }
+  .meta span { margin-right: 24px; }
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 20px; margin-bottom: 16px;
+  }
+  .card-title { font-weight: 700; color: var(--text-bright); margin-bottom: 8px; }
+  .flow {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px; margin-bottom: 24px;
+    font-family: ui-monospace, monospace; font-size: 12px; color: var(--text);
+    line-height: 1.8;
+  }
+  .section-intro { color: var(--text-muted); font-size: 13px; margin-bottom: 16px; }
+  .highlight-row td:first-child { border-left: 3px solid var(--red); }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense</h1>
+<h1 style="color: var(--accent); font-size: 20px; margin-top: 4px;">generate_html.py — Assessment Explorer Build Script</h1>
+<div class="meta">
+  <span>📄 File: <code>generate_html.py</code></span>
+  <span>📦 Output: <code>Outputs/ceph-mgr-intents-assessment.html</code></span>
+  <span>🐍 Runtime: Python 3 (stdlib only)</span>
+  <span>🌐 Artifact: Self-contained static HTML, zero external deps</span>
+</div>
+
+<!-- ===== 1. HIGH-LEVEL ARCHITECTURE ===== -->
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+<p class="section-intro">One Python script. One input. One output. The entire explorer — data, UI, logic — ships as a single file.</p>
+
+<div class="flow">
+<strong style="color: var(--accent);">Build-time (Python)</strong>
+
+  dataset.json
+  ─────────────►  json.load()  ──►  json.dumps()  ──►  str.replace("%%DATA_JSON%%", json_str)
+                                                                │
+                                                                ▼
+                                                   HTML_TEMPLATE  (raw string literal,
+                                                   ~1340 lines, inlined in source)
+                                                                │
+                                                                ▼
+                                              Outputs/ceph-mgr-intents-assessment.html
+                                              (single file, full JS + CSS + DATA embedded)
+
+<strong style="color: var(--accent);">Run-time (Browser)</strong>
+
+  Browser loads .html
+       │
+       ├─► CSS vars parsed → dark-theme layout applied
+       ├─► DATA (const) = JSON.parse(inlined blob)  ← already parsed by JS engine
+       ├─► DOMContentLoaded fires
+       │       ├─ renderSidebar()        → sidebar list from DATA[]
+       │       ├─ renderHomeStats()      → header badge counts (reduce over DATA[])
+       │       ├─ renderHomeView()       → metrics grid + objects table
+       │       └─ handleRoute()          → reads window.location.hash for deep-link
+       │
+       ├─► User navigates  →  navToObject() / navToFunction()
+       │       └─ innerHTML replaced on 3 static div slots: #view-home, #view-object, #view-function
+       │
+       ├─► Filter/Search   →  DOM display:none toggling (no re-fetch, no re-parse)
+       │
+       └─► Split pane drag →  mousemove % calc → leftPane.style.width
+                               splitRatio persisted to localStorage
+</div>
+
+<h3>Three-Layer View State Machine</h3>
+<table>
+  <thead><tr><th>State</th><th>Active div</th><th>JS globals set</th><th>URL hash</th></tr></thead>
+  <tbody>
+    <tr><td><span class="tag tag-blue">HOME</span></td><td><code>#view-home</code></td><td><code>currentObject=null, currentFunction=null</code></td><td><code>#</code> (empty)</td></tr>
+    <tr><td><span class="tag tag-blue">OBJECT</span></td><td><code>#view-object</code></td><td><code>currentObject=obj, currentFunction=null</code></td><td><code>#ObjectName</code></td></tr>
+    <tr><td><span class="tag tag-blue">FUNCTION</span></td><td><code>#view-function</code></td><td><code>currentObject=obj, currentFunction=fn</code></td><td><code>#ObjectName/fnId</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ===== 2. ARCHITECTURAL DECISIONS ===== -->
+<h2>2 · Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <thead><tr><th>Decision</th><th>What was chosen</th><th>Why not the alternative</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Data transport</strong></td>
+      <td>JSON blob inlined via <code>str.replace("%%DATA_JSON%%", ...)</code></td>
+      <td>No server, no <code>fetch()</code>, no CORS. The file is fully self-contained and opens from the filesystem (<code>file://</code>). A separate <code>.json</code> fetch would require a web server even for local use.</td>
+    </tr>
+    <tr>
+      <td><strong>Template mechanism</strong></td>
+      <td>Single sentinel token <code>%%DATA_JSON%%</code> replaced with <code>str.replace()</code></td>
+      <td>No Jinja2, no Mako, no templating library. Zero dependencies on the build side — only stdlib (<code>os, glob, re, json</code>). A templating engine would add installation overhead for a one-token substitution.</td>
+    </tr>
+    <tr>
+      <td><strong>Client-side rendering</strong></td>
+      <td>DOM <code>innerHTML</code> rebuilt from JS functions per navigation event</td>
+      <td>No React/Vue/Svelte. No virtual DOM. The dataset is read-only at runtime; full re-renders on each nav are cheap and keep the code straightforward. Framework weight would dwarf the actual payload value.</td>
+    </tr>
+    <tr>
+      <td><strong>Routing</strong></td>
+      <td>URL hash routing (<code>window.location.hash</code>) with <code>hashchange</code> listener</td>
+      <td>Hash routing works on <code>file://</code> URLs. <code>history.pushState</code> requires an HTTP origin and would break local file browsing.</td>
+    </tr>
+    <tr>
+      <td><strong>Filtering</strong></td>
+      <td>DOM <code>display:none</code> toggling on rendered cards/rows</td>
+      <td>Re-rendering the full list on every keystroke would flash. CSS hide/show is instant and requires no state diff. Works because dataset fits in memory.</td>
+    </tr>
+    <tr>
+      <td><strong>Pane splitter persistence</strong></td>
+      <td><code>localStorage</code> key <code>ceph_mgr_split_ratio</code></td>
+      <td>No backend session needed. Persists across reloads of the same file origin. Cheap and zero-friction.</td>
+    </tr>
+    <tr>
+      <td><strong>XSS defence</strong></td>
+      <td><code>escapeHtml()</code> for all data-derived strings inserted via <code>innerHTML</code></td>
+      <td><code>textContent</code> would be safe but can't mix markup. Using <code>innerHTML</code> + explicit escaping is a deliberate choice; pre-rendered <code>fn.html</code> / <code>d.overview_html</code> are trusted (build-time generated HTML, not user input).</td>
+    </tr>
+    <tr>
+      <td><strong>Split pane constraint</strong></td>
+      <td>Clamped 20%–80%</td>
+      <td>Prevents either pane from collapsing below <code>min-width: 250px</code>, avoiding broken layout with narrow viewports.</td>
+    </tr>
+    <tr>
+      <td><strong>Scroll-to-line</strong></td>
+      <td><code>setTimeout(..., 100ms)</code> before <code>scrollIntoView</code></td>
+      <td>The code container is populated via <code>innerHTML</code>; the 100ms delay lets the browser paint before scrolling. Without it, the target element may not yet be in the layout tree.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===== 3. DATA STRUCTURES, ALGORITHMS & INVARIANTS ===== -->
+<h2>3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Build-time (Python)</h3>
+<table>
+  <thead><tr><th>Structure</th><th>Type</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><code>dataset</code></td><td><code>list[dict]</code></td><td>Parsed from <code>dataset.json</code>; passed through unchanged to output.</td></tr>
+    <tr><td><code>json_str</code></td><td><code>str</code></td><td>Single-pass <code>json.dumps(dataset)</code> — no pretty-print (minimise file size).</td></tr>
+    <tr><td><code>html_output</code></td><td><code>str</code></td><td><code>HTML_TEMPLATE</code> with exactly one <code>str.replace</code> substitution at <code>%%DATA_JSON%%</code>.</td></tr>
+  </tbody>
+</table>
+
+<h3>Runtime JavaScript State</h3>
+<table>
+  <thead><tr><th>Variable</th><th>Type</th><th>Invariant</th></tr></thead>
+  <tbody>
+    <tr><td><code>DATA</code></td><td><code>Array&lt;ObjectRecord&gt;</code></td><td>Immutable after page load. Never mutated. Single source of truth.</td></tr>
+    <tr><td><code>currentObject</code></td><td><code>ObjectRecord | null</code></td><td><code>null</code> iff state == HOME. Always a reference into <code>DATA</code> (not a copy).</td></tr>
+    <tr><td><code>currentFunction</code></td><td><code>FunctionRecord | null</code></td><td><code>null</code> unless state == FUNCTION. Reference into <code>currentObject.functions[]</code>.</td></tr>
+    <tr><td><code>statusFilter</code></td><td><code>'ALL'|'DIVERGED'|'UNGROUNDED'|'OVERCAUTIOUS'|'CLEAN'</code></td><td>Resets to <code>'ALL'</code> on each <code>navToObject()</code> call.</td></tr>
+    <tr><td><code>codeActiveFile</code></td><td><code>string</code></td><td>Always a key in <code>currentObject.sources</code> or empty string. Set at render time from <code>fn.primary_file</code> match.</td></tr>
+    <tr><td><code>splitRatioLeft</code></td><td><code>number</code> (20–80)</td><td>Loaded from <code>localStorage</code> on init; written back on <code>mouseup</code>.</td></tr>
+  </tbody>
+</table>
+
+<h3>Dataset Schema (per ObjectRecord)</h3>
+<pre>{
+  object:         string,          // unique key, used in URL hash
+  source_files:   string[],        // paths like "src/mgr/Foo.cc"
+  commits:        number,
+  function_count: number,          // = functions.length (pre-computed)
+  totals: {
+    diverged:     number,
+    ungrounded:   number,
+    overcautious: number,
+    clean:        number
+  },
+  overview_html:  string | null,   // pre-rendered HTML; injected as trusted markup
+  sources:        { [filepath]: string },  // full source file text, embedded verbatim
+  functions: [{
+    id:           string,          // used in URL hash segment
+    title:        string,
+    status:       "DIVERGED" | "UNGROUNDED" | "OVERCAUTIOUS" | "CLEAN" | "CONCERN",
+    counts:       { diverged, ungrounded, overcautious, concern },
+    locs:         string[],
+    primary_file: string,
+    primary_line: number,
+    concern_lines: { [filepath]: [start, end][] },
+    html:         string           // pre-rendered assessment Markdown → HTML
+  }]
+}</pre>
+
+<h3>Key Algorithms</h3>
+<table>
+  <thead><tr><th>Algorithm</th><th>Complexity</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Sidebar render / re-render</td><td>O(N) — N = objects</td><td>Full innerHTML rebuild on every filter keystroke. Acceptable; N is small (single-digit to low double-digit objects).</td></tr>
+    <tr><td>Home table filter</td><td>O(N)</td><td>Iterates rendered <code>tr</code> elements; sets <code>display</code> inline. No re-render.</td></tr>
+    <tr><td>Function card filter</td><td>O(F) — F = functions in object</td><td>Same CSS-hide pattern as table filter.</td></tr>
+    <tr><td>Source code line render</td><td>O(L·C) — L = lines, C = concern ranges</td><td>For each line, inner loop over concern ranges. Ranges are small; effectively O(L).</td></tr>
+    <tr><td>Concern line lookup</td><td>O(keys × ranges)</td><td><code>getConcernRangesForFile()</code>: iterates <code>fn.concern_lines</code> keys; matches on basename equality or extension shorthand.</td></tr>
+    <tr><td>Splitter drag</td><td>O(1) per <code>mousemove</code></td><td>Single percentage calculation + style assignment.</td></tr>
+    <tr><td>Hash routing</td><td>O(N + F)</td><td>Linear <code>Array.find</code> on objects then functions. No index. Fine at this scale.</td></tr>
+  </tbody>
+</table>
+
+<!-- ===== 4. THREAT MODEL ===== -->
+<h2>4 · Threat Model &amp; Adversarial Handling</h2>
+<p class="section-intro">The output is a read-only explorer distributed to internal team members. There is no user login, no server, no writable API.</p>
+
+<table>
+  <thead><tr><th>Actor / Scenario</th><th>Attack Surface</th><th>Actual Risk</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr class="highlight-row">
+      <td><strong>Malicious <code>dataset.json</code> input at build time</strong></td>
+      <td><code>json.load()</code> → <code>json.dumps()</code> → raw injection into <code>&lt;script&gt;</code></td>
+      <td><span class="tag tag-red">HIGH</span> — a crafted string in any field could break out of the JS string literal and execute arbitrary JS at browser load time</td>
+      <td>⚠️ <strong>No sanitisation at build time.</strong> The <code>json.dumps()</code> output is inserted verbatim. Mitigation relies entirely on <code>dataset.json</code> being build-system generated (not user-supplied). If dataset origin is untrusted, the output HTML would be unsafe.</td>
+    </tr>
+    <tr>
+      <td><strong>XSS via function/object names in rendered HTML</strong></td>
+      <td><code>renderSidebar()</code>, <code>renderObjectView()</code> — string interpolation into <code>innerHTML</code></td>
+      <td><span class="tag tag-yellow">MEDIUM</span> — <code>d.object</code> and <code>fn.title</code> are used both escaped (<code>escapeHtml(fn.title)</code>) and unescaped (<code>d.object</code> in <code>onclick</code> attribute strings)</td>
+      <td><code>escapeHtml()</code> is applied to <code>fn.title</code> in card titles and breadcrumbs. <code>d.object</code> in <code>onclick="navToObject('${d.object}')"</code> is <strong>not</strong> escaped — a single-quote in an object name would break the attribute. Mitigated by dataset being build-generated.</td>
+    </tr>
+    <tr>
+      <td><strong>Malicious <code>overview_html</code> / <code>fn.html</code> content</strong></td>
+      <td>Injected directly as <code>innerHTML</code> (trusted path)</td>
+      <td><span class="tag tag-yellow">MEDIUM</span> — these fields are treated as trusted, pre-rendered HTML. If the pipeline that generates them is compromised, arbitrary HTML/JS executes in the browser.</td>
+      <td>Design decision: these fields are build-time generated from Markdown → HTML conversion (not user input). No runtime sanitisation. Documented trust boundary.</td>
+    </tr>
+    <tr>
+      <td><strong>localStorage tampering</strong></td>
+      <td><code>splitRatioLeft</code> loaded from <code>localStorage</code></td>
+      <td><span class="tag tag-green">LOW</span> — only affects CSS width percentage. <code>parseFloat()</code> returns <code>NaN</code> on garbage; <code>NaN || '50'</code> falls back to default.</td>
+      <td>Implicit: <code>parseFloat(localStorage.getItem(...) || '50')</code> — bad values yield <code>NaN</code>, clamp logic prevents layout break.</td>
+    </tr>
+    <tr>
+      <td><strong>Hash injection in URL</strong></td>
+      <td><code>handleRoute()</code> reads <code>window.location.hash</code></td>
+      <td><span class="tag tag-green">LOW</span> — unknown hash values fall through to <code>navToHome()</code>. Route segments are matched only against known <code>DATA</code> keys.</td>
+      <td><code>DATA.find()</code> returns <code>undefined</code> on unknown values; all branches have <code>else navToHome()</code> fallback.</td>
+    </tr>
+    <tr>
+      <td><strong>Missing / malformed source file content</strong></td>
+      <td><code>renderSourceCodeLines(sourceText, ...)</code></td>
+      <td><span class="tag tag-green">LOW</span> — missing content renders a placeholder message.</td>
+      <td>Early return: <code>if (!sourceText) return &lt;placeholder div&gt;</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===== 5. FAILURE MODES ===== -->
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<table>
+  <thead><tr><th>Failure</th><th>Trigger</th><th>Blast Radius</th><th>Observed Behaviour</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Missing <code>dataset.json</code></strong></td>
+      <td><code>generate_html()</code> called without input file present</td>
+      <td>Build fails entirely — Python <code>FileNotFoundError</code> raised. No HTML produced.</td>
+      <td>Unhandled exception. No fallback. Script must be run with <code>dataset.json</code> present.</td>
+    </tr>
+    <tr>
+      <td><strong>Invalid JSON in <code>dataset.json</code></strong></td>
+      <td>Malformed JSON</td>
+      <td>Build fails — <code>json.JSONDecodeError</code>. No HTML produced.</td>
+      <td>Unhandled exception. No partial output written.</td>
+    </tr>
+    <tr>
+      <td><strong>Output directory does not exist</strong></td>
+      <td><code>Outputs/</code> not present</td>
+      <td>Build fails — <code>FileNotFoundError</code> on <code>open(output_path, "w")</code>.</td>
+      <td>No <code>os.makedirs()</code> call. The script assumes <code>Outputs/</code> exists.</td>
+    </tr>
+    <tr>
+      <td><strong>Very large <code>dataset.json</code></strong></td>
+      <td>Many objects × large source files embedded verbatim in <code>sources</code></td>
+      <td>HTML file grows unbounded. Browsers struggle past ~50–100 MB. Memory spike in JS engine on <code>const DATA = ...</code> parse.</td>
+      <td>No size guard at build time. File size is printed post-generation but not validated.</td>
+    </tr>
+    <tr>
+      <td><strong><code>%%DATA_JSON%%</code> token absent from template</strong></td>
+      <td>Template accidentally edited</td>
+      <td>Silent failure — <code>str.replace</code> returns template unchanged; JSON blob dropped silently.</td>
+      <td><code>str.replace</code> with a missing needle is a no-op, no exception. Output HTML renders with <code>const DATA = %%DATA_JSON%%;</code> which throws a JS syntax error at runtime.</td>
+    </tr>
+    <tr>
+      <td><strong>Object name contains single quote</strong></td>
+      <td><code>d.object = "O'Brien"</code></td>
+      <td>Broken <code>onclick</code> attribute in sidebar/table cells → JS syntax error, navigation breaks for that item.</td>
+      <td>No encoding applied to <code>d.object</code> in template literals that emit <code>onclick="navToObject('${d.object}')"</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Function <code>id</code> contains URL-unsafe characters</strong></td>
+      <td><code>fn.id</code> with <code>/</code>, <code>#</code>, <code>?</code></td>
+      <td>Hash routing breaks — <code>parts = hash.split('/')</code> produces wrong segments.</td>
+      <td><code>fn.id</code> is used raw in <code>updateUrl(${obj.object}/${fn.id})</code>. No <code>encodeURIComponent</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Split pane drag on mobile / touch</strong></td>
+      <td>Touch events</td>
+      <td>Splitter is non-functional on touch devices — only <code>mousedown/mousemove/mouseup</code> listeners are attached.</td>
+      <td>No <code>touchstart/touchmove</code> handling. Panes display correctly but cannot be resized.</td>
+    </tr>
+    <tr>
+      <td><strong><code>concern_lines</code> key resolution failure</strong></td>
+      <td>File path mismatch between <code>concern_lines</code> key and <code>d.sources</code> key format</td>
+      <td>Concern line highlighting silently absent — no error, no crash. The code renders but annotations are missing.</td>
+      <td><code>getConcernRangesForFile</code> does <code>kClean === activeBase</code> comparison. Subtle path format divergence (trailing slash, different prefix depth) causes missed match.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===== 6. OBSERVABILITY & TRIAGE ===== -->
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<div class="card">
+  <div class="card-title">Build-time signals</div>
+  <table>
+    <thead><tr><th>Symptom</th><th>Cause</th><th>Triage Step</th></tr></thead>
+    <tbody>
+      <tr><td>Script crashes with <code>FileNotFoundError</code></td><td>Missing <code>dataset.json</code> or missing <code>Outputs/</code> dir</td><td>Check CWD; ensure <code>dataset.json</code> exists and <code>Outputs/</code> is created.</td></tr>
+      <tr><td>Script crashes with <code>JSONDecodeError</code></td><td>Malformed <code>dataset.json</code></td><td>Run <code>python -c "import json; json.load(open('dataset.json'))"</code> to isolate parse error.</td></tr>
+      <tr><td>Reported file size &gt; 50 MB</td><td>Source files too large / too many objects</td><td>Consider excluding <code>sources</code> from some objects or truncating large files in the dataset generation step.</td></tr>
+      <tr><td>Output size printed but no error</td><td>Normal run</td><td>Check <code>Outputs/ceph-mgr-intents-assessment.html</code> exists and is non-zero.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-title">Runtime browser signals</div>
+  <table>
+    <thead><tr><th>Symptom</th><th>Root Cause</th><th>Triage Step</th></tr></thead>
+    <tbody>
+      <tr><td>Blank page / JS console: <code>SyntaxError: Unexpected token %</code></td><td><code>%%DATA_JSON%%</code> token was not replaced</td><td>Open HTML in text editor; search for <code>%%DATA_JSON%%</code>. If present, re-run build script.</td></tr>
+      <tr><td>Sidebar empty, all counts 0</td><td><code>DATA</code> is empty array or wrong structure</td><td>In browser devtools: <code>console.log(DATA)</code>. Inspect <code>dataset.json</code> for top-level array.</td></tr>
+      <tr><td>Navigating to object shows no functions</td><td><code>d.functions</code> is missing or empty in dataset</td><td><code>DATA.find(d => d.object === 'X').functions</code> in console.</td></tr>
+      <tr><td>Concern highlights not appearing</td><td>File path key mismatch in <code>concern_lines</code></td><td>Console: <code>currentFunction.concern_lines</code> vs <code>Object.keys(currentObject.sources)</code> — compare paths.</td></tr>
+      <tr><td>Clicking object name does nothing / JS error</td><td>Object name with single quote breaks <code>onclick</code> attribute</td><td>Inspect element, check rendered <code>onclick</code> attribute value for unescaped quotes.</td></tr>
+      <tr><td>Pane widths reset on every function nav</td><td>localStorage unavailable (private browsing / <code>file://</code> restrictions)</td><td>Check <code>localStorage.getItem('ceph_mgr_split_ratio')</code> in console. Expected fallback: 50%.</td></tr>
+      <tr><td>Page very slow to load</td><td>Large JS parse of embedded <code>DATA</code></td><td>Check HTML file size. If &gt;20 MB, the source embedding is the bottleneck — reduce per-file source content in dataset gen.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-title">Quick invariant checks (browser console)</div>
+  <pre>// Verify DATA loaded correctly
+DATA.length                        // should equal number of objects
+
+// Verify totals are consistent
+DATA.every(d => d.function_count === d.functions.length)  // should be true
+
+// Inspect current state
+console.log({ currentObject: currentObject?.object, currentFunction: currentFunction?.id, statusFilter })
+
+// Check concern line path keys vs source keys for active function
+Object.keys(currentFunction?.concern_lines || {})   // vs
+Object.keys(currentObject?.sources || {})</pre>
+</div>
+
+<hr style="border: none; border-top: 1px solid var(--border); margin: 40px 0;">
+<p style="font-size: 12px; color: var(--text-muted); text-align: center;">
+  Whiteboard Defense · <code>generate_html.py</code> · Generated from direct source analysis · No speculative claims
+</p>
+
+</body>
+</html>

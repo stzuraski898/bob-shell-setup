@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — Gil RAII Wrapper (src/mgr/Gil)</title>
+<style>
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --border:    #30363d;
+    --text:      #e6edf3;
+    --muted:     #8b949e;
+    --accent:    #58a6ff;
+    --green:     #3fb950;
+    --yellow:    #d29922;
+    --red:       #f85149;
+    --orange:    #db6d28;
+    --purple:    #bc8cff;
+    --teal:      #39d353;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  h1 { font-size: 26px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  h2 { font-size: 18px; font-weight: 700; color: var(--accent); margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 14px; font-weight: 700; color: var(--purple); margin: 20px 0 8px; }
+
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+  .meta     { color: var(--muted); font-size: 12px; font-family: monospace; }
+
+  p  { margin: 8px 0; }
+  ul { margin: 6px 0 6px 20px; }
+  li { margin: 3px 0; }
+
+  code {
+    background: #21262d;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+    font-size: 12px;
+    color: #f0883e;
+  }
+
+  pre {
+    background: #161b22;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: "SFMono-Regular", "Consolas", monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text);
+    margin: 10px 0;
+  }
+
+  pre .comment { color: var(--muted); }
+  pre .key     { color: var(--accent); }
+  pre .val     { color: var(--teal); }
+  pre .warn    { color: var(--red); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+
+  thead tr { background: #1c2128; }
+  thead th { padding: 8px 12px; text-align: left; color: var(--accent); font-weight: 600; border-bottom: 2px solid var(--border); }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:hover { background: #1c2128; }
+  tbody td { padding: 7px 12px; vertical-align: top; }
+  tbody td:first-child { white-space: nowrap; }
+
+  .badge {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .badge-green  { background: #0f2c1a; color: var(--green);  border: 1px solid var(--green); }
+  .badge-red    { background: #2c0f0f; color: var(--red);    border: 1px solid var(--red); }
+  .badge-yellow { background: #2c1f0a; color: var(--yellow); border: 1px solid var(--yellow); }
+  .badge-orange { background: #2c1505; color: var(--orange); border: 1px solid var(--orange); }
+  .badge-purple { background: #1e0f2c; color: var(--purple); border: 1px solid var(--purple); }
+  .badge-muted  { background: #1c2128; color: var(--muted);  border: 1px solid var(--border); }
+
+  .sha { font-family: monospace; font-size: 11px; color: var(--muted); }
+
+  .callout {
+    border-left: 3px solid var(--yellow);
+    background: #1c1a0e;
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin: 10px 0;
+    font-size: 13px;
+  }
+  .callout.danger { border-color: var(--red);    background: #1c0e0e; }
+  .callout.info   { border-color: var(--accent);  background: #0e1a2c; }
+  .callout.ok     { border-color: var(--green);   background: #0e1c14; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  svg { max-width: 100%; }
+
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin-bottom: 30px; }
+  .toc ul { list-style: none; margin: 6px 0 0; padding: 0; }
+  .toc li { margin: 4px 0; }
+  .toc a  { color: var(--accent); text-decoration: none; font-size: 13px; }
+  .toc a:hover { text-decoration: underline; }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense</h1>
+<p class="subtitle">Component: <strong>Gil RAII Wrapper</strong> — Python Global Interpreter Lock management for <code>ceph-mgr</code></p>
+<p class="meta">
+  Files: <code>src/mgr/Gil.cc</code> · <code>src/mgr/Gil.h</code> &nbsp;|&nbsp;
+  HEAD: <code>8681fa6e</code> &nbsp;|&nbsp;
+  Corpus: 14 commits · 2017-05-12 → 2025-12-18
+</p>
+
+<div class="toc">
+  <strong style="color:var(--text)">Sections</strong>
+  <ul>
+    <li><a href="#s1">§1 High-Level Architecture &amp; Mental Model</a></li>
+    <li><a href="#s2">§2 Architectural Decisions &amp; Trade-offs</a></li>
+    <li><a href="#s3">§3 Data Structures, Algorithms &amp; Invariants</a></li>
+    <li><a href="#s4">§4 Threat Model &amp; Adversarial Handling</a></li>
+    <li><a href="#s5">§5 Failure Modes, Edge Cases &amp; Blast Radius</a></li>
+    <li><a href="#s6">§6 Observability &amp; Triage Playbook</a></li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ §1 -->
+<h2 id="s1">§1 — High-Level Architecture &amp; Mental Model</h2>
+
+<h3>What does this module do?</h3>
+<p>
+  <code>src/mgr/Gil.h</code> / <code>Gil.cc</code> provide <strong>RAII wrappers</strong> around Python's Global Interpreter Lock (GIL)
+  for Ceph's manager daemon. <code>ceph-mgr</code> embeds CPython and runs multiple sub-interpreters.
+  The standard <code>PyGILState_*</code> API is incompatible with sub-interpreters, so this module replaces it
+  with explicit, thread-state-bound acquire/release primitives.
+</p>
+
+<div class="callout info">
+  <strong>Root motivation</strong> (<span class="sha">f36b0d9d</span> Tim Serong, 2017-05-12): "Prep work for loading modules in separate Python sub-interpreters. Mixing the <code>PyGILState_*()</code> API with sub-interpreters is unsupported."
+</div>
+
+<h3>Class Inventory</h3>
+<table>
+  <thead><tr><th>Class / Symbol</th><th>Role</th><th>Introduced</th></tr></thead>
+  <tbody>
+    <tr><td><code>SafeThreadState</code></td><td>Wraps <code>PyThreadState*</code> + owning <code>pthread_t</code>; guards against wrong-thread GIL acquire</td><td><span class="sha">625e1b5c</span></td></tr>
+    <tr><td><code>Gil</code></td><td>RAII: acquires GIL on construction, releases on destruction. Handles both "same thread" and "new OS thread" paths</td><td><span class="sha">f36b0d9d</span></td></tr>
+    <tr><td><code>without_gil_t</code></td><td>RAII: releases GIL for a block (≈ <code>Py_BEGIN_ALLOW_THREADS</code>). Idempotent destructor</td><td><span class="sha">88db7b19</span></td></tr>
+    <tr><td><code>with_gil_t</code></td><td>RAII: temporarily reacquires GIL inside a <code>without_gil_t</code> scope</td><td><span class="sha">88db7b19</span></td></tr>
+    <tr><td><code>with_gil&lt;Func&gt;</code></td><td>Template helper: acquire GIL, call functor, release</td><td><span class="sha">88db7b19</span></td></tr>
+    <tr><td><code>without_gil&lt;Func&gt;</code></td><td>Template helper: release GIL, call functor, reacquire</td><td><span class="sha">88db7b19</span></td></tr>
+    <tr><td><code>assert_gil()</code> (static)</td><td>Internal invariant checker: asserts current thread holds GIL via <code>PyThreadState_Get().thread_id</code></td><td><span class="sha">19a9981e</span></td></tr>
+  </tbody>
+</table>
+
+<h3>Object Lifecycle Flow</h3>
+
+<pre>
+<span class="comment">── "Same-thread" path (new_thread=false, default) ────────────────────────────────────</span>
+
+  C++ thread (owns SafeThreadState.thread == pthread_self())
+  │
+  ├─ { <span class="key">Gil gil(state)</span>; }
+  │     ctor:  PyEval_RestoreThread(state.ts)   <span class="comment">← GIL acquired, thread state current</span>
+  │            ceph_assert(pthread_self() == state.thread)
+  │            assert_gil()                     <span class="comment">← ts->thread_id == PyThread_get_thread_ident()</span>
+  │     dtor:  PyEval_SaveThread()              <span class="comment">← GIL released</span>
+  │
+
+<span class="comment">── "New OS thread" path (new_thread=true) ────────────────────────────────────────────</span>
+
+  C++ thread NOT created by Python (new_thread=true required)
+  │
+  ├─ { <span class="key">Gil gil(state, true)</span>; }
+  │     ctor:  pNewTS = PyThreadState_New(state.ts->interp)
+  │            PyEval_RestoreThread(pNewTS)     <span class="comment">← GIL acquired on fresh state (fb26bcd9)</span>
+  │            assert_gil()
+  │     dtor:  PyThreadState_Clear(pNewTS)      <span class="comment">← release Python refs in state</span>
+  │            PyEval_SaveThread()              <span class="comment">← GIL released</span>
+  │            PyThreadState_Delete(pNewTS)     <span class="comment">← free memory</span>
+  │
+
+<span class="comment">── GIL drop-and-reacquire (without_gil_t / with_gil_t) ──────────────────────────────</span>
+
+  (GIL held)
+  ├─ { <span class="key">without_gil_t no_gil</span>;          <span class="comment">← assert_gil() + PyEval_SaveThread() → save=ts</span>
+  │      ...non-Python code (locks OK here)...
+  │      <span class="key">no_gil.acquire_gil()</span>;          <span class="comment">← PyEval_RestoreThread(save) → save=nullptr</span>
+  │      ...Python call...
+  │   }  <span class="comment">← ~without_gil_t: save==nullptr → no-op   (6469a9a6 optimization)</span>
+  │
+  │   — OR: use with_gil_t for scoped reacquire —
+  │
+  ├─ { <span class="key">without_gil_t no_gil</span>;
+  │      ...
+  │      { <span class="key">with_gil_t wg(no_gil)</span>;        <span class="comment">← no_gil.acquire_gil()</span>
+  │           ...Python call...
+  │        }                              <span class="comment">← ~with_gil_t: no_gil.release_gil() → save=ts</span>
+  │   }                                   <span class="comment">← ~without_gil_t: save!=nullptr → acquire_gil()</span>
+</pre>
+
+<h3>Locking Policy (codified at <span class="sha">88db7b19</span>)</h3>
+<div class="callout ok">
+  <strong>Rule 1:</strong> Do NOT acquire non-GIL locks while holding the GIL — use <code>without_gil_t</code>.<br>
+  <strong>Rule 2:</strong> ALWAYS hold the GIL when calling Python functions.
+</div>
+<p>Rationale: Python's GC can release and re-acquire the GIL autonomously. Holding a non-GIL lock while the GIL is held creates a deadlock window if Python triggers GC mid-call.</p>
+
+<!-- ═══════════════════════════════════════════════════════ §2 -->
+<h2 id="s2">§2 — Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <thead><tr><th>Decision</th><th>Why this approach?</th><th>Why not the alternative?</th><th>SHA</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Custom <code>Gil</code> class instead of <code>PyGILState_Ensure/Release</code></strong></td>
+      <td><code>PyGILState_*</code> is documented incompatible with sub-interpreters. <code>ceph-mgr</code> uses sub-interpreters per module.</td>
+      <td><code>PyGILState_Check()</code> always returns 1 once any sub-interpreter exists — masking real correctness errors.</td>
+      <td><span class="sha">f36b0d9d</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>SafeThreadState</code> wraps <code>PyThreadState*</code> + <code>pthread_t</code></strong></td>
+      <td>Without the <code>pthread_t</code> record, callers could silently call <code>Gil(state)</code> from the wrong POSIX thread — undefined behaviour in CPython.</td>
+      <td>Could auto-detect thread mismatch via <code>pThreadState-&gt;thread_id != PyThread_get_thread_ident()</code>, but that violates the C API contract (only public member is <code>interp</code>). Noted in comment since <span class="sha">f36b0d9d</span>.</td>
+      <td><span class="sha">625e1b5c</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>assert_gil()</code> uses <code>PyThreadState_Get().thread_id</code> instead of <code>PyGILState_Check()</code></strong></td>
+      <td><code>PyGILState_Check()</code> always returns 1 if any sub-interpreter has ever existed — useless as an assertion. <code>PyThreadState_Get()</code> aborts if no current state; <code>thread_id</code> equality check is the real guard.</td>
+      <td><code>PyThreadState_GetUnchecked()</code> would be cleaner but requires Python ≥ 3.13. Migration path is documented in the comment at <code>Gil.cc:44–46</code>.</td>
+      <td><span class="sha">19a9981e</span> (Fixes: #74220)</td>
+    </tr>
+    <tr>
+      <td><strong>new_thread=true path: <code>PyEval_RestoreThread(pNewTS)</code> directly</strong></td>
+      <td>Eliminated a round-trip: old code did <code>RestoreThread(state.ts)</code> then <code>ThreadState_Swap(pNewTS)</code>. Same net effect, one fewer call.</td>
+      <td>The old two-step approach was "safe" but redundant; the original <code>state.ts</code> thread state was never the right active state for the new OS thread.</td>
+      <td><span class="sha">fb26bcd9</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>without_gil_t</code> destructor is idempotent (<code>if (save)</code>)</strong></td>
+      <td>Allows callers to call <code>no_gil.acquire_gil()</code> explicitly to reacquire the GIL, making <code>~without_gil_t</code> a no-op — avoids an unnecessary unlock/lock cycle at scope exit.</td>
+      <td>Alternative: always reacquire in destructor. This forces an extra unlock/reacquire when <code>with_gil_t</code> is used as the final scope operation.</td>
+      <td><span class="sha">6469a9a6</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>release_gil()</code> and <code>acquire_gil()</code> made public at <span class="sha">6469a9a6</span></strong></td>
+      <td>Enables the "avoid redundant lock/unlock" pattern from Sage Weil's optimization: call <code>no_gil.acquire_gil()</code> when ready, skip the extra cycle.</td>
+      <td>Leaving them private (as in <span class="sha">88db7b19</span>) forced use of <code>with_gil_t</code> for every GIL reacquire, always paying the extra cycle cost.</td>
+      <td><span class="sha">6469a9a6</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>Gil</code> is copy-deleted</strong></td>
+      <td>Two <code>Gil</code> objects for the same thread state would mean two <code>PyEval_SaveThread</code> calls on destruction — double-release, undefined behaviour.</td>
+      <td>No alternative; the prohibition is clearly signalled at the API level since <span class="sha">f36b0d9d</span>.</td>
+      <td><span class="sha">f36b0d9d</span></td>
+    </tr>
+    <tr>
+      <td><strong>Implementation in <code>.cc</code> not <code>.h</code></strong></td>
+      <td>Reduced include blast from <code>Python.h</code> being dragged into every TU that included <code>Gil.h</code>.</td>
+      <td>Original implementation was header-only; moved to <code>.cc</code> in <span class="sha">23c3a075</span>.</td>
+      <td><span class="sha">23c3a075</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════ §3 -->
+<h2 id="s3">§3 — Data Structures, Algorithms &amp; Invariants</h2>
+
+<div class="two-col">
+  <div>
+    <h3>SafeThreadState layout</h3>
+    <pre>
+class SafeThreadState {
+public:
+  PyThreadState *ts;     <span class="comment">// raw CPython state</span>
+  pthread_t      thread; <span class="comment">// POSIX thread that owns ts</span>
+
+  explicit SafeThreadState(PyThreadState *ts_);
+  SafeThreadState();     <span class="comment">// deferred-init; ts=nullptr</span>
+  void set(PyThreadState *ts_);
+};</pre>
+    <ul>
+      <li>Public fields — intentional; <code>Gil::Gil</code> reads them directly.</li>
+      <li><code>explicit</code> constructor since <span class="sha">39ffec28</span> — prevents silent <code>PyThreadState*</code>→<code>SafeThreadState</code> coercion.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>Gil layout</h3>
+    <pre>
+class Gil {
+public:
+  Gil(const Gil&) = delete;
+  Gil& operator=(const Gil&) = delete;
+
+  Gil(SafeThreadState &ts,
+      bool new_thread = false);
+  ~Gil();
+
+private:
+  SafeThreadState &pThreadState;  <span class="comment">// ref, not owned</span>
+  PyThreadState *pNewThreadState  <span class="comment">// != nullptr iff new_thread</span>
+    = nullptr;
+};</pre>
+    <ul>
+      <li><code>pNewThreadState == nullptr</code> is the sentinel distinguishing paths in <code>~Gil()</code>.</li>
+      <li><code>pThreadState</code> is a reference — lifetime must exceed <code>Gil</code> object.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="two-col">
+  <div>
+    <h3>without_gil_t layout</h3>
+    <pre>
+struct without_gil_t {
+  without_gil_t();
+  ~without_gil_t();
+  void release_gil();   <span class="comment">// public since 6469a9a6</span>
+  void acquire_gil();   <span class="comment">// public since 6469a9a6</span>
+private:
+  PyThreadState *save = nullptr; <span class="comment">// null = GIL held</span>
+  friend struct with_gil_t;
+};</pre>
+    <p><code>save != nullptr</code> → GIL is <em>not</em> held; <code>save == nullptr</code> → GIL is held (or destructor is no-op).</p>
+  </div>
+  <div>
+    <h3>with_gil_t layout</h3>
+    <pre>
+struct with_gil_t {
+  with_gil_t(without_gil_t& allow_threads);
+  ~with_gil_t();
+private:
+  without_gil_t& allow_threads; <span class="comment">// ref back to scope</span>
+};</pre>
+    <ul>
+      <li>Constructor calls <code>allow_threads.acquire_gil()</code>.</li>
+      <li>Destructor calls <code>allow_threads.release_gil()</code> — restores <code>save</code> so the enclosing <code>without_gil_t</code> can reacquire.</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Invariant Table</h3>
+<table>
+  <thead><tr><th>Invariant</th><th>Where enforced</th><th>Established</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>SafeThreadState.ts != nullptr</code> (explicit ctor)</td>
+      <td><code>ceph_assert(ts != nullptr)</code> — <code>Gil.cc:55</code></td>
+      <td><span class="sha">625e1b5c</span> / hardened <span class="sha">ab23c506</span></td>
+      <td><span class="badge badge-green">ENFORCED</span></td>
+    </tr>
+    <tr>
+      <td><code>SafeThreadState.ts != nullptr</code> (via <code>set()</code>)</td>
+      <td>No check in <code>set()</code> — <code>Gil.h:47</code></td>
+      <td>Never established</td>
+      <td><span class="badge badge-red">DIVERGED</span></td>
+    </tr>
+    <tr>
+      <td><code>pthread_self() == pThreadState.thread</code> before GIL use</td>
+      <td><code>ceph_assert</code> at <code>Gil.cc:87</code> — but fires <em>after</em> <code>PyEval_RestoreThread</code></td>
+      <td><span class="sha">625e1b5c</span></td>
+      <td><span class="badge badge-yellow">DIVERGED</span> (post-acquire check)</td>
+    </tr>
+    <tr>
+      <td>GIL is held after <code>Gil()</code> construction</td>
+      <td><code>assert_gil()</code> at <code>Gil.cc:89</code></td>
+      <td><span class="sha">fb26bcd9</span> + <span class="sha">19a9981e</span></td>
+      <td><span class="badge badge-green">ENFORCED</span></td>
+    </tr>
+    <tr>
+      <td>GIL is held before <code>without_gil_t()</code> construction</td>
+      <td><code>assert_gil()</code> at <code>Gil.cc:108</code></td>
+      <td><span class="sha">88db7b19</span> (was <code>PyGILState_Check</code>); replaced <span class="sha">19a9981e</span></td>
+      <td><span class="badge badge-green">ENFORCED</span></td>
+    </tr>
+    <tr>
+      <td><code>without_gil_t::acquire_gil()</code> requires <code>save != nullptr</code></td>
+      <td><code>assert(save)</code> at <code>Gil.cc:126</code> — plain <code>assert</code>, not <code>ceph_assert</code></td>
+      <td><span class="sha">88db7b19</span></td>
+      <td><span class="badge badge-yellow">DIVERGED</span> (style)</td>
+    </tr>
+    <tr>
+      <td>GIL held before <code>without_gil_t::release_gil()</code></td>
+      <td>No check — <code>Gil.cc:121</code></td>
+      <td>Never established (became public at <span class="sha">6469a9a6</span>)</td>
+      <td><span class="badge badge-red">UNGROUNDED</span></td>
+    </tr>
+    <tr>
+      <td><code>pNewThreadState != nullptr</code> after <code>PyThreadState_New()</code></td>
+      <td>No null check — <code>Gil.cc:80</code></td>
+      <td>Never established</td>
+      <td><span class="badge badge-red">UNGROUNDED</span></td>
+    </tr>
+    <tr>
+      <td><code>assert_gil(): ceph_assert(ts != nullptr)</code> is reachable</td>
+      <td><code>PyThreadState_Get()</code> aborts process if no current state — line 48 is dead code</td>
+      <td><span class="sha">19a9981e</span></td>
+      <td><span class="badge badge-purple">OVERCAUTIOUS</span></td>
+    </tr>
+    <tr>
+      <td>GIL released exactly once per <code>Gil</code> scope (<code>~Gil</code>)</td>
+      <td><code>PyEval_SaveThread()</code> called once per code path post-<span class="sha">fb26bcd9</span></td>
+      <td><span class="sha">fb26bcd9</span></td>
+      <td><span class="badge badge-green">ENFORCED</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Re-entrancy</h3>
+<div class="callout danger">
+  <strong>Do not nest <code>Gil</code> objects on the same thread.</strong> <code>PyEval_RestoreThread()</code> when already holding the GIL is documented to deadlock. No runtime guard prevents this. The comment has been present since <span class="sha">f36b0d9d</span>.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ §4 -->
+<h2 id="s4">§4 — Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <thead><tr><th>Actor / Scenario</th><th>Attack / Misuse</th><th>What actually happens</th><th>Severity</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Wrong POSIX thread calls <code>Gil(state)</code></strong></td>
+      <td>Thread A creates <code>SafeThreadState</code>. Thread B acquires <code>Gil(state)</code> without <code>new_thread=true</code>.</td>
+      <td>GIL is acquired first (<code>PyEval_RestoreThread</code>), <em>then</em> <code>ceph_assert(pthread_self() == state.thread)</code> fires → process abort. GIL is leaked (destructor never runs). <strong>DIVERGED</strong>: check is post-acquire, not pre-acquire (<span class="sha">625e1b5c</span> flaw).</td>
+      <td><span class="badge badge-red">ABORT + GIL LEAK</span></td>
+    </tr>
+    <tr>
+      <td><strong>Caller passes null to <code>SafeThreadState::set()</code></strong></td>
+      <td><code>state.set(nullptr)</code> — sets <code>ts = nullptr</code>, no assertion.</td>
+      <td>Silently succeeds. Next <code>Gil(state)</code> call dereferences <code>state.ts->interp</code> (new_thread) or calls <code>PyEval_RestoreThread(nullptr)</code> → undefined behaviour / crash.</td>
+      <td><span class="badge badge-orange">UB / CRASH</span></td>
+    </tr>
+    <tr>
+      <td><strong>Nested <code>Gil</code> on same thread</strong></td>
+      <td><code>{ Gil g1(s); Gil g2(s); }</code> — no runtime prevention.</td>
+      <td><code>g2</code> calls <code>PyEval_RestoreThread</code> while GIL is already held → deadlock. Process hangs.</td>
+      <td><span class="badge badge-red">DEADLOCK</span></td>
+    </tr>
+    <tr>
+      <td><strong>Interpreter finalized before <code>Gil(state, true)</code></strong></td>
+      <td>Python interpreter shuts down; <code>PyThreadState_New(interp)</code> is called.</td>
+      <td>May return null (<code>pNewThreadState = nullptr</code>). <code>PyEval_RestoreThread(nullptr)</code> → undefined behaviour / abort. No null check at <code>Gil.cc:80</code>. <strong>UNGROUNDED</strong>.</td>
+      <td><span class="badge badge-orange">UB / CRASH</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>release_gil()</code> called without GIL held</strong></td>
+      <td>Since <span class="sha">6469a9a6</span> made it public, caller calls <code>no_gil.release_gil()</code> twice or when GIL is not held.</td>
+      <td><code>PyEval_SaveThread()</code> with no current thread state → undefined behaviour (likely abort). No pre-condition assertion.</td>
+      <td><span class="badge badge-orange">UB / CRASH</span></td>
+    </tr>
+    <tr>
+      <td><strong>Non-GIL lock held while constructing <code>Gil</code></strong></td>
+      <td>Code holds Ceph-internal mutex, then acquires <code>Gil</code>. Python GC fires on another thread holding GIL, tries to acquire same mutex.</td>
+      <td>Deadlock. The locking policy (§1) exists exactly to prevent this: use <code>without_gil_t</code> around mutex acquisition. Enforced by convention, not by the type system.</td>
+      <td><span class="badge badge-red">DEADLOCK (policy)</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>with_gil_t</code> destructor when GIL not held</strong></td>
+      <td>If <code>allow_threads</code> is in an inconsistent state, <code>~with_gil_t</code> calls <code>release_gil()</code> → <code>PyEval_SaveThread()</code> without GIL.</td>
+      <td>Undefined behaviour. Same root cause as the <code>release_gil()</code> missing pre-condition.</td>
+      <td><span class="badge badge-orange">UB / CRASH</span></td>
+    </tr>
+    <tr>
+      <td><strong>Stale <code>SafeThreadState</code> (default-constructed, never <code>set()</code>)</strong></td>
+      <td><code>Gil(state)</code> called on a default-constructed (ts=nullptr) state.</td>
+      <td><code>PyEval_RestoreThread(nullptr)</code> → UB. The explicit-arg constructor guards this but the default constructor explicitly sets <code>ts = nullptr</code> with no lock-out.</td>
+      <td><span class="badge badge-orange">UB / CRASH</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════ §5 -->
+<h2 id="s5">§5 — Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<h3>Known Failure Scenarios</h3>
+<table>
+  <thead><tr><th>Scenario</th><th>Trigger</th><th>Blast Radius</th><th>Finding Type</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Thread-ownership assertion fires post-GIL-acquire</strong></td>
+      <td>Wrong thread uses <code>Gil(state)</code> without <code>new_thread=true</code>.</td>
+      <td>Process abort; GIL permanently leaked (no destructor). All mgr Python modules stop functioning. In practice caught at development time, not in production — but the GIL leak is the real hazard.</td>
+      <td><span class="badge badge-yellow">DIVERGED</span></td>
+    </tr>
+    <tr>
+      <td><strong>Misleading log on new_thread GIL release</strong></td>
+      <td><code>~Gil()</code> on <code>new_thread=true</code> path logs "GIL released for thread state <em>pThreadState.ts</em>" but <code>pNewThreadState</code> held the GIL.</td>
+      <td>Triage confusion only. Pre-<span class="sha">fb26bcd9</span>, the original state was restored before release so the log was accurate. Post-refactor, it is stale.</td>
+      <td><span class="badge badge-yellow">DIVERGED</span></td>
+    </tr>
+    <tr>
+      <td><strong>Clearing the current thread state before <code>SaveThread</code></strong></td>
+      <td><code>PyThreadState_Clear(pNewThreadState)</code> while <code>pNewThreadState</code> is the <em>current</em> state; then <code>PyEval_SaveThread()</code>.</td>
+      <td>Clears Python references in a state that is still "active". CPython docs say GIL must be held — it is — but clearing the current state is unconventional. Worked in the old order (swap back first, then clear). Post-<span class="sha">fb26bcd9</span>, the swap is gone; this ordering is unverified by any comment or test.</td>
+      <td><span class="badge badge-red">UNGROUNDED</span></td>
+    </tr>
+    <tr>
+      <td><strong><code>PyThreadState_New</code> returns null</strong></td>
+      <td>Interpreter finalized, OOM, or internal Python error during <code>new_thread=true</code> path.</td>
+      <td><code>PyEval_RestoreThread(nullptr)</code> → immediate UB/abort. No null check at <code>Gil.cc:80</code>.</td>
+      <td><span class="badge badge-red">UNGROUNDED</span></td>
+    </tr>
+    <tr>
+      <td><strong>Double <code>release_gil()</code> call</strong></td>
+      <td>Manual misuse after <span class="sha">6469a9a6</span> made method public.</td>
+      <td><code>PyEval_SaveThread()</code> when GIL not held → UB. No assertion guards the public method.</td>
+      <td><span class="badge badge-red">UNGROUNDED</span></td>
+    </tr>
+    <tr>
+      <td><strong>Plain <code>assert</code> vs <code>ceph_assert</code> in <code>acquire_gil()</code></strong></td>
+      <td>Build with <code>NDEBUG</code> defined.</td>
+      <td>Plain <code>assert</code> at <code>Gil.cc:126</code> is compiled out; <code>PyEval_RestoreThread(nullptr)</code> proceeds → UB. <code>ceph_assert</code> is unconditional. This is the one assertion in the file that respects <code>NDEBUG</code>.</td>
+      <td><span class="badge badge-yellow">DIVERGED</span></td>
+    </tr>
+    <tr>
+      <td><strong>GIL deadlock from locking policy violation</strong></td>
+      <td>Non-GIL mutex held, <code>Gil</code> constructed, Python GC triggers, GC thread wants same mutex.</td>
+      <td>Full process deadlock. No automated detection. Enforced by code-review convention only.</td>
+      <td><span class="badge badge-red">BY DESIGN / POLICY</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Edge Cases at the Python Boundary</h3>
+<ul>
+  <li><strong>Sub-interpreter context:</strong> <code>assert_gil()</code> uses <code>ts-&gt;thread_id</code> which is documented "not necessarily stable" — may need updating when Python 3.13+ support is targeted (<span class="sha">19a9981e</span> comment).</li>
+  <li><strong>Multiple <code>SafeThreadState</code> objects per interpreter:</strong> Nothing prevents two <code>SafeThreadState</code> objects from wrapping the same <code>PyThreadState*</code>. Two <code>Gil</code> objects from different states on the same interpreter would correctly serialize, but the <code>pthread_t</code> check would only cover same-thread misuse.</li>
+  <li><strong>Thread ID reuse:</strong> POSIX allows <code>pthread_t</code> values to be reused after thread exit. If a thread exits and a new thread is created with the same ID while a stale <code>SafeThreadState</code> exists, the <code>pthread_self()</code> check passes incorrectly. Not guarded; low-probability in practice.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════ §6 -->
+<h2 id="s6">§6 — Observability &amp; Triage Playbook</h2>
+
+<h3>Log Signals</h3>
+<table>
+  <thead><tr><th>Log message (mgr subsystem)</th><th>Level</th><th>Meaning</th><th>Source</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>Switched to new thread state &lt;ptr&gt;</code></td>
+      <td>20</td>
+      <td><code>Gil(state, true)</code> ctor: new OS thread acquired GIL via fresh PyThreadState</td>
+      <td><code>Gil.cc:82</code> / <span class="sha">987612a9</span></td>
+    </tr>
+    <tr>
+      <td><code>Destroying new thread state &lt;ptr&gt;</code></td>
+      <td>20</td>
+      <td><code>~Gil()</code>: new_thread path — about to clear &amp; delete the temporary PyThreadState</td>
+      <td><code>Gil.cc:96</code></td>
+    </tr>
+    <tr>
+      <td><code>GIL acquired for thread state &lt;ptr&gt;</code></td>
+      <td>25</td>
+      <td><code>Gil(state)</code> ctor: normal path, GIL acquired</td>
+      <td><code>Gil.cc:86</code></td>
+    </tr>
+    <tr>
+      <td><code>GIL released for thread state &lt;ptr&gt;</code></td>
+      <td>25</td>
+      <td><code>~Gil()</code>: GIL released. <strong>⚠ ptr is always pThreadState.ts — misleading for new_thread path</strong> (DIVERGED since <span class="sha">fb26bcd9</span>)</td>
+      <td><code>Gil.cc:103</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Enable GIL Debug Logging</h3>
+<pre>
+<span class="comment"># See new_thread path transitions (level 20)</span>
+ceph config set mgr debug_mgr 20/5
+
+<span class="comment"># See all acquire/release cycles (level 25)</span>
+ceph config set mgr debug_mgr 25/5
+</pre>
+
+<h3>Triage Scenarios</h3>
+
+<div class="callout danger">
+  <strong>Symptom: mgr process aborts with <code>ceph_assert(pthread_self() == pThreadState.thread)</code></strong><br>
+  → A C++ thread is calling <code>Gil(state)</code> without <code>new_thread=true</code>. Find the caller and add the flag. Note: GIL was <em>already acquired</em> before the abort — the assert is post-acquisition. If debugging under gdb, the GIL is leaked.
+</div>
+
+<div class="callout danger">
+  <strong>Symptom: mgr deadlock — Python module callbacks block indefinitely</strong><br>
+  → Likely locking policy violation: a non-GIL mutex was acquired while holding the GIL. Look for code that constructs <code>Gil</code> while holding a Ceph mutex. Wrap the mutex acquisition in <code>without_gil_t</code>.
+</div>
+
+<div class="callout">
+  <strong>Symptom: <code>assert_gil()</code> fires (<code>ceph_assert(ts-&gt;thread_id == ...)</code>)</strong><br>
+  → Thread holds GIL but <code>ts-&gt;thread_id</code> doesn't match <code>PyThread_get_thread_ident()</code>. Possible causes: thread ID reuse after pthread exit, or a stale <code>PyThreadState</code> being used from the wrong thread. Check the <code>SafeThreadState</code> that was passed to <code>Gil</code>.
+</div>
+
+<div class="callout">
+  <strong>Symptom: <code>assert(save)</code> fires in <code>acquire_gil()</code></strong><br>
+  → <code>without_gil_t::acquire_gil()</code> was called when <code>save == nullptr</code> (GIL already held). Check for double-<code>acquire_gil()</code> or a <code>with_gil_t</code> construction when the GIL is not released. Note: this is plain <code>assert</code>, not <code>ceph_assert</code> — compiled out with <code>NDEBUG</code>.
+</div>
+
+<div class="callout info">
+  <strong>Future migration path (documented in code)</strong><br>
+  Once Python &lt; 3.13 support is dropped, replace <code>PyThreadState_Get()</code> in <code>assert_gil()</code> with <code>PyThreadState_GetUnchecked()</code>, removing the dead <code>ceph_assert(ts != nullptr)</code> at <code>Gil.cc:48</code>.
+</div>
+
+<h3>Quick Diagnostic Checklist</h3>
+<table>
+  <thead><tr><th>Question</th><th>Where to look</th></tr></thead>
+  <tbody>
+    <tr><td>Is the GIL currently held by thread X?</td><td><code>assert_gil()</code> logic: <code>PyThreadState_Get()-&gt;thread_id == PyThread_get_thread_ident()</code></td></tr>
+    <tr><td>Which thread created the SafeThreadState?</td><td><code>SafeThreadState::thread</code> (set at construction or via <code>set()</code>)</td></tr>
+    <tr><td>Is this a new_thread scope?</td><td><code>Gil::pNewThreadState != nullptr</code> — check in debugger</td></tr>
+    <tr><td>Is <code>without_gil_t::save</code> non-null?</td><td>Non-null → GIL released (save = suspended state). Null → GIL held by this thread.</td></tr>
+    <tr><td>What py-module triggered a GIL acquire?</td><td>Enable debug_mgr 20+ and search for "Switched to new thread state" or "GIL acquired"</td></tr>
+  </tbody>
+</table>
+
+<hr>
+<p style="color:var(--muted); font-size:12px; text-align:center;">
+  Generated from intent artefact <code>Gil-intent.md</code> + corpus at <code>BobOutput/Object History/v4/Gil/</code> · HEAD <code>8681fa6e</code> · 14 commits · 2017-05-12 → 2025-12-18
+</p>
+
+</body>
+</html>

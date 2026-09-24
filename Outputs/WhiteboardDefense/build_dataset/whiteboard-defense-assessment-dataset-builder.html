@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Whiteboard Defense — build_dataset.py</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --orange: #e3b341;
+    --purple: #bc8cff;
+    --cyan: #76e3ea;
+    --tag-bg: #21262d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 24px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  h2 { font-size: 17px; font-weight: 700; color: var(--accent); margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; }
+  h3 { font-size: 14px; font-weight: 700; color: var(--orange); margin: 18px 0 8px; }
+  p  { margin: 8px 0; color: var(--text); }
+  a  { color: var(--accent); text-decoration: none; }
+  code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 12px;
+    background: var(--tag-bg);
+    border: 1px solid var(--border);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--cyan);
+  }
+  pre {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 12px;
+    color: var(--cyan);
+    font-family: "SFMono-Regular", Consolas, monospace;
+    margin: 10px 0;
+    line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th { background: var(--surface2); color: var(--accent); text-align: left; padding: 8px 12px; border: 1px solid var(--border); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 7px 12px; border: 1px solid var(--border); vertical-align: top; color: var(--text); }
+  tr:nth-child(even) td { background: var(--surface); }
+  tr:nth-child(odd) td { background: var(--bg); }
+  ul { padding-left: 20px; margin: 6px 0; }
+  li { margin: 3px 0; }
+  .meta { color: var(--muted); font-size: 12px; margin-bottom: 28px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: "SFMono-Regular", monospace;
+  }
+  .badge-green  { background: #1a3a1a; color: var(--green); border: 1px solid #2a5a2a; }
+  .badge-red    { background: #3a1a1a; color: var(--red); border: 1px solid #5a2a2a; }
+  .badge-yellow { background: #3a2e10; color: var(--yellow); border: 1px solid #5a4a18; }
+  .badge-blue   { background: #1a2a3a; color: var(--accent); border: 1px solid #2a4a6a; }
+  .badge-purple { background: #2a1a3a; color: var(--purple); border: 1px solid #4a2a6a; }
+  .badge-orange { background: #3a2a10; color: var(--orange); border: 1px solid #6a4a18; }
+  .callout {
+    border-left: 3px solid var(--yellow);
+    background: var(--surface);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin: 10px 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .callout.danger { border-left-color: var(--red); }
+  .callout.info   { border-left-color: var(--accent); }
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 14px 0;
+  }
+  .flow-diagram {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 14px 0;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--text);
+    overflow-x: auto;
+  }
+  .hl-green  { color: var(--green); font-weight: 700; }
+  .hl-red    { color: var(--red); font-weight: 700; }
+  .hl-yellow { color: var(--yellow); font-weight: 700; }
+  .hl-blue   { color: var(--accent); font-weight: 700; }
+  .hl-cyan   { color: var(--cyan); font-weight: 700; }
+  .hl-muted  { color: var(--muted); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; margin-bottom: 32px; }
+  .toc li { margin: 4px 0; }
+  .toc a { color: var(--muted); font-size: 13px; }
+  .toc a:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>Whiteboard Defense</h1>
+<div class="meta">
+  <strong>Subject:</strong> <code>build_dataset.py</code> &nbsp;|&nbsp;
+  <strong>Role:</strong> Multi-source assessment dataset builder &nbsp;|&nbsp;
+  <strong>Output:</strong> <code>dataset.json</code> &nbsp;|&nbsp;
+  <strong>Standard:</strong> IBM Bob Whiteboard Defense v1
+</div>
+
+<nav class="toc">
+  <strong style="color:var(--accent); font-size:12px; text-transform:uppercase; letter-spacing:0.05em;">Contents</strong>
+  <ul style="list-style:none; padding-left:0; margin-top:8px;">
+    <li><a href="#arch">1. High-Level Architecture &amp; Mental Model</a></li>
+    <li><a href="#decisions">2. Architectural Decisions &amp; Trade-offs</a></li>
+    <li><a href="#ds">3. Data Structures, Algorithms &amp; Invariants</a></li>
+    <li><a href="#threat">4. Threat Model &amp; Adversarial Handling</a></li>
+    <li><a href="#failures">5. Failure Modes, Edge Cases &amp; Blast Radius</a></li>
+    <li><a href="#obs">6. Observability &amp; Triage Playbook</a></li>
+  </ul>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="arch">1. High-Level Architecture &amp; Mental Model</h2>
+
+<div class="section-card">
+  <p><strong>One-line summary:</strong> Reads every <code>Outputs/Intents/*-intent.md</code> file, parses its structured Markdown to extract function-level records with severity classifications and line-range citations, augments each record with raw source file text from <code>../ceph/src/mgr/</code>, and serialises the whole corpus to <code>dataset.json</code>.</p>
+</div>
+
+<div class="flow-diagram">
+<span class="hl-blue">ENTRY POINT</span>  build_dataset()
+│
+├── <span class="hl-cyan">load_source_files()</span>                         ← runs ONCE, eager
+│     ../ceph/src/mgr/*  ──glob──►  sources: Dict[basename → content]
+│     (flat dict, key = filename without path,  e.g. "Gil.cc")
+│
+├── glob("Outputs/Intents/*-intent.md")  sorted alphabetically
+│     │
+│     └── for each intent file  <span class="hl-muted"># one object == one file</span>
+│           │
+│           ├── <span class="hl-yellow">METADATA PASS</span>
+│           │     re.search HEAD SHA, date, commits_count
+│           │     fallback: count lines in  v4/{obj}/commits.txt
+│           │
+│           ├── <span class="hl-yellow">SOURCE-FILE RESOLUTION</span>
+│           │     v4/{obj}/functions.txt  ──pipe-split──►  src_files[]
+│           │     fallback: check sources dict for {obj}.cc / {obj}.h
+│           │
+│           ├── <span class="hl-yellow">CANDIDATE HEADING SCAN</span>   (per-line, O(n) on intent text)
+│           │     ## headings → h2_c[]  (filtered by non_func_titles set)
+│           │     ### headings → h3_c[] (filtered by sub-section blocklist)
+│           │     choose set:  whichever is larger AND non-empty
+│           │
+│           ├── <span class="hl-yellow">OVERVIEW EXTRACTION</span>
+│           │     lines[0 : first_candidate_heading]  → overview_html (markdown→HTML)
+│           │
+│           └── <span class="hl-yellow">FUNCTION RECORD BUILD</span>   for each candidate heading
+│                 section text = lines[start:next_heading]
+│                 tag scan  →  c_div / c_ung / c_over / c_other counts
+│                 status    →  DIVERGED > UNGROUNDED > OVERCAUTIOUS > CONCERN > CLEAN
+│                 loc_match →  first 400 chars, file:line anchors
+│                 critique_text  →  Implementation critique block  (or full text)
+│                 <span class="hl-cyan">parse_line_ranges()</span>  →  concern_lines: Dict[file → [[s,e]…]]
+│                 markdown → fn_html
+│
+├── <span class="hl-yellow">SOURCE ATTACHMENT</span>
+│     for each src_file: lookup basename in sources{}
+│     obj_sources: Dict[full-path → content]
+│
+└── <span class="hl-green">SERIALISE</span>  results[] → dataset.json (json.dump)
+</div>
+
+<h3>Primary Data Flows</h3>
+<table>
+  <tr><th>Source</th><th>Consumer</th><th>How</th></tr>
+  <tr><td><code>Outputs/Intents/*-intent.md</code></td><td>Every field in function records</td><td>File read → line split → regex / heading scan</td></tr>
+  <tr><td><code>Outputs/Object History/v4/{obj}/functions.txt</code></td><td><code>src_files[]</code></td><td>Pipe-delimited: <code>name | file:line</code></td></tr>
+  <tr><td><code>Outputs/Object History/v4/{obj}/commits.txt</code></td><td><code>commits_count</code></td><td>Line count fallback when intent metadata absent</td></tr>
+  <tr><td><code>../ceph/src/mgr/*</code></td><td><code>sources</code> dict → <code>obj_sources</code></td><td>Eager load, basename keyed</td></tr>
+  <tr><td><code>dataset.json</code></td><td>Downstream HTML generator, test harness</td><td>JSON array of object records</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="decisions">2. Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <tr><th>Decision</th><th>Alternative Considered</th><th>Why This Choice</th><th>Cost / Risk</th></tr>
+  <tr>
+    <td><strong>Eager full source load into RAM</strong><br><code>load_source_files()</code> reads every <code>../ceph/src/mgr/*</code> file up-front into a single <code>dict</code></td>
+    <td>Lazy per-object load inside the loop</td>
+    <td>Avoids redundant disk I/O — multiple objects share the same source file (e.g. <code>Gil.cc</code>). One dict lookup vs repeated <code>open()</code></td>
+    <td>Entire <code>src/mgr</code> tree held in memory simultaneously. If the tree is large, RAM spike. In practice the Ceph mgr dir is &lt;50 files; acceptable trade.</td>
+  </tr>
+  <tr>
+    <td><strong>Heading-level auto-selection (H2 vs H3)</strong><br>Pick whichever candidate set is larger</td>
+    <td>Always use H2, or always use H3, or user-supplied schema</td>
+    <td>Intent files are not schema-locked. Some objects use H2 per function, others use H3. The heuristic picks the denser level and degrades gracefully.</td>
+    <td>If H2 and H3 counts are equal, H2 wins (tie-break). Could silently omit functions if two levels have equal density but represent different logical scopes.</td>
+  </tr>
+  <tr>
+    <td><strong>Blocklist-based heading filter</strong><br><code>non_func_titles</code> set + inline sub-section list</td>
+    <td>Allowlist (only accept known function patterns)</td>
+    <td>Function names are unbounded. Blocklisting known structural headings (corpus, summary, inventory, etc.) is more stable than maintaining a regex for every valid function name pattern.</td>
+    <td>Blocklist maintenance burden. New section headings in intent templates will silently appear as "functions" until added to the blocklist.</td>
+  </tr>
+  <tr>
+    <td><strong>Regex-based line-range extraction from free text</strong><br><code>parse_line_ranges()</code> with 4 regex patterns</td>
+    <td>Structured annotation schema in intent files (e.g. YAML front-matter)</td>
+    <td>Intent files were written in free-form prose by LLM agents. Retrofitting a strict schema would require regeneration. Regex covers the empirical citation formats actually used.</td>
+    <td>Brittle to novel citation styles. False positives possible (e.g. section numbers matching "Line 1").</td>
+  </tr>
+  <tr>
+    <td><strong>Priority-ordered status roll-up</strong><br><code>DIVERGED &gt; UNGROUNDED &gt; OVERCAUTIOUS &gt; CONCERN &gt; CLEAN</code></td>
+    <td>Multi-label, or highest-count wins</td>
+    <td>Single status is simpler for UI triage. Priority order reflects defect severity: a DIVERGED finding always overshadows cosmetic OVERCAUTIOUS findings.</td>
+    <td>A function with 10 OVERCAUTIOUS tags but 1 DIVERGED is labelled DIVERGED — the count detail is still available in <code>counts{}</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>Basename key in <code>sources</code> dict</strong><br>e.g. <code>"Gil.cc"</code> not <code>"src/mgr/Gil.cc"</code></td>
+    <td>Full-path key</td>
+    <td>The glob enumerates a flat directory. Basename is unambiguous within <code>src/mgr/</code> (no sub-directories loaded) and matches the functions.txt <code>parts[1]</code> value after splitting off the path component.</td>
+    <td>If the same filename existed in sub-directories of <code>src/mgr/</code>, only one would survive (last writer wins in the load loop).</td>
+  </tr>
+  <tr>
+    <td><strong>Optional markdown dependency</strong><br><code>try: import markdown</code></td>
+    <td>Hard dependency; always render HTML</td>
+    <td>Dataset is consumed in two modes: raw JSON (test harness, inspection) and HTML-rendered (browser viewer). Graceful absence means the builder still produces valid JSON without the library installed.</td>
+    <td><code>html</code> fields are empty strings when markdown is absent. Downstream consumers must handle <code>""</code> as valid.</td>
+  </tr>
+  <tr>
+    <td><strong>Critique-section scoping for line extraction</strong><br>Prefer <code>Implementation critique</code> block over full function text</td>
+    <td>Always run regex over full function section text</td>
+    <td>Intent documents contain commit SHAs, PR numbers, and section reference numbers that superficially look like line references. Scoping to the critique block reduces false positives.</td>
+    <td>If no critique block is found, falls back to full text — false positive risk returns.</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="ds">3. Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Core Data Structures</h3>
+<table>
+  <tr><th>Structure</th><th>Type</th><th>Key / Shape</th><th>Invariants</th></tr>
+  <tr>
+    <td><code>sources</code></td>
+    <td><code>Dict[str, str]</code></td>
+    <td><code>basename → full file text</code></td>
+    <td>Populated once; read-only after return from <code>load_source_files()</code>. Keys are bare filenames (<code>"Gil.cc"</code>, not paths). Missing if <code>../ceph/src/mgr</code> is absent.</td>
+  </tr>
+  <tr>
+    <td><code>non_func_titles</code></td>
+    <td><code>Set[str]</code> (literal constant)</td>
+    <td>lowercase section name strings</td>
+    <td>Used for <code>startswith</code> and equality checks. Checked before candidate is appended. Adding a new structural section type requires explicit set update.</td>
+  </tr>
+  <tr>
+    <td><code>candidates</code></td>
+    <td><code>List[Tuple[int, int, str, str]]</code></td>
+    <td><code>(level, line_idx, raw_line, clean_title)</code></td>
+    <td>Ordered by line_idx (ascending, since we iterate lines sequentially). Never reordered. Level is 2 (H2) or 3 (H3).</td>
+  </tr>
+  <tr>
+    <td><code>findings_map</code></td>
+    <td><code>Dict[str, List[List[int, int]]]</code></td>
+    <td><code>filename → [[start, end], …]</code></td>
+    <td>Built inside <code>parse_line_ranges()</code>. Ranges are <em>not</em> deduplicated or sorted. Same range can appear twice if matched by both pattern branches.</td>
+  </tr>
+  <tr>
+    <td>Function record</td>
+    <td><code>Dict</code> (inline schema)</td>
+    <td>See schema below</td>
+    <td><code>id</code> is always <code>{obj}_fn_{1-based-index}</code>. <code>status</code> is always one of 5 enum strings. <code>counts</code> subkeys are always ints ≥ 0.</td>
+  </tr>
+  <tr>
+    <td><code>results</code></td>
+    <td><code>List[Dict]</code></td>
+    <td>One entry per intent file</td>
+    <td>Order mirrors <code>sorted(glob(...))</code> — alphabetical by object name. No deduplication.</td>
+  </tr>
+</table>
+
+<h3>Function Record Schema</h3>
+<pre>{
+  "id":            "{obj}_fn_{N}",           // N is 1-based loop index
+  "title":         "clean_title",            // stripped of ` * # chars
+  "status":        "CLEAN|DIVERGED|UNGROUNDED|OVERCAUTIOUS|CONCERN",
+  "counts": {
+    "diverged":    int,                      // DIVERGED + DEFECT + HAZARD tags
+    "ungrounded":  int,                      // UNGROUNDED tags
+    "overcautious":int,                      // OVERCAUTIOUS tags
+    "concern":     int                       // CONCERN + GAP + RISK + MISSING tags
+  },
+  "locs":          ["src/mgr/Gil.cc:28", …], // raw re.findall hits, first 400 chars
+  "primary_file":  "src/mgr/Gil.cc",         // first locs entry with valid int line
+  "primary_line":  28,                       // 0 if none found
+  "concern_lines": { "Gil.cc": [[28,50]], … },// parse_line_ranges output
+  "raw_markdown":  "...",                    // full section text
+  "html":          "..."                     // rendered HTML or "" if no markdown lib
+}</pre>
+
+<h3>Object Record Schema</h3>
+<pre>{
+  "object":         "Gil",
+  "head_sha":       "8681fa6e…",             // default hardcoded; overridden by regex
+  "date":           "2026-09-11T21:40:59Z",
+  "commits":        14,
+  "source_files":   ["src/mgr/Gil.cc", "src/mgr/Gil.h"],
+  "sources":        { "src/mgr/Gil.cc": "…full text…" },
+  "overview_html":  "…",
+  "function_count": 10,
+  "functions":      [ /* function records */ ],
+  "totals": {
+    "diverged": int, "ungrounded": int, "overcautious": int, "concern": int,
+    "clean": int,    "with_concerns": int
+  }
+}</pre>
+
+<h3>Line-Range Extraction Algorithm</h3>
+<div class="section-card">
+  <p><strong>Two regex passes, both applied to <code>critique_text</code> (or full <code>fn_text</code> fallback):</strong></p>
+  <ul>
+    <li><strong>Pattern 1 — file-anchored:</strong> <code>(?:src/mgr/)?([A-Za-z0-9_]+\.(?:cc|h))|…(cc|h)</code> followed by <code>:\d+(-\d+)?</code>
+      <br>Matches: <code>Gil.cc:28–50</code>, <code>src/mgr/Gil.cc:48</code>, <code>.cc:131</code>
+      <br>Normalises bare extensions (<code>cc</code>, <code>h</code>) to <code>{default_file_base}.{ext}</code></li>
+    <li><strong>Pattern 2 — generic:</strong> <code>\bLines?\s+\d+(-\d+)?</code>
+      <br>Matches: <code>Lines 239–242</code>, <code>blame lines 167–169</code>
+      <br>Attributed to <code>default_file</code> (or literal <code>"default"</code> if none)</li>
+  </ul>
+  <p><strong>Unicode dash normalisation:</strong> Both patterns accept <code>-</code>, <code>–</code> (en-dash U+2013), <code>—</code> (em-dash U+2014) as range separators.</p>
+  <p><strong>Output:</strong> <code>findings_map</code> — keys are filenames, values are unsorted, non-deduplicated <code>[[start, end], …]</code> lists.</p>
+</div>
+
+<h3>Status Roll-Up Algorithm</h3>
+<pre>if   c_div  > 0  → "DIVERGED"      # DIVERGED, DEFECT, HAZARD tags + **Divergence:** field
+elif c_ung  > 0  → "UNGROUNDED"
+elif c_over > 0  → "OVERCAUTIOUS"
+elif c_other > 0 → "CONCERN"        # CONCERN, GAP, RISK, MISSING tags
+else             → "CLEAN"</pre>
+<div class="callout"><strong>Note:</strong> <code>**Divergence:**</code> field match contributes +1 to <code>c_div</code> independently of bold-tag scanning — so a function can reach DIVERGED from either path.</div>
+
+<h3>Heading Candidate Selection Invariant</h3>
+<div class="section-card">
+<pre>chosen = h2_c  if  len(h2_c) >= len(h3_c)  AND  len(h2_c) > 0
+       else h3_c
+if chosen is empty: chosen = all candidates (h2 + h3 mixed)</pre>
+  <ul>
+    <li>The tie-break favours H2 — matching the majority of intent file schemas.</li>
+    <li>If <em>all</em> candidates are filtered out, the function list is empty but the object record is still emitted (with <code>function_count: 0</code>).</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="threat">4. Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <tr><th>Actor / Input</th><th>Attack / Anomaly</th><th>What Happens</th><th>Verdict</th></tr>
+  <tr>
+    <td>Malformed intent file</td>
+    <td>Missing or corrupt heading structure</td>
+    <td><code>candidates</code> is empty → <code>chosen_candidates = []</code> → <code>functions = []</code> → object record emitted with <code>function_count: 0</code>. No crash.</td>
+    <td><span class="badge badge-yellow">SILENT MISS</span></td>
+  </tr>
+  <tr>
+    <td>Malformed intent file</td>
+    <td>Infinite em-dashes or unicode in heading lines</td>
+    <td><code>re.sub(r"[`*]", "", title)</code> only strips backticks and asterisks. Em-dashes pass through to <code>clean_title</code>. No crash; title is slightly dirtier.</td>
+    <td><span class="badge badge-blue">BENIGN</span></td>
+  </tr>
+  <tr>
+    <td>functions.txt format change</td>
+    <td>Missing <code>|</code> separator (single-column line)</td>
+    <td><code>len(parts) >= 2</code> guard skips the line. <code>src_files</code> may be empty → falls back to checking sources dict for <code>{obj}.cc</code> / <code>{obj}.h</code>.</td>
+    <td><span class="badge badge-yellow">DEGRADED</span></td>
+  </tr>
+  <tr>
+    <td>Source code directory absent</td>
+    <td><code>../ceph/src/mgr</code> does not exist</td>
+    <td><code>os.path.exists(base_dir)</code> → skips load. <code>sources = {}</code>. All <code>obj_sources</code> dicts are empty <code>{}</code>. Dataset still builds; source text fields are empty.</td>
+    <td><span class="badge badge-yellow">DEGRADED</span></td>
+  </tr>
+  <tr>
+    <td>Source file unreadable</td>
+    <td>Permission error on a source file</td>
+    <td>Caught by bare <code>except Exception as e</code>; prints error to stdout; file silently absent from <code>sources</code>.</td>
+    <td><span class="badge badge-blue">HANDLED</span></td>
+  </tr>
+  <tr>
+    <td>Crafted intent file</td>
+    <td>Thousands of heading-level sections (DoS via memory)</td>
+    <td>Each section's full text is stored in <code>raw_markdown</code> and <code>html</code> in the function record. RAM usage is proportional to total intent file size × 2 (raw + HTML). No limit enforced.</td>
+    <td><span class="badge badge-red">UNBOUNDED</span></td>
+  </tr>
+  <tr>
+    <td>Crafted critique text</td>
+    <td>Pathological regex input (ReDoS)</td>
+    <td>Both regexes in <code>parse_line_ranges</code> are linear — no nested quantifiers. Not vulnerable to ReDoS.</td>
+    <td><span class="badge badge-green">SAFE</span></td>
+  </tr>
+  <tr>
+    <td>Crafted intent file</td>
+    <td>Inject <code>**DIVERGED**</code> tags into structural sections to inflate severity</td>
+    <td>Tags in sections filtered by <code>non_func_titles</code> are never scanned (those sections never enter <code>chosen_candidates</code>). However, a new section name not on the blocklist would be accepted as a function and its tags counted.</td>
+    <td><span class="badge badge-yellow">PARTIAL</span></td>
+  </tr>
+  <tr>
+    <td>Two objects with same basename source file</td>
+    <td>e.g., two objects sharing <code>Gil.cc</code></td>
+    <td><code>sources</code> uses basename key — last writer wins at load time. Both objects successfully look up the content; only one copy stored (correct).</td>
+    <td><span class="badge badge-green">SAFE</span></td>
+  </tr>
+  <tr>
+    <td>Hardcoded default SHA</td>
+    <td>Intent file has no HEAD SHA header</td>
+    <td>Falls back to hardcoded <code>"8681fa6ebac230f86eb445bf57095c63e7f1abcc"</code>. Dataset is still valid but the SHA field is misleading for objects that genuinely lack the metadata.</td>
+    <td><span class="badge badge-yellow">MISLEADING</span></td>
+  </tr>
+  <tr>
+    <td>output path collision</td>
+    <td><code>dataset.json</code> already open by another process</td>
+    <td>Python's <code>open(..., "w")</code> will truncate and overwrite. No file locking. On Windows, this raises <code>PermissionError</code>; on Linux, silently races.</td>
+    <td><span class="badge badge-yellow">RACE</span></td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="failures">5. Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<table>
+  <tr><th>Failure</th><th>Trigger</th><th>Blast Radius</th><th>Detection</th></tr>
+  <tr>
+    <td><strong>Wrong heading level selected</strong></td>
+    <td>Intent file has equal number of H2 and H3 candidate sections, but they represent different logical scopes</td>
+    <td>Some functions silently dropped or structural sections treated as functions. Affects <em>one object</em> in the dataset. Other objects unaffected.</td>
+    <td>Check: <code>function_count</code> unexpectedly low; function titles contain structural keywords not in blocklist.</td>
+  </tr>
+  <tr>
+    <td><strong>False-positive line ranges</strong></td>
+    <td>Critique text contains commit SHA offsets, section numbers, or PR IDs matching line-range patterns (e.g. "commit 28–50")</td>
+    <td><code>concern_lines</code> contains spurious entries. Does not crash or affect status classification. Misleads downstream source-highlighting features.</td>
+    <td>Inspect <code>concern_lines</code> for unrealistically high line numbers or entries keyed to <code>"default"</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>Phantom "default" key in concern_lines</strong></td>
+    <td>Generic "Lines N" match found but <code>primary_file</code> is <code>""</code> AND <code>default_file</code> arg defaults to <code>obj + ".cc"</code></td>
+    <td><code>concern_lines</code> has key like <code>"Gil.cc"</code> with ranges that may not correspond to that file. Downstream must treat this as approximate.</td>
+    <td>Key name matches object default but ranges originate from generic pattern — ambiguous without cross-referencing source.</td>
+  </tr>
+  <tr>
+    <td><strong>Empty overview</strong></td>
+    <td>First candidate heading is line 0 (heading at top of file)</td>
+    <td><code>overview_text = ""</code>; <code>overview_html = ""</code>. Record valid but no preamble context. Only affects the overview field.</td>
+    <td><code>overview_html == ""</code> when markdown is installed.</td>
+  </tr>
+  <tr>
+    <td><strong>Duplicate line ranges in concern_lines</strong></td>
+    <td>Same citation appears in both file-anchored and generic patterns</td>
+    <td>Range list has duplicate <code>[s, e]</code> entries. Downstream must deduplicate. No crash.</td>
+    <td>Check for repeated entries in <code>concern_lines[file]</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>commits.txt count wrong</strong></td>
+    <td>File contains blank lines or header comments</td>
+    <td><code>commits_count</code> is accurate — the fallback uses <code>l.strip()</code> filter before counting. Not a failure.</td>
+    <td>N/A — correctly handled.</td>
+  </tr>
+  <tr>
+    <td><strong>Markdown not installed</strong></td>
+    <td><code>pip</code> environment without <code>markdown</code> package</td>
+    <td>All <code>html</code> and <code>overview_html</code> fields are <code>""</code>. Raw markdown is still present. Dataset structurally valid. Downstream HTML views render nothing.</td>
+    <td><code>dataset.json</code> has <code>"html": ""</code> universally.</td>
+  </tr>
+  <tr>
+    <td><strong>intent file unreadable</strong></td>
+    <td>Permission denied on <code>Outputs/Intents/X-intent.md</code></td>
+    <td>Uncaught <code>PermissionError</code> → entire script aborts mid-run. <code>dataset.json</code> is not written (write happens after the loop). Previously valid JSON file is NOT overwritten. Data loss is zero but run is incomplete.</td>
+    <td>Exception traceback to stderr; <code>dataset.json</code> timestamp unchanged.</td>
+  </tr>
+  <tr>
+    <td><strong>Bottleneck: source file load</strong></td>
+    <td>Large <code>../ceph/src/mgr/</code> tree</td>
+    <td>All source files loaded into RAM before processing begins. With a large mgr directory (~100+ files, each 1000+ lines), peak RAM could be significant. Time is I/O-bound at startup.</td>
+    <td>Profile with <code>time python build_dataset.py</code>; memory via <code>/usr/bin/time -v</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>Bottleneck: markdown rendering</strong></td>
+    <td>Large intent files with complex tables</td>
+    <td><code>markdown.markdown()</code> called <em>twice</em> per function (once for overview, once for fn_text across all functions). For a large object with 30 functions × 2KB each = 60 renders. CPU-bound; linear.</td>
+    <td>Profile per-object timing; consider caching or batch render if latency matters.</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="obs">6. Observability &amp; Triage Playbook</h2>
+
+<h3>Current Instrumentation</h3>
+<table>
+  <tr><th>Event</th><th>How Logged</th><th>Location</th></tr>
+  <tr><td>Source file read error</td><td><code>print(f"Error reading {f}: {e}")</code></td><td><code>load_source_files()</code> line 18</td></tr>
+  <tr><td>Run complete</td><td><code>print("Updated dataset.json…")</code></td><td><code>__main__</code> line 278</td></tr>
+  <tr><td><em>Everything else</em></td><td><em>Silent</em></td><td>—</td></tr>
+</table>
+
+<div class="callout danger"><strong>Observability Gap:</strong> No per-object logging. No count of functions found per file. No warning when <code>function_count == 0</code>. No warning when <code>primary_file == ""</code> for every function. Silent failures are the dominant triage obstacle.</div>
+
+<h3>Triage Playbook</h3>
+<table>
+  <tr><th>Symptom</th><th>First Check</th><th>Likely Cause</th><th>Fix</th></tr>
+  <tr>
+    <td><code>dataset.json</code> has an object with <code>function_count: 0</code></td>
+    <td>Open the corresponding <code>*-intent.md</code>; check heading structure</td>
+    <td>All H2/H3 headings are in <code>non_func_titles</code> blocklist, or the file has only H1 headings</td>
+    <td>Add missing heading variant to appropriate blocklist in <code>build_dataset.py</code></td>
+  </tr>
+  <tr>
+    <td>Object's <code>sources</code> dict is empty (<code>{}</code>)</td>
+    <td>Check <code>../ceph/src/mgr/</code> exists; check <code>functions.txt</code> for that object</td>
+    <td>Missing ceph checkout, or <code>functions.txt</code> has no pipe-delimited lines</td>
+    <td>Ensure ceph tree is present at <code>../ceph</code>; validate <code>functions.txt</code> format</td>
+  </tr>
+  <tr>
+    <td>All functions have status <code>CLEAN</code> despite known defects</td>
+    <td>Grep intent file for <code>**DIVERGED**</code> (with double-asterisks)</td>
+    <td>Tags missing bold markers, or critique uses different tag format (e.g. <code>DIVERGED</code> without <code>**…**</code>)</td>
+    <td>Verify tag regex: <code>\*\*(DIVERGED|…)\*\*</code> — must be exact bold markdown</td>
+  </tr>
+  <tr>
+    <td>Wrong functions extracted (structural sections appearing as functions)</td>
+    <td>Compare <code>functions[*].title</code> against intent file H2/H3 headings</td>
+    <td>New section heading variant not in <code>non_func_titles</code></td>
+    <td>Add the heading string (lowercased) to the appropriate blocklist set</td>
+  </tr>
+  <tr>
+    <td><code>concern_lines</code> has absurd line numbers (e.g. 50000)</td>
+    <td>Search critique text for the number — likely a commit SHA fragment or PR number</td>
+    <td>Generic "Lines N" pattern matched a non-line context</td>
+    <td>Add a range sanity check in <code>parse_line_ranges</code> (e.g. reject <code>&gt; 10000</code>)</td>
+  </tr>
+  <tr>
+    <td>Script aborts mid-run with <code>PermissionError</code></td>
+    <td>Check file permissions on <code>Outputs/Intents/</code></td>
+    <td>Intent file not readable by current user</td>
+    <td>Add <code>try/except</code> around intent file open, or fix permissions</td>
+  </tr>
+  <tr>
+    <td>All <code>head_sha</code> values are <code>8681fa6e…</code></td>
+    <td>Check intent file header format for <code>HEAD SHA:</code> field</td>
+    <td>Regex not matching actual header format (wrong keyword or formatting)</td>
+    <td>Inspect regex: <code>(?:HEAD SHA|Corpus HEAD)[:\s*\`]+([a-f0-9]{8,40})</code></td>
+  </tr>
+  <tr>
+    <td>Dataset build is slow</td>
+    <td>Profile: time per object, total markdown renders</td>
+    <td>Many large intent files + markdown rendering overhead</td>
+    <td>Defer markdown rendering to a separate pass; or cache rendered HTML on disk</td>
+  </tr>
+</table>
+
+<h3>Quick Validation Commands</h3>
+<pre># Count functions per object (should match expected)
+python3 -c "import json; d=json.load(open('dataset.json')); [print(r['object'], r['function_count']) for r in d]"
+
+# Find objects with zero functions (likely heading detection failure)
+python3 -c "import json; d=json.load(open('dataset.json')); [print(r['object']) for r in d if r['function_count']==0]"
+
+# Status distribution
+python3 -c "
+import json, collections
+d=json.load(open('dataset.json'))
+counts=collections.Counter(fn['status'] for r in d for fn in r['functions'])
+print(counts)"
+
+# Objects with empty sources (ceph checkout missing or functions.txt broken)
+python3 -c "import json; d=json.load(open('dataset.json')); [print(r['object']) for r in d if not r['sources']]"</pre>
+
+<hr/>
+<div style="color: var(--muted); font-size: 11px; text-align: right; margin-top: 16px;">
+  Generated by IBM Bob Whiteboard Defense Standard &nbsp;|&nbsp; Subject: <code>build_dataset.py</code>
+</div>
+
+</body>
+</html>

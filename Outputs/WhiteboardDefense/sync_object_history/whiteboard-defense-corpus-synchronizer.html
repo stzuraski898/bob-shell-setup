@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense — sync-object-history.sh</title>
+<style>
+  :root {
+    --bg:       #0d1117;
+    --surface:  #161b22;
+    --border:   #30363d;
+    --accent:   #58a6ff;
+    --green:    #3fb950;
+    --yellow:   #d29922;
+    --red:      #f85149;
+    --orange:   #e3b341;
+    --text:     #c9d1d9;
+    --muted:    #8b949e;
+    --heading:  #f0f6fc;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  h1 { font-size: 1.8rem; color: var(--heading); margin-bottom: 0.25rem; }
+  h2 {
+    font-size: 1.15rem; color: var(--accent); margin: 2.5rem 0 0.75rem;
+    padding-bottom: 0.35rem; border-bottom: 1px solid var(--border);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  h3 { font-size: 0.95rem; color: var(--orange); margin: 1.2rem 0 0.4rem; }
+
+  .meta { color: var(--muted); font-size: 0.82rem; margin-bottom: 2rem; }
+  .tag {
+    display: inline-block; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 4px; padding: 0 6px; font-size: 0.78rem; color: var(--muted);
+    margin-right: 4px;
+  }
+  .tag.green { border-color: var(--green); color: var(--green); }
+  .tag.yellow { border-color: var(--yellow); color: var(--yellow); }
+  .tag.red { border-color: var(--red); color: var(--red); }
+
+  p  { margin: 0.5rem 0; }
+  ul { margin: 0.4rem 0 0.4rem 1.4rem; }
+  li { margin: 0.2rem 0; }
+
+  code {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 3px; padding: 1px 5px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.85em;
+    color: var(--orange);
+  }
+
+  pre {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 1rem 1.2rem; overflow-x: auto;
+    font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.82rem;
+    color: var(--text); line-height: 1.55; margin: 0.8rem 0;
+  }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 0.8rem 0; font-size: 0.84rem;
+  }
+  th {
+    background: var(--surface); color: var(--heading); padding: 8px 12px;
+    text-align: left; border: 1px solid var(--border); font-weight: 600;
+    text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.04em;
+  }
+  td {
+    padding: 7px 12px; border: 1px solid var(--border); vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #111720; }
+  tr:hover td { background: #1c2230; }
+
+  .pill {
+    display: inline-block; border-radius: 99px; padding: 1px 8px;
+    font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+  }
+  .pill-green  { background: #1a3a22; color: var(--green); }
+  .pill-yellow { background: #3a2f10; color: var(--yellow); }
+  .pill-red    { background: #3a1010; color: var(--red); }
+  .pill-blue   { background: #10213a; color: var(--accent); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem 1.2rem; margin: 0.8rem 0;
+  }
+  .card-title { font-weight: 600; color: var(--heading); margin-bottom: 0.5rem; }
+
+  .flow {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.2rem; margin: 0.8rem 0;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.8rem; color: var(--text); line-height: 1.8;
+    white-space: pre;
+  }
+
+  .section-rule { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+  .callout {
+    border-left: 3px solid var(--yellow); background: #1c1a0f;
+    border-radius: 0 6px 6px 0; padding: 0.6rem 1rem; margin: 0.8rem 0;
+    font-size: 0.85rem;
+  }
+  .callout.red  { border-color: var(--red);   background: #1c0f0f; }
+  .callout.green { border-color: var(--green); background: #0f1c12; }
+  .callout.blue  { border-color: var(--accent); background: #0f1420; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ HEADER -->
+<h1>🛡 Whiteboard Defense</h1>
+<p style="font-size:1.1rem;color:var(--heading);margin:0.3rem 0 0.6rem;">
+  <strong>sync-object-history.sh</strong> — v3 Corpus Synchronizer
+</p>
+<div class="meta">
+  <span class="tag">bash · rsync · ssh</span>
+  <span class="tag green">read-only pull</span>
+  <span class="tag yellow">no-git</span>
+  <span class="tag">internal tooling</span>
+  &nbsp;|&nbsp; Source: <code>sync-object-history.sh</code>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 1 -->
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+
+<p><strong>One-liner:</strong> A thin Bash wrapper that drives two sequential <code>rsync -avz</code> pulls over SSH — one for the v3 corpus tree, one (optional) for intent markdown artefacts — then prints a summary from <code>INDEX.txt</code>.</p>
+
+<div class="flow">
+┌─ Operator CLI ──────────────────────────────────────────────────┐
+│  bash sync-object-history.sh [--host H] [--user U]              │
+│                              [--remote P] [--local P]           │
+│                              [--intent] [--dry-run]             │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │  argument parse (shift/case loop)
+                           ▼
+┌─ Phase 1 — Corpus Sync ─────────────────────────────────────────┐
+│  rsync -avz --compress-level=9 -e ssh --progress                │
+│    szuraski@sockeni07:"/home/szuraski/BobOutput/Object History/v3/"
+│    → ./Object-History-v3/                                       │
+│                                                                 │
+│  Transferred tree:                                              │
+│    INDEX.txt                                                    │
+│    &lt;ClassName&gt;/commits.txt                                      │
+│    &lt;ClassName&gt;/blame.txt                                        │
+│    &lt;ClassName&gt;/functions.txt                                    │
+│    &lt;ClassName&gt;/diffs/&lt;sha&gt;.diff                                │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │  if --intent
+                           ▼
+┌─ Phase 2 — Intent Sync (optional) ──────────────────────────────┐
+│  rsync -avz --compress-level=9 -e ssh --progress                │
+│    --include="*-intent.md" --exclude="*"                        │
+│    szuraski@sockeni07:"/home/szuraski/BobOutput/Object History/"│
+│    → ./Object-History-intent/                                   │
+│                                                                 │
+│  Glob: any *-intent.md at the root of Object History/           │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─ Summary ───────────────────────────────────────────────────────┐
+│  cat INDEX.txt  (or warn if absent)                             │
+│  count of *-intent.md synced (if --intent)                      │
+└─────────────────────────────────────────────────────────────────┘
+</div>
+
+<h3>Key Invariants</h3>
+<ul>
+  <li>Script is <strong>pull-only</strong> — it never writes to the remote.</li>
+  <li><code>set -euo pipefail</code> aborts on any unhandled error, unset variable, or broken pipe.</li>
+  <li><code>mkdir -p</code> ensures local destinations exist before rsync runs.</li>
+  <li>The <code>--dry-run</code> flag is propagated verbatim to <em>both</em> rsync invocations via <code>RSYNC_EXTRA</code>.</li>
+  <li>Intent destination is hardcoded to <code>./Object-History-intent</code> (not overridable via CLI).</li>
+  <li>Intent source root is hardcoded to <code>/home/szuraski/BobOutput/Object History</code> regardless of <code>--remote</code>.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 2 -->
+<h2>2 · Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <tr>
+    <th>Decision</th><th>Alternative Considered</th><th>Reason Chosen</th>
+  </tr>
+  <tr>
+    <td><strong>rsync over SSH, not git</strong></td>
+    <td>git clone / git pull</td>
+    <td>Corpus is produced by a BobOutput pipeline, not a git repo. rsync transfers arbitrary directory trees without requiring a versioned repository on the remote.</td>
+  </tr>
+  <tr>
+    <td><strong><code>-avz --compress-level=9</code></strong></td>
+    <td><code>-a</code> alone or lower compression</td>
+    <td><code>-a</code> = archive (preserves perms/times/symlinks/owner/group). <code>-z</code> + level 9 = maximum zlib compression in-transit — suited for text-heavy diff corpora. Delta-transfer algorithm skips unchanged files/blocks.</td>
+  </tr>
+  <tr>
+    <td><strong>Separate <code>--intent</code> flag / sync phase</strong></td>
+    <td>Bundle intent files into corpus root</td>
+    <td>Intent artefacts live one directory level above v3/ in the remote tree. Separating them keeps corpus and intent directories independent locally; operators can pull one without the other.</td>
+  </tr>
+  <tr>
+    <td><strong><code>--include="*-intent.md" --exclude="*"</code></strong></td>
+    <td>Sync full Object History/ directory</td>
+    <td>The parent directory contains the v3/ subdirectory and possibly other data. Glob filtering limits the pull to exactly the <code>*-intent.md</code> artefacts — no over-fetching.</td>
+  </tr>
+  <tr>
+    <td><strong>Hardcoded intent destination (<code>./Object-History-intent</code>)</strong></td>
+    <td>A <code>--intent-local</code> CLI flag</td>
+    <td>Simplicity — intent is a secondary, optional artefact. The two output dirs have symmetric, memorable names: <code>Object-History-v3/</code> and <code>Object-History-intent/</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>SSH transport (<code>-e ssh</code>)</strong></td>
+    <td>rsync daemon (port 873), NFS mount</td>
+    <td>No special daemon config needed on remote. Leverages existing SSH key infrastructure. Encrypted channel for corpus data.</td>
+  </tr>
+  <tr>
+    <td><strong><code>RSYNC_EXTRA</code> array with parameter expansion guard</strong></td>
+    <td>String concatenation or global var</td>
+    <td><code>"${RSYNC_EXTRA[@]+"${RSYNC_EXTRA[@]}"}"</code> correctly handles an empty array under <code>set -u</code> without triggering "unbound variable" — a precise Bash idiom.</td>
+  </tr>
+  <tr>
+    <td><strong><code>set -euo pipefail</code></strong></td>
+    <td>No error handling / manual <code>||</code> chains</td>
+    <td>Fail-fast: any rsync failure, SSH failure, or mkdir failure aborts the script immediately with a non-zero exit. No silent partial syncs.</td>
+  </tr>
+  <tr>
+    <td><strong>No post-sync validation beyond INDEX.txt cat</strong></td>
+    <td>Checksum verification, file count diff</td>
+    <td>Script's purpose is pull-and-inspect, not production data integrity. INDEX.txt serves as a human-readable manifest printed at the end.</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 3 -->
+<h2>3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Remote Corpus Layout</h3>
+<pre>
+/home/szuraski/BobOutput/Object History/
+├── v3/                          ← REMOTE_CORPUS (Phase 1 source)
+│   ├── INDEX.txt                ← manifest of all classes
+│   └── &lt;ClassName&gt;/
+│       ├── commits.txt          ← git log output per class
+│       ├── blame.txt            ← git blame output
+│       ├── functions.txt        ← extracted function signatures
+│       └── diffs/
+│           └── &lt;sha&gt;.diff      ← per-commit unified diff
+└── &lt;ClassName&gt;-intent.md       ← Phase 2 source (flat, root-level)
+</pre>
+
+<h3>Local Output Layout</h3>
+<pre>
+./Object-History-v3/             ← mirrors remote v3/ tree exactly
+./Object-History-intent/         ← flat dir, only *-intent.md files
+</pre>
+
+<h3>rsync Delta-Transfer Algorithm</h3>
+<div class="card">
+  <div class="card-title">How rsync decides what to transfer</div>
+  <ul>
+    <li>Default comparison: <strong>file size + modification timestamp</strong>. Files that match both are skipped.</li>
+    <li><code>-z</code> applies <strong>zlib compression</strong> to the byte stream in transit (not stored compressed locally).</li>
+    <li><code>--compress-level=9</code>: maximum deflate effort — higher CPU on both ends, lower bytes-on-wire. Appropriate for text corpora with high redundancy (diffs, blame output).</li>
+    <li>Block-level delta: rsync uses its rolling-checksum / MD4 block-hash algorithm to transfer only changed blocks within a file when the file already exists locally and differs.</li>
+    <li><code>--progress</code>: streams per-file transfer progress to stdout — useful for large diff trees but noisy in CI.</li>
+    <li><code>-a</code> (archive mode) = <code>-rlptgoD</code>: recursive, preserve symlinks, permissions, timestamps, group, owner, devices.</li>
+  </ul>
+</div>
+
+<h3>Argument Parsing Structure</h3>
+<table>
+  <tr><th>Variable</th><th>Type</th><th>Default</th><th>CLI Flag</th></tr>
+  <tr><td><code>REMOTE_HOST</code></td><td>string</td><td><code>sockeni07</code></td><td><code>--host HOST</code></td></tr>
+  <tr><td><code>REMOTE_USER</code></td><td>string</td><td><code>szuraski</code></td><td><code>--user USER</code></td></tr>
+  <tr><td><code>REMOTE_CORPUS</code></td><td>string (path)</td><td><code>/home/szuraski/BobOutput/Object History/v3</code></td><td><code>--remote PATH</code></td></tr>
+  <tr><td><code>LOCAL_CORPUS</code></td><td>string (path)</td><td><code>./Object-History-v3</code></td><td><code>--local PATH</code></td></tr>
+  <tr><td><code>SYNC_INTENT</code></td><td>int (0/1)</td><td><code>0</code></td><td><code>--intent</code></td></tr>
+  <tr><td><code>RSYNC_EXTRA</code></td><td>array</td><td><code>()</code></td><td><code>--dry-run</code></td></tr>
+</table>
+
+<div class="callout blue">
+  <strong>Invariant:</strong> Unknown flags hit the <code>*)</code> catch in the case block → <code>echo ... >&2; exit 1</code>. No silent flag ignoring.
+</div>
+
+<h3>Critical Bash Idiom</h3>
+<pre>
+"${RSYNC_EXTRA[@]+"${RSYNC_EXTRA[@]}"}"
+</pre>
+<p>Under <code>set -u</code>, expanding an empty array <code>${RSYNC_EXTRA[@]}</code> would be an unbound variable error. The <code>+word</code> form only expands if the variable is set <em>and non-empty</em>, correctly passing no extra args when the array is empty.</p>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 4 -->
+<h2>4 · Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <tr><th>Actor / Threat</th><th>Attack Vector</th><th>Impact</th><th>Mitigation</th><th>Residual Risk</th></tr>
+  <tr>
+    <td><strong>Malicious remote host</strong></td>
+    <td>DNS / ARP spoofing of <code>sockeni07</code>; MITM on SSH</td>
+    <td>Operator receives tampered corpus data</td>
+    <td>SSH host-key verification (via <code>~/.ssh/known_hosts</code>); SSH encrypts the channel</td>
+    <td><span class="pill pill-yellow">Medium</span> — only if SSH keys were pre-compromised or TOFU was accepted for a bad host</td>
+  </tr>
+  <tr>
+    <td><strong>Malicious file content</strong></td>
+    <td>Adversary writes crafted <code>.diff</code> / <code>.md</code> into the corpus on the remote</td>
+    <td>Operator reads / processes malicious artefact locally</td>
+    <td>Script does nothing but <code>cat INDEX.txt</code> — no execution of any synced content</td>
+    <td><span class="pill pill-green">Low</span> for this script; downstream tooling must sanitise input</td>
+  </tr>
+  <tr>
+    <td><strong>Path traversal via --remote flag</strong></td>
+    <td><code>--remote "../../etc"</code> or symlink attack in corpus tree</td>
+    <td>rsync follows symlinks (<code>-a</code> preserves them) — could pull unexpected files</td>
+    <td>No <code>--safe-links</code> or <code>--no-links</code> used; symlinks from remote are replicated locally</td>
+    <td><span class="pill pill-yellow">Medium</span> — operator must trust the remote corpus structure</td>
+  </tr>
+  <tr>
+    <td><strong>Credential exposure</strong></td>
+    <td>Username/host appear in process list (<code>ps aux</code>)</td>
+    <td>Internal hostname and username visible to local users</td>
+    <td>No passwords in command line; SSH key auth assumed; no secrets in script</td>
+    <td><span class="pill pill-green">Low</span> — internal network; hostname/user not sensitive secrets</td>
+  </tr>
+  <tr>
+    <td><strong>Local disk exhaustion</strong></td>
+    <td>Large corpus write to local path</td>
+    <td>Fill local disk; rsync fails mid-transfer leaving partial state</td>
+    <td><code>set -e</code> aborts on rsync non-zero exit; no cleanup on failure</td>
+    <td><span class="pill pill-yellow">Medium</span> — partial local tree remains; no rollback</td>
+  </tr>
+  <tr>
+    <td><strong>Concurrent execution</strong></td>
+    <td>Two instances of script run simultaneously to same <code>LOCAL_CORPUS</code></td>
+    <td>Interleaved rsync writes; corrupt local tree</td>
+    <td>No locking mechanism exists</td>
+    <td><span class="pill pill-yellow">Medium</span> — rsync itself is atomic per file, but directory state may be inconsistent mid-run</td>
+  </tr>
+  <tr>
+    <td><strong>--dry-run bypass</strong></td>
+    <td>Operator omits <code>--dry-run</code> thinking it's the default</td>
+    <td>Unintended live write to local path</td>
+    <td>Dry-run is opt-in, clearly documented; echo of flags at start shows whether it is active</td>
+    <td><span class="pill pill-green">Low</span> — script is pull-only so "write" is to operator's own local machine</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 5 -->
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<table>
+  <tr><th>Failure</th><th>Trigger</th><th>Observed Behaviour</th><th>Blast Radius</th><th>Recovery</th></tr>
+  <tr>
+    <td><strong>SSH unreachable</strong></td>
+    <td>Host down, wrong hostname, firewall blocking port 22</td>
+    <td>rsync exits non-zero → <code>set -e</code> aborts script immediately at Phase 1. Phase 2 never runs.</td>
+    <td><span class="pill pill-red">Script stops</span>; local dir may be empty or stale</td>
+    <td>Fix SSH connectivity; re-run</td>
+  </tr>
+  <tr>
+    <td><strong>SSH auth failure</strong></td>
+    <td>No key loaded, wrong user</td>
+    <td>Same as above — rsync exits non-zero, script aborts</td>
+    <td><span class="pill pill-red">Script stops</span></td>
+    <td>Load SSH key (<code>ssh-add</code>); verify <code>--user</code></td>
+  </tr>
+  <tr>
+    <td><strong>Remote path does not exist</strong></td>
+    <td><code>--remote</code> path wrong or v3 not yet generated</td>
+    <td>rsync exits with error 23 or 11 → <code>set -e</code> aborts</td>
+    <td><span class="pill pill-red">Script stops</span></td>
+    <td>Verify remote path manually; wait for corpus collection to finish</td>
+  </tr>
+  <tr>
+    <td><strong>Spaces in REMOTE_CORPUS path</strong></td>
+    <td>Default path contains <code>Object History</code> (space)</td>
+    <td>Path is correctly quoted as <code>"${REMOTE}:${REMOTE_CORPUS}/"</code> — spaces handled by quoting</td>
+    <td><span class="pill pill-green">Safe</span></td>
+    <td>N/A</td>
+  </tr>
+  <tr>
+    <td><strong>INDEX.txt absent</strong></td>
+    <td>Corpus collection incomplete or v3 dir empty</td>
+    <td>Script completes with warning: <em>"INDEX.txt not found — collection may not have completed yet."</em> Exit 0 still.</td>
+    <td><span class="pill pill-yellow">Silent partial</span></td>
+    <td>Wait for producer pipeline; re-run sync</td>
+  </tr>
+  <tr>
+    <td><strong>No *-intent.md files exist</strong></td>
+    <td><code>--intent</code> passed but remote has no intent artefacts</td>
+    <td>rsync succeeds (transfers nothing); <code>find ... | wc -l</code> reports 0. <code>INTENT_COUNT=0</code>.</td>
+    <td><span class="pill pill-yellow">Silent zero</span></td>
+    <td>Check remote Intent pipeline; no action needed for sync itself</td>
+  </tr>
+  <tr>
+    <td><strong>Unknown CLI flag</strong></td>
+    <td><code>--typo</code> or unsupported option</td>
+    <td><code>echo "Unknown option: $1" >&2; exit 1</code> immediately</td>
+    <td><span class="pill pill-green">Clean abort</span></td>
+    <td>Fix the flag</td>
+  </tr>
+  <tr>
+    <td><strong>Disk full mid-rsync</strong></td>
+    <td>Local partition exhausted during transfer</td>
+    <td>rsync exits non-zero → <code>set -e</code> aborts. Partial files remain on disk.</td>
+    <td><span class="pill pill-red">Partial tree, no rollback</span></td>
+    <td>Free disk space; manually remove partial output dir; re-run</td>
+  </tr>
+  <tr>
+    <td><strong>Intent destination hardcoded</strong></td>
+    <td>Operator wants intent files elsewhere</td>
+    <td>Always writes to <code>./Object-History-intent/</code> — no override flag</td>
+    <td><span class="pill pill-yellow">No override path</span></td>
+    <td>Move/symlink after sync, or patch script</td>
+  </tr>
+  <tr>
+    <td><strong>Intent source root hardcoded</strong></td>
+    <td>Operator passes custom <code>--remote</code> with a different structure</td>
+    <td>Phase 2 always reads from <code>/home/szuraski/BobOutput/Object History</code> regardless of <code>--remote</code></td>
+    <td><span class="pill pill-yellow">Mismatch if remote root differs</span></td>
+    <td>Patch <code>REMOTE_INTENT_DIR</code> in script</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 6 -->
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<h3>What Gets Logged (stdout)</h3>
+<table>
+  <tr><th>Line Pattern</th><th>Meaning</th></tr>
+  <tr><td><code>[sync] Remote: user@host:path</code></td><td>Confirms effective remote target before any transfer</td></tr>
+  <tr><td><code>[sync] Local: ./path</code></td><td>Confirms effective local destination</td></tr>
+  <tr><td><code>[sync] Flags: --dry-run</code></td><td>Only appears if RSYNC_EXTRA is non-empty — confirms dry-run mode</td></tr>
+  <tr><td>rsync <code>--progress</code> output</td><td>Per-file transfer speed, size, completion %</td></tr>
+  <tr><td><code>[sync] Syncing intent artefacts...</code></td><td>Phase 2 started (only with --intent)</td></tr>
+  <tr><td><code>[sync] N intent artefact(s) synced to ...</code></td><td>Post-Phase-2 count via <code>find | wc -l</code></td></tr>
+  <tr><td><code>[sync] Corpus sync complete.</code></td><td>Both phases finished without error</td></tr>
+  <tr><td><code>--- INDEX.txt ---</code> + contents</td><td>Human-readable class manifest</td></tr>
+  <tr><td><code>[sync] Note: INDEX.txt not found...</code></td><td>Corpus may be incomplete upstream</td></tr>
+</table>
+
+<h3>Triage Decision Tree</h3>
+<pre>
+Script failed with non-zero exit?
+  │
+  ├─ rsync error code 11/23 (I/O error / partial transfer)?
+  │    → Check remote path exists: ssh user@host "ls 'Object History/v3/'"
+  │    → Check disk space locally: df -h .
+  │
+  ├─ rsync error code 255 (SSH failure)?
+  │    → Test SSH directly: ssh szuraski@sockeni07
+  │    → Check SSH agent: ssh-add -l
+  │    → Check ~/.ssh/known_hosts for host key conflict
+  │
+  ├─ "Unknown option" on stderr?
+  │    → Fix the CLI invocation; check spelling of flags
+  │
+  └─ Script completed (exit 0) but data looks wrong?
+       → Was INDEX.txt warning printed? → upstream corpus not yet complete
+       → Was intent count = 0?         → check upstream intent pipeline
+       → Did --dry-run get passed?      → check [sync] Flags line
+</pre>
+
+<h3>Quick Smoke Test</h3>
+<pre>
+# 1. Dry-run first — see what WOULD transfer
+bash sync-object-history.sh --dry-run
+
+# 2. Live pull
+bash sync-object-history.sh
+
+# 3. Verify corpus structure
+ls Object-History-v3/
+cat Object-History-v3/INDEX.txt
+
+# 4. With intent artefacts
+bash sync-object-history.sh --intent
+ls Object-History-intent/
+
+# 5. Alternate host/user (e.g., testing on staging)
+bash sync-object-history.sh --host stagingbox --user devuser --dry-run
+</pre>
+
+<div class="callout blue">
+  <strong>Pro tip:</strong> Run <code>--dry-run</code> first on a fresh machine to confirm SSH connectivity and enumerate what will be transferred before committing to a potentially large pull.
+</div>
+
+<div class="callout">
+  <strong>Watch for:</strong> rsync <code>--compress-level=9</code> is CPU-intensive on both ends. On a slow remote or loaded host, this may throttle transfer speed more than network bandwidth warrants. Consider dropping to <code>--compress-level=6</code> if transfer rate stalls on CPU rather than bandwidth.
+</div>
+
+<div class="callout red">
+  <strong>No lock file / no rollback:</strong> If the script is killed mid-transfer (Ctrl-C, SIGTERM), the local directory is left in a partially-synced state. A re-run will recover via rsync's delta logic, but verify <code>INDEX.txt</code> is complete after any interrupted run.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ SECTION 7 -->
+<h2>7 · Design Constraints &amp; Known Limitations</h2>
+
+<table>
+  <tr><th>Constraint</th><th>Impact</th></tr>
+  <tr>
+    <td>Intent local destination not overridable via CLI</td>
+    <td>Always writes to <code>./Object-History-intent</code>; workaround: run from desired parent dir or patch script</td>
+  </tr>
+  <tr>
+    <td>Intent source root is hardcoded, not derived from <code>--remote</code></td>
+    <td>Passing a custom <code>--remote</code> does not shift the intent source path; the two are independent</td>
+  </tr>
+  <tr>
+    <td>No parallelism between Phase 1 and Phase 2</td>
+    <td>Intent sync runs only after full corpus sync completes; total time = Phase1 + Phase2</td>
+  </tr>
+  <tr>
+    <td><code>RSYNC_EXTRA</code> only supports <code>--dry-run</code></td>
+    <td>Other rsync flags (e.g., <code>--checksum</code>, <code>--delete</code>) cannot be injected via CLI; script must be patched</td>
+  </tr>
+  <tr>
+    <td>No <code>--delete</code> flag on rsync</td>
+    <td>Files removed from remote are NOT removed locally. Local corpus can accumulate stale artefacts across runs.</td>
+  </tr>
+  <tr>
+    <td>SSH key setup is an implicit external dependency</td>
+    <td>No documentation or check in-script for SSH key availability; auth failures manifest as rsync error 255</td>
+  </tr>
+</table>
+
+<hr class="section-rule">
+<p style="color:var(--muted);font-size:0.78rem;text-align:center;">
+  Whiteboard Defense · <code>sync-object-history.sh</code> ·
+  Generated from direct source analysis · No inferred details
+</p>
+
+</body>
+</html>

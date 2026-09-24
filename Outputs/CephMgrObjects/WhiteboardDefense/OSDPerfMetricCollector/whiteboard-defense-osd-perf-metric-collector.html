@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense: OSDPerfMetricCollector</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card-bg: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-bright: #f0f6fc;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-green: #3fb950;
+    --accent-yellow: #d29922;
+    --accent-red: #f85149;
+    --code-bg: #0f141c;
+    --tag-bg: #21262d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    padding: 32px 20px;
+  }
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+    margin-bottom: 32px;
+  }
+  h1 {
+    font-size: 28px;
+    color: var(--text-bright);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .badge {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background-color: var(--tag-bg);
+    border: 1px solid var(--border);
+    color: var(--accent);
+  }
+  .header-meta {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+  .header-meta code {
+    color: var(--accent);
+    background-color: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  section {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  h2 {
+    font-size: 20px;
+    color: var(--text-bright);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
+  h3 {
+    font-size: 16px;
+    color: var(--text-bright);
+    margin: 16px 0 8px 0;
+  }
+  p { margin-bottom: 12px; font-size: 14px; }
+  ul { margin-left: 20px; margin-bottom: 12px; font-size: 14px; }
+  li { margin-bottom: 6px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+    text-align: left;
+  }
+  th, td {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    background-color: #1f242c;
+    color: var(--text-bright);
+    font-weight: 600;
+  }
+  tr:nth-child(even) { background-color: rgba(255, 255, 255, 0.02); }
+  code {
+    background-color: var(--code-bg);
+    color: var(--accent);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    padding: 2px 5px;
+    border-radius: 4px;
+  }
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: rgba(88, 166, 255, 0.05);
+    padding: 12px 16px;
+    border-radius: 0 6px 6px 0;
+    margin: 14px 0;
+    font-size: 13px;
+  }
+  .callout-warn {
+    border-left-color: var(--accent-yellow);
+    background: rgba(210, 153, 34, 0.05);
+  }
+  .callout-alert {
+    border-left-color: var(--accent-red);
+    background: rgba(248, 81, 73, 0.05);
+  }
+  .diagram-container {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  .diagram-container pre {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text-bright);
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .tag-green { background: rgba(63, 185, 80, 0.15); color: var(--accent-green); border: 1px solid rgba(63, 185, 80, 0.3); }
+  .tag-yellow { background: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); border: 1px solid rgba(210, 153, 34, 0.3); }
+  .tag-red { background: rgba(248, 81, 73, 0.15); color: var(--accent-red); border: 1px solid rgba(248, 81, 73, 0.3); }
+  .tag-blue { background: rgba(88, 166, 255, 0.15); color: var(--accent); border: 1px solid rgba(88, 166, 255, 0.3); }
+  .sha {
+    color: #79c0ff;
+    text-decoration: none;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>
+      OSDPerfMetricCollector
+      <span class="badge">Whiteboard Defense</span>
+      <span class="badge" style="color: var(--accent-green);">Architectural Clearance</span>
+    </h1>
+    <div class="header-meta">
+      <strong>Source Files:</strong> <code>src/mgr/OSDPerfMetricCollector.cc</code>, <code>src/mgr/OSDPerfMetricCollector.h</code><br>
+      <strong>Base Template:</strong> <code>MetricCollector&lt;OSDPerfMetricQuery, OSDPerfMetricLimit, OSDPerfMetricKey, OSDPerfMetricReport&gt;</code><br>
+      <strong>Subsystem:</strong> Ceph Manager (<code>ceph-mgr</code>) Daemon Metrics Engine &bull; <strong>Status:</strong> Active / Production
+    </div>
+  </header>
+
+  <!-- SECTION 1: MENTAL MODEL & ARCHITECTURE -->
+  <section>
+    <h2>1. High-Level Architecture &amp; Mental Model</h2>
+    <p>
+      <code>OSDPerfMetricCollector</code> is the specialized, thread-safe aggregator in <code>ceph-mgr</code> that arbitrates dynamic client I/O workload and performance metric queries sent to OSD daemons.
+      It bridges high-level consumers (mgr modules like <code>stats</code>, Prometheus exporter, CLI/REST) and hundreds/thousands of low-level OSDs pushing periodic binary report bufferlists via <code>MMgrReport</code>.
+    </p>
+
+    <div class="diagram-container">
+<pre>
+ [ Mgr Python Module / CLI ]
+             |
+             v  (1) add_query(query, limit) -> returns query_id
+   +--------------------------------------------------------------------------------------------------+
+   | MetricCollector&lt;OSDPerfMetricQuery, OSDPerfMetricLimit, OSDPerfMetricKey, OSDPerfMetricReport&gt;   |
+   |                                                                                                  |
+   |   [lock: ceph::mutex]                                                                            |
+   |   +---------------------------------------+      +-------------------------------------------+   |
+   |   | queries: map&lt;Query, map&lt;QID, Limit&gt;&gt;  |      | counters: map&lt;QID, map&lt;Key, PerfCounters&gt;&gt;|   |
+   |   +---------------------------------------+      +-------------------------------------------+   |
+   +--------------------------------------------------------------------------------------------------+
+             |                                                                      ^
+             | (2) if new/limited -> listener.handle_query_updated()               |
+             v                                                                      |
+     [ DaemonServer ]                                                               |
+             |                                                                      |
+             | (3) MMgrConfigure (pushes query descriptors + limits)                |
+             v                                                                      |
+    ==================== Cluster OSD Daemons (0..N) ====================           |
+             |                                                                      |
+             | (4) MMgrReport containing packed OSDMetricPayload (bufferlists)      |
+             v                                                                      |
+   +------------------------------------------------------------------------+       |
+   | OSDPerfMetricCollector::process_reports(payload)                       |       |
+   |   - std::get&lt;OSDMetricPayload&gt;(payload).report                         |       |
+   |   - std::lock_guard(lock)                                              |       |
+   |   - process_reports_generic(reports, [](counter, update) {              |-------+ (5) Additive
+   |         counter-&gt;first  += update.first;   // delta accumulation       |             Delta Update
+   |         counter-&gt;second += update.second;                              |
+   |     })                                                                 |
+   +------------------------------------------------------------------------+
+             ^
+             | (6) get_counters(PerfCollector* collector)  [Drain-and-Reset Semantics]
+   [ Mgr Python Module / CLI ]
+</pre>
+    </div>
+
+    <h3>Core Operational Flow:</h3>
+    <ul>
+      <li><strong>Query Registration:</strong> Consumer registers a query (e.g. per-client or per-pool IOPS/bandwidth) via <code>add_query()</code>. If the query is new or limited, the collector notifies <code>DaemonServer</code> via <code>MetricListener::handle_query_updated()</code> to broadcast active queries to OSDs via <code>MMgrConfigure</code>.</li>
+      <li><strong>Daemon Reporting:</strong> OSDs execute the query locally on live I/O paths, pack performance counters into raw binary bufferlists, and push them upstream in periodic <code>MMgrReport</code> messages.</li>
+      <li><strong>Ingestion &amp; Aggregation:</strong> <code>process_reports()</code> unpacks raw bufferlists and performs <em>multi-OSD additive delta accumulation</em> (<code>+=</code>) across all reporting OSDs for the matching <code>(query_id, entity_key)</code> slot.</li>
+      <li><strong>Consumer Retrieval:</strong> Consumer calls <code>get_counters()</code>, which executes a thread-safe <em>drain-and-reset</em> operation (moves collected metrics into caller space and resets internal accumulator to zero).</li>
+    </ul>
+  </section>
+
+  <!-- SECTION 2: ARCHITECTURAL DECISIONS & TRADE-OFFS -->
+  <section>
+    <h2>2. Architectural Decisions &amp; Trade-offs ("Why X instead of Y?")</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 22%;">Decision</th>
+          <th style="width: 28%;">Choice (X)</th>
+          <th style="width: 28%;">Alternative Rejected (Y)</th>
+          <th style="width: 22%;">Defense &amp; Rationale</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Class Hierarchy &amp; Code Reuse</strong></td>
+          <td>Thin subclass inheriting from parameterized template <code>MetricCollector&lt;Query, Limit, Key, Report&gt;</code> <a class="sha" href="#ref-efcebe1e">[efcebe1e]</a></td>
+          <td>Standalone, duplicated query management implementation per daemon subsystem (MDS/OSD/RGW).</td>
+          <td>Eliminated ~197 lines of duplicated query tracking, limit calculation, and thread synchronization across OSD and MDS collectors. Concentrates lock management and memory layouts into a single verifiable base template.</td>
+        </tr>
+        <tr>
+          <td><strong>OSD Aggregation Arithmetic</strong></td>
+          <td><strong>Additive delta accumulation</strong> (<code>+=</code>) in report update lambda <a class="sha" href="#ref-efcebe1e">[efcebe1e]</a>, <a class="sha" href="#ref-438a3f7b">[438a3f7b]</a></td>
+          <td>Absolute value overwrite (<code>=</code>) as used in <code>MDSPerfMetricCollector</code> <a class="sha" href="#ref-f6ba1eea">[f6ba1eea]</a>.</td>
+          <td>OSDs partition object data (PGs). A single client/pool workload is striped across hundreds of OSDs. The mgr receives individual per-OSD delta reports and must sum them across all OSDs to compute the total cluster-wide metric. In contrast, MDS rank metrics are authoritative per rank.</td>
+        </tr>
+        <tr>
+          <td><strong>Counter Ingestion Lifetime Contract</strong></td>
+          <td><strong>Drain-and-Reset</strong> (move semantics + <code>clear()</code>) during <code>get_counters()</code> <a class="sha" href="#ref-438a3f7b">[438a3f7b]</a>, <a class="sha" href="#ref-7523aef6">[7523aef6]</a></td>
+          <td>Cumulative monotonically increasing counter registers that are never cleared.</td>
+          <td>Avoids unbounded memory growth in mgr when transient client keys disconnect. Prevents 64-bit integer rollover issues for high-throughput rate counters over long periods. Offloads rate calculation to consumers (Prometheus/Python).</td>
+        </tr>
+        <tr>
+          <td><strong>Descriptor Matching Strictness</strong></td>
+          <td><strong>Full equality</strong> matching via <code>PerformanceCounterDescriptor::operator!=</code> <a class="sha" href="#ref-b1f12671">[b1f12671]</a></td>
+          <td>Type-only matching (<code>desc->type == query->type</code>) <a class="sha" href="#ref-438a3f7b">[438a3f7b]</a>.</td>
+          <td>Protects against mixed-version daemon clusters or schema upgrades where two counter descriptors share a metric type code but differ in internal representation, units, or packing schema. Prevents binary bufferlist corruption.</td>
+        </tr>
+        <tr>
+          <td><strong>Dynamic Variant Dispatch</strong></td>
+          <td><code>std::get&lt;OSDMetricPayload&gt;</code> on <code>MetricPayload</code> variant <a class="sha" href="#ref-d8141f43">[d8141f43]</a></td>
+          <td>Virtual method polymorphism on payload structs or C-style void pointers.</td>
+          <td>Value-semantic variant avoids heap allocation/indirection on high-frequency <code>MMgrReport</code> message dispatch paths. Migrated from <code>boost::variant</code> to <code>std::variant</code> in <a class="sha" href="#ref-d8141f43">[d8141f43]</a> to eliminate third-party dependencies.</td>
+        </tr>
+        <tr>
+          <td><strong>Notification Outside Critical Section</strong></td>
+          <td>Drop <code>lock</code> before invoking <code>listener.handle_query_updated()</code> <a class="sha" href="#ref-efcebe1e">[efcebe1e]</a></td>
+          <td>Hold <code>lock</code> across the <code>MetricListener</code> callback.</td>
+          <td>Prevents ABBA deadlocks between <code>OSDPerfMetricCollector::lock</code> and <code>DaemonServer::lock</code> or <code>ClusterState::lock</code> when <code>DaemonServer</code> pushes new configs or acquires downstream subsystem locks.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- SECTION 3: DATA STRUCTURES, ALGORITHMS & INVARIANTS -->
+  <section>
+    <h2>3. Data Structures, Algorithms &amp; Invariants</h2>
+    
+    <h3>Key Data Structures</h3>
+    <ul>
+      <li><code>Queries (std::map&lt;OSDPerfMetricQuery, std::map&lt;MetricQueryID, std::optional&lt;OSDPerfMetricLimit&gt;&gt;&gt;)</code>: Multi-tenant query registry. Maps canonical query configurations to all active consumer subscriptions and their individual limits.</li>
+      <li><code>Counters (std::map&lt;MetricQueryID, std::map&lt;OSDPerfMetricKey, PerformanceCounters&gt;&gt;)</code>: Aggregated metrics matrix. Primary index is consumer <code>MetricQueryID</code>; secondary index is entity <code>OSDPerfMetricKey</code> (e.g., client IP/ID, pool ID); value is a <code>std::vector&lt;std::pair&lt;uint64_t, uint64_t&gt;&gt;</code> representing raw counter pairs (count, sum/latency).</li>
+      <li><code>ceph::mutex lock</code>: Mutual exclusion primitive initialized via <code>ceph::make_mutex("OSDPerfMetricCollector::lock")</code> <a class="sha" href="#ref-c93dc884">[c93dc884]</a> guarding all mutations to <code>queries</code> and <code>counters</code>.</li>
+    </ul>
+
+    <h3>Critical Invariants</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 18%;">Invariant ID</th>
+          <th style="width: 22%;">Origin Commit</th>
+          <th style="width: 60%;">Formal Rule &amp; Enforcement Mechanism</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="tag tag-blue">INV-PR-1</span></td>
+          <td><a class="sha" href="#ref-efcebe1e">efcebe1e</a>, <a class="sha" href="#ref-d8141f43">d8141f43</a></td>
+          <td><strong>Payload Type Consistency:</strong> <code>process_reports</code> must receive a variant containing <code>OSDMetricPayload</code>. Unchecked extraction via <code>std::get&lt;OSDMetricPayload&gt;</code> will throw <code>std::bad_variant_access</code> if misrouted by <code>DaemonServer</code>.</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-blue">INV-PR-2</span></td>
+          <td><a class="sha" href="#ref-efcebe1e">efcebe1e</a>, <a class="sha" href="#ref-948635a8">948635a8</a></td>
+          <td><strong>Lock Prior to Processing:</strong> <code>lock</code> must be held before calling <code>process_reports_generic</code>. Enforced by <code>std::lock_guard locker(lock)</code> at <code>OSDPerfMetricCollector.cc:28</code> and checked by <code>ceph_assert(ceph_mutex_is_locked(lock))</code> in base template.</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-blue">INV-PR-3</span></td>
+          <td><a class="sha" href="#ref-438a3f7b">438a3f7b</a>, <a class="sha" href="#ref-efcebe1e">efcebe1e</a></td>
+          <td><strong>Additive Multi-OSD Accumulation:</strong> Incoming counter deltas (<code>c.first</code>, <code>c.second</code>) are strictly accumulated (<code>+=</code>) across all reporting OSDs relative to the last consumer drain.</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-blue">INV-GC-1</span></td>
+          <td><a class="sha" href="#ref-7523aef6">7523aef6</a></td>
+          <td><strong>Subtype Cast Discipline:</strong> <code>get_counters(PerfCollector *collector)</code> assumes caller always supplies a valid pointer to an <code>OSDPerfCollector</code> instance. Cast is executed via unchecked <code>static_cast&lt;OSDPerfCollector *&gt;</code>.</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-blue">INV-GC-3</span></td>
+          <td><a class="sha" href="#ref-438a3f7b">438a3f7b</a>, <a class="sha" href="#ref-efcebe1e">efcebe1e</a></td>
+          <td><strong>Atomic Drain-and-Reset:</strong> On successful <code>get_counters()</code>, the entire sub-map <code>counters[query_id]</code> is transferred out via <code>std::move()</code> and immediately <code>clear()</code>ed under <code>lock</code>. Consecutive calls return empty data until new reports arrive.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- SECTION 4: THREAT MODEL & ADVERSARIAL HANDLING -->
+  <section>
+    <h2>4. Threat Model &amp; Adversarial Handling ("What if an actor behaves maliciously?")</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 22%;">Attack Vector / Misbehavior</th>
+          <th style="width: 25%;">Threat Impact</th>
+          <th style="width: 28%;">Mitigation / Code Defense</th>
+          <th style="width: 25%;">Residual Risk &amp; Invariant</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Corrupted or Truncated Report Bufferlist</strong> (Malicious or Buggy OSD)</td>
+          <td>Memory corruption or manager daemon crash during bufferlist unpacking.</td>
+          <td><code>desc_it-&gt;unpack_counter(bl_it, &amp;c)</code> uses Ceph <code>buffer::list::iterator</code> bounds checks. Base template checks descriptor vector boundaries (<code>desc_it != end</code>) and validates exact descriptor equality before decoding.</td>
+          <td>Corrupted bufferlists throw <code>buffer::error</code> exceptions, terminating daemon report parsing if uncaught at the outer network layer.</td>
+        </tr>
+        <tr>
+          <td><strong>Key Cardinality Explosion / DoS</strong> (Attacker spawning millions of unique client keys)</td>
+          <td>Unbounded growth of <code>counters[query_id][key]</code>, leading to Mgr OOM.</td>
+          <td>Queries support <code>OSDPerfMetricLimit</code> (e.g. top-N keys by IOPS/bandwidth). OSDs enforce limits locally prior to transmission, pruning low-volume keys before sending upstream.</td>
+          <td>If an unlimited query is registered by an authorized admin/module, rogue clients creating random entity IDs can inflate map memory until the next consumer drain.</td>
+        </tr>
+        <tr>
+          <td><strong>Mismatched Subsystem Payload Injection</strong> (DaemonServer routes MDS report to OSD collector)</td>
+          <td>Undefined behavior or memory corruption.</td>
+          <td><code>std::get&lt;OSDMetricPayload&gt;(payload)</code> throws <code>std::bad_variant_access</code> immediately, aborting the invalid operation before locks are acquired or state corrupted.</td>
+          <td><span class="tag tag-yellow">UG-3</span>: Uncaught exception will crash <code>ceph-mgr</code> if <code>DaemonServer</code> fails to isolate message types. Requires strict routing in <code>DaemonServer</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Rapid Query Churn / Flooding</strong> (Spamming <code>add_query</code> / <code>remove_query</code>)</td>
+          <td>Lock contention on <code>lock</code> and notification broadcast storms to cluster OSDs.</td>
+          <td>Base class <code>is_limited()</code> short-circuits redundant notifications: <code>listener.handle_query_updated()</code> is triggered only when the canonical query set or limit presence actually changes.</td>
+          <td>High-frequency additions with unique keys will trigger OSD config broadcasts via <code>MMgrConfigure</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- SECTION 5: FAILURE MODES & BLAST RADIUS -->
+  <section>
+    <h2>5. Failure Modes, Edge Cases &amp; Blast Radius ("Where does this fail?")</h2>
+    
+    <div class="callout callout-alert">
+      <strong>Ungrounded Contracts Identified (Historical Audit):</strong>
+      <ul style="margin-top: 6px; margin-bottom: 0;">
+        <li><strong>UG-3 (Payload Type Guard):</strong> <code>std::get&lt;OSDMetricPayload&gt;</code> is unguarded against invalid variant alternatives. Safe only because <code>DaemonServer</code> routes messages based on daemon type.</li>
+        <li><strong>UG-4 (Unchecked static_cast):</strong> <code>get_counters()</code> performs an unchecked <code>static_cast&lt;OSDPerfCollector*&gt;(collector)</code>. Passing a null or foreign <code>PerfCollector</code> subtype results in instant segfault.</li>
+        <li><strong>UG-6 (Silent Metric Loss on Missed Poll):</strong> The drain-and-reset pattern destroys accumulated deltas upon <code>get_counters()</code>. If a scraping consumer drops the returned map or fails to persist it, the aggregated cluster delta for that window is permanently lost.</li>
+      </ul>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 22%;">Failure Scenario</th>
+          <th style="width: 38%;">Root Cause &amp; System Behavior</th>
+          <th style="width: 40%;">Blast Radius &amp; Containment</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Stale / Offline OSD Daemons</strong></td>
+          <td>OSDs fail to send <code>MMgrReport</code> due to network partitioning or crashes.</td>
+          <td><strong>Contained:</strong> <code>OSDPerfMetricCollector</code> simply accumulates whatever reports arrive. Returned counters for that period reflect partial cluster totals without failing the query.</td>
+        </tr>
+        <tr>
+          <td><strong>Consumer Missing Polling Cycles</strong></td>
+          <td>Mgr module sleeps or hangs longer than the scrape interval.</td>
+          <td><strong>Silent Metric Coarsening:</strong> Counters continue to accumulate in memory (<code>+=</code>). When consumer finally polls, it receives a single large burst delta spanning multiple report intervals. No data is lost unless the daemon restarts.</td>
+        </tr>
+        <tr>
+          <td><strong>Unregistered Query Counter Access</strong></td>
+          <td>Consumer requests counters for a <code>query_id</code> that was removed or never registered.</td>
+          <td><strong>Graceful Failure:</strong> <code>get_counters_generic</code> returns <code>-ENOENT</code>. Internal state remains completely unmodified; output container is untouched (<span class="tag tag-yellow">UG-5</span>).</td>
+        </tr>
+        <tr>
+          <td><strong>Descriptor Schema Mismatch during Rolling Upgrade</strong></td>
+          <td>OSD runs newer/older version with different counter descriptors.</td>
+          <td><strong>Safe Drop:</strong> <code>process_reports_generic</code> compares descriptors with <code>operator!=</code>. Non-matching descriptors are skipped via <code>continue</code>, preventing deserialization errors.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- SECTION 6: OBSERVABILITY & TRIAGE PLAYBOOK -->
+  <section>
+    <h2>6. Observability &amp; Triage Playbook</h2>
+
+    <h3>Subsystem Logging</h3>
+    <p>
+      <code>OSDPerfMetricCollector</code> logs under the <code>ceph_subsys_mgr</code> subsystem with prefix <code>mgr.osd_perf_metric_collector</code>.
+    </p>
+    <ul>
+      <li><code>dout(10)</code>: Query lifecycle events (<code>add_query</code> with query ID and limits, <code>remove_query</code>, <code>remove_all_queries</code>, report batch record count).</li>
+      <li><code>dout(20)</code>: Deep metric trace. Logs individual counter unpack events showing <code>entity_key</code>, descriptor metadata, and unpacked raw <code>(c.first, c.second)</code> values.</li>
+    </ul>
+
+    <h3>Triage &amp; Diagnostic Commands</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 30%;">Investigation Goal</th>
+          <th style="width: 40%;">Command / Debug Action</th>
+          <th style="width: 30%;">Expected Signature</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Enable Deep Collector Tracing</strong></td>
+          <td><code>ceph config set mgr debug_mgr 20</code></td>
+          <td>Look for <code>mgr.osd_perf_metric_collector process_reports</code> and <code>counter &lt;key&gt; ...</code> in mgr log.</td>
+        </tr>
+        <tr>
+          <td><strong>Inspect Active OSD Queries</strong></td>
+          <td><code>ceph tell mgr dump_osd_perf_queries</code> (or module-specific CLI)</td>
+          <td>Lists active query configurations and assigned query limits broadcasted to OSDs.</td>
+        </tr>
+        <tr>
+          <td><strong>Verify OSD Report Dispatch</strong></td>
+          <td>Check OSD logs with <code>debug_osd 10</code></td>
+          <td>Look for <code>send_mgr_report</code> containing packed client perf metrics.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Whiteboard Summary (30-Second Elevator Pitch):</strong>
+      <p style="margin-bottom: 0;">
+        "<code>OSDPerfMetricCollector</code> is the specialized OSD metrics aggregator in <code>ceph-mgr</code>. It subclasses the generalized <code>MetricCollector</code> template, configuring it with OSD-specific keys and reports. Its defining architectural trait is <strong>additive delta accumulation (<code>+=</code>)</strong> across all OSD reports under a single mutex, coupled with a <strong>drain-and-reset</strong> retrieval model that transfers data to Python modules/Prometheus via move semantics. It ensures lockless listener notification, strict descriptor equality validation across cluster versions, and localized memory management."
+      </p>
+    </div>
+  </section>
+
+  <!-- CORPUS & COMMIT REFERENCE -->
+  <section>
+    <h2>7. Corpus Commit Chronology &amp; Citations</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 15%;">Commit SHA</th>
+          <th style="width: 15%;">Author &amp; Date</th>
+          <th style="width: 30%;">Subject</th>
+          <th style="width: 40%;">Architectural Impact</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr id="ref-85d82faa">
+          <td><code>85d82faa</code></td>
+          <td>Edwin Rodriguez<br>2025-10-01</td>
+          <td>Update indent settings h</td>
+          <td>Modeline update in <code>OSDPerfMetricCollector.h</code>.</td>
+        </tr>
+        <tr id="ref-f1bac418">
+          <td><code>f1bac418</code></td>
+          <td>Edwin Rodriguez<br>2025-10-01</td>
+          <td>Update indent settings cc</td>
+          <td>Modeline update in <code>OSDPerfMetricCollector.cc</code>.</td>
+        </tr>
+        <tr id="ref-d8141f43">
+          <td><code>d8141f43</code></td>
+          <td>Kefu Chai<br>2025-04-25</td>
+          <td>mgr: migrate from boost::variant to std::variant</td>
+          <td>Migrated payload extraction from <code>boost::get</code> to <code>std::get&lt;OSDMetricPayload&gt;</code>.</td>
+        </tr>
+        <tr id="ref-7523aef6">
+          <td><code>7523aef6</code></td>
+          <td>Venky Shankar<br>2019-08-26</td>
+          <td>mgr/stats: mds performance stats module</td>
+          <td>Introduced <code>get_counters(PerfCollector*)</code> override delegating to <code>get_counters_generic</code> under lock.</td>
+        </tr>
+        <tr id="ref-efcebe1e">
+          <td><code>efcebe1e</code></td>
+          <td>Venky Shankar<br>2019-09-10</td>
+          <td>mgr: templatize/generalize metrics collection interface</td>
+          <td><strong>Major Architecture Refactor:</strong> Extracted generic logic into <code>MetricCollector</code> template base; established delta accumulation lambda.</td>
+        </tr>
+        <tr id="ref-c93dc884">
+          <td><code>c93dc884</code></td>
+          <td>Kefu Chai<br>2019-07-07</td>
+          <td>mgr: s/Mutex/ceph::mutex/</td>
+          <td>Modernized mutex primitive to <code>ceph::mutex</code> initialized inline.</td>
+        </tr>
+        <tr id="ref-b1f12671">
+          <td><code>b1f12671</code></td>
+          <td>Mykola Golub<br>2018-11-23</td>
+          <td>mgr: add limit param to osd perf query</td>
+          <td>Added query limits support, <code>is_limited</code> calculation, and full descriptor equality matching (<code>operator!=</code>).</td>
+        </tr>
+        <tr id="ref-438a3f7b">
+          <td><code>438a3f7b</code></td>
+          <td>Mykola Golub<br>2018-11-12</td>
+          <td>mgr: store osd perf counters received in osd reports</td>
+          <td>Introduced counter storage matrix, additive accumulation loop, and drain-and-reset semantics.</td>
+        </tr>
+        <tr id="ref-948635a8">
+          <td><code>948635a8</code></td>
+          <td>Sage Weil<br>2018-10-16</td>
+          <td>mgr: Mutex::Locker -&gt; std::lock_guard</td>
+          <td>Standardized RAII locking with <code>std::lock_guard</code> across all query and counter mutations.</td>
+        </tr>
+        <tr id="ref-a6c33908">
+          <td><code>a6c33908</code></td>
+          <td>Mykola Golub<br>2018-10-03</td>
+          <td>mgr: create shell OSD performance query class</td>
+          <td>Initial file creation with shell query registration structures.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</div>
+</body>
+</html>

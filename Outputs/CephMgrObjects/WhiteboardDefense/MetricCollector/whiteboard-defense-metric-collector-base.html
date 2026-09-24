@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Whiteboard Defense — MetricCollector</title>
+<style>
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --border:    #30363d;
+    --accent:    #58a6ff;
+    --accent2:   #f0883e;
+    --accent3:   #56d364;
+    --warn:      #e3b341;
+    --danger:    #f85149;
+    --muted:     #8b949e;
+    --text:      #e6edf3;
+    --code-bg:   #1f2937;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 2rem; color: var(--accent); margin-bottom: 4px; }
+  h2 { font-size: 1.2rem; color: var(--accent2); margin: 36px 0 12px;
+       border-bottom: 1px solid var(--border); padding-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+  h3 { font-size: 1rem; color: var(--accent3); margin: 20px 0 8px; }
+  p  { margin-bottom: 10px; color: var(--text); }
+  ul, ol { padding-left: 20px; margin-bottom: 10px; }
+  li { margin-bottom: 4px; }
+  code {
+    background: var(--code-bg);
+    color: var(--accent);
+    font-family: 'Fira Code', 'Cascadia Code', monospace;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.88em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    font-family: 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.82em;
+    overflow-x: auto;
+    margin-bottom: 16px;
+    color: var(--accent3);
+    white-space: pre;
+  }
+  .meta { color: var(--muted); font-size: 0.82em; margin-bottom: 24px; }
+  .meta span { margin-right: 20px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 0.88em;
+  }
+  th {
+    background: var(--surface);
+    color: var(--accent2);
+    text-align: left;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 0.82em;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  td {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #0e1318; }
+  tr:nth-child(odd)  td { background: var(--bg); }
+  .tag {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 0.75em;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+  .tag-ok      { background: #1a3c25; color: var(--accent3); }
+  .tag-risk    { background: #3d2401; color: var(--warn); }
+  .tag-crit    { background: #3c1010; color: var(--danger); }
+  .tag-info    { background: #1a2840; color: var(--accent); }
+  .tag-design  { background: #26293a; color: #b392f0; }
+  .sha {
+    font-family: monospace;
+    font-size: 0.78em;
+    color: var(--muted);
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .callout {
+    border-left: 4px solid var(--accent2);
+    background: #1c1a14;
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 14px;
+  }
+  .callout.warn  { border-color: var(--warn);   background: #1c1b0f; }
+  .callout.crit  { border-color: var(--danger);  background: #1c1010; }
+  .callout.ok    { border-color: var(--accent3); background: #0d1c11; }
+  svg { display: block; margin: 16px auto; }
+  .section { margin-bottom: 40px; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════════════════════════ -->
+<h1>MetricCollector&lt;Query, Limit, Key, Report&gt;</h1>
+<div class="meta">
+  <span>📁 <code>src/mgr/MetricCollector.cc</code> · <code>src/mgr/MetricCollector.h</code></span>
+  <span>🔖 Corpus HEAD: <span class="sha">8681fa6e</span></span>
+  <span>📅 Defense date: 2026-09-11</span>
+  <span>⚙️ Subsystem: <code>ceph-mgr</code> performance metrics</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 1 — HIGH-LEVEL ARCHITECTURE & MENTAL MODEL
+════════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+<h2>1 · High-Level Architecture &amp; Mental Model</h2>
+
+<h3>What it is</h3>
+<p>
+  <code>MetricCollector&lt;Query, Limit, Key, Report&gt;</code> is an <strong>abstract template base class</strong>
+  in the Ceph Manager daemon. It centralizes the bookkeeping for all client performance-metric subscriptions
+  and the aggregation of counter data coming back from daemons (OSDs, MDS). Concrete subclasses
+  (<code>OSDPerfMetricCollector</code>, <code>MDSPerfMetricCollector</code>) only need to implement
+  two pure-virtual hooks: <code>process_reports()</code> and <code>get_counters()</code>.
+</p>
+<p>
+  Introduced in <span class="sha">efcebe1e</span> (2019-09-10, Venky Shankar) by extracting and
+  generalizing the OSD-specific <code>OSDPerfMetricCollector</code>. Extended to MDS metrics in
+  <span class="sha">f6ba1eea</span> the same day.
+</p>
+
+<h3>Template instantiations (explicit — in <code>.cc</code>)</h3>
+<table>
+  <tr><th>Instantiation</th><th>Query</th><th>Limit</th><th>Key</th><th>Report</th></tr>
+  <tr><td>OSD</td><td><code>OSDPerfMetricQuery</code></td><td><code>OSDPerfMetricLimit</code></td><td><code>OSDPerfMetricKey</code></td><td><code>OSDPerfMetricReport</code></td></tr>
+  <tr><td>MDS</td><td><code>MDSPerfMetricQuery</code></td><td><code>MDSPerfMetricLimit</code></td><td><code>MDSPerfMetricKey</code></td><td><code>MDSPerfMetrics</code></td></tr>
+</table>
+
+<h3>Flow diagram — query lifecycle</h3>
+<pre>
+Client / Python module
+        │
+        │  add_query(query, optional&lt;Limit&gt;)
+        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   MetricCollector                           │
+│                                                             │
+│  queries: map&lt;Query, map&lt;QueryID, optional&lt;Limit&gt;&gt;&gt;        │
+│  counters: map&lt;QueryID, map&lt;Key, PerformanceCounters&gt;&gt;      │
+│  next_query_id: uint64 (monotonic)                          │
+│                                                             │
+│  ① lock ──▶ allocate QueryID, update maps ──▶ unlock       │
+│  ② conditionally ──▶ listener.handle_query_updated()       │
+└────────────────────────┬────────────────────────────────────┘
+                         │  listener.handle_query_updated()
+                         ▼
+                  MetricListener
+              (DaemonServer / Aggregator)
+                         │  pushes queries to daemons
+                         ▼
+            OSD / MDS daemons collect metrics
+                         │
+                         │  MMgrReport (packed bufferlist)
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│  process_reports(payload)         ← pure virtual           │
+│     └▶ [derived] decode payload                            │
+│            └▶ process_reports_generic(map&lt;Q,R&gt;, callback) │
+│                  requires lock held by caller               │
+│                  ┌─ for each [query, report]:               │
+│                  │   for each [key, packed_bl]:             │
+│                  │     align descriptors, unpack counters   │
+│                  │     callback(&amp;counters[qid][key][i], c) │
+│                  └─ counters table updated in-place         │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         │  get_counters(PerfCollector*)      ← pure virtual
+                         │    └▶ get_counters_generic(qid, *c) ← requires lock held
+                         │          moves counters[qid] → *c
+                         │          clears counters[qid]
+                         ▼
+                  Python stats module
+</pre>
+
+<h3>Key relationships</h3>
+<ul>
+  <li><strong><code>MetricListener&amp;</code></strong> — callback interface; called <em>outside</em> the lock (lock-order safety). The only notification is <code>handle_query_updated()</code>.</li>
+  <li><strong><code>queries</code> map</strong> — two-level: outer key is <code>Query</code> descriptor; inner map is <code>QueryID → optional&lt;Limit&gt;</code>. Multiple callers can register the same logical query with different limits.</li>
+  <li><strong><code>counters</code> map</strong> — flat: <code>QueryID → Key → PerformanceCounters</code>. Lifetime exactly matches <code>queries</code> inner entries.</li>
+  <li><strong><code>ceph::mutex lock</code></strong> — named <code>"mgr::metric::collector::lock"</code>; guards both maps and <code>next_query_id</code>. <em>Must</em> be held by callers of <code>process_reports_generic</code> and <code>get_counters_generic</code> (enforced by <code>ceph_assert</code>).</li>
+</ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 2 — ARCHITECTURAL DECISIONS & TRADE-OFFS
+════════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+<h2>2 · Architectural Decisions &amp; Trade-offs</h2>
+
+<table>
+  <tr>
+    <th style="width:26%">Decision</th>
+    <th style="width:35%">Why this instead of…</th>
+    <th style="width:20%">Trade-off / Risk</th>
+    <th style="width:19%">Commit</th>
+  </tr>
+  <tr>
+    <td><strong>Template class, not runtime polymorphism for Query/Report types</strong></td>
+    <td>Zero-cost abstraction at the boundary between query-type logic and shared bookkeeping. Avoids type erasure, virtual dispatch per counter, or <code>std::any</code> wrapping.</td>
+    <td>Explicit template instantiations required in <code>.cc</code> — adding a new subsystem means updating that translation unit.</td>
+    <td><span class="sha">efcebe1e</span></td>
+  </tr>
+  <tr>
+    <td><strong>Two-level <code>queries</code> map: <code>Query → map&lt;QueryID, OptionalLimit&gt;</code></strong></td>
+    <td>Multiple clients can subscribe to the same logical query with different limit budgets. A flat <code>QueryID → Query</code> map would require duplicate daemon-side subscriptions for each client.</td>
+    <td>Reverse lookup from <code>QueryID → Query</code> is O(N) in <code>remove_query</code> (full linear scan of all query buckets). Acceptable because query counts are small (O(10s)).</td>
+    <td><span class="sha">efcebe1e</span> (origin: <span class="sha">a6c33908</span>)</td>
+  </tr>
+  <tr>
+    <td><strong>Listener notified <em>outside</em> the lock</strong></td>
+    <td>Prevents deadlock if <code>MetricListener::handle_query_updated()</code> re-enters the same mutex (e.g., to call <code>get_queries()</code>). Lock is scoped to map mutation only.</td>
+    <td>TOCTOU: state may change between lock release and listener invocation. Acceptable because listener re-reads state under its own locking.</td>
+    <td><span class="sha">efcebe1e</span></td>
+  </tr>
+  <tr>
+    <td><strong><code>get_counters_generic</code> requires lock held by caller (<code>ceph_assert</code>)</strong></td>
+    <td>MDS collector needs to atomically call <code>get_counters_generic</code> for multiple query IDs within a single lock hold (tracker #36253). Inlining lock acquisition would serialize each call separately.</td>
+    <td>Caller contract violation aborts the process (assert). Requires disciplined derived-class authors.</td>
+    <td><span class="sha">7523aef6</span></td>
+  </tr>
+  <tr>
+    <td><strong><code>remove_all_queries()</code> does NOT clear <code>counters</code></strong></td>
+    <td>Historical behavior preserved from <code>OSDPerfMetricCollector</code>. Counters for removed query IDs are orphaned but harmless as they are never referenced once the query is gone.</td>
+    <td>Minor memory leak if bulk-removal is called frequently with large counter maps. Not considered a realistic scenario.</td>
+    <td><span class="sha">efcebe1e</span></td>
+  </tr>
+  <tr>
+    <td><strong><code>reregister_queries()</code> calls listener unconditionally, without holding lock</strong></td>
+    <td>Post-failover recovery: after rank-0 MDS failover, the daemon has no knowledge of prior subscriptions. Triggering <code>handle_query_updated()</code> causes the listener to re-push all currently registered queries, which it reads via <code>get_queries()</code> under its own lock.</td>
+    <td>If called when no queries are registered, it fires a no-op notification. Benign.</td>
+    <td><span class="sha">c2470f27</span> (tracker #50033)</td>
+  </tr>
+  <tr>
+    <td><strong><code>get_queries()</code> guards <code>if (limit.second)</code> before dereference</strong></td>
+    <td>Mixed registrations (some limited, some unlimited) for the same query descriptor. <code>is_limited()</code> returning <code>true</code> only means <em>at least one</em> sub-registration has a limit — others may have <code>nullopt</code>.</td>
+    <td>Without the guard, a mixed registration caused a crash (tracker #52801). The guard was added as a targeted fix.</td>
+    <td><span class="sha">9a05872f</span> (tracker #52801)</td>
+  </tr>
+  <tr>
+    <td><strong>Counter dispatch via <code>UpdateCallback</code> function object</strong></td>
+    <td>Derived classes supply a lambda / function that decides how to accumulate a new counter into the running total (e.g., sum, avg, max). Keeps accumulation policy out of the base class.</td>
+    <td>Slight overhead for std::function wrapping; negligible versus I/O.</td>
+    <td><span class="sha">efcebe1e</span></td>
+  </tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 3 — DATA STRUCTURES, ALGORITHMS & INVARIANTS
+════════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+<h2>3 · Data Structures, Algorithms &amp; Invariants</h2>
+
+<h3>Core type aliases (from <code>MetricCollector.h</code>)</h3>
+<table>
+  <tr><th>Alias</th><th>Expanded Type</th><th>Purpose</th></tr>
+  <tr><td><code>OptionalLimit</code></td><td><code>std::optional&lt;Limit&gt;</code></td><td>Per-registration limit budget; absent = unlimited</td></tr>
+  <tr><td><code>QueryIDLimit</code></td><td><code>std::map&lt;MetricQueryID, OptionalLimit&gt;</code></td><td>All registrations for one logical query</td></tr>
+  <tr><td><code>Queries</code></td><td><code>std::map&lt;Query, QueryIDLimit&gt;</code></td><td>Master subscription table</td></tr>
+  <tr><td><code>Counters</code></td><td><code>std::map&lt;MetricQueryID, std::map&lt;Key, PerformanceCounters&gt;&gt;</code></td><td>Accumulated performance data</td></tr>
+  <tr><td><code>UpdateCallback</code></td><td><code>std::function&lt;void(PerformanceCounter*, const PerformanceCounter&amp;)&gt;</code></td><td>Per-counter accumulation policy</td></tr>
+  <tr><td><code>Limits</code></td><td><code>std::set&lt;Limit&gt;</code></td><td>Snapshot returned by <code>get_queries()</code></td></tr>
+</table>
+
+<h3>Member variables</h3>
+<table>
+  <tr><th>Member</th><th>Type</th><th>Protected / Private</th><th>Notes</th></tr>
+  <tr><td><code>lock</code></td><td><code>mutable ceph::mutex</code></td><td>protected</td><td>Named <code>"mgr::metric::collector::lock"</code>; guards all mutable state</td></tr>
+  <tr><td><code>queries</code></td><td><code>Queries</code></td><td>protected</td><td>Two-level subscription table</td></tr>
+  <tr><td><code>counters</code></td><td><code>Counters</code></td><td>protected</td><td>Accumulated counter data; cleared on <code>get_counters_generic</code></td></tr>
+  <tr><td><code>listener</code></td><td><code>MetricListener&amp;</code></td><td>private</td><td>Reference — must outlive this object</td></tr>
+  <tr><td><code>next_query_id</code></td><td><code>MetricQueryID (uint64)</code></td><td>private</td><td>Monotonically incrementing; never wraps in practice</td></tr>
+</table>
+
+<h3>Invariants (must hold at all times)</h3>
+<ol>
+  <li>Every <code>QueryID</code> in <code>queries[q][qid]</code> has a corresponding entry in <code>counters[qid]</code> (allocated in <code>add_query</code>, erased in <code>remove_query</code>). <span class="tag tag-info">atomicity enforced by lock</span></li>
+  <li><code>next_query_id</code> is strictly monotonic; IDs are never reused. <span class="tag tag-info">established: efcebe1e</span></li>
+  <li>The lock is never held when <code>listener.handle_query_updated()</code> is called. <span class="tag tag-ok">lock-order safety</span></li>
+  <li><code>process_reports_generic</code> and <code>get_counters_generic</code> require the caller to hold <code>lock</code> (asserted at entry). <span class="tag tag-risk">caller contract</span></li>
+  <li><code>get_counters_generic</code> moves (not copies) data from <code>counters[qid]</code> and then clears the slot — ensuring data is delivered exactly once per poll cycle.</li>
+</ol>
+
+<h3><code>process_reports_generic</code> — descriptor matching algorithm</h3>
+<pre>
+for each [query, report] in reports:
+  for each [key, packed_bl] in report.group_packed_performance_counters:
+    bl_it = packed_bl.cbegin()
+
+    // Phase 1 — resize counter vectors for all registered QueryIDs
+    for each registered qid p in queries[query]:
+      counters[p.first][key].resize(query.descriptors.size(), {0,0}) if empty
+
+    // Phase 2 — walk report descriptors vs query descriptors
+    desc_it = report.performance_counter_descriptors.begin()
+    for i in [0 .. query.descriptors.size()):
+      if desc_it == end → break          // report truncated
+      if *desc_it != query.descriptors[i] → continue   // skip mismatched position
+      c = desc_it.unpack_counter(bl_it)
+      for each qid in queries[query]:
+        callback(&counters[qid][key][i], c)
+      desc_it++
+</pre>
+<div class="callout">
+  <strong>Key property:</strong> Descriptor mismatch is silently skipped (<code>continue</code>),
+  not an error. The counter slot at index <code>i</code> is simply not updated for that cycle.
+  This tolerates version skew between mgr and daemon without crashing.
+</div>
+
+<h3><code>is_limited</code> predicate</h3>
+<pre>
+bool is_limited(const map&lt;MetricQueryID, OptionalLimit&gt; &amp;limits) const {
+    return std::any_of(begin(limits), end(limits),
+                       [](auto &l) { return l.second.has_value(); });
+}
+</pre>
+<p>Returns <code>true</code> if <em>any</em> registration for a query bucket has a defined limit.
+Used to decide whether removing or adding a registration changes the effective limit envelope
+and therefore requires a daemon notification.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 4 — THREAT MODEL & ADVERSARIAL HANDLING
+════════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+<h2>4 · Threat Model &amp; Adversarial Handling</h2>
+
+<table>
+  <tr>
+    <th style="width:28%">Scenario</th>
+    <th style="width:36%">What happens</th>
+    <th style="width:20%">Verdict</th>
+    <th style="width:16%">Evidence</th>
+  </tr>
+  <tr>
+    <td>Daemon sends a malformed / truncated packed bufferlist</td>
+    <td><code>process_reports_generic</code> walks descriptors; if <code>desc_it</code> reaches <code>end()</code> it breaks. Mismatch triggers <code>continue</code>. No bounds violation — unpack is bounded by the descriptor loop.</td>
+    <td><span class="tag tag-ok">Tolerated</span></td>
+    <td><span class="sha">efcebe1e</span> cc:168–173</td>
+  </tr>
+  <tr>
+    <td>Daemon sends reports for queries that were never registered</td>
+    <td><code>queries[query]</code> on an unknown key returns an empty inner map. The inner loop over <code>queries[query]</code> iterates zero times — report is silently dropped. <strong>Note:</strong> <code>operator[]</code> will default-insert an empty entry into <code>queries</code>.</td>
+    <td><span class="tag tag-risk">Silent map growth</span> — benign but leaks an empty entry</td>
+    <td><span class="sha">efcebe1e</span> cc:158, 178</td>
+  </tr>
+  <tr>
+    <td>Client calls <code>remove_query</code> with a non-existent QueryID</td>
+    <td>Returns <code>-ENOENT</code>. No map mutation, no listener notification.</td>
+    <td><span class="tag tag-ok">Safe</span></td>
+    <td><span class="sha">efcebe1e</span> cc:106–109</td>
+  </tr>
+  <tr>
+    <td>Client registers identical queries thousands of times (flooding)</td>
+    <td>Each call allocates a new monotonic <code>QueryID</code>, grows both <code>queries</code> inner map and <code>counters</code>. Each call may trigger <code>handle_query_updated()</code> (if registrations are limited). No rate-limiting inside this class.</td>
+    <td><span class="tag tag-risk">Unbounded memory + notification spam</span> — no guard here; caller is trusted</td>
+    <td><span class="sha">efcebe1e</span></td>
+  </tr>
+  <tr>
+    <td>Mixed limited + unlimited registrations for same query</td>
+    <td><code>is_limited()</code> returns true. <code>get_queries()</code> only inserts limits where <code>limit.second</code> has a value (guard added in <span class="sha">9a05872f</span>). Unlimited registrations produce an empty <code>Limits</code> set entry.</td>
+    <td><span class="tag tag-ok">Fixed (tracker #52801)</span></td>
+    <td><span class="sha">9a05872f</span> h:19</td>
+  </tr>
+  <tr>
+    <td>MDS rank-0 failover — daemon loses all subscriptions</td>
+    <td><code>reregister_queries()</code> is called by the failover handler. Unconditionally fires <code>handle_query_updated()</code> which causes the listener to re-push all current queries from <code>get_queries()</code>.</td>
+    <td><span class="tag tag-ok">Handled (tracker #50033)</span></td>
+    <td><span class="sha">c2470f27</span></td>
+  </tr>
+  <tr>
+    <td>Derived class calls <code>get_counters_generic</code> without holding lock</td>
+    <td><code>ceph_assert(ceph_mutex_is_locked(lock))</code> fires → process abort. This is deliberate; the assert is the enforcement mechanism.</td>
+    <td><span class="tag tag-crit">Hard crash (by design)</span></td>
+    <td><span class="sha">7523aef6</span> cc:127</td>
+  </tr>
+  <tr>
+    <td><code>MetricListener</code> reference becomes a dangling pointer</td>
+    <td>No protection. Class stores a raw reference. Caller is responsible for lifetime management. All uses are within <code>ceph-mgr</code> where the listener is a long-lived singleton.</td>
+    <td><span class="tag tag-risk">UB on dangling ref</span> — mitigated by architecture, not by code</td>
+    <td><span class="sha">efcebe1e</span></td>
+  </tr>
+  <tr>
+    <td><code>next_query_id</code> wraps around at UINT64_MAX</td>
+    <td>Wrap would cause a collision with a still-active QueryID. In practice (one registration per <code>ceph fs perf stats</code> session), this is a non-issue over any realistic uptime.</td>
+    <td><span class="tag tag-ok">Theoretical only</span></td>
+    <td><span class="sha">efcebe1e</span></td>
+  </tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 5 — FAILURE MODES, EDGE CASES & BLAST RADIUS
+════════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+<h2>5 · Failure Modes, Edge Cases &amp; Blast Radius</h2>
+
+<table>
+  <tr>
+    <th style="width:26%">Failure</th>
+    <th style="width:30%">Root Cause</th>
+    <th style="width:28%">Blast Radius</th>
+    <th style="width:16%">Signal</th>
+  </tr>
+  <tr>
+    <td><strong>mgr crash on mixed limit/unlimited query snapshot</strong></td>
+    <td><code>get_queries()</code> dereferenced a <code>nullopt</code> when <code>is_limited()</code> was true but not all sub-registrations had limits. Fixed in <span class="sha">9a05872f</span>.</td>
+    <td>mgr process abort → client perf stats unavailable until mgr failover</td>
+    <td><code>ceph-mgr</code> crash log; tracker #52801</td>
+  </tr>
+  <tr>
+    <td><strong>Stale metric data after MDS failover</strong></td>
+    <td>Daemons forget subscriptions on restart. Without <code>reregister_queries()</code>, the mgr continues to serve zero/stale counters.</td>
+    <td><code>ceph fs perf stats</code> silently returns empty data until reconnect</td>
+    <td>Zero-count reports; tracker #50033</td>
+  </tr>
+  <tr>
+    <td><strong>Orphaned counters after <code>remove_all_queries()</code></strong></td>
+    <td><code>counters</code> is not cleared in <code>remove_all_queries()</code> — only <code>queries</code> is. Counter entries for removed QueryIDs remain until the object is destroyed.</td>
+    <td>Memory leak proportional to #keys × #descriptors. No functional corruption.</td>
+    <td>Heap profiler; no runtime signal</td>
+  </tr>
+  <tr>
+    <td><strong>Phantom empty entry in <code>queries</code> map</strong></td>
+    <td><code>process_reports_generic</code> uses <code>queries[query]</code> (operator[]) which default-inserts if the query is unknown. An unregistered query from a daemon report silently creates an empty bucket.</td>
+    <td>Negligible memory overhead; no functional impact as inner loop has nothing to iterate.</td>
+    <td>Map size counter in dout(10) logs</td>
+  </tr>
+  <tr>
+    <td><strong>Descriptor version skew (daemon upgrade/downgrade)</strong></td>
+    <td>Report has different descriptor set than query. Mismatched descriptors are skipped; truncated reports break early. Counter slots for skipped descriptors remain at their last value.</td>
+    <td>Stale/partial counter data for upgraded/downgraded daemons until next matching report</td>
+    <td>dout(20): "counter … " logs stop appearing for some keys</td>
+  </tr>
+  <tr>
+    <td><strong>Lock contention between <code>add_query</code> and <code>process_reports</code></strong></td>
+    <td>Both hold <code>lock</code>; report ingestion holds lock for O(queries × keys × descriptors) iterations. High metric volume + many subscribers can stall registration calls.</td>
+    <td>Latency spike for <code>add_query</code>/<code>remove_query</code> callers; no data loss</td>
+    <td><code>ceph_mutex</code> contention logging; dout(20) delays</td>
+  </tr>
+  <tr>
+    <td><strong>Assert-abort from unheld lock in <code>get_counters_generic</code></strong></td>
+    <td>Derived class bug: calls <code>get_counters_generic</code> without holding <code>lock</code>.</td>
+    <td>mgr process abort</td>
+    <td><code>ceph_assert</code> backtrace in mgr log</td>
+  </tr>
+</table>
+
+<h3>Edge case: <code>reregister_queries()</code> blame anomaly</h3>
+<div class="callout warn">
+  The blame output at <code>cc:120–121</code> shows lines originally attributed to <span class="sha">efcebe1e</span>
+  being overwritten by the <span class="sha">c2470f27</span> function body at a different offset.
+  This is a git blame artefact from code movement, not a logic conflict.
+  The <code>reregister_queries()</code> function body is entirely from <span class="sha">c2470f27</span>.
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 6 — OBSERVABILITY & TRIAGE PLAYBOOK
+════════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+<h2>6 · Observability &amp; Triage Playbook</h2>
+
+<h3>dout logging levels</h3>
+<table>
+  <tr><th>Level</th><th>What's logged</th><th>Prefix</th></tr>
+  <tr><td><code>dout(10)</code></td><td>Query descriptor + limit string + allocated QueryID on add; QueryID on remove/not-found; per-query report record count; "counters not found" on get</td><td><code>mgr.metric_collector &lt;func&gt;: </code></td></tr>
+  <tr><td><code>dout(20)</code></td><td>Function entry with raw arguments; per-counter key + descriptor + value during report processing; function entry on reregister/remove_all/get_counters</td><td><code>mgr.metric_collector &lt;func&gt;: </code></td></tr>
+</table>
+
+<h3>Triage runbook</h3>
+<table>
+  <tr><th>Symptom</th><th>First checks</th><th>Likely cause</th></tr>
+  <tr>
+    <td><code>ceph fs perf stats</code> / <code>ceph osd perf stats</code> returns empty or zero data</td>
+    <td>
+      1. Check mgr log for <code>dout(10)</code> "report for … query: 0 records"<br/>
+      2. Verify queries are registered: <code>dout(10)</code> on <code>add_query</code> entry<br/>
+      3. Check if MDS failover occurred → <code>reregister_queries</code> should appear in logs
+    </td>
+    <td>Failover without reregister; or no daemons matching query</td>
+  </tr>
+  <tr>
+    <td>mgr crash with <code>ceph_assert(ceph_mutex_is_locked(lock))</code></td>
+    <td>
+      Backtrace will show derived class <code>get_counters</code> → <code>get_counters_generic</code>.<br/>
+      Verify derived class holds <code>lock</code> before calling.
+    </td>
+    <td>Derived class locking bug</td>
+  </tr>
+  <tr>
+    <td>mgr crash with SIGSEGV / std::bad_optional_access in <code>get_queries</code></td>
+    <td>
+      Check if running version pre-<span class="sha">9a05872f</span>. The <code>if (limit.second)</code> guard must be present in <code>MetricCollector.h:47</code>.
+    </td>
+    <td>Missing tracker #52801 fix; mixed limit registrations</td>
+  </tr>
+  <tr>
+    <td>Metric data not updating after daemon restart / failover</td>
+    <td>
+      Check if <code>reregister_queries()</code> was invoked post-reconnect.<br/>
+      Search logs for <code>mgr.metric_collector reregister_queries</code>.
+    </td>
+    <td>Failover handler not calling <code>reregister_queries()</code> — tracker #50033</td>
+  </tr>
+  <tr>
+    <td>Stale counter values (not zeroing between polls)</td>
+    <td>
+      Verify <code>get_counters_generic</code> is being called (it moves + clears the counter slot).<br/>
+      If counters accumulate, derived class may be calling report processing without polling.
+    </td>
+    <td>Derived class not calling <code>get_counters()</code> each poll cycle</td>
+  </tr>
+  <tr>
+    <td>Excessive memory usage in mgr</td>
+    <td>
+      Check for unreleased QueryIDs (leaked <code>counters</code> entries).<br/>
+      Verify <code>remove_query</code> / <code>remove_all_queries</code> is being called on session close.<br/>
+      Note: <code>remove_all_queries</code> does not clear <code>counters</code>.
+    </td>
+    <td>Missing query cleanup; or orphaned counter entries from <code>remove_all_queries</code></td>
+  </tr>
+</table>
+
+<h3>Key commit reference card</h3>
+<table>
+  <tr><th>SHA</th><th>Author</th><th>Date</th><th>What changed</th></tr>
+  <tr><td><span class="sha">efcebe1e</span></td><td>Venky Shankar</td><td>2019-09-10</td><td>Initial templatized MetricCollector extracted from OSDPerfMetricCollector</td></tr>
+  <tr><td><span class="sha">f6ba1eea</span></td><td>Venky Shankar</td><td>2019-09-10</td><td>Added MDS explicit template instantiation; tracker #36253</td></tr>
+  <tr><td><span class="sha">7523aef6</span></td><td>Venky Shankar</td><td>2019-08-26</td><td>MDS perf stats module: <code>get_counters</code> → <code>get_counters_generic</code>; added <code>ceph_assert</code></td></tr>
+  <tr><td><span class="sha">c2470f27</span></td><td>Jos Collin</td><td>2021-06-29</td><td>Added <code>reregister_queries()</code> for MDS failover resilience; tracker #50033</td></tr>
+  <tr><td><span class="sha">9a05872f</span></td><td>Aswin Toni</td><td>2021-10-01</td><td>Added <code>if (limit.second)</code> guard in <code>get_queries()</code>; crash fix tracker #52801</td></tr>
+  <tr><td><span class="sha">85d82faa</span> / <span class="sha">f1bac418</span></td><td>Edwin Rodriguez</td><td>2025-10-01</td><td>Indent settings update (.h and .cc) — no logic change</td></tr>
+</table>
+</div>
+
+<hr/>
+<p class="meta">
+  <span>Generated from git corpus at <code>~/BobOutput/Object History/v4/MetricCollector/</code></span>
+  <span>Intent file: <code>MetricCollector-intent.md</code></span>
+  <span>All claims grounded in commit history — no speculation</span>
+</p>
+
+</body>
+</html>

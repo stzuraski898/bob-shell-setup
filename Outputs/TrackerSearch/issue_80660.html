@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#80660 — mgr: missing validation for inverted life expectancy ranges in DeviceState and CLI command handlers</title>
+<style>
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    background: #f7f8fa;
+    color: #1f2328;
+  }
+  .page { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  a { color: #3b82d4; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header {
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 16px;
+    margin-bottom: 28px;
+  }
+  header h1 { font-size: 20px; font-weight: 700; }
+  header .subtitle { color: #57606a; font-size: 13px; margin-top: 4px; }
+  .badge {
+    display: inline-block;
+    font-size: 11px; padding: 1px 7px; border-radius: 10px;
+    white-space: nowrap; font-weight: 500;
+  }
+  .badge-new      { background: #dbeafe; color: #1d4ed8; }
+  .badge-progress { background: #fef9c3; color: #854d0e; }
+  .badge-resolved { background: #dcfce7; color: #166534; }
+  .badge-rejected { background: #fee2e2; color: #991b1b; }
+  .badge-other    { background: #f3f4f6; color: #374151; }
+  .pri-urgent { background: #fee2e2; color: #991b1b; }
+  .pri-high   { background: #ffedd5; color: #9a3412; }
+  .pri-normal { background: #f3f4f6; color: #374151; }
+  .pri-low    { background: #f0fdf4; color: #166534; }
+  footer {
+    margin-top: 48px; padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+    text-align: center; font-size: 12px; color: #57606a;
+  }
+
+  .breadcrumb { font-size: 12px; color: #57606a; margin-bottom: 20px; }
+  .breadcrumb a { color: #3b82d4; }
+  .issue-title { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+  .issue-id { font-size: 14px; color: #57606a; font-weight: 400; }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px 24px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 28px;
+    font-size: 13px;
+  }
+  .meta-grid dt { color: #57606a; font-size: 11px; text-transform: uppercase;
+                   letter-spacing: 0.04em; margin-bottom: 2px; }
+  .meta-grid dd { font-weight: 600; color: #1f2328; }
+  .section-heading {
+    font-size: 13px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #57606a;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 6px; margin-bottom: 16px;
+  }
+  .description {
+    background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 6px; padding: 20px 24px;
+    font-size: 14px; line-height: 1.7;
+    color: #1f2328;
+  }
+  .description p { margin-bottom: 12px; }
+  .description p:last-child { margin-bottom: 0; }
+  .description pre {
+    background: #f7f8fa; border: 1px solid #e5e7eb;
+    border-radius: 4px; padding: 12px 14px;
+    overflow-x: auto; font-size: 13px;
+    margin: 10px 0;
+  }
+  .description code {
+    background: #f0f1f3; border-radius: 3px;
+    padding: 1px 4px; font-size: 12px; font-family: monospace;
+  }
+  .description pre code {
+    background: none; padding: 0; font-size: 13px;
+  }
+  .external-link {
+    display: inline-block; margin-top: 20px;
+    font-size: 13px; color: #3b82d4;
+    border: 1px solid #3b82d4; border-radius: 4px;
+    padding: 5px 12px;
+  }
+  .external-link:hover { background: #3b82d4; color: #fff; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="breadcrumb">
+    <a href="index.html">&#8592; Back to search results</a>
+  </div>
+
+  <header>
+    <div class="issue-id">Bug #80660 &mdash; Bug</div>
+    <h1 class="issue-title">mgr: missing validation for inverted life expectancy ranges in DeviceState and CLI command handlers</h1>
+    <div>
+      <span class="badge badge-new">New</span>
+      <span class="badge pri-normal">Normal</span>
+    </div>
+  </header>
+
+  <dl class="meta-grid">
+    <div>
+      <dt>Author</dt>
+      <dd>Steven Zuraski</dd>
+    </div>
+    <div>
+      <dt>Assignee</dt>
+      <dd>Steven Zuraski</dd>
+    </div>
+    <div>
+      <dt>Created</dt>
+      <dd>2026-09-18</dd>
+    </div>
+    <div>
+      <dt>Updated</dt>
+      <dd>2026-09-18</dd>
+    </div>
+    <div>
+      <dt>Priority</dt>
+      <dd>Normal</dd>
+    </div>
+    <div>
+      <dt>Category</dt>
+      <dd>ceph-mgr</dd>
+    </div>
+    <div>
+      <dt>Target version</dt>
+      <dd>—</dd>
+    </div>
+  </dl>
+
+  <p class="section-heading">Description</p>
+  <div class="description">
+    <p>DeviceState tracks predicted disk failure windows via life<em>expectancy (make</em>pair(from, to)). Neither DeviceState::set<em>life</em>expectancy() nor DeviceState::set_metadata() validates that from &lt;= to. Furthermore, upstream callers, including the ceph device set-life-expectancy CLI handler in DaemonServer.cc and persistent store loader in Mgr.cc contain zero validation checks to ensure the lower bound does not exceed the upper bound.<br><br>As a result, inverted ranges (where from &gt; to or life<em>expectancy</em>min &gt; life<em>expectancy</em>max) are accepted, persisted to the monitor store, and cause incorrect formatting and underflow risks during duration math in get<em>life</em>expectancy_str().<br><br>Found via unit test:<br><br><pre><code><br>TEST<em>F(DeviceStateTest, LatentBug</em>set<em>life</em>expectancy_InvertedRange) {<br>  utime_t now(1000, 0);<br>  utime_t from(3000, 0); // min is 3000<br>  utime_t to(2000, 0);   // max is 2000 (inverted: from &gt; to)<br>  <br>  device-&gt;set<em>life</em>expectancy(from, to, now);<br><br>  // Range should either be rejected or normalized, not stored as from &gt; to<br>  EXPECT<em>LE(device-&gt;life</em>expectancy.first, device-&gt;life_expectancy.second);<br>}<br></code></pre><br><br><strong>Impact:</strong><br><br>1. Illogical / Backwards User Output:<br>In DeviceState::get<em>life</em>expectancy_str() (src/mgr/DaemonState.cc:109-128):<br><pre><code><br>string a = timespan<em>str(make</em>timespan(min));<br>string b = timespan<em>str(make</em>timespan(max));<br>return a + &quot; to &quot; + b;<br></code></pre><br><br>2. Underflow Risk in Duration Math If to &lt; now &lt; from, now &gt;= life_expectancy.first is false, leading to:<br><pre><code><br>utime<em>t max = life</em>expectancy.second - now; // Underflow: subtracting larger unsigned time from smaller<br></code></pre><br>utime<em>t uses unsigned components (uint32</em>t sec()), subtracting now when now &gt; to results in large unsigned wraparound values when converted via make_timespan(max).<br><br><strong>Resolution</strong><br>The problem should either be resolved at the CLI level or within set<em>life</em>expectancy and set_metadata, ensuring that from &lt;= to<br><br>Introduced by:<br>* <a href="https://github.com/ceph/ceph/commit/4920bbd6cb49#diff-2de410c19e44c5a7ca3ca756e0464f8101e0218002090e36c55b3b68c40040e6" target="_blank">https://github.com/ceph/ceph/commit/4920bbd6cb49#diff-2de410c19e44c5a7ca3ca756e0464f8101e0218002090e36c55b3b68c40040e6</a></p>
+  </div>
+
+  <a class="external-link" href="https://tracker.ceph.com/issues/80660" target="_blank">
+    View on tracker.ceph.com &#8599;
+  </a>
+
+  <footer>Made with IBM Bob &mdash; generated 2026-09-22 21:13 UTC</footer>
+</div>
+</body>
+</html>

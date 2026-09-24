@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiteboard Defense: DaemonServer (src/mgr/DaemonServer)</title>
+<style>
+  :root {
+    --bg-primary: #0f172a;
+    --bg-surface: #1e293b;
+    --bg-surface-elevated: #334155;
+    --border-color: #475569;
+    --text-primary: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-bright: #38bdf8;
+    --accent-blue: #0284c7;
+    --accent-emerald: #10b981;
+    --accent-amber: #f59e0b;
+    --accent-rose: #ef4444;
+    --accent-purple: #a855f7;
+    --code-bg: #090d16;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.55;
+    padding: 2rem;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+  header {
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  h1 { font-size: 2.2rem; color: var(--text-bright); font-weight: 700; margin-bottom: 0.5rem; }
+  .subtitle { font-size: 1.05rem; color: var(--text-muted); }
+  .metadata-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    background: var(--bg-surface);
+    padding: 0.75rem 1.25rem;
+    border-radius: 6px;
+    border-left: 4px solid var(--accent-blue);
+  }
+  .metadata-bar span strong { color: var(--text-bright); }
+  
+  h2 {
+    font-size: 1.45rem;
+    color: var(--text-primary);
+    margin: 2rem 0 1rem 0;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  h3 { font-size: 1.15rem; color: var(--text-bright); margin: 1.25rem 0 0.5rem 0; }
+
+  p { margin-bottom: 0.85rem; }
+  ul, ol { margin-left: 1.5rem; margin-bottom: 1rem; }
+  li { margin-bottom: 0.35rem; }
+
+  /* High-Contrast Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 1.5rem 0;
+    background-color: var(--bg-surface);
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 0.92rem;
+  }
+  th, td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: top;
+  }
+  th {
+    background-color: var(--bg-surface-elevated);
+    color: var(--text-bright);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background-color: rgba(255, 255, 255, 0.02); }
+
+  /* Badges & Tags */
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-family: monospace;
+  }
+  .badge-sha { background: #1e1b4b; color: #a5b4fc; border: 1px solid #4338ca; }
+  .badge-crit { background: #450a0a; color: #fca5a5; border: 1px solid #991b1b; }
+  .badge-warn { background: #451a03; color: #fcd34d; border: 1px solid #b45309; }
+  .badge-ok { background: #064e3b; color: #6ee7b7; border: 1px solid #047857; }
+  .badge-info { background: #0c4a6e; color: #7dd3fc; border: 1px solid #0369a1; }
+
+  /* Code & Preformatted Blocks */
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+  }
+  pre {
+    background: var(--code-bg);
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: #cbd5e1;
+    margin-bottom: 1.25rem;
+  }
+
+  /* Grid & Panels */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+  
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1.25rem;
+  }
+  .card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .lock-hierarchy {
+    border-left: 3px solid var(--accent-purple);
+    background: rgba(168, 85, 247, 0.05);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Whiteboard Defense: DaemonServer</h1>
+  <div class="subtitle">Authoritative Architectural Grounding, Invariant Defense & Triage Playbook</div>
+  <div class="metadata-bar">
+    <span><strong>Target:</strong> <code>src/mgr/DaemonServer.cc</code> / <code>DaemonServer.h</code></span>
+    <span><strong>Corpus:</strong> 358 non-merge commits (<code>ac30e6cee2b2</code> &rarr; <code>ffd759b34b94</code>)</span>
+    <span><strong>Role:</strong> Central network boundary, daemon registry & telemetry ingress for Ceph Manager</span>
+  </div>
+</header>
+
+<!-- SECTION 1 -->
+<h2>1. High-Level Architecture & Mental Model</h2>
+<p>
+<code>DaemonServer</code> is the active Ceph Manager's network endpoint, protocol front-door, and cluster aggregation engine. It hosts the <code>Messenger</code> interface for incoming Ceph daemon heartbeats, telemetry reports, PG statistics, client commands (<code>ceph tell mgr ...</code>), and admin socket diagnostics.
+</p>
+
+<pre>
+                                     +-------------------------------------------------------------+
+                                     |                    Network Dispatchers                      |
+                                     +-------------------------------------------------------------+
+                                                    | (ms_fast_authentication / ms_dispatch2)
+   [ OSDs / MDSs / MONs / Clients ]                 v
+                  |               +-----------------------------------+
+                  +-------------> |           DaemonServer            |
+                                  |-----------------------------------|
+                                  | - Messenger (Lossy/Stateless)     |
+                                  | - 6 Dedicated Throttlers          |
+                                  | - OpTracker & StatsAutotuner      |
+                                  +-----------------------------------+
+                                    |              |                |
+                +-------------------+              |                +--------------------+
+                v                                  v                                     v
++-------------------------------+  +-------------------------------+   +----------------------------------+
+|      Telemetry & Reports      |  |       Command Pipeline        |   |        Background Engine         |
+|-------------------------------|  |-------------------------------|   |----------------------------------|
+| * PGStats (ingest_pgstats)    |  | * MgrCap validation           |   | * SafeTimer (tick loop)          |
+| * MMgrReport (osd_cons/state) |  | * CLI routing to PyModules    |   | * adjust_pgs() (autoscaler)      |
+| * DaemonHealthMetricCollector |  | * ok-to-stop / ok-to-upgrade  |   | * send_report() to Monitors      |
++-------------------------------+  +-------------------------------+   +----------------------------------+
+</pre>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Core Responsibilities</div>
+    <ul>
+      <li><strong>Telemetry Ingestion:</strong> Ingests high-frequency <code>MSG_PGSTATS</code> and <code>MSG_MGR_REPORT</code> from all OSDs and MDSs without global head-of-line blocking.</li>
+      <li><strong>Daemon State & Connection Index:</strong> Maps live daemons to connections (<code>osd_cons</code>, <code>daemon_connections</code>, <code>DaemonState</code>).</li>
+      <li><strong>Admin & CLI Gateway:</strong> Validates capability strings via <code>MgrCap</code>, authorizes, and routes commands (JSON/Plain) to Python modules or native handlers.</li>
+      <li><strong>Cluster Autoscaling & Sync:</strong> Runs the periodic <code>adjust_pgs()</code> engine and sends cluster summaries (<code>send_report()</code>) to MONs.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-title">Key Boundary Protocols</div>
+    <ul>
+      <li><code>MSG_MGR_OPEN</code> / <code>MSG_MGR_CLOSE</code>: Daemon session establishment and lifecycle teardown.</li>
+      <li><code>MSG_PGSTATS</code>: Per-PG placement group statistics updates.</li>
+      <li><code>MSG_MGR_REPORT</code>: Metric reports, daemon performance counters, and health metrics.</li>
+      <li><code>MSG_COMMAND</code> / <code>MSG_MGR_COMMAND</code>: Operator/client management requests.</li>
+      <li><code>MMgrConfigure</code>: Downstream metric collection configurations pushed to OSDs/MDSs.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- SECTION 2 -->
+<h2>2. Architectural Decisions & Trade-offs ("Why X instead of Y?")</h2>
+<table>
+  <thead>
+    <tr>
+      <th style="width: 22%;">Decision</th>
+      <th style="width: 18%;">Alternative Considered</th>
+      <th style="width: 45%;">Defensive Rationale & Architectural Grounding</th>
+      <th style="width: 15%;">Commit SHA</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Stateless Server Policy for OSD/MDS</strong></td>
+      <td>Lossy Client or Stateful Session</td>
+      <td>
+        OSD and MDS daemons connect dynamically. Using <code>stateless_server</code> ensures dead or restarting daemons do not pin session state or leak connection references in the Messenger layer when network flaps occur.
+      </td>
+      <td><span class="badge badge-sha">28c666eb8010</span><br><span class="badge badge-info">Fixes #61942</span></td>
+    </tr>
+    <tr>
+      <td><strong>Fast-Path Lockless Authentication</strong></td>
+      <td>Acquiring <code>DaemonServer::lock</code> in <code>ms_handle_fast_authentication</code></td>
+      <td>
+        Fast messenger callback threads cannot take subsystem locks without risking inversion/deadlock with Messenger worker threads. Authentication allocates <code>MgrSession</code> and validates caps lock-free; OSD mapping is deferred to <code>ms_handle_accept</code>.
+      </td>
+      <td><span class="badge badge-sha">69980823e62f</span><br><span class="badge badge-info">Fixes #61874</span></td>
+    </tr>
+    <tr>
+      <td><strong>6 Dedicated Throttlers (Byte & Count)</strong></td>
+      <td>Single Shared Global Throttle</td>
+      <td>
+        Isolates client traffic, OSD telemetry, MDS metrics, and MON messages. A burst of heavy client commands or high OSD PG reporting cannot starve critical Monitor keep-alives or MDS heartbeats.
+      </td>
+      <td><span class="badge badge-sha">5c0d1f9d3323</span><br><span class="badge badge-sha">948de224df12</span></td>
+    </tr>
+    <tr>
+      <td><strong>Atomic <code>pgmap_ready</code> Fast-Check</strong></td>
+      <td>Acquiring <code>lock</code> on every incoming <code>MSG_PGSTATS</code></td>
+      <td>
+        During steady-state operation, thousands of PG stat messages arrive per second. An atomic load on <code>pgmap_ready</code> bypasses the global mutex completely once all up OSDs have reported their initial state.
+      </td>
+      <td><span class="badge badge-sha">d20915741d98</span><br><span class="badge badge-sha">64af9d3da0fc</span></td>
+    </tr>
+    <tr>
+      <td><strong>Unconditional Connection Cleanup on Reset</strong></td>
+      <td>OSD-only cleanup in <code>ms_handle_reset</code></td>
+      <td>
+        Non-OSD daemons (MDS, RGW, Prometheus clients) left lingering references in <code>daemon_connections</code> upon connection drops, resulting in creeping memory leaks and invalid broadcast targets.
+      </td>
+      <td><span class="badge badge-sha">a996144cb350</span><br><span class="badge badge-crit">Fixes #78408</span></td>
+    </tr>
+    <tr>
+      <td><strong>Dynamic Dynamic Stats Period Autotuning</strong></td>
+      <td>Static <code>mgr_stats_period</code> config</td>
+      <td>
+        When dispatch queue backs up under high load (>20 depth), autotuner dynamically extends OSD reporting period up to 60s, halving back to baseline during recovery to prevent manager OOM/crash.
+      </td>
+      <td><span class="badge badge-sha">027a609a8274</span><br><span class="badge badge-info">Fixes #73151</span></td>
+    </tr>
+    <tr>
+      <td><strong>Atomic Init-Statement <code>daemon_state.get()</code></strong></td>
+      <td>Separate <code>exists()</code> check followed by <code>get()</code></td>
+      <td>
+        Eliminates Time-Of-Check to Time-Of-Use (TOCTOU) race condition in <code>handle_report()</code> where a concurrent daemon shutdown could delete the state between the existence check and pointer dereference.
+      </td>
+      <td><span class="badge badge-sha">dd05ee337991</span><br><span class="badge badge-crit">Fixes #45591</span></td>
+    </tr>
+    <tr>
+      <td><strong>Explicit Teardown via <code>compare_exchange_strong</code></strong></td>
+      <td>Relying on C++ implicit destructor order</td>
+      <td>
+        Guarantees idempotent shutdown. Halts <code>OpTracker</code> background thread before deleting Messenger, preventing use-after-free during rapid mgr failover or shutdown races.
+      </td>
+      <td><span class="badge badge-sha">fd4d4ce58b86</span><br><span class="badge badge-crit">Fixes #76334</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- SECTION 3 -->
+<h2>3. Data Structures, Algorithms & Invariants</h2>
+
+<div class="grid-2">
+  <div class="card lock-hierarchy">
+    <div class="card-title">Lock Ordering & Hierarchy Rules</div>
+    <ol>
+      <li><strong>Messenger Connection Lock (Internal):</strong> Managed by Simple/AsyncMessenger. Never acquire <code>DaemonServer::lock</code> inside fast messenger callbacks (<code>ms_handle_fast_authentication</code>).</li>
+      <li><strong><code>DaemonServer::lock</code> (Global Mutex):</strong> Protects <code>osd_cons</code>, <code>daemon_connections</code>, <code>pending_service_map</code>, and safe timer scheduling.</li>
+      <li><strong><code>daemon->lock</code> (Per-Daemon Mutex):</strong> Nested strictly <em>inside</em> <code>DaemonServer::lock</code>. Protects individual daemon metadata and metrics.</li>
+      <li><strong>Finisher Queue Decoupling:</strong> Metric updates (OSD/MDS perf queries) dispatch via <code>Finisher</code> threads to break collector vs server lock cycles.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Core In-Memory Data Structures</div>
+    <ul>
+      <li><code>std::map&lt;int, std::set&lt;ConnectionRef&gt;&gt; osd_cons</code>: Direct OSD ID to active Messenger connection map.</li>
+      <li><code>std::set&lt;ConnectionRef&gt; daemon_connections</code>: Broadcast set for config pushes (<code>MMgrConfigure</code>).</li>
+      <li><code>std::set&lt;int&gt; reported_osds</code>: Ephemeral set tracking bootstrap OSD reports before <code>pgmap_ready</code>.</li>
+      <li><code>StatsAutotuner stats_autotuner</code>: PI-style rate regulator monitoring dispatch queue backlog.</li>
+      <li><code>OpTracker op_tracker</code>: Live telemetry tracker for in-flight/slow mgr commands.</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Algorithmic Subsystems</h3>
+<table>
+  <thead>
+    <tr>
+      <th style="width: 20%;">Algorithm</th>
+      <th style="width: 30%;">Mechanism</th>
+      <th style="width: 35%;">Invariants & Guardrails</th>
+      <th style="width: 15%;">Reference</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>PG Autoscaling & Merging (<code>adjust_pgs</code>)</strong></td>
+      <td>
+        Iterates pools, evaluates misplaced % threshold, calculates target <code>pg_num</code> / <code>pgp_num</code>, and issues asynchronous <code>start_mon_command</code>.
+      </td>
+      <td>
+        <ul>
+          <li>Blocks <code>pg_num</code> reduction until <code>pgp_num</code> decreases.</li>
+          <li>Never merge if either PG is remapped or has active upmaps.</li>
+          <li>Purges <code>pg_upmap_primary</code> before executing merges (<span class="badge badge-sha">460b2c8b09fe</span>).</li>
+        </ul>
+      </td>
+      <td><code>.cc:3374</code></td>
+    </tr>
+    <tr>
+      <td><strong>Safe Upgrade Validation (<code>_maximize_ok_to_upgrade_set</code>)</strong></td>
+      <td>
+        Traverses CRUSH hierarchy, sorts candidate OSDs globally by PG count (<span class="badge badge-sha">8177e48e5c80</span>), and computes maximal failure-domain subset.
+      </td>
+      <td>
+        <ul>
+          <li>Whitelist restricted to <code>rack</code>, <code>chassis</code>, <code>host</code>, <code>osd</code> (<span class="badge badge-sha">c63b188a9fb1</span>).</li>
+          <li>Convergence factor loop backs off subset size if min-size check fails.</li>
+          <li>Returns <code>std::nullopt</code> if version unknown or unverified.</li>
+        </ul>
+      </td>
+      <td><code>.cc:1347</code></td>
+    </tr>
+    <tr>
+      <td><strong>Dispatch Queue Autotuning (<code>maybe_adjust_stats_period</code>)</strong></td>
+      <td>
+        Checks queue depth every 5 ticks. If depth > 20, increases period by <code>max(5, cur/4)</code> up to 60s. Halves period when queue drains.
+      </td>
+      <td>
+        <ul>
+          <li>Differentiates internal autotune changes from manual user overrides (<code>was_changed_by_user</code>).</li>
+          <li>Applies rate limit to prevent config oscillation.</li>
+        </ul>
+      </td>
+      <td><code>.h:391</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- SECTION 4 -->
+<h2>4. Threat Model & Adversarial Handling ("What if an actor behaves maliciously?")</h2>
+<table>
+  <thead>
+    <tr>
+      <th style="width: 20%;">Threat / Adversarial Action</th>
+      <th style="width: 38%;">System Defense Mechanism</th>
+      <th style="width: 27%;">Blast Radius & Impact</th>
+      <th style="width: 15%;">Commit Grounding</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Forged / Spoofed Client Telemetry</strong><br><small>Non-daemon entity sending <code>MSG_MGR_REPORT</code> or <code>MSG_MGR_OPEN</code></small></td>
+      <td>
+        Explicit peer type validation in <code>handle_report</code> / <code>handle_open</code>. Non-daemon clients (<code>CEPH_ENTITY_TYPE_CLIENT</code>) without a registered <code>service_name</code> are immediately disconnected via <code>con->mark_down()</code> and logged.
+      </td>
+      <td>
+        <span class="badge badge-ok">Contained</span><br>Zero corruption of <code>DaemonState</code> or cluster health metrics.
+      </td>
+      <td><span class="badge badge-sha">8f1146aad251</span><br><span class="badge badge-sha">1a065043b964</span></td>
+    </tr>
+    <tr>
+      <td><strong>Malformed Capability String</strong><br><small>Corrupted or hostile auth cap buffer</small></td>
+      <td>
+        <code>ms_handle_fast_authentication</code> wraps capability buffer decoding in <code>try / catch (const buffer::error &)</code> and parses via <code>s->caps.parse()</code>, immediately returning <code>false</code> on failure.
+      </td>
+      <td>
+        <span class="badge badge-ok">Zero Crash</span><br>Connection rejected during handshake; no manager crash.
+      </td>
+      <td><span class="badge badge-sha">bfbfbbfed6c0</span></td>
+    </tr>
+    <tr>
+      <td><strong>Unauthorized CLI Command Execution</strong><br><small>Client issuing privileged <code>tell mgr</code> commands</small></td>
+      <td>
+        All commands undergo strict capability validation in <code>_allowed_command()</code> using <code>MgrCap::is_capable()</code> checking service, module, command prefix, and argument map. Denials trigger structured audit logging via <code>log_access_denied()</code>.
+      </td>
+      <td>
+        <span class="badge badge-ok">Access Denied</span><br>Returns <code>-EACCES</code> to caller and alerts cluster admin log.
+      </td>
+      <td><span class="badge badge-sha">282c31c38385</span><br><span class="badge badge-sha">4085eb475328</span></td>
+    </tr>
+    <tr>
+      <td><strong>Telemetry Flood / Denial of Service</strong><br><small>Flapping OSDs flooding stats or reports</small></td>
+      <td>
+        Dedicated byte and message throttlers (<code>mgr_osd_bytes</code>, <code>mgr_osd_messages</code>) apply backpressure at the Messenger transport layer, while <code>StatsAutotuner</code> dynamically relaxes collection interval.
+      </td>
+      <td>
+        <span class="badge badge-warn">Throttled</span><br>Incoming connections stalled; manager process protected from OOM.
+      </td>
+      <td><span class="badge badge-sha">5c0d1f9d3323</span><br><span class="badge badge-sha">027a609a8274</span></td>
+    </tr>
+    <tr>
+      <td><strong>Stale / Orphaned Connection Leak</strong><br><small>Rapid connection resets from dying nodes</small></td>
+      <td>
+        <code>ms_handle_reset</code> unconditionally erases connections from <code>daemon_connections</code> across all peer types, preventing dangling references and memory exhaustion.
+      </td>
+      <td>
+        <span class="badge badge-ok">Clean Eviction</span><br>All stale memory freed immediately on TCP reset.
+      </td>
+      <td><span class="badge badge-sha">a996144cb350</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- SECTION 5 -->
+<h2>5. Failure Modes, Edge Cases & Blast Radius ("Where does this fail?")</h2>
+<table>
+  <thead>
+    <tr>
+      <th style="width: 22%;">Failure Mode / Edge Case</th>
+      <th style="width: 40%;">Root Cause & Handling Path</th>
+      <th style="width: 23%;">Blast Radius</th>
+      <th style="width: 15%;">Severity</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Bootstrap Telemetry Blackhole</strong><br><small>Premature client queries before full PG sync</small></td>
+      <td>
+        <code>maybe_ready()</code> maintains <code>reported_osds</code> set. <code>pgmap_ready</code> remains <code>false</code> until every <code>up</code> OSD reports once. Commands requiring full cluster state return <code>-EAGAIN</code> until ready.
+      </td>
+      <td>Telemetry commands delayed for several seconds during cold cluster start.</td>
+      <td><span class="badge badge-warn">Low / Transient</span></td>
+    </tr>
+    <tr>
+      <td><strong>Missing Daemon Metadata on Report</strong><br><small>Report arrives before metadata fetch completes</small></td>
+      <td>
+        If <code>daemon_state.get(key)</code> is null in <code>handle_report()</code>, manager unlocks <code>lock</code>, initiates async <code>fetch_missing_metadata()</code>, tears down connection via <code>con->mark_down()</code>, and rejects report.
+      </td>
+      <td>Single telemetry report dropped; OSD reconnects and succeeds after metadata ingest.</td>
+      <td><span class="badge badge-info">Transient</span></td>
+    </tr>
+    <tr>
+      <td><strong>Disabled Python Module Dispatch</strong><br><small>CLI invokes command for inactive module</small></td>
+      <td>
+        <code>_handle_command()</code> strictly checks module enablement before activation status. Returns <code>-EOPNOTSUPP</code> if disabled, or <code>-ETIMEDOUT</code> if enabled but module thread hung.
+      </td>
+      <td>Command fails immediately with human-readable error; daemon unaffected.</td>
+      <td><span class="badge badge-ok">Contained</span></td>
+    </tr>
+    <tr>
+      <td><strong>Asynchronous PG Merge Conflict</strong><br><small>Target PG state mutates during merge schedule</small></td>
+      <td>
+        <code>adjust_pgs()</code> validates that source and target PGs are strictly <code>active+clean</code>, verifies matching acting sets, and removes active upmaps. If preconditions fail, merge step is deferred.
+      </td>
+      <td>Autoscaler step skipped for that tick cycle; no data loss or corruption.</td>
+      <td><span class="badge badge-ok">Handled</span></td>
+    </tr>
+    <tr>
+      <td><strong>Rapid Failover Teardown Race</strong><br><small>Standby takeover while active manager is shutting down</small></td>
+      <td>
+        <code>shutdown()</code> uses <code>atomic&lt;bool&gt; shutting_down</code> compare-exchange. Halts <code>OpTracker</code>, cancels SafeTimer, clears Messenger, and unregisters config observer.
+      </td>
+      <td>Clean process termination without SIGSEGV / use-after-free.</td>
+      <td><span class="badge badge-crit">Critical Fixed</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- SECTION 6 -->
+<h2>6. Observability & Triage Playbook</h2>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Live Admin Socket Diagnostics (asok)</div>
+    <p>Admin socket commands registered in <code>DaemonServer::init()</code> (<span class="badge badge-sha">66efcaae7a05</span>):</p>
+    <ul>
+      <li><code>ceph daemon mgr.&lt;id&gt; dump_ops_in_flight</code>: Inspect hung commands/reports.</li>
+      <li><code>ceph daemon mgr.&lt;id&gt; dump_blocked_ops</code>: Identify lock contention points.</li>
+      <li><code>ceph daemon mgr.&lt;id&gt; dump_historic_slow_ops</code>: Analyze trailing slow telemetry.</li>
+      <li><code>ceph daemon mgr.&lt;id&gt; dump_pg_ready</code>: Check boolean bootstrap status.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Key Log Patterns for Triage (ceph-mgr.log)</div>
+    <ul>
+      <li><code>"unauthorized command name=... caps=..."</code> &rarr; Auth capability rejection (<span class="badge badge-sha">4085eb475328</span>).</li>
+      <li><code>"rejecting report from non-daemon..."</code> &rarr; Malicious/misconfigured client (<span class="badge badge-sha">612747e97bdd</span>).</li>
+      <li><code>"auto-tuning stats period from X to Y"</code> &rarr; Dispatch queue under load (<span class="badge badge-sha">027a609a8274</span>).</li>
+      <li><code>"adjust_pgs: pool X pg_num Y -> Z"</code> &rarr; Active autoscaling decisions.</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Triage Decision Tree</h3>
+<pre>
+[High Memory / CPU Backlog in ceph-mgr]
+   |
+   +---> Check Dispatch Queue: `ceph daemon mgr.<id> dump_ops_in_flight`
+   |        |
+   |        +---> Queue > 20 ops?
+   |                 +---> Check `mgr_stats_period` autotuning in logs.
+   |                 +---> Check throttler metrics: `mgr_osd_bytes` / `mgr_osd_messages`.
+   |
+   +---> Check In-Flight Hangs: `ceph daemon mgr.<id> dump_blocked_ops`
+   |        |
+   |        +---> Blocked on Python Module? Restart hung module (`ceph mgr module disable/enable`).
+   |        +---> Blocked on Metadata Fetch? Verify MON cluster health & latency.
+   |
+   +---> Connection Leaks: Inspect `daemon_connections` size via asok / logs.
+            |
+            +---> Verify running release contains <span class="badge badge-sha">a996144cb350</span> (all-peer reset fix).
+</pre>
+
+</div>
+</body>
+</html>
