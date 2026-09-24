@@ -6,9 +6,8 @@ on:
       - 'v*'
     branches:
       - main
-    paths:
-      - 'gui/**'
-      - '.github/workflows/build-executable.yml'
+  release:
+    types: [published, created]
   workflow_dispatch:
 
 permissions:
@@ -25,15 +24,15 @@ jobs:
           - os: ubuntu-latest
             artifact_name: bob-agents-gui-linux-x86_64
             dist_path: dist/bob-agents-gui
-            asset_name: bob-agents-gui-linux-x86_64
+            upload_file: dist/bob-agents-gui
           - os: macos-latest
             artifact_name: BobAgentLauncher-macos
             dist_path: dist/BobAgentLauncher.app
-            asset_name: BobAgentLauncher-macos.zip
+            upload_file: dist/BobAgentLauncher-macos.zip
           - os: windows-latest
             artifact_name: bob-agents-gui-windows.exe
             dist_path: dist/bob-agents-gui.exe
-            asset_name: bob-agents-gui-windows.exe
+            upload_file: dist/bob-agents-gui.exe
 
     steps:
       - name: Checkout repository
@@ -43,12 +42,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller pillow
+          pip install -r requirements.txt
 
       - name: Build executable with PyInstaller
         run: |
@@ -67,10 +65,11 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.dist_path }}
 
-      - name: Publish Release Asset (on tag)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish Release Asset (on tag or release)
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.os == 'macos-latest' && 'dist/BobAgentLauncher-macos.zip' || matrix.dist_path }}
+          files: ${{ matrix.upload_file }}
+          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
