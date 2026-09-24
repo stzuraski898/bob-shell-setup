@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - 'Outputs/CephMgrObjects/WhiteboardDefense/**'
+      - 'Outputs/ceph-mgr-intents-assessment.html'
+      - 'Outputs/WhiteboardDefense/**'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
@@ -31,8 +33,113 @@ jobs:
       - name: Prepare site directory
         run: |
           mkdir -p _site
-          # Deploy Ceph Mgr Objects Whiteboard Defense as root of the site
-          cp -r Outputs/CephMgrObjects/WhiteboardDefense/* _site/
+
+          # 1. Ceph Mgr Object Whiteboard Defense under /ceph-mgr-whiteboard-defense/
+          mkdir -p _site/ceph-mgr-whiteboard-defense
+          cp -r Outputs/CephMgrObjects/WhiteboardDefense/* _site/ceph-mgr-whiteboard-defense/
+
+          # 2. Ceph Mgr Intent Findings under /ceph-mgr-intent-findings/
+          if [ -f "Outputs/ceph-mgr-intents-assessment.html" ]; then
+            mkdir -p _site/ceph-mgr-intent-findings
+            cp Outputs/ceph-mgr-intents-assessment.html _site/ceph-mgr-intent-findings/index.html
+          fi
+
+          # 3. Root landing page with links to both hubs
+          cat << 'EOF' > _site/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Ceph Mgr Analysis Hub</title>
+            <style>
+              *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                background: #0d1117;
+                color: #c9d1d9;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                padding: 24px;
+              }
+              .container {
+                max-width: 720px;
+                width: 100%;
+              }
+              h1 {
+                font-size: 28px;
+                font-weight: 700;
+                color: #f0f6fc;
+                margin-bottom: 8px;
+              }
+              p.subtitle {
+                font-size: 14px;
+                color: #8b949e;
+                margin-bottom: 28px;
+              }
+              .grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 16px;
+              }
+              a.card {
+                background: #161b22;
+                border: 1px solid #30363d;
+                border-radius: 8px;
+                padding: 20px;
+                text-decoration: none;
+                color: inherit;
+                transition: border-color 0.15s, transform 0.15s;
+                display: flex;
+                flex-direction: column;
+              }
+              a.card:hover {
+                border-color: #58a6ff;
+                transform: translateY(-2px);
+              }
+              .tag {
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                color: #58a6ff;
+                margin-bottom: 8px;
+              }
+              .card-title {
+                font-size: 16px;
+                font-weight: 600;
+                color: #f0f6fc;
+                margin-bottom: 8px;
+              }
+              .card-desc {
+                font-size: 13px;
+                color: #8b949e;
+                line-height: 1.5;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>Ceph Manager Analysis Hub</h1>
+              <p class="subtitle">Interactive Whiteboard Defenses and Intent Assessments for Ceph src/mgr/ classes.</p>
+              <div class="grid">
+                <a class="card" href="ceph-mgr-whiteboard-defense/">
+                  <span class="tag">Whiteboard Defense</span>
+                  <div class="card-title">Ceph Mgr Object Defenses</div>
+                  <div class="card-desc">Architecture, threat models, and operational defenses for 27 Ceph manager objects.</div>
+                </a>
+                <a class="card" href="ceph-mgr-intent-findings/">
+                  <span class="tag">Intent Assessment</span>
+                  <div class="card-title">Intent Findings Explorer</div>
+                  <div class="card-desc">Interactive explorer for code changes, line-level findings, and intent classifications.</div>
+                </a>
+              </div>
+            </div>
+          </body>
+          </html>
+          EOF
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
