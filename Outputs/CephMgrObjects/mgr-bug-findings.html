@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ceph MGR — Bug Findings</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; font-size: 14px; line-height: 1.6; background: #fff; color: #1f2328; }
+  .page { max-width: 980px; margin: 0 auto; padding: 24px 20px 48px; }
+  h1 { font-size: 1.35rem; font-weight: 700; margin-bottom: 4px; }
+  .meta { font-size: 12px; color: #57606a; margin-bottom: 20px; }
+  .meta a { color: #3b82d4; }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; margin-bottom: 20px; }
+  .tab-btn {
+    padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+    border: none; background: none; color: #57606a;
+    border-bottom: 3px solid transparent; margin-bottom: -2px; white-space: nowrap;
+  }
+  .tab-btn.active { color: #3b82d4; border-bottom-color: #3b82d4; }
+  .tab-btn:hover:not(.active) { color: #1f2328; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── CONTROLS ── */
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .controls label { font-size: 12px; color: #57606a; font-weight: 600; }
+  select, input[type=text] {
+    padding: 5px 10px; font-size: 13px; border: 1px solid #d1d5db;
+    border-radius: 4px; background: #f7f8fa; color: #1f2328; outline: none;
+  }
+  select:focus, input[type=text]:focus { border-color: #3b82d4; }
+
+  /* ── TABLE ── */
+  .tbl-wrap { overflow-x: auto; margin-bottom: 24px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { background: #f7f8fa; }
+  th { padding: 8px 10px; text-align: left; font-weight: 700; border-bottom: 2px solid #e5e7eb; white-space: nowrap; }
+  td { padding: 7px 10px; border-bottom: 1px solid #f0f1f3; vertical-align: top; }
+  tr:hover td { background: #fafbfc; }
+
+  /* ── BADGES ── */
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .b-div  { background: #fde8e8; color: #b91c1c; }
+  .b-ord  { background: #dbeafe; color: #1d4ed8; }
+  .b-ung  { background: #fef9c3; color: #854d0e; }
+  .b-t1   { background: #fef3c7; color: #92400e; }
+  .b-t1b  { background: #dbeafe; color: #1e40af; }
+  .b-t2   { background: #ecfdf5; color: #065f46; }
+  .b-t3   { background: #f3f4f6; color: #374151; }
+  .b-reach { background: #d1fae5; color: #065f46; }
+  .b-code  { background: #dbeafe; color: #1e40af; }
+  .b-lat   { background: #fef9c3; color: #92400e; }
+  .b-unc   { background: #fee2e2; color: #991b1b; }
+  .b-hard  { background: #f3f4f6; color: #374151; }
+  .b-narr  { background: #fef9c3; color: #92400e; }
+
+  .score { font-weight: 700; }
+  .s-hi { color: #b91c1c; }
+  .s-md { color: #d97706; }
+  .s-lo { color: #374151; }
+
+  del { color: #9ca3af; }
+  code { font-family: ui-monospace, monospace; font-size: 12px; background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }
+
+  /* ── SECTION HEADING ── */
+  .sh { font-size: 1rem; font-weight: 700; margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
+  .sh-sub { font-size: 0.8rem; color: #57606a; font-weight: 400; margin-left: 8px; }
+
+  /* ── METHOD BOX ── */
+  .mbox { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px 16px; margin-bottom: 20px; font-size: 13px; }
+  .mbox h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 6px; }
+  .mbox ul { padding-left: 18px; }
+  .mbox li { margin-bottom: 3px; }
+
+  /* ── LEGEND ── */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center; font-size: 11px; color: #57606a; }
+  .legend strong { font-size: 11px; margin-right: 2px; }
+
+  /* ── CANDIDATE CARDS ── */
+  .cg { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 10px; margin-bottom: 20px; }
+  .cc { border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 12px; background: #f7f8fa; }
+  .cc .cn { font-weight: 700; font-size: 13px; }
+  .cc .cl { font-size: 11px; font-weight: 700; margin-top: 3px; }
+  .cc .cr { font-size: 11px; color: #57606a; margin-top: 3px; }
+  .cdone { color: #059669; } .cgo { color: #2563eb; } .cmay { color: #d97706; }
+  .cmod  { color: #7c3aed; } .cno  { color: #9ca3af; }
+
+  /* ── DETAIL ROWS ── */
+  .detail-row td { background: #f9fafb; font-size: 12px; color: #57606a; padding: 6px 10px 10px 36px; }
+  tr.collapsed .chevron::before { content: "▶"; }
+  tr:not(.collapsed) .chevron::before { content: "▼"; }
+
+  footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 11px; color: #57606a; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Ceph MGR — Bug Findings</h1>
+  <p class="meta">
+    Generated 2026-09-28 · Updated 2026-10-23 &nbsp;|&nbsp;
+    Sources: Whiteboard Defense (27 objects) + Invariant-and-Ordering Tests (259 tests, 8 objects) &nbsp;|&nbsp;
+    <a href="mgr-bug-fix-priority-ranking.md">ranking.md</a> ·
+    <a href="ordering-findings.md">ordering-findings.md</a> ·
+    <a href="ordering-candidates.md">candidates.md</a> ·
+    <a href="https://github.com/stzuraski898/ceph/tree/wip-sz-ordering-test-main">wip-sz-ordering-test-main ↗</a>
+  </p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="all">All Bugs</button>
+    <button class="tab-btn" data-tab="ordering">Ordering Bugs</button>
+    <button class="tab-btn" data-tab="whiteboard">Whiteboard Defense</button>
+    <button class="tab-btn" data-tab="candidates">Untested Candidates</button>
+  </div>
+
+  <!-- ═══════════════════ TAB: ALL ═══════════════════ -->
+  <div class="tab-panel active" id="tab-all">
+    <div class="controls">
+      <label>Sort:</label>
+      <select id="all-sort">
+        <option value="tier">Tier</option>
+        <option value="score">Score ↓</option>
+        <option value="object">Object A–Z</option>
+        <option value="type">Finding type</option>
+      </select>
+      <label>Tier:</label>
+      <select id="all-tier">
+        <option value="">All</option>
+        <option value="1">Tier 1</option>
+        <option value="1b">Tier 1b (OT)</option>
+        <option value="2">Tier 2</option>
+      </select>
+      <label>Filter:</label>
+      <input type="text" id="all-filter" placeholder="object, OT-id, headline…" style="width:210px">
+    </div>
+    <div class="legend">
+      <strong>Finding:</strong>
+      <span class="badge b-div">DIVERGED</span> confirmed bug &nbsp;
+      <span class="badge b-ord">ORDERING</span> invariant/ordering test &nbsp;
+      <span class="badge b-ung">UNGROUNDED</span> unconfirmed risk &nbsp;&nbsp;
+      <strong>Class:</strong>
+      <span class="badge b-reach">Reachable</span>
+      <span class="badge b-code">Code-confirmed</span>
+      <span class="badge b-lat">Latent</span>
+      <span class="badge b-unc">Unconfirmed</span>
+      <span class="badge b-hard">Hardening</span>
+      <span class="badge b-narr">Narrow</span>
+      &nbsp;&nbsp;<em>Click any row to expand detail.</em>
+    </div>
+    <div class="tbl-wrap">
+      <table id="all-table">
+        <thead>
+          <tr>
+            <th style="width:22px"></th>
+            <th>Tier</th>
+            <th>Object</th>
+            <th>ID</th>
+            <th>Type</th>
+            <th>Class</th>
+            <th style="text-align:center">UT</th>
+            <th style="text-align:center">Imp</th>
+            <th style="text-align:center">Ease</th>
+            <th style="text-align:center">Σ</th>
+            <th>Tracker</th>
+            <th>Headline</th>
+          </tr>
+        </thead>
+        <tbody id="all-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ TAB: ORDERING ═══════════════════ -->
+  <div class="tab-panel" id="tab-ordering">
+    <div class="mbox">
+      <h3>How ordering bugs were found</h3>
+      <ul>
+        <li><strong>Method:</strong> invariant-and-ordering gtests (the approach from the RGW/P-model talk), applied as in-process gtest directly against <code>src/mgr/</code> objects buildable without the full messenger/MonClient stack.</li>
+        <li><strong>Scope:</strong> 8 objects, 259 tests, <code>ceph-origin/main</code> at commit <code>dc7b747c37c</code>. Waves 1–3 complete; wave-3 "Maybe" objects (MgrClient, Gil, PyModuleRunner, PyFormatter) not yet run.</li>
+        <li><strong>Agent corrections:</strong> several agent reports had wrong option names, counter call sites, or caller claims. Every high-value item was source-verified at the commit above. Items marked <em>Unconfirmed</em> need a live mgr, TSAN, or a malformed-report test before filing a tracker.</li>
+        <li><strong>Test code:</strong> collected on <a href="https://github.com/stzuraski898/ceph/tree/wip-sz-ordering-test-main"><code>wip-sz-ordering-test-main</code> ↗</a>; patches also in <code>ordering-results/tests/</code>. No production code was changed.</li>
+        <li><strong>Ready to fix (test written):</strong> OT-05, OT-06, OT-02, OT-01, OT-14. &nbsp;|&nbsp;
+            <strong>Confirm before filing:</strong> OT-11 (short <code>packed</code> to real DaemonServer), OT-09 (live-mgr RSS watch across OSD map changes), OT-12 (two shipping versions with conflicting counter declaration).</li>
+      </ul>
+    </div>
+    <div class="legend">
+      <strong>Class:</strong>
+      <span class="badge b-reach">Reachable</span>
+      <span class="badge b-code">Code-confirmed</span>
+      <span class="badge b-lat">Latent</span>
+      <span class="badge b-unc">Unconfirmed</span>
+      <span class="badge b-hard">Hardening</span>
+      <span class="badge b-narr">Narrow</span>
+      &nbsp;&nbsp;<em>Click a row to expand detail.</em>
+    </div>
+    <div class="tbl-wrap">
+      <table id="ord-table">
+        <thead>
+          <tr>
+            <th style="width:22px"></th>
+            <th>ID</th>
+            <th>Object</th>
+            <th>Class</th>
+            <th style="text-align:center">UT</th>
+            <th style="text-align:center">Imp</th>
+            <th style="text-align:center">Ease</th>
+            <th style="text-align:center">Σ</th>
+            <th>Headline</th>
+          </tr>
+        </thead>
+        <tbody id="ord-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="sh">Known items reproduced by ordering tests</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Known item</th><th>Object</th><th>What the test added</th></tr></thead>
+        <tbody>
+          <tr><td><code>DaemonStateIndex::get_all()</code> copies without the lock (DIVERGED, ranking §9)</td><td>DaemonState</td><td>Reader sees torn entries under a concurrent writer thread</td></tr>
+          <tr><td><code>with_device_create</code> empty-device leak (#80655)</td><td>DaemonState</td><td>Reproduced</td></tr>
+          <tr><td>Empty-hostname <code>by_server['']</code> bucket (#80661)</td><td>DaemonState</td><td>Reproduced</td></tr>
+          <tr><td><code>MgrCap::parse</code> leaves grants after profile-validation failure (#81015)</td><td>MgrCap</td><td>Reproduced on fresh object, after successful parse, and across successive failures</td></tr>
+          <tr><td><code>get_latest_data()</code> / <code>_avg()</code> on empty buffer (#81019, #81020)</td><td>DaemonPerfCounters</td><td>In this build <code>BOOST_CB_ENABLE_DEBUG=0</code>; reads garbage. An empty instance is reachable via OT-11.</td></tr>
+          <tr><td><code>push</code>/<code>push_avg</code> silently drop a point of the other kind (UNGROUNDED)</td><td>DaemonPerfCounters</td><td>Reproduced; not reachable through <code>update()</code></td></tr>
+          <tr><td><code>avgcount2</code> decoded and discarded (UNGROUNDED)</td><td>DaemonPerfCounters</td><td>Confirmed word consumed, so next path stays in sync</td></tr>
+          <tr><td><code>Py_AddPendingCall</code> return ignored in <code>MgrMapCache::erase</code> (UNGROUNDED)</td><td>MgrMapCache</td><td>With Python 3.14's 32-entry queue, 40 insert-erase cycles leave 8 objects at refcount + 1</td></tr>
+          <tr><td><code>PendingPGs::_summarize</code> has no daemon cap</td><td>DaemonHealthMetricCollector</td><td>Named 11 and 50 daemons in detail string</td></tr>
+          <tr><td><code>MDSPerfMetricCollector::last_updated_mono</code> uninitialised</td><td>MetricCollector</td><td>Path exercised; garbage value not asserted</td></tr>
+          <tr><td>ThreadMonitor #81336, #81337, #81338</td><td>ThreadMonitor</td><td>Not tested (cannot make sysconf fail; stream parses not driven)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sh">Disproved or by design</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Item</th><th>Verdict</th><th>Evidence</th></tr></thead>
+        <tbody>
+          <tr><td><del>DaemonHealthMetric default ctor leaves <code>value.n</code> uninitialised</del></td><td><strong>Disproved.</strong> Close the ranking entry.</td><td><code>daemon_metric_t(uint64_t x = 0)</code> is the union default ctor. Test constructs over 0xFF-filled storage and reads 0.</td></tr>
+          <tr><td><code>summarize()</code> twice into one map doubles count</td><td>By design</td><td><code>send_report</code> summarizes each collector once into a fresh map (d0eb22f3ba55)</td></tr>
+          <tr><td><code>get()</code> throws on miss; <code>try_get</code> counts miss even when disabled</td><td>By design</td><td>Intent file and commit 403340bcf8c2</td></tr>
+          <tr><td>Late report from old session recreates instances after <code>clear()</code></td><td>By design</td><td>Comment at <code>DaemonPerfCounters.cc:61-63</code>, commit 5b6037aeb43a</td></tr>
+          <tr><td><code>types</code> never loses a path; undeclared path keeps its instance</td><td>By design</td><td>Commit a46690c6230b</td></tr>
+          <tr><td><code>stop_monitoring()</code> waits up to a full interval</td><td>By design</td><td><code>sleep_for</code> with no interruption (commit 95a90f7da8a3); slows shutdown only</td></tr>
+          <tr><td>Concurrent <code>is_capable</code> on a parsed <code>MgrCap</code> races on <code>profile_grants</code></td><td>Holds — no defect</td><td><code>parse()</code> expands profiles eagerly; zero-grant profiles never write</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ TAB: WHITEBOARD ═══════════════════ -->
+  <div class="tab-panel" id="tab-whiteboard">
+    <div class="mbox">
+      <h3>How Whiteboard Defense bugs were found</h3>
+      <ul>
+        <li><strong>Method:</strong> For each object: (1) read the implementation and extract a precise intent model (invariants, state transitions, threading contract, lifecycle); (2) compare intent against the actual code line by line; (3) classify each gap as DIVERGED (confirmed mismatch), UNGROUNDED (possible risk), or DOC (comment staleness).</li>
+        <li><strong>Scope:</strong> 27 objects from <code>src/mgr/</code>. Source artefacts in <code>Outputs/Intents/</code> and <code>Outputs/CephMgrObjects/WhiteboardDefense/</code>.</li>
+        <li><strong>Scoring:</strong> each object rated 1–5 on <em>unit-test reproducibility</em>, <em>impact</em>, and <em>ease of fix</em>. Composite max = 15. Objects with no confirmed DIVERGED item are Tier 2 (hardening) or Tier 3 (clean) regardless of score.</li>
+        <li><strong>Filed trackers:</strong> MgrCap (#81015–#81017), PerfCounterInstance (#81018–#81020), ThreadMonitor (#81336–#81338), PyModule (#81339), MgrOpRequest (#81340–#81341).</li>
+      </ul>
+    </div>
+    <div class="controls">
+      <label>Filter:</label>
+      <input type="text" id="wb-filter" placeholder="object or keyword…" style="width:220px">
+    </div>
+    <div id="wb-content"></div>
+  </div>
+
+  <!-- ═══════════════════ TAB: CANDIDATES ═══════════════════ -->
+  <div class="tab-panel" id="tab-candidates">
+    <p style="margin-bottom:14px;font-size:13px;color:#57606a;">
+      Status 2026-10-23: pilot + all seven "Go" objects completed (waves 1–3). The four "Maybe" objects below have not been run.
+      "Model-only" objects need the full daemon stack and are candidates for state-machine (P-model) analysis instead of in-process gtest.
+    </p>
+
+    <div class="sh">Maybe — wave 3 (not yet run)</div>
+    <div class="cg" id="cand-maybe"></div>
+
+    <div class="sh">Model-only — not drivable in-process</div>
+    <div class="cg" id="cand-model"></div>
+
+    <div class="sh">No-Go — pure data / single-function logic</div>
+    <div class="cg" id="cand-nogo"></div>
+
+    <div class="sh">Done <span class="sh-sub">all waves 1–3 finished</span></div>
+    <div class="cg" id="cand-done"></div>
+  </div>
+
+  <footer>Made with IBM Bob</footer>
+</div>
+
+<script>
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+
+const BUGS = [
+  // Tier 1 ─ Whiteboard Defense (filed)
+  {tier:"1",obj:"MgrCap",id:"",type:"DIVERGED",cls:"Reachable",ut:5,imp:4,ease:5,score:14,tracker:"81015 81016 81017",
+   headline:"grants not cleared on failed profile-parse (security); broken memoization; decode() silences errors",
+   detail:"Bug 1: parse() (MgrCap.cc:566) returns false on profile-evaluation failure without calling grants.clear(). Bug 2: expand_profile guard never trips for zero-grant profiles — re-expands on every call. Bug 3: decode() calls parse(s,NULL) ignoring return value, suppressing errors. Trackers: #81015, #81016, #81017.",
+   method:"whiteboard"},
+  {tier:"1",obj:"PerfCounterInstance",id:"",type:"DIVERGED",cls:"Reachable",ut:5,imp:4,ease:5,score:14,tracker:"81018 81019 81020",
+   headline:"back() on empty buffer → UB/crash; get_current() declared but undefined (link error)",
+   detail:"Bug 1: get_current() (.h:52) declared but no definition — link error on any call (#81018). Bug 2: get_latest_data() (.h:61) calls buffer.back() with no !empty() guard → UB/crash (#81019). Bug 3: get_latest_data_avg() (.h:69) same issue on avg_buffer; always UB on SCALAR instances (avg_buffer capacity 0) (#81020).",
+   method:"whiteboard"},
+  {tier:"1",obj:"ThreadMonitor",id:"",type:"DIVERGED",cls:"Reachable",ut:3,imp:5,ease:4,score:12,tracker:"81336 81337 81338",
+   headline:"std::terminate() on sysconf failure; unchecked thread-stat parse; unchecked process-statm parse",
+   detail:"Bug 1: sysconf-failure guard (.cc:79) sets running=false from inside the thread; destructor never joins → std::terminate() (#81336). Bug 2: read_thread_stat (.cc:226) does ss >> utime >> stime with no success check → UB on malformed line (#81337). Bug 3: read_process_statm (.cc:239) unchecked → rss_pages=0 reported silently (#81338).",
+   method:"whiteboard"},
+  {tier:"1",obj:"PyModule",id:"",type:"DIVERGED",cls:"Reachable",ut:2,imp:5,ease:5,score:12,tracker:"81339",
+   headline:"inverted destructor interpreter guard → Py_EndInterpreter on main interpreter → crash",
+   detail:"~PyModule() (.cc:816) uses if (use_main_interpreter) (should be !use_main_interpreter) → calls Py_EndInterpreter on the main interpreter → process crash. Subinterpreter is leaked. Tracker: #81339.",
+   method:"whiteboard"},
+  {tier:"1",obj:"MgrOpRequest",id:"",type:"DIVERGED",cls:"Reachable",ut:5,imp:2,ease:5,score:12,tracker:"81340 81341",
+   headline:"mark_finish_mon_command copy-paste wrong flag; mark_flag_point_string drops last_event_detail",
+   detail:"Bug 1: mark_finish_mon_command (.h:122) passes flag_start_mon_command instead of flag_finish_mon_command → 0x10 finish bit never set (#81340). Bug 2: mark_flag_point_string (.cc:96) omits last_event_detail = s → stale/empty detail returned by _get_state_string() (#81341).",
+   method:"whiteboard"},
+  {tier:"1",obj:"MDSPerfMetricCollector",id:"",type:"DIVERGED",cls:"Reachable",ut:3,imp:3,ease:5,score:11,tracker:"",
+   headline:"last_updated_mono uninitialised; get_last_updated() returns garbage before first process_reports",
+   detail:"Constructor (.cc:16) has no member initializer for struct timespec last_updated_mono (added by c2470f27). get_last_updated() (.cc:63) reads it with no validity guard, returning garbage utime_t before first process_reports.",
+   method:"whiteboard"},
+  {tier:"1",obj:"PyFormatter",id:"",type:"DIVERGED",cls:"Reachable",ut:3,imp:4,ease:3,score:10,tracker:"",
+   headline:"dump_format_va null check missing → daemon abort on non-UTF-8; dump_string silently drops value",
+   detail:"Bug 1: dump_format_va (.cc:112) passes PyUnicode_FromString result to dump_pyobject with no null check; on failure hits null-abort guard → ceph-mgr aborts. Bug 2: dump_string (.cc:77) clears the Python error and silently drops the value instead of Latin-1 fallback — field missing from output.",
+   method:"whiteboard"},
+  {tier:"1",obj:"PyModuleRunner",id:"",type:"DIVERGED",cls:"Reachable",ut:2,imp:3,ease:5,score:10,tracker:"",
+   headline:"l_pym_alive stuck at 1 on error path; ctor derefs before assert; non-atomic dead flag race",
+   detail:"Bug 1: serve() (.cc:73) returns -EINVAL without resetting l_pym_alive → counter stuck at 1 after an exception. Bug 2: constructor (.h:81) computes py_module->get_name() before ceph_assert(py_module != nullptr) → segfault precedes assert. Bug 3: bool dead (.h:95) is non-atomic; shutdown()'s write races is_dead()'s read.",
+   method:"whiteboard"},
+  {tier:"1",obj:"DaemonState",id:"",type:"DIVERGED",cls:"Reachable",ut:2,imp:3,ease:5,score:10,tracker:"",
+   headline:"get_all() returns by value without the shared lock → copy races writers",
+   detail:"DaemonStateIndex::get_all (.h:180) returns all by value without taking the shared lock — the copy races concurrent writers. Contradicts the 806f10847cef rationale that all by-value getters lock. Reproduced by an ordering test.",
+   method:"whiteboard"},
+  {tier:"1",obj:"MgrClient",id:"",type:"DIVERGED",cls:"Reachable",ut:2,imp:3,ease:5,score:10,tracker:"",
+   headline:"start_tell_command moves-from name before send condition reads it → tell commands misrouted",
+   detail:"start_tell_command (.cc:566): op.name = std::move(name) before the send condition name.size()==0 || map.active_name==name reads it → condition always true → tell commands sent to current mgr, cancelled with -ENXIO on next reconnect.",
+   method:"whiteboard"},
+  {tier:"1",obj:"ActivePyModules",id:"",type:"DIVERGED",cls:"Reachable",ut:2,imp:4,ease:3,score:9,tracker:"",
+   headline:"get_foreign_config ignores cmd.r; get_config takes lock without GIL release → deadlock; stale decl",
+   detail:"Bug 1: get_foreign_config (.cc:~1431) doesn't check cmd.r → failed mon command's error string coerced to config value. Bug 2: get_config (.cc:~696) takes module_config.lock without preceding without_gil_t → deadlock from GIL-holding Python thread (cf. #39264). Bug 3: update_cache_metrics (.h:272) declared but definition deleted (403340bcf8) → linker error if called.",
+   method:"whiteboard"},
+  {tier:"1",obj:"PyModuleRegistry",id:"",type:"DIVERGED",cls:"Reachable",ut:2,imp:3,ease:4,score:9,tracker:"",
+   headline:"probe_modules no try/catch → daemon crash on bad mgr_module_path; missing active_modules asserts",
+   detail:"Bug 1: upgrade_config declared (.h:138) but implementation deleted (70e99e76) — dead declaration. Bug 2: ceph_assert(active_modules) missing in check_all_modules_started (.cc:514) → null-deref risk. Bug 3: same missing assert in get_pending_modules (.h:279). UNGROUNDED: probe_modules has no try/catch around directory_iterator → daemon crash on bad mgr_module_path.",
+   method:"whiteboard"},
+  {tier:"1",obj:"Mgr",id:"",type:"DIVERGED",cls:"Reachable",ut:2,imp:3,ease:4,score:9,tracker:"",
+   headline:"MDS metadata loop uses emplace instead of set_metadata → MDS device index unpopulated at startup",
+   detail:"load_all_metadata MDS loop (.cc:495) assigns via dm->metadata.emplace(key, val.get_str()) instead of dm->set_metadata(m) as the Mon (:529) and OSD (:560) loops do → parsed fields (device IDs, hostname refresh) not populated for MDS daemons.",
+   method:"whiteboard"},
+  {tier:"1",obj:"StandbyPyModules",id:"",type:"DIVERGED",cls:"Reachable",ut:2,imp:3,ease:3,score:8,tracker:"",
+   headline:"with_config no longer blocks for readiness → empty config; duplicate-name assert removed from lock",
+   detail:"Bug 1: with_config (.h:69) silently returns empty config if PyModuleConfig not yet populated — blocking established by c1471c75 then removed by 3193d40d. Bug 2: start_one (.cc:75): pre-queue duplicate-name assert removed from outer lock; only post-load assert in Finisher lambda remains → aborts daemon with poor diagnostics.",
+   method:"whiteboard"},
+  {tier:"1",obj:"MgrStandby",id:"",type:"DIVERGED",cls:"Reachable",ut:2,imp:2,ease:4,score:8,tracker:"",
+   headline:"state_str() vs beacon availability mismatch; ms_dispatch2 overwrites MGR_MAP ACK; 3 more",
+   detail:"Bug 1: ms_dispatch2 (.cc:521): active_mgr->ms_dispatch2(m) overwrites r=ACKNOWLEDGED() for MSG_MGR_MAP → spurious unhandled warnings. Bug 2: state_str() (.cc:552) tests only is_initialized() while beacon uses is_initialized()||exceeded_initialization_expiration(). Bug 3: partial shutdown in destructor (.cc:97). Bug 4: no thread-join on non-signal return in main() (.cc:534). Bug 5: py_module_registry.init() error ignored (.cc:288).",
+   method:"whiteboard"},
+  {tier:"1",obj:"ClusterState",id:"",type:"DIVERGED",cls:"Reachable",ut:2,imp:2,ease:4,score:8,tracker:"",
+   headline:"update_delta_stats missing lock assertion; ClusterSocketHook::call() returns bool-as-int",
+   detail:"Bug 1: update_delta_stats (.cc:~139) lacks ceph_mutex_is_locked(lock) assert that its sibling notify_osdmap has → lock violations on shared pg_map/pending_inc go undetected. Bug 2: ClusterSocketHook::call() (.cc:~207) returns bool-as-int (always 1); signature not updated when call() became int.",
+   method:"whiteboard"},
+  {tier:"1",obj:"Gil",id:"",type:"DIVERGED",cls:"Reachable",ut:1,imp:2,ease:4,score:7,tracker:"",
+   headline:"GIL leaked on failed thread-identity assert; SafeThreadState::set has no null check",
+   detail:"Bug 1: Gil::Gil (.cc:87): ceph_assert(pthread_self()==pThreadState.thread) runs after PyEval_RestoreThread — on failure GIL already acquired and leaked. Bug 2: SafeThreadState::set (.h:47) has no null check, bypassing the explicit-ctor ts != nullptr invariant.",
+   method:"whiteboard"},
+  // Tier 1b ─ Ordering
+  {tier:"1b",obj:"ThreadMonitor",id:"OT-05",type:"ORDERING",cls:"Reachable",ut:5,imp:3,ease:5,score:13,tracker:"",
+   headline:"mgr_module_monitor_interval=0 at mgr start → busy-spin: one core at 100% plus /proc reads every pass",
+   detail:"start_monitoring() (ThreadMonitor.cc:23-30) never checks the interval. PyModuleRegistry::init calls it unconditionally (PyModuleRegistry.cc:103). The ctor takes the interval from the option (ThreadMonitor.h:37); the loop ends each pass with sleep_for(0) (:148). The option description says 0 disables collection and handle_conf_change honours that at runtime (:72-73), so the bug appears only when 0 is set before the mgr starts. Fix: skip start_monitoring() when interval is 0. Test: OrderingBug_T1_ZeroIntervalThenStart_BusySpins.",
+   method:"ordering"},
+  {tier:"1b",obj:"ThreadMonitor",id:"OT-06",type:"ORDERING",cls:"Reachable",ut:5,imp:3,ease:5,score:13,tracker:"",
+   headline:"Shrinking RSS: rss_change (long long) → perfcounter->set(uint64_t) wraps to ~2^64",
+   detail:"rss_change is long long (:103) passed to perfcounter->set() which takes uint64_t. When RSS shrinks (Python frees memory) the counter shows ~1.8e19 until the next pass. Test: OrderingBug_T9_RssShrinks_ChangeCounterNotWrapped (maps 64 MB, unmaps, waits one pass).",
+   method:"ordering"},
+  {tier:"1b",obj:"MetricCollector",id:"OT-02",type:"ORDERING",cls:"Code-confirmed",ut:5,imp:3,ease:4,score:12,tracker:"",
+   headline:"queries[query] phantom insert blocks next add_query notify; ghost entry in get_queries()",
+   detail:"process_reports_generic indexes queries[query] (twice) which default-inserts an empty entry for an unregistered query. A later add_query finds it, is_limited=false, notify=false, handle_query_updated not called → daemons not told. The phantom also stays in get_queries(). Fix: use find() and skip unknown queries. Tests: OrderingBug_Q1a, Q1b.",
+   method:"ordering"},
+  {tier:"1b",obj:"DaemonPerfCounters",id:"OT-11",type:"ORDERING",cls:"Unconfirmed",ut:5,imp:4,ease:3,score:12,tracker:"",
+   headline:"Short packed → partial update + uncaught buffer::error → possible mgr abort. Confirm first.",
+   detail:"update() creates the instance and pushes while decoding (DaemonPerfCounters.cc:63-77), so a short packed stores early values then throws. DaemonServer::handle_report (DaemonServer.cc:845) has no try/catch and nothing above in the dispatch path catches, so one malformed report from an authenticated daemon could reach std::terminate. Most important item to confirm: send a short packed to a real or test DaemonServer. The empty instance left behind is also what get_latest_data() trips over (#81019).",
+   method:"ordering"},
+  {tier:"1b",obj:"DaemonState",id:"OT-01",type:"ORDERING",cls:"Reachable",ut:5,imp:3,ease:3,score:11,tracker:"",
+   headline:"Two OSDs sharing a device collapse attachment tuple; _erase of first orphans second. Sequence after #80661.",
+   detail:"_insert adds (host,devname,path) to a std::set; _erase removes it unconditionally (DaemonState.cc:246/248, 268/270). Two OSDs on one host with block.db on the same device produce identical tuples. Removing the first orphans the second. Breaking commit 2c0fd7d86827. The fix touches the same lines as the empty-hostname fix (#80661), so sequence them.",
+   method:"ordering"},
+  {tier:"1b",obj:"MgrMapCache",id:"OT-09",type:"ORDERING",cls:"Unconfirmed",ut:4,imp:4,ease:3,score:11,tracker:"",
+   headline:"Deferred Py_DECREF runs only on main thread, which ceph-mgr parks outside Python → possible leak per cache invalidation",
+   detail:"erase() and the schedule_decref lambda in insert() hand the final Py_DECREF to Py_AddPendingCall. Python runs pending calls only on the main thread while evaluating bytecode. ceph-mgr parks main thread in MgrStandby::main (MgrStandby.cc:538) after PyEval_SaveThread(). Behaviour confirmed on Python 3.9, 3.12, 3.14. If it holds live, every cache invalidation (osd_map, pg_dump, pg_stats, mon_status, mgr_map, osd_metadata, config) leaks the cached object. Live check needed: watch mgr RSS or sys.getrefcount of a cached map across many OSD map changes.",
+   method:"ordering"},
+  {tier:"1b",obj:"DaemonPerfCounters",id:"OT-12",type:"ORDERING",cls:"Unconfirmed",ut:5,imp:3,ease:3,score:11,tracker:"",
+   headline:"Shared types table fixed by first daemon; second daemon's data decoded with wrong kind",
+   detail:"types.insert never overwrites and update() decodes with types.at(path). If daemon A declared X as a plain counter and daemon B declares X as LONGRUNAVG, B's avgcount is silently dropped or the decoder throws (feeding OT-11). Needs two shipping Ceph versions that disagree on a path; no such pair has been found yet.",
+   method:"ordering"},
+  {tier:"1b",obj:"MetricCollector",id:"OT-03",type:"ORDERING",cls:"Latent",ut:5,imp:1,ease:5,score:11,tracker:"",
+   headline:"remove_all_queries() leaves counters; get_counters succeeds on removed ids (no caller outside MetricCollector today)",
+   detail:"Nothing outside MetricCollector itself calls remove_all_queries() (the agent's claim of a DaemonServer caller was wrong per git grep). Latent until a caller is added.",
+   method:"ordering"},
+  {tier:"1b",obj:"ClusterState",id:"OT-04",type:"ORDERING",cls:"Latent",ut:5,imp:1,ease:5,score:11,tracker:"",
+   headline:"osd_stat has no seq guard; late report can lower osd_stat.seq (needs two live connections from one OSD)",
+   detail:"PGMap::apply_incremental assigns osd_stat with no seq guard. The OSD seq is (up_from<<32)+seq (monotonic across restarts), and the messenger orders messages per connection, so two live connections from one OSD are needed to trigger this.",
+   method:"ordering"},
+  {tier:"1b",obj:"ThreadMonitor",id:"OT-08",type:"ORDERING",cls:"Latent",ut:5,imp:1,ease:5,score:11,tracker:"",
+   headline:"int64 option narrowed to int and to nanoseconds; overflow only with absurd values (>9.2e9 s)",
+   detail:"int interval = get_val<int64_t>(...) at ThreadMonitor.cc:69 narrows. The ctor (ThreadMonitor.h:37) converts the seconds value to nanoseconds; the overflow is reachable only if the option is set above ~9.2e9 seconds at mgr start.",
+   method:"ordering"},
+  {tier:"1b",obj:"MgrMapCache",id:"OT-10",type:"ORDERING",cls:"Latent",ut:5,imp:1,ease:5,score:11,tracker:"",
+   headline:"Capacity 0 would store one entry (capacity fixed at UINT16_MAX today — latent)",
+   detail:"LFU eviction logic allows capacity-0 caches to store one entry. Capacity is currently fixed at UINT16_MAX so this cannot be reached in production.",
+   method:"ordering"},
+  {tier:"1b",obj:"MgrCap",id:"OT-16",type:"ORDERING",cls:"Latent",ut:5,imp:1,ease:5,score:11,tracker:"",
+   headline:"decode() leaves old text after a failed parse (no caller of MgrCap::decode outside tests)",
+   detail:"decode() (MgrCap.cc:382) calls parse(s,NULL) which returns false without updating text; the old text persists. Nothing in src/ calls MgrCap::decode outside tests, so this is latent.",
+   method:"ordering"},
+  {tier:"1b",obj:"ThreadMonitor",id:"OT-07",type:"ORDERING",cls:"Narrow",ut:5,imp:2,ease:3,score:10,tracker:"",
+   headline:"Concurrent start_monitoring / stop_monitoring: joinable thread overwritten (abort); double stop race",
+   detail:"monitor_thread is a plain unique_ptr. Assigning a new thread while stop_monitoring is joining the old one aborts. A second concurrent stop_monitoring returns before the first join finishes. Real callers: handle_conf_change, ~ActivePyModules, ~PyModuleRegistry.",
+   method:"ordering"},
+  {tier:"1b",obj:"DaemonHealthMetricCollector",id:"OT-15",type:"ORDERING",cls:"Hardening",ut:5,imp:1,ease:4,score:10,tracker:"",
+   headline:"3 unreachable hardening items: duplicate metric counted twice; n1 wraps at 32-bit; HIGH_DEBUG_LEVEL from zero-count daemon",
+   detail:"(a) Same daemon reporting one metric type twice is counted and listed twice. (b) Summed n1 wraps at 32 bits (needs >4.29e9 slow ops cluster-wide). (c) HIGH_DEBUG_LEVEL can report a max level from a daemon not listed (needs a sender with count 0 and level above 0 — no in-tree sender does this). All three unreachable from current in-tree senders.",
+   method:"ordering"},
+  {tier:"1b",obj:"DaemonServer",id:"OT-14",type:"ORDERING",cls:"Reachable",ut:2,imp:2,ease:5,score:9,tracker:"",
+   headline:"Unknown-metric derr prints type as raw byte (uint8_t → unsigned char; hex has no effect). One-line fix.",
+   detail:"DaemonServer.cc:3379 streams static_cast<uint8_t>(metric.get_type()); uint8_t is unsigned char so std::hex has no effect and the log shows byte 0x03 or letter 'A'. Fires as derr on every report tick. Only when an older mgr receives a newer sender's metric (upgrade order normally prevents this). Fix: cast to int.",
+   method:"ordering"},
+  {tier:"1b",obj:"DaemonPerfCounters",id:"OT-13",type:"ORDERING",cls:"Unconfirmed",ut:1,imp:3,ease:4,score:8,tracker:"",
+   headline:"types map inserted under DaemonServer::lock, read under ActivePyModules::lock — lock mismatch (needs TSAN)",
+   detail:"types is inserted under DaemonServer::lock but read under ActivePyModules::lock. Only a partial Helgrind report exists. Needs ThreadSanitizer, which is not installed on the box.",
+   method:"ordering"},
+  // Tier 2 ─ hardening
+  {tier:"2",obj:"DaemonKey",id:"",type:"UNGROUNDED",cls:"Hardening",ut:5,imp:2,ease:4,score:11,tracker:"",
+   headline:"parse() accepts empty-field keys ('.', '.foo', 'foo.') with no validity check",
+   detail:"parse() (.cc:~11) accepts '.', '.foo', 'foo.' — all return {key, true} with empty type/name. to_string() emits '.' for DaemonKey{'',''}. Validity is unaddressed.",
+   method:"whiteboard"},
+  {tier:"2",obj:"DaemonHealthMetricCollector",id:"",type:"UNGROUNDED",cls:"Hardening",ut:3,imp:2,ease:4,score:9,tracker:"",
+   headline:"PendingPGs::_summarize has no daemon-list cap (unlike SlowOps' 10); create() silently returns null",
+   detail:"Risk 1: _summarize (.cc:~80) has no cap on the daemon list in check.detail, unlike SlowOps (capped at 10) → thousands of OSDs produce one very long detail string. Risk 2: create() default branch (.cc:~107) returns null unique_ptr for unknown metric types with no log/assert.",
+   method:"whiteboard"},
+  {tier:"2",obj:"DaemonServer",id:"",type:"UNGROUNDED",cls:"Hardening",ut:2,imp:3,ease:3,score:8,tracker:"",
+   headline:"Multiple reply() in _handle_command without return (multi-reply risk)",
+   detail:"_handle_command (.cc:~1568) has multiple cmdctx->reply() calls in ok-to-upgrade sub-conditions without return. Also: handle_update silently drops updates from unknown daemons; shutdown never unregisters the asok hook.",
+   method:"whiteboard"},
+  {tier:"2",obj:"MgrMapCache",id:"",type:"UNGROUNDED",cls:"Hardening",ut:2,imp:2,ease:4,score:8,tracker:"",
+   headline:"Py_AddPendingCall return ignored in erase() → PyObject leak during shutdown",
+   detail:"(.cc:212) return value ignored → silent PyObject* leak if Python is shutting down (unlike insert, which falls back to PyGILState_Ensure). Reproduced: with Python 3.14's 32-entry queue, 40 insert-erase cycles leave 8 objects at base refcount + 1.",
+   method:"whiteboard"},
+  {tier:"2",obj:"OSDPerfMetricCollector",id:"",type:"UNGROUNDED",cls:"Hardening",ut:2,imp:2,ease:3,score:7,tracker:"",
+   headline:"Unguarded std::get<OSDMetricPayload> / static_cast → bad_variant_access or segfault (gated by trusted callers)",
+   detail:"std::get<OSDMetricPayload> (.cc:24) throws bad_variant_access on misrouted payload; unchecked static_cast<OSDPerfCollector*> (.cc:35) → segfault. Both gated by trusted internal routing today.",
+   method:"whiteboard"},
+  {tier:"2",obj:"DaemonPerfCounters",id:"",type:"UNGROUNDED",cls:"Hardening",ut:2,imp:2,ease:3,score:7,tracker:"",
+   headline:"LONGRUNAVG avgcount2 decoded but silently discarded; push/push_avg silently drop a point of the other kind",
+   detail:"update() LONGRUNAVG branch (.cc:~69) decodes avgcount2 to keep the byte stream in sync but never passes it to push_avg — value silently discarded. Confirmed by ordering test: the word is consumed so the next path stays in sync.",
+   method:"whiteboard"},
+];
+
+const WB_OBJECTS = [
+  {rank:1, obj:"MgrCap",         filed:true,  score:14, bugs:["DIVERGED: grants not cleared on failed profile-parse (security) — #81015","DIVERGED: broken memoization on failed expansion — #81016","DIVERGED: decode() silences profile-validation errors — #81017","ORDERING (OT-16): decode() leaves old text after failed parse — latent"]},
+  {rank:2, obj:"PerfCounterInstance",filed:true,score:14,bugs:["DIVERGED: undefined get_current() — #81018","DIVERGED: get_latest_data() back() on empty buffer — #81019","DIVERGED: get_latest_data_avg() back() on empty buffer — #81020"]},
+  {rank:3, obj:"ThreadMonitor",  filed:true,  score:12, bugs:["DIVERGED: std::terminate() on sysconf failure — #81336","DIVERGED: unchecked read_thread_stat parse — #81337","DIVERGED: unchecked read_process_statm parse — #81338","ORDERING (OT-05): busy-spin when interval=0 — reachable","ORDERING (OT-06): RSS-change counter wraps to ~2^64 — reachable","ORDERING (OT-07): concurrent start/stop race — narrow","ORDERING (OT-08): int64 narrowed to int/nanoseconds — absurd values only"]},
+  {rank:4, obj:"PyModule",       filed:true,  score:12, bugs:["DIVERGED: inverted destructor interpreter guard → crash — #81339"]},
+  {rank:5, obj:"MgrOpRequest",   filed:true,  score:12, bugs:["DIVERGED: mark_finish_mon_command copy-paste wrong flag — #81340","DIVERGED: mark_flag_point_string drops last_event_detail — #81341"]},
+  {rank:6, obj:"MDSPerfMetricCollector",filed:false,score:11,bugs:["DIVERGED: last_updated_mono uninitialised","DIVERGED: get_last_updated() returns garbage before first process_reports"]},
+  {rank:7, obj:"PyFormatter",    filed:false, score:10, bugs:["DIVERGED: dump_format_va daemon abort on non-UTF-8 input","DIVERGED: dump_string silently drops value (no Latin-1 fallback)"]},
+  {rank:8, obj:"PyModuleRunner", filed:false, score:10, bugs:["DIVERGED: l_pym_alive stuck at 1 on error path","DIVERGED: constructor derefs before assert","DIVERGED: non-atomic dead flag race"]},
+  {rank:9, obj:"DaemonState",    filed:false, score:10, bugs:["DIVERGED: get_all() copies without the shared lock","ORDERING (OT-01): shared-device attachment collision — reachable, sequence after #80661"]},
+  {rank:10,obj:"MgrClient",      filed:false, score:10, bugs:["DIVERGED: start_tell_command moves-from name before send condition reads it"]},
+  {rank:11,obj:"ActivePyModules",filed:false, score:9,  bugs:["DIVERGED: get_foreign_config ignores cmd.r","DIVERGED: get_config GIL/lock ordering — deadlock risk","DIVERGED: stale update_cache_metrics declaration (link error if called)"]},
+  {rank:12,obj:"PyModuleRegistry",filed:false,score:9,  bugs:["DIVERGED: dead upgrade_config declaration","DIVERGED: missing ceph_assert(active_modules) in check_all_modules_started","DIVERGED: missing ceph_assert(active_modules) in get_pending_modules"]},
+  {rank:13,obj:"Mgr",            filed:false, score:9,  bugs:["DIVERGED: MDS metadata not populated at startup (emplace vs set_metadata)"]},
+  {rank:14,obj:"StandbyPyModules",filed:false,score:8,  bugs:["DIVERGED: with_config no longer blocks for readiness → empty config","DIVERGED: duplicate-name assert removed from outer lock"]},
+  {rank:15,obj:"MgrStandby",     filed:false, score:8,  bugs:["DIVERGED: ms_dispatch2 overwrites MGR_MAP ACK","DIVERGED: state_str() vs beacon availability mismatch","DIVERGED: partial shutdown in destructor (design-acknowledged)","DIVERGED: no thread-join on non-signal return (design-acknowledged)","DIVERGED: ignored py_module_registry.init() error"]},
+  {rank:16,obj:"ClusterState",   filed:false, score:8,  bugs:["DIVERGED: update_delta_stats missing lock assertion","DIVERGED: ClusterSocketHook::call() returns bool-as-int","ORDERING (OT-04): osd_stat has no seq guard — weak reachability"]},
+  {rank:17,obj:"Gil",            filed:false, score:7,  bugs:["DIVERGED: GIL leaked on failed thread-identity assert","DIVERGED: SafeThreadState::set has no null check"]},
+  {rank:"H",obj:"DaemonKey",     filed:false, score:11, bugs:["UNGROUNDED: parse() accepts empty-field keys with no validity check"]},
+  {rank:"H",obj:"DaemonHealthMetricCollector",filed:false,score:9,bugs:["UNGROUNDED: PendingPGs::_summarize has no daemon-list cap","UNGROUNDED: create() silently returns null for unknown types","ORDERING (OT-15): 3 unreachable hardening items"]},
+  {rank:"H",obj:"DaemonServer",  filed:false, score:8,  bugs:["UNGROUNDED: multiple reply() in _handle_command without return","ORDERING (OT-14): derr prints metric type as raw byte — reachable (mixed versions)"]},
+  {rank:"H",obj:"MgrMapCache",   filed:false, score:8,  bugs:["UNGROUNDED: Py_AddPendingCall return ignored in erase()","ORDERING (OT-09): deferred Py_DECREF never runs on parked main thread — unconfirmed","ORDERING (OT-10): capacity 0 stores one entry — latent"]},
+  {rank:"H",obj:"OSDPerfMetricCollector",filed:false,score:7,bugs:["UNGROUNDED: unguarded std::get / static_cast"]},
+  {rank:"H",obj:"DaemonPerfCounters",filed:false,score:7,bugs:["UNGROUNDED: avgcount2 decoded but discarded","ORDERING (OT-11): short packed → partial update + possible mgr abort — unconfirmed","ORDERING (OT-12): types table fixed by first daemon — unconfirmed","ORDERING (OT-13): types map lock mismatch — unconfirmed, needs TSAN"]},
+  {rank:"H",obj:"MetricCollector",filed:false,score:12,bugs:["ORDERING (OT-02): phantom query blocks add_query notification — code-confirmed","ORDERING (OT-03): remove_all_queries leaves counters — latent"]},
+  {rank:"C",obj:"ServiceMap",    filed:false, score:0,  bugs:["Clean — no bugs. Full architectural clearance."]},
+  {rank:"C",obj:"ActivePyModule",filed:false, score:0,  bugs:["Clean — no divergence. Only a decade-old deferred FIXME (broken module never auto-unloaded) — design change, not a bug."]},
+  {rank:"D",obj:"DaemonHealthMetric",filed:false,score:0,bugs:["[DISPROVED] default ctor uninitialised value.n — daemon_metric_t(uint64_t x=0) zero-initialises; confirmed by ordering test."]},
+];
+
+const CANDIDATES = {
+  done:[
+    {name:"DaemonState / DaemonStateIndex",why:"Pilot · <a href='https://github.com/stzuraski898/ceph/commit/c9dca4ff574' style='color:#3b82d4'>c9dca4ff574</a> · 8 tests"},
+    {name:"ClusterState",why:"Wave 1 · <a href='https://github.com/stzuraski898/ceph/commit/b3b4e000d10' style='color:#3b82d4'>b3b4e000d10</a> · 10 tests"},
+    {name:"MgrMapCache",why:"Wave 1 · <a href='https://github.com/stzuraski898/ceph/commit/558d22f99e8' style='color:#3b82d4'>558d22f99e8</a> · 75 tests"},
+    {name:"MetricCollector (+ OSD, MDS)",why:"Wave 2 · <a href='https://github.com/stzuraski898/ceph/commit/f70f7e354e3' style='color:#3b82d4'>f70f7e354e3</a> · 15 tests"},
+    {name:"DaemonHealthMetricCollector",why:"Wave 2 · <a href='https://github.com/stzuraski898/ceph/commit/a01745a501a' style='color:#3b82d4'>a01745a501a</a> · 58 tests"},
+    {name:"ThreadMonitor",why:"Wave 2 · <a href='https://github.com/stzuraski898/ceph/commit/2ddad22b559' style='color:#3b82d4'>2ddad22b559</a> · 21 tests"},
+    {name:"MgrCap",why:"Wave 3 · <a href='https://github.com/stzuraski898/ceph/commit/49188b800c3' style='color:#3b82d4'>49188b800c3</a> · 19 tests"},
+    {name:"DaemonPerfCounters",why:"Wave 3 · <a href='https://github.com/stzuraski898/ceph/commit/ca5d7d8df30' style='color:#3b82d4'>ca5d7d8df30</a> · 53 tests"},
+  ],
+  maybe:[
+    {name:"MgrClient",why:"Constructor takes Messenger* and MonMap*; test/direct_messenger exists. Command-table vs reconnect ordering; moved-from name bug shows this area is fragile."},
+    {name:"Gil",why:"Needs embedded CPython and thread-state setup. Nested Gil, without_gil_t/with_gil_t ordering, SafeThreadState thread mismatch. Intent has 9 DIVERGED."},
+    {name:"PyModuleRunner",why:"Needs a PyModule and an interpreter. dead flag and shutdown() vs serve() ordering; destructor vs running thread."},
+    {name:"PyFormatter",why:"Needs CPython. Open/close section nesting. Otherwise stateless; low value."},
+  ],
+  model:[
+    {name:"DaemonServer",why:"Constructor needs messenger, MonClient, PyModuleRegistry; connection state is private. Pilot established this. Best model target: connection lifecycle."},
+    {name:"MgrStandby",why:"Owns MonClient, Objecter, Messenger, Finisher, PyModuleRegistry. handle_mgr_map is a state machine (standby→active→lost→respawn)."},
+    {name:"Mgr",why:"Constructor takes MonClient*, Objecter*, Messenger*, PyModuleRegistry*. Model startup ordering (init, metadata load, got_mgr_map)."},
+    {name:"PyModuleRegistry",why:"Needs Python runtime and MgrMap. Model active/standby role transitions."},
+    {name:"ActivePyModules / ActivePyModule",why:"Need DaemonServer, MonClient, Finisher, PyModuleRegistry. Model with_config readiness and GIL/lock ordering invariants."},
+    {name:"StandbyPyModules",why:"Same dependencies. with_config readiness and GIL/lock order are the invariants."},
+    {name:"PyModule",why:"Embedded interpreter, module files on disk. By inspection only."},
+  ],
+  nogo:[
+    {name:"DaemonKey",why:"Pure parse/compare; tracker #80175 already covers unit tests."},
+    {name:"ServiceMap",why:"Serialisable registry; no mutation-order surface; tracker #80174."},
+    {name:"MgrSession",why:"Header-only struct; used as fixture in DaemonPerfCounters prompt."},
+    {name:"MgrOpRequest",why:"Two filed deterministic bugs; flag setters are single-function logic."},
+  ],
+};
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+
+function bType(t){
+  const m={DIVERGED:"b-div",ORDERING:"b-ord",UNGROUNDED:"b-ung"};
+  return `<span class="badge ${m[t]||"b-ung"}">${t}</span>`;
+}
+function bCls(c){
+  const m={Reachable:"b-reach","Code-confirmed":"b-code",Latent:"b-lat",Unconfirmed:"b-unc",Hardening:"b-hard",Narrow:"b-narr"};
+  return `<span class="badge ${m[c]||"b-hard"}">${c}</span>`;
+}
+function bTier(t){
+  const m={"1":"b-t1","1b":"b-t1b","2":"b-t2","3":"b-t3"};
+  const label=t==="1b"?"1b (OT)":"Tier "+t;
+  return `<span class="badge ${m[t]||""}">${label}</span>`;
+}
+function scoreSpan(s){
+  const cls=s>=12?"s-hi":s>=9?"s-md":"s-lo";
+  return `<span class="score ${cls}">${s}</span>`;
+}
+function trackerLinks(t){
+  if(!t) return "—";
+  return t.split(/\s+/).filter(Boolean).map(n=>`<a href="https://tracker.ceph.com/issues/${n}" style="color:#3b82d4">#${n}</a>`).join(" ");
+}
+
+// ─── ALL TABLE ────────────────────────────────────────────────────────────────
+
+let allRows = [];
+
+function renderAll(){
+  const sort = document.getElementById("all-sort").value;
+  const tier = document.getElementById("all-tier").value;
+  const filt = (document.getElementById("all-filter").value||"").toLowerCase();
+
+  let data = BUGS.filter(b=>{
+    if(tier && b.tier!==tier) return false;
+    if(filt){
+      const h = (b.obj+" "+b.id+" "+b.type+" "+b.cls+" "+b.headline+" "+b.detail).toLowerCase();
+      if(!h.includes(filt)) return false;
+    }
+    return true;
+  });
+
+  if(sort==="tier") data.sort((a,b)=>{const o={"1":0,"1b":1,"2":2,"3":3}; return (o[a.tier]??9)-(o[b.tier]??9)||b.score-a.score;});
+  else if(sort==="score") data.sort((a,b)=>b.score-a.score);
+  else if(sort==="object") data.sort((a,b)=>a.obj.localeCompare(b.obj)||b.score-a.score);
+  else if(sort==="type") data.sort((a,b)=>a.type.localeCompare(b.type)||b.score-a.score);
+
+  const tbody = document.getElementById("all-tbody");
+  let html = "";
+  data.forEach((b,i)=>{
+    const rid = "ar"+i;
+    html += `<tr class="collapsed" data-rid="${rid}" style="cursor:pointer" onclick="toggleDetail('${rid}')">
+      <td><span class="chevron" style="font-size:10px;color:#9ca3af"></span></td>
+      <td>${bTier(b.tier)}</td>
+      <td><strong>${b.obj}</strong></td>
+      <td style="font-family:ui-monospace,monospace;font-size:11px;white-space:nowrap">${b.id||"—"}</td>
+      <td>${bType(b.type)}</td>
+      <td>${bCls(b.cls)}</td>
+      <td style="text-align:center">${b.ut}</td>
+      <td style="text-align:center">${b.imp}</td>
+      <td style="text-align:center">${b.ease}</td>
+      <td style="text-align:center">${scoreSpan(b.score)}</td>
+      <td style="white-space:nowrap">${trackerLinks(b.tracker)}</td>
+      <td style="max-width:280px">${b.headline}</td>
+    </tr>
+    <tr id="${rid}" style="display:none">
+      <td colspan="12" style="background:#f9fafb;font-size:12px;color:#57606a;padding:6px 10px 12px 36px;border-bottom:1px solid #e5e7eb">${b.detail}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+function toggleDetail(rid){
+  const row = document.getElementById(rid);
+  const mainRow = document.querySelector(`[data-rid="${rid}"]`);
+  if(!row||!mainRow) return;
+  const hidden = row.style.display==="none";
+  row.style.display = hidden?"table-row":"none";
+  if(hidden) mainRow.classList.remove("collapsed"); else mainRow.classList.add("collapsed");
+}
+
+["all-sort","all-tier"].forEach(id=>document.getElementById(id).addEventListener("change",renderAll));
+document.getElementById("all-filter").addEventListener("input",renderAll);
+renderAll();
+
+// ─── ORDERING TABLE ────────────────────────────────────────────────────────────────
+
+(function(){
+  const data = BUGS.filter(b=>b.method==="ordering").sort((a,b)=>b.score-a.score);
+  let html="";
+  data.forEach((b,i)=>{
+    const rid="or"+i;
+    html+=`<tr class="collapsed" data-rid="${rid}" style="cursor:pointer" onclick="toggleDetail('${rid}')">
+      <td><span class="chevron" style="font-size:10px;color:#9ca3af"></span></td>
+      <td style="font-family:ui-monospace,monospace;font-weight:700">${b.id}</td>
+      <td><strong>${b.obj}</strong></td>
+      <td>${bCls(b.cls)}</td>
+      <td style="text-align:center">${b.ut}</td>
+      <td style="text-align:center">${b.imp}</td>
+      <td style="text-align:center">${b.ease}</td>
+      <td style="text-align:center">${scoreSpan(b.score)}</td>
+      <td style="max-width:340px">${b.headline}</td>
+    </tr>
+    <tr id="${rid}" style="display:none">
+      <td colspan="9" style="background:#f9fafb;font-size:12px;color:#57606a;padding:6px 10px 12px 36px;border-bottom:1px solid #e5e7eb">${b.detail}</td>
+    </tr>`;
+  });
+  document.getElementById("ord-tbody").innerHTML=html;
+})();
+
+// ─── WHITEBOARD TAB ────────────────────────────────────────────────────────────────
+
+function renderWB(){
+  const filt=(document.getElementById("wb-filter").value||"").toLowerCase();
+  let rows=WB_OBJECTS.filter(o=>{
+    if(!filt) return true;
+    return (o.obj+" "+o.bugs.join(" ")).toLowerCase().includes(filt);
+  });
+
+  const t1=rows.filter(o=>typeof o.rank==="number"&&o.score>0);
+  const t2=rows.filter(o=>o.rank==="H");
+  const t3=rows.filter(o=>o.rank==="C"||o.rank==="D");
+  let html="";
+
+  function bugBadge(b){
+    if(b.startsWith("DIVERGED")) return bType("DIVERGED")+" "+b.replace(/^DIVERGED: ?/,"");
+    if(b.startsWith("ORDERING")) return bType("ORDERING")+" "+b.replace(/^ORDERING \(OT-\d+\): ?/,"");
+    if(b.startsWith("UNGROUNDED")) return bType("UNGROUNDED")+" "+b.replace(/^UNGROUNDED: ?/,"");
+    return b;
+  }
+  function objRows(arr){
+    return arr.map(o=>`
+      <tr>
+        <td style="text-align:center;font-weight:700;white-space:nowrap">${typeof o.rank==="number"?o.rank:o.rank}</td>
+        <td><strong>${o.obj}</strong></td>
+        <td style="text-align:center">${o.score>0?scoreSpan(o.score):"—"}</td>
+        <td style="text-align:center">${o.filed?'<span style="color:#059669;font-weight:700">✓</span>':"—"}</td>
+        <td style="font-size:12px">${o.bugs.map(b=>`<div style="margin-bottom:2px">${bugBadge(b)}</div>`).join("")}</td>
+      </tr>
+    `).join("");
+  }
+
+  if(t1.length){
+    html+=`<div class="sh">Tier 1 — Confirmed bugs (ranked by composite score)</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>#</th><th>Object</th><th>Σ</th><th>Filed?</th><th>Bugs &amp; risks</th></tr></thead>
+      <tbody>${objRows(t1)}</tbody>
+    </table></div>`;
+  }
+  if(t2.length){
+    html+=`<div class="sh">Tier 2 — Hardening candidates (no confirmed DIVERGED bug)</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>—</th><th>Object</th><th>Σ</th><th>Filed?</th><th>Risks</th></tr></thead>
+      <tbody>${objRows(t2)}</tbody>
+    </table></div>`;
+  }
+  if(t3.length){
+    html+=`<div class="sh">Tier 3 — Clean / nothing to fix</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>—</th><th>Object</th><th>—</th><th>—</th><th>Notes</th></tr></thead>
+      <tbody>${objRows(t3)}</tbody>
+    </table></div>`;
+  }
+  if(!html) html=`<p style="color:#9ca3af;padding:20px 0">No results match the filter.</p>`;
+  document.getElementById("wb-content").innerHTML=html;
+}
+document.getElementById("wb-filter").addEventListener("input",renderWB);
+renderWB();
+
+// ─── CANDIDATES TAB ────────────────────────────────────────────────────────────────
+
+(function(){
+  function cards(items,cls,label){
+    return items.map(c=>`<div class="cc"><div class="cn">${c.name}</div><div class="cl ${cls}">${label}</div><div class="cr">${c.why}</div></div>`).join("");
+  }
+  document.getElementById("cand-maybe").innerHTML=cards(CANDIDATES.maybe,"cmay","Maybe — wave 3");
+  document.getElementById("cand-model").innerHTML=cards(CANDIDATES.model,"cmod","Model-only");
+  document.getElementById("cand-nogo").innerHTML=cards(CANDIDATES.nogo,"cno","No-Go");
+  document.getElementById("cand-done").innerHTML=cards(CANDIDATES.done,"cdone","Done ✓");
+})();
+
+// ─── TAB SWITCHING ────────────────────────────────────────────────────────────────
+
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+  });
+});
+</script>
+</body>
+</html>

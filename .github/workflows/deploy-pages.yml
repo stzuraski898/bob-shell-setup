@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'Outputs/CephMgrObjects/WhiteboardDefense/**'
+      - 'Outputs/CephMgrObjects/mgr-bug-findings.html'
       - 'Outputs/ceph-mgr-intents-assessment.html'
       - 'Outputs/WhiteboardDefense/**'
       - '.github/workflows/deploy-pages.yml'
@@ -44,7 +45,13 @@ jobs:
             cp Outputs/ceph-mgr-intents-assessment.html _site/ceph-mgr-intent-findings/index.html
           fi
 
-          # 3. Root landing page with links to both hubs
+          # 3. MGR Bug Findings (ordering + whiteboard) under /ceph-mgr-bug-findings/
+          if [ -f "Outputs/CephMgrObjects/mgr-bug-findings.html" ]; then
+            mkdir -p _site/ceph-mgr-bug-findings
+            cp Outputs/CephMgrObjects/mgr-bug-findings.html _site/ceph-mgr-bug-findings/index.html
+          fi
+
+          # 4. Root landing page with links to all hubs
           cat << 'EOF' > _site/index.html
           <!DOCTYPE html>
           <html lang="en">
@@ -134,6 +141,11 @@ jobs:
                   <span class="tag">Intent Assessment</span>
                   <div class="card-title">Intent Findings Explorer</div>
                   <div class="card-desc">Interactive explorer for code changes, line-level findings, and intent classifications.</div>
+                </a>
+                <a class="card" href="ceph-mgr-bug-findings/">
+                  <span class="tag">Bug Findings</span>
+                  <div class="card-title">MGR Bug Findings</div>
+                  <div class="card-desc">All 37 bugs and risks from Whiteboard Defense + 259 invariant-and-ordering tests across 8 objects. Sortable, filterable, expandable.</div>
                 </a>
               </div>
             </div>
